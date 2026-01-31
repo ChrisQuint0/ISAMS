@@ -1,0 +1,24 @@
+# Rust build artifacts
+src-tauri/target/
+
+# Node/Frontend dependencies
+node_modules/
+
+# Common frontend build folders (dist, out, build)
+dist/
+build/
+.svelte-kit/
+.next/
+
+# Tauri-specific generated files
+src-tauri/gen/
+src-tauri/binaries/
+
+# Environment and local config
+.env
+.env.*
+!.env.example
+
+# OS-specific files
+.DS_Store
+Thumbs.db
