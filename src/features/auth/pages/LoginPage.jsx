@@ -1,11 +1,14 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import plpLogo from "@/assets/images/plp_logo.png";
 import ccsLogo from "@/assets/images/ccs_logo.png";
 import isamsLogo from "@/assets/images/isams_logo_icon.png";
+import isamsLogoText from "@/assets/images/isams_logo_text.png";
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -14,6 +17,9 @@ export default function LoginPage() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const navigate = useNavigate();
+  const { signIn } = useAuth();
 
   const handleChange = (e) => {
     setFormData({
@@ -29,19 +35,14 @@ export default function LoginPage() {
     setError("");
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // Sign in with Supabase
+      await signIn(formData.email, formData.password);
 
-      if (
-        formData.email === "admin@isams.edu" &&
-        formData.password === "admin123"
-      ) {
-        console.log("Login successful!");
-        // TODO: Store auth token, update auth context, redirect to dashboard
-      } else {
-        setError("Invalid email or password");
-      }
+      // Redirect to dashboard on success
+      navigate("/dashboard");
     } catch (err) {
-      setError("An error occurred. Please try again.");
+      console.error("Login error:", err);
+      setError(err.message || "Invalid email or password");
     } finally {
       setIsLoading(false);
     }
@@ -82,9 +83,7 @@ export default function LoginPage() {
               className="h-16 w-16 object-contain"
             />
           </div>
-          <h1 className="text-2xl font-semibold text-slate-100 tracking-tight">
-            ISAMS
-          </h1>
+          <img src={isamsLogoText} alt="ISAMS" className="h-8 mx-auto mb-2" />
           <p className="text-sm text-slate-400 mt-1.5">
             Integrated Smart Academic Management System
           </p>

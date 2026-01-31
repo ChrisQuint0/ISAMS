@@ -1,11 +1,12 @@
-import LoginPage from "@/features/auth/pages/LoginPage";
+import { AuthProvider } from "@/features/auth/contexts/AuthContext";
+import { AppRoutes } from "@/routes/AppRoutes";
 import "./style.css";
 
 function App() {
   return (
-    <div className="dark">
-      <LoginPage />
-    </div>
+    <AuthProvider>
+      <AppRoutes />
+    </AuthProvider>
   );
 }
 
