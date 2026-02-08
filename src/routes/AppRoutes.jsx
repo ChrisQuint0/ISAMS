@@ -20,22 +20,22 @@ import Success from "@/features/lab-monitoring/pages/Success";
 
 // Protected Route wrapper
 function ProtectedRoute({ children }) {
-  // const { user } = useAuth();
+  const { user } = useAuth();
 
-  // if (!user) {
-  //   return <Navigate to="/login" replace />;
-  // }
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   return children;
 }
 
 // Public Route wrapper (redirect to dashboard if already logged in)
 function PublicRoute({ children }) {
-  // const { user } = useAuth();
+  const { user } = useAuth();
 
-  // if (user) {
-  //   return <Navigate to="/dashboard" replace />;
-  // }
+  if (user) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   return children;
 }
@@ -92,34 +92,34 @@ export function AppRoutes() {
 
         {/* LABORATORY MANAGEMENT MODULE */}
         <Route element={<ProtectedRoute><LabLayout /></ProtectedRoute>}>
-            {/* Default to Dashboard when hitting the root folder */}
-            <Route path="/lab-monitoring" element={<LabDashboard />} />
-            
-            {/* Admin Mode */}
-            <Route path="/lab-dashboard" element={<LabDashboard />} />
-            <Route path="/access-logs" element={<AccessLogs />} />
-            <Route path="/lab-schedule" element={<LabSchedule />} />
-            <Route path="/pc-management" element={<PCManagement />} />
-            <Route path="/reports-analytics" element={<ReportsAnalytics />} />
-            <Route path="/lab-settings" element={<LabSettings />} />
+          {/* Default to Dashboard when hitting the root folder */}
+          <Route path="/lab-monitoring" element={<LabDashboard />} />
+
+          {/* Admin Mode */}
+          <Route path="/lab-dashboard" element={<LabDashboard />} />
+          <Route path="/access-logs" element={<AccessLogs />} />
+          <Route path="/lab-schedule" element={<LabSchedule />} />
+          <Route path="/pc-management" element={<PCManagement />} />
+          <Route path="/reports-analytics" element={<ReportsAnalytics />} />
+          <Route path="/lab-settings" element={<LabSettings />} />
         </Route>
 
         {/* Kiosk Mode */}
-        <Route 
-          path="/kiosk-mode" 
+        <Route
+          path="/kiosk-mode"
           element={
             <ProtectedRoute>
               <Kiosk />
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-          path="/success" 
+        <Route
+          path="/success"
           element={
             <ProtectedRoute>
               <Success />
             </ProtectedRoute>
-          } 
+          }
         />
 
         {/* Default redirect */}
