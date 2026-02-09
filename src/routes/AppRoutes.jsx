@@ -1,9 +1,14 @@
+<<<<<<< Updated upstream
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/hooks/useAuth";
+=======
+import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
+// import { useAuth } from "@/features/auth/hooks/useAuth";
+import { ProtectedRoute, PublicRoute } from "./RouteGuards";
+>>>>>>> Stashed changes
 import LoginPage from "@/features/auth/pages/LoginPage";
 import DashboardPage from "@/features/dashboard/pages/DashboardPage";
 import ThesisArchivingPage from "@/features/thesis-archiving/pages/ThesisArchivingPage";
-import FacultyRequirementsPage from "@/features/faculty-requirements/pages/FacultyRequirementsPage";
 import ClassManagementPage from "@/features/class-management/pages/ClassManagementPage";
 
 // Imports for Laboratory Monitoring
@@ -17,6 +22,7 @@ import LabSettings from "@/features/lab-monitoring/pages/LabSettings";
 import Kiosk from "@/features/lab-monitoring/pages/Kiosk";
 import Success from "@/features/lab-monitoring/pages/Success";
 
+<<<<<<< Updated upstream
 
 // Protected Route wrapper
 function ProtectedRoute({ children }) {
@@ -39,10 +45,13 @@ function PublicRoute({ children }) {
 
   return children;
 }
+=======
+import { AdminAppRoutes } from "./faculty-requirements/AdminAppRoutes";
+>>>>>>> Stashed changes
 
 export function AppRoutes() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
         {/* Public Routes */}
         <Route
@@ -73,14 +82,10 @@ export function AppRoutes() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/faculty-requirements"
-          element={
-            <ProtectedRoute>
-              <FacultyRequirementsPage />
-            </ProtectedRoute>
-          }
-        />
+        
+        {/* Faculty Requirements Module Routes */}
+        {AdminAppRoutes}
+
         <Route
           path="/class-management"
           element={
@@ -128,6 +133,6 @@ export function AppRoutes() {
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
