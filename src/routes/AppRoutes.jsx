@@ -16,8 +16,7 @@ import LabSettings from "@/features/lab-monitoring/pages/LabSettings";
 import Kiosk from "@/features/lab-monitoring/pages/Kiosk";
 import Success from "@/features/lab-monitoring/pages/Success";
 
-import { AdminAppRoutes } from "./faculty-requirements/AdminAppRoutesy"; // Import the admin routes for faculty requirements
-
+import { AdminAppRoutes } from "./faculty-requirements/AdminAppRoutes"; // Import the admin routes for faculty requirements
 
 // Protected Route wrapper
 function ProtectedRoute({ children }) {
@@ -74,7 +73,7 @@ export function AppRoutes() {
             </ProtectedRoute>
           }
         />
-        
+
         {/* Faculty Requirements Module Routes */}
         {AdminAppRoutes}
 
@@ -88,7 +87,13 @@ export function AppRoutes() {
         />
 
         {/* LABORATORY MANAGEMENT MODULE */}
-        <Route element={<ProtectedRoute><LabLayout /></ProtectedRoute>}>
+        <Route
+          element={
+            <ProtectedRoute>
+              <LabLayout />
+            </ProtectedRoute>
+          }
+        >
           {/* Default to Dashboard when hitting the root folder */}
           <Route path="/lab-monitoring" element={<LabDashboard />} />
 
