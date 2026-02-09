@@ -22,3 +22,7 @@ src-tauri/binaries/
 # OS-specific files
 .DS_Store
 Thumbs.db
+
+# AI / local tooling files
+gemini.md
+.aiexclude
