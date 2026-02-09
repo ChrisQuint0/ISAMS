@@ -1,0 +1,11 @@
+# Ignore huge dependency and build folders
+node_modules/
+src-tauri/target/   # Rust's massive build folder (IGNORE THIS!)
+dist/
+build/
+.git/
+
+# Ignore secrets to prevent them from being sent to the AI
+.env
+.env.local
+.env.production
