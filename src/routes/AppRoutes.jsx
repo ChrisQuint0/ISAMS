@@ -1,11 +1,5 @@
-<<<<<<< Updated upstream
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/hooks/useAuth";
-=======
-import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
-// import { useAuth } from "@/features/auth/hooks/useAuth";
-import { ProtectedRoute, PublicRoute } from "./RouteGuards";
->>>>>>> Stashed changes
 import LoginPage from "@/features/auth/pages/LoginPage";
 import DashboardPage from "@/features/dashboard/pages/DashboardPage";
 import ThesisArchivingPage from "@/features/thesis-archiving/pages/ThesisArchivingPage";
@@ -22,7 +16,8 @@ import LabSettings from "@/features/lab-monitoring/pages/LabSettings";
 import Kiosk from "@/features/lab-monitoring/pages/Kiosk";
 import Success from "@/features/lab-monitoring/pages/Success";
 
-<<<<<<< Updated upstream
+import { AdminAppRoutes } from "./faculty-requirements/AdminAppRoutesy"; // Import the admin routes for faculty requirements
+
 
 // Protected Route wrapper
 function ProtectedRoute({ children }) {
@@ -45,13 +40,10 @@ function PublicRoute({ children }) {
 
   return children;
 }
-=======
-import { AdminAppRoutes } from "./faculty-requirements/AdminAppRoutes";
->>>>>>> Stashed changes
 
 export function AppRoutes() {
   return (
-    <HashRouter>
+    <BrowserRouter>
       <Routes>
         {/* Public Routes */}
         <Route
@@ -133,6 +125,6 @@ export function AppRoutes() {
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
-    </HashRouter>
+    </BrowserRouter>
   );
 }
