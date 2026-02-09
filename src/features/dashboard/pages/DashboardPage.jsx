@@ -42,7 +42,7 @@ export default function DashboardPage() {
       description:
         "Submit, track, and manage faculty requirements and documentation",
       icon: facReqIcon,
-      href: "/faculty-requirements",
+      href: "/admin-dashboard",
       bgColor: "bg-blue-950/30",
       iconBg: "bg-blue-900/50",
       iconBorder: "border-blue-800/50",

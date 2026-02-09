@@ -3,7 +3,6 @@ import { useAuth } from "@/features/auth/hooks/useAuth";
 import LoginPage from "@/features/auth/pages/LoginPage";
 import DashboardPage from "@/features/dashboard/pages/DashboardPage";
 import ThesisArchivingPage from "@/features/thesis-archiving/pages/ThesisArchivingPage";
-import FacultyRequirementsPage from "@/features/faculty-requirements/pages/FacultyRequirementsPage";
 import ClassManagementPage from "@/features/class-management/pages/ClassManagementPage";
 
 // Imports for Laboratory Monitoring
@@ -17,6 +16,7 @@ import LabSettings from "@/features/lab-monitoring/pages/LabSettings";
 import Kiosk from "@/features/lab-monitoring/pages/Kiosk";
 import Success from "@/features/lab-monitoring/pages/Success";
 
+import { AdminAppRoutes } from "./faculty-requirements/AdminAppRoutes"; // Import the admin routes for faculty requirements
 
 // Protected Route wrapper
 function ProtectedRoute({ children }) {
@@ -73,14 +73,10 @@ export function AppRoutes() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/faculty-requirements"
-          element={
-            <ProtectedRoute>
-              <FacultyRequirementsPage />
-            </ProtectedRoute>
-          }
-        />
+
+        {/* Faculty Requirements Module Routes */}
+        {AdminAppRoutes}
+
         <Route
           path="/class-management"
           element={
@@ -91,7 +87,13 @@ export function AppRoutes() {
         />
 
         {/* LABORATORY MANAGEMENT MODULE */}
-        <Route element={<ProtectedRoute><LabLayout /></ProtectedRoute>}>
+        <Route
+          element={
+            <ProtectedRoute>
+              <LabLayout />
+            </ProtectedRoute>
+          }
+        >
           {/* Default to Dashboard when hitting the root folder */}
           <Route path="/lab-monitoring" element={<LabDashboard />} />
 
