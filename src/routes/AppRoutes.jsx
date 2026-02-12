@@ -3,6 +3,8 @@ import { useAuth } from "@/features/auth/hooks/useAuth";
 import LoginPage from "@/features/auth/pages/LoginPage";
 import DashboardPage from "@/features/dashboard/pages/DashboardPage";
 import ClassManagementPage from "@/features/class-management/pages/ClassManagementPage";
+import ThesisArchivingPage from "@/features/thesis-archiving/pages/ThesisArchivingPage";
+import StudViolationDashboard from "@/features/student-violations/pages/StudViolationDashboard";
 
 import { AdminAppRoutes } from "./faculty-requirements/AdminAppRoutes"; // Import the admin routes for faculty requirements
 import { LaboratoryRoutes } from "./laboratory-management/LaboratoryRoutes";
@@ -61,10 +63,10 @@ export function AppRoutes() {
         {AdminAppRoutes}
 
         <Route
-          path="/class-management"
+          path="/student-violations"
           element={
             <ProtectedRoute>
-              <ClassManagementPage />
+              <StudViolationDashboard />
             </ProtectedRoute>
           }
         />
