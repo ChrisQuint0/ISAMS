@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 
-export default function ClassManagementPage() {
+export default function StudViolationDashboard() {
   const navigate = useNavigate();
 
   return (
@@ -21,10 +21,10 @@ export default function ClassManagementPage() {
             </Button>
             <div>
               <h1 className="text-2xl font-semibold text-slate-100">
-                Classlist and Violation Management
+                Student Violation Management
               </h1>
               <p className="text-sm text-slate-400 mt-0.5">
-                Manage class lists and track student violations
+                Manage student violations
               </p>
             </div>
           </div>
@@ -42,7 +42,7 @@ export default function ClassManagementPage() {
               Coming Soon
             </h2>
             <p className="text-slate-400 max-w-md">
-              The Classlist and Violation Management module is currently under
+              Student Violation Management module is currently under
               development. Check back soon for updates.
             </p>
           </div>
