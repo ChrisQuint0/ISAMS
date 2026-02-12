@@ -17,7 +17,7 @@ export default function StudViolationDashboard() {
               size="icon"
               className="text-slate-400 hover:text-slate-100 hover:bg-slate-800"
             >
-              <ArrowLeft className="h-5 w-5" />dasdaw
+              <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
               <h1 className="text-2xl font-semibold text-slate-100">
