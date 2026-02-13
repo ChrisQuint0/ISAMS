@@ -3,7 +3,14 @@ import { useAuth } from "@/features/auth/hooks/useAuth";
 import LoginPage from "@/features/auth/pages/LoginPage";
 import DashboardPage from "@/features/dashboard/pages/DashboardPage";
 import ThesisArchivingPage from "@/features/thesis-archiving/pages/ThesisArchivingPage";
+
+// Imports for Student Violations
 import StudViolationDashboard from "@/features/student-violations/pages/StudViolationDashboard";
+import StudRecords from "@/features/student-violations/pages/StudRecords";
+import StudViolationLayout from "@/features/student-violations/pages/StudViolationLayout";
+import StudViolations from "@/features/student-violations/pages/StudViolations";
+import GenerateReport from "@/features/student-violations/pages/GenerateReport";
+import Analytics from "@/features/student-violations/pages/Analytics";
 
 // Imports for Laboratory Monitoring
 import LabLayout from "@/features/lab-monitoring/layouts/LabLayout";
@@ -16,27 +23,23 @@ import LabSettings from "@/features/lab-monitoring/pages/LabSettings";
 import Kiosk from "@/features/lab-monitoring/pages/Kiosk";
 import Success from "@/features/lab-monitoring/pages/Success";
 
-import { AdminAppRoutes } from "./faculty-requirements/AdminAppRoutes"; // Import the admin routes for faculty requirements
+import { AdminAppRoutes } from "./faculty-requirements/AdminAppRoutes"; 
 
 // Protected Route wrapper
 function ProtectedRoute({ children }) {
   const { user } = useAuth();
-
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-
   return children;
 }
 
-// Public Route wrapper (redirect to dashboard if already logged in)
+// Public Route wrapper
 function PublicRoute({ children }) {
   const { user } = useAuth();
-
   if (user) {
     return <Navigate to="/dashboard" replace />;
   }
-
   return children;
 }
 
@@ -77,14 +80,21 @@ export function AppRoutes() {
         {/* Faculty Requirements Module Routes */}
         {AdminAppRoutes}
 
+        {/* STUDENT VIOLATIONS MODULE */}
         <Route
-          path="/student-violations"
           element={
             <ProtectedRoute>
-              <StudViolationDashboard />
+              <StudViolationLayout />
             </ProtectedRoute>
           }
-        />
+        >
+          {/* These paths render inside StudViolationLayout's <Outlet /> */}
+          <Route path="/student-violations" element={<StudViolationDashboard />} />
+          <Route path="/students" element={<StudRecords />} />
+          <Route path="/violations" element={<StudViolations />} />
+          <Route path="/generate-report" element={<GenerateReport />} />
+          <Route path="/analytics" element={<Analytics />} />
+        </Route>
 
         {/* LABORATORY MANAGEMENT MODULE */}
         <Route
@@ -94,10 +104,7 @@ export function AppRoutes() {
             </ProtectedRoute>
           }
         >
-          {/* Default to Dashboard when hitting the root folder */}
           <Route path="/lab-monitoring" element={<LabDashboard />} />
-
-          {/* Admin Mode */}
           <Route path="/lab-dashboard" element={<LabDashboard />} />
           <Route path="/access-logs" element={<AccessLogs />} />
           <Route path="/lab-schedule" element={<LabSchedule />} />
