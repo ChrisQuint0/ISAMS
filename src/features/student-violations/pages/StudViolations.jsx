@@ -131,6 +131,8 @@ const StudViolations = () => {
           <BreadcrumbList>
             <BreadcrumbItem><BreadcrumbLink className="text-slate-500 text-[11px] font-bold uppercase tracking-[0.2em]">ISAMS</BreadcrumbLink></BreadcrumbItem>
             <BreadcrumbSeparator className="text-slate-800" />
+            <BreadcrumbItem><BreadcrumbLink className="text-slate-500 text-[11px] font-bold uppercase tracking-[0.2em]">Student Violation Module</BreadcrumbLink></BreadcrumbItem>
+            <BreadcrumbSeparator className="text-slate-800" />
             <BreadcrumbItem><BreadcrumbPage className="text-white font-bold text-sm tracking-tight uppercase">Violation Registry</BreadcrumbPage></BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>

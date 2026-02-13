@@ -11,6 +11,10 @@ import { Input } from "@/components/ui/input";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import {
+  Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList,
+  BreadcrumbPage, BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 
 // Enforced Dark Theme CSS
 const GRID_STYLE_OVERRIDES = `
@@ -88,13 +92,25 @@ const StudRecords = () => {
 
   return (
     <div className="flex flex-col h-full bg-[#020617] min-h-screen text-left">
-      {/* Synchronized Header */}
+      {/* HEADER: bg color #090E1A matched */}
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-slate-800/60 px-6 bg-[#090E1A] z-20">
-        <SidebarTrigger className="text-slate-400 scale-90" />
+        <SidebarTrigger className="text-slate-400 hover:text-white transition-colors p-2 hover:bg-slate-800 rounded-md scale-90" />
         <Separator orientation="vertical" className="mx-1 h-3 bg-slate-800" />
-        <span className="text-slate-500 text-[11px] font-bold uppercase tracking-[0.2em]">
-          ISAMS <span className="mx-2 text-slate-800">/</span> STUDENT RECORD
-        </span>
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink className="text-slate-500 text-[11px] font-bold uppercase tracking-[0.2em] cursor-default">ISAMS</BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator className="text-slate-800" />
+            <BreadcrumbItem>
+              <BreadcrumbLink className="text-slate-500 text-[11px] font-bold uppercase tracking-[0.2em] cursor-default">Student Violation Module</BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator className="text-slate-800" />
+            <BreadcrumbItem>
+              <BreadcrumbPage className="text-white font-bold text-sm tracking-tight uppercase">Student Record</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
       </header>
 
       <div className="flex-1 px-6 lg:px-10 pt-10 pb-10 space-y-8 overflow-y-auto">
