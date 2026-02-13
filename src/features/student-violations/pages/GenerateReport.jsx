@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { 
   FileText, Download, Calendar, Filter, 
   FileCode, Table as TableIcon, Share2,
-  ShieldAlert, AlertTriangle // Added missing icon imports
+  ShieldAlert, AlertTriangle 
 } from "lucide-react";
 
 // Shadcn UI Imports
@@ -19,24 +19,23 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 
-// ... rest of the component code stays the same
 const ReportOption = ({ icon: Icon, title, description, active, onClick }) => (
   <button 
     onClick={onClick}
-    className={`flex items-start gap-4 p-4 rounded-xl border transition-all text-left w-full ${
+    className={`flex items-start gap-4 p-5 rounded-2xl border transition-all text-left w-full ${
       active 
-        ? "bg-blue-600/10 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.1)]" 
-        : "bg-[#0D1016]/40 border-white/5 hover:border-white/10"
+        ? "bg-[#161B26] border-slate-500 shadow-xl" 
+        : "bg-slate-900/40 border-slate-800 hover:border-slate-700"
     }`}
   >
-    <div className={`p-2 rounded-lg ${active ? "bg-blue-600 text-white" : "bg-white/5 text-slate-400"}`}>
-      <Icon size={18} />
+    <div className={`p-2.5 rounded-xl ${active ? "bg-blue-600 text-white" : "bg-slate-950/50 text-slate-500 border border-slate-800"}`}>
+      <Icon size={20} />
     </div>
     <div>
-      <h4 className={`text-xs font-bold uppercase tracking-tight ${active ? "text-blue-400" : "text-slate-200"}`}>
+      <h4 className={`text-sm font-black uppercase tracking-tight ${active ? "text-slate-100" : "text-slate-400"}`}>
         {title}
       </h4>
-      <p className="text-[10px] text-slate-500 font-medium leading-relaxed mt-1">{description}</p>
+      <p className="text-[12px] text-slate-500 font-medium leading-relaxed mt-1">{description}</p>
     </div>
   </button>
 );
@@ -45,114 +44,118 @@ const GenerateReport = () => {
   const [selectedType, setSelectedType] = useState("violations");
 
   return (
-    <>
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-white/5 px-6 bg-[#0B0E14]/80 backdrop-blur-md z-20">
-        <SidebarTrigger className="text-slate-400 hover:text-white p-2 hover:bg-white/5 rounded-md scale-90" />
-        <Separator orientation="vertical" className="mx-1 h-3 bg-white/10" />
+    <div className="flex flex-col h-full bg-[#020617]">
+      {/* Updated Header with specific pathing */}
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-slate-800/60 px-6 bg-slate-950/40 backdrop-blur-xl z-20">
+        <SidebarTrigger className="text-slate-400 hover:text-white p-2 hover:bg-slate-800 rounded-md scale-90" />
+        <Separator orientation="vertical" className="mx-1 h-3 bg-slate-800" />
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
-              <BreadcrumbLink className="text-slate-500 text-[10px] font-bold uppercase tracking-widest cursor-default">ISAMS</BreadcrumbLink>
+              <BreadcrumbLink className="text-slate-500 text-[11px] font-bold uppercase tracking-[0.2em] cursor-default">ISAMS</BreadcrumbLink>
             </BreadcrumbItem>
-            <BreadcrumbSeparator className="text-slate-700" />
+            <BreadcrumbSeparator className="text-slate-800" />
             <BreadcrumbItem>
-              <BreadcrumbPage className="text-white font-bold text-xs tracking-tight cursor-default uppercase">REPORTS</BreadcrumbPage>
+              <BreadcrumbLink className="text-slate-500 text-[11px] font-bold uppercase tracking-[0.2em] cursor-default">Student Violation Module</BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator className="text-slate-800" />
+            <BreadcrumbItem>
+              <BreadcrumbPage className="text-white font-bold text-sm tracking-tight uppercase">Reports</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
       </header>
 
-      <div className="flex-1 p-6 lg:p-10 overflow-y-auto no-scrollbar relative">
-        <div className="relative z-10 w-full">
-          <header className="mb-10 text-left">
-            <h1 className="text-4xl font-black tracking-tight text-white mb-1 uppercase leading-none">GENERATE EXPORT</h1>
-            <div className="flex items-center gap-2 mt-1">
-              <div className="h-[1.5px] w-6 bg-blue-600" />
-              <p className="text-blue-500 font-bold tracking-[0.3em] text-[9px] uppercase">Data Analytics & Archiving</p>
-            </div>
-          </header>
+      <div className="flex-1 p-6 lg:p-10 space-y-8 overflow-y-auto no-scrollbar relative">
+        <header className="mb-10 text-left shrink-0">
+          <h1 className="text-4xl font-black tracking-tight text-white mb-1 uppercase leading-none">GENERATE EXPORT</h1>
+          <div className="flex items-center gap-3 mt-3">
+            <div className="h-[2px] w-8 bg-slate-600" />
+            <p className="text-slate-500 font-black tracking-[0.3em] text-[11px] uppercase">Data Analytics & Archiving</p>
+          </div>
+        </header>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            {/* CONFIGURATION COLUMN */}
-            <div className="lg:col-span-7 space-y-8">
-              <section>
-                <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em] mb-4">1. Select Data Source</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <ReportOption 
-                    icon={ShieldAlert} 
-                    title="Violation Summary" 
-                    description="Export all active and cleared student offenses."
-                    active={selectedType === "violations"}
-                    onClick={() => setSelectedType("violations")}
-                  />
-                  <ReportOption 
-                    icon={Calendar} 
-                    title="Attendance Logs" 
-                    description="Daily laboratory access and monitoring logs."
-                    active={selectedType === "attendance"}
-                    onClick={() => setSelectedType("attendance")}
-                  />
-                </div>
-              </section>
-
-              <section>
-                <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em] mb-4">2. Export Format</h3>
-                <div className="flex flex-wrap gap-3">
-                  {['PDF', 'Excel', 'JSON'].map((format) => (
-                    <Button 
-                      key={format}
-                      variant="outline" 
-                      className="bg-transparent border-white/10 text-slate-400 hover:text-white hover:border-blue-500 h-12 px-8 font-bold text-[11px] rounded-xl transition-all"
-                    >
-                      {format === 'PDF' && <FileText className="mr-2 h-4 w-4" />}
-                      {format === 'Excel' && <TableIcon className="mr-2 h-4 w-4" />}
-                      {format === 'JSON' && <FileCode className="mr-2 h-4 w-4" />}
-                      {format}
-                    </Button>
-                  ))}
-                </div>
-              </section>
-
-              <Separator className="bg-white/5" />
-
-              <div className="flex items-center justify-between p-6 rounded-2xl bg-blue-600/5 border border-blue-500/20">
-                <div>
-                  <h4 className="text-xs font-black text-white uppercase tracking-tight">Ready to Export</h4>
-                  <p className="text-[10px] text-slate-500 font-bold mt-1 uppercase tracking-widest">Total Estimated Records: 1,420</p>
-                </div>
-                <Button className="bg-blue-600 hover:bg-blue-500 text-white font-black text-xs h-12 px-8 rounded-xl shadow-lg shadow-blue-600/20">
-                  <Download className="mr-2 h-4 w-4" /> GENERATE
-                </Button>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+          {/* CONFIGURATION COLUMN */}
+          <div className="lg:col-span-7 space-y-10">
+            <section>
+              <h3 className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.4em] mb-6 text-left">1. Select Data Source</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <ReportOption 
+                  icon={ShieldAlert} 
+                  title="Violation Summary" 
+                  description="Export all active and cleared student offenses."
+                  active={selectedType === "violations"}
+                  onClick={() => setSelectedType("violations")}
+                />
+                <ReportOption 
+                  icon={Calendar} 
+                  title="Attendance Logs" 
+                  description="Daily laboratory access and monitoring logs."
+                  active={selectedType === "attendance"}
+                  onClick={() => setSelectedType("attendance")}
+                />
               </div>
-            </div>
+            </section>
 
-            {/* PREVIEW COLUMN */}
-            <div className="lg:col-span-5">
-              <Card className="bg-[#0D1016]/40 border-white/5 backdrop-blur-md h-full rounded-2xl overflow-hidden">
-                <div className="p-4 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
-                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Document Preview</span>
-                  <div className="flex gap-1">
-                    <div className="w-2 h-2 rounded-full bg-red-500/20" />
-                    <div className="w-2 h-2 rounded-full bg-yellow-500/20" />
-                    <div className="w-2 h-2 rounded-full bg-green-500/20" />
+            <section>
+              <h3 className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.4em] mb-6 text-left">2. Export Format</h3>
+              <div className="flex flex-wrap gap-4">
+                {['PDF', 'Excel', 'JSON'].map((format) => (
+                  <button 
+                    key={format}
+                    className="flex items-center bg-slate-900/40 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-400 h-12 px-8 font-black text-[11px] uppercase tracking-[0.2em] rounded-xl transition-all shadow-lg"
+                  >
+                    {format === 'PDF' && <FileText className="mr-3 h-4 w-4" />}
+                    {format === 'Excel' && <TableIcon className="mr-3 h-4 w-4" />}
+                    {format === 'JSON' && <FileCode className="mr-3 h-4 w-4" />}
+                    {format}
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <Separator className="bg-slate-800/60" />
+
+            <div className="flex items-center justify-between p-8 rounded-[2rem] bg-[#0f172a] border border-slate-800 shadow-2xl">
+              <div>
+                <h4 className="text-base font-black text-white uppercase tracking-tight">System Ready</h4>
+                <p className="text-[11px] text-slate-500 font-bold mt-1 uppercase tracking-widest">Estimated Records: 1,420</p>
+              </div>
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white font-black text-xs h-14 px-10 rounded-2xl shadow-lg shadow-blue-900/20 transition-all active:scale-95">
+                <Download className="mr-3 h-5 w-5" /> GENERATE
+              </Button>
+            </div>
+          </div>
+
+          {/* PREVIEW COLUMN */}
+          <div className="lg:col-span-5">
+            <Card className="bg-slate-900/40 border-slate-800/60 backdrop-blur-md h-full rounded-[2.5rem] overflow-hidden shadow-2xl">
+              <div className="p-6 border-b border-slate-800/60 bg-slate-900/20 flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-600 uppercase tracking-widest">Document Preview</span>
+                <div className="flex gap-2">
+                  <div className="w-2 h-2 rounded-full bg-slate-800" />
+                  <div className="w-2 h-2 rounded-full bg-slate-800" />
+                  <div className="w-2 h-2 rounded-full bg-slate-800" />
+                </div>
+              </div>
+              <CardContent className="p-8 flex flex-col items-center justify-center text-center h-[500px]">
+                <div className="w-32 h-44 border border-slate-800 border-dashed rounded-2xl flex items-center justify-center mb-8 relative group cursor-pointer hover:border-slate-500 transition-all bg-slate-950/40">
+                  <FileText className="text-slate-800 group-hover:text-slate-500 transition-colors" size={60} />
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-[#020617]/60 backdrop-blur-[4px] rounded-2xl">
+                     <Share2 className="text-white" size={32} />
                   </div>
                 </div>
-                <CardContent className="p-8 flex flex-col items-center justify-center text-center h-[400px]">
-                  <div className="w-24 h-32 border-2 border-dashed border-white/10 rounded-lg flex items-center justify-center mb-6 relative group cursor-pointer hover:border-blue-500/50 transition-colors">
-                    <FileText className="text-slate-800 group-hover:text-blue-900 transition-colors" size={48} />
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                       <Share2 className="text-blue-400" size={24} />
-                    </div>
-                  </div>
-                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">No Selection Made</h3>
-                  <p className="text-[10px] text-slate-600 mt-2 max-w-[200px]">Select a data source and format to preview your document.</p>
-                </CardContent>
-              </Card>
-            </div>
+                <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em]">Awaiting Selection</h3>
+                <p className="text-[13px] text-slate-600 mt-3 max-w-[240px] font-medium leading-relaxed">
+                  Configure your data source and export format to generate a live preview.
+                </p>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 };
 

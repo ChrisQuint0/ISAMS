@@ -1,80 +1,120 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { AgGridReact } from "ag-grid-react";
+
+// Standard CSS imports for Legacy mode
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
+
 import { 
   ShieldAlert, Search, Filter, 
-  AlertTriangle, CheckCircle2
+  AlertTriangle, CheckCircle2, History, AlertCircle
 } from "lucide-react";
 
-// Shadcn UI Imports
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Card } from "@/components/ui/card";
 import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
+  Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList,
+  BreadcrumbPage, BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 
-const StatCard = ({ label, value, icon: Icon, colorClass }) => (
-  <div className="flex flex-col items-center justify-center p-5 rounded-xl bg-[#0D1016]/40 border border-white/5 backdrop-blur-md relative overflow-hidden group">
-    <div className={`absolute -right-1 -top-1 opacity-5 group-hover:opacity-10 transition-opacity ${colorClass}`}>
-      <Icon size={60} />
-    </div>
-    <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-3 bg-white/5 border border-white/10 ${colorClass}`}>
-      <Icon size={20} />
-    </div>
-    <span className="text-3xl font-black tracking-tighter text-white leading-none mb-1">{value}</span>
-    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em]">{label}</span>
-  </div>
-);
+// Enforced Dark Theme CSS
+const GRID_STYLE_OVERRIDES = `
+  .ag-theme-quartz-dark {
+    --ag-background-color: #090E1A !important;
+    --ag-header-background-color: #161B26 !important;
+    --ag-border-color: #1e293b !important;
+    --ag-header-foreground-color: #94a3b8 !important;
+    --ag-foreground-color: #ffffff !important; 
+    --ag-row-hover-color: #1e293b !important;
+    --ag-odd-row-background-color: #090E1A !important;
+  }
+  .ag-theme-quartz-dark .ag-header-cell-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 800;
+  }
+  .ag-theme-quartz-dark .ag-cell {
+    font-size: 13px;
+    color: #f1f5f9 !important; 
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #1e293b44 !important;
+  }
+  /* Kills white bars */
+  .ag-theme-quartz-dark .ag-row {
+    background-color: #090E1A !important;
+  }
+`;
 
 const StudViolations = () => {
   const [gridApi, setGridApi] = useState(null);
+
+  useEffect(() => {
+    const styleEl = document.createElement('style');
+    styleEl.innerHTML = GRID_STYLE_OVERRIDES;
+    document.head.appendChild(styleEl);
+    return () => document.head.removeChild(styleEl);
+  }, []);
+
+  // Hardcoded Violation Data
+  const rowData = useMemo(() => [
+    { name: "ALEX JOHNSON", section: "BSCS 3-A", violation: "UNIFORM POLICY", status: "ACTIVE" },
+    { name: "MARIA GARCIA", section: "BSIT 2-B", violation: "LATE ENTRY", status: "CLEARED" },
+    { name: "LIAM SMITH", section: "BSDS 4-A", violation: "ACADEMIC DISHONESTY", status: "ACTIVE" },
+    { name: "SOPHIA CHEN", section: "BSSE 1-C", violation: "NO ID FOUND", status: "ACTIVE" },
+    { name: "NOAH WILLIAMS", section: "BSIT 3-B", violation: "SMOKING ON CAMPUS", status: "CLEARED" },
+    { name: "AVA MARTINEZ", section: "BSCS 2-D", violation: "UNIFORM POLICY", status: "ACTIVE" },
+    { name: "MASON DAVIS", section: "BSDS 2-A", violation: "LATE ENTRY", status: "CLEARED" },
+    { name: "EMMA BROWN", section: "BSIT 4-B", violation: "MISCONDUCT", status: "ACTIVE" },
+  ], []);
 
   const columnDefs = useMemo(() => [
     { 
       headerName: "STUDENT NAME", 
       field: "name", 
-      sortable: true, 
-      filter: true,
-      cellStyle: { color: '#e2e8f0', fontWeight: '700', fontSize: '11px' }
+      flex: 1.5,
+      cellStyle: { color: '#f1f5f9', fontWeight: '700' }
     },
     { 
-      headerName: "YEAR & SECTION", 
+      headerName: "SECTION", 
       field: "section", 
-      sortable: true, 
-      filter: true,
-      cellStyle: { color: '#64748b', fontWeight: '700', fontSize: '10px' }
+      flex: 1,
+      cellStyle: { color: '#64748b', fontWeight: '700', fontSize: '11px' }
     },
     { 
-      headerName: "VIOLATION", 
+      headerName: "VIOLATION TYPE", 
       field: "violation",
-      cellStyle: { color: '#f87171', fontWeight: '700', fontSize: '10px' }
+      flex: 1.5,
+      cellStyle: { color: '#94a3b8', fontWeight: '700', fontSize: '12px' }
     },
     { 
       headerName: "STATUS", 
       field: "status",
+      flex: 1,
       cellRenderer: (params) => (
-        <span className={`px-2 py-0.5 rounded-full text-[8px] font-black tracking-widest ${
-          params.value === 'CLEARED' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
-        }`}>
-          {params.value}
-        </span>
+        <div className="flex items-center h-full">
+          <span className={`px-3 py-1 rounded-md text-[10px] font-black tracking-widest border ${
+            params.value === 'CLEARED' 
+              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+              : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+          }`}>
+            {params.value}
+          </span>
+        </div>
       )
     },
     {
       headerName: "ACTION",
       field: "action",
+      width: 120,
       pinned: 'right',
       cellRenderer: () => (
-        <div className="flex items-center justify-end h-full">
-          <Button variant="outline" className="h-6 px-3 bg-slate-950/80 border-blue-900/50 text-blue-400 hover:bg-blue-600 hover:text-white rounded-md text-[8px] font-black transition-all">
+        <div className="flex items-center justify-end h-full pr-2">
+          <Button variant="outline" className="h-7 px-4 bg-slate-800 border-slate-700 text-slate-300 hover:text-white rounded-md text-[10px] font-black">
             MANAGE
           </Button>
         </div>
@@ -82,97 +122,85 @@ const StudViolations = () => {
     }
   ], []);
 
-  const rowData = [
-    { name: "ALEX JOHNSON", section: "BSCS 3-A", violation: "UNIFORM POLICY", status: "ACTIVE" },
-    { name: "MARIA GARCIA", section: "BSIT 2-B", violation: "LATE ENTRY", status: "CLEARED" },
-    { name: "LIAM SMITH", section: "BSDS 4-A", violation: "ACADEMIC DISHONESTY", status: "ACTIVE" },
-  ];
-
-  const onFilterTextChange = (e) => {
-    gridApi?.setQuickFilter(e.target.value);
-  };
-
   return (
-    <>
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-white/5 px-6 bg-[#0B0E14]/80 backdrop-blur-md z-20">
-        <SidebarTrigger className="text-slate-400 hover:text-white p-2 hover:bg-white/5 rounded-md scale-90" />
-        <Separator orientation="vertical" className="mx-1 h-3 bg-white/10" />
+    <div className="flex flex-col h-full bg-[#020617] min-h-screen text-left">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-slate-800/60 px-6 bg-[#090E1A] z-20">
+        <SidebarTrigger className="text-slate-400 scale-90" />
+        <Separator orientation="vertical" className="mx-1 h-3 bg-slate-800" />
         <Breadcrumb>
           <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink className="text-slate-500 text-[10px] font-bold uppercase tracking-widest cursor-default">ISAMS</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="text-slate-700" />
-            <BreadcrumbItem>
-              <BreadcrumbPage className="text-white font-bold text-xs tracking-tight cursor-default uppercase">VIOLATIONS</BreadcrumbPage>
-            </BreadcrumbItem>
+            <BreadcrumbItem><BreadcrumbLink className="text-slate-500 text-[11px] font-bold uppercase tracking-[0.2em]">ISAMS</BreadcrumbLink></BreadcrumbItem>
+            <BreadcrumbSeparator className="text-slate-800" />
+            <BreadcrumbItem><BreadcrumbPage className="text-white font-bold text-sm tracking-tight uppercase">Violation Registry</BreadcrumbPage></BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
       </header>
 
-      <div className="flex-1 p-6 lg:p-10 overflow-y-auto no-scrollbar relative">
-        <div className="relative z-10 w-full transition-all duration-300">
-          <header className="mb-8 text-left">
-            <h1 className="text-4xl font-black tracking-tight text-white mb-1 uppercase leading-none">STUDENT VIOLATION RECORD</h1>
-            <div className="flex items-center gap-2 mt-1">
-              <div className="h-[1.5px] w-6 bg-red-600" />
-              <p className="text-red-500 font-bold tracking-[0.3em] text-[9px] uppercase">Compliance Monitoring</p>
-            </div>
-          </header>
-
-          {/* Scaled Down Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
-            <StatCard label="Total Violations" value="56" icon={ShieldAlert} colorClass="text-blue-500" />
-            <StatCard label="Total Active" value="12" icon={AlertTriangle} colorClass="text-red-500" />
-            <StatCard label="Total Cleared" value="23" icon={CheckCircle2} colorClass="text-green-500" />
-          </div>
-
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-5">
-            <div className="text-left">
-              <h2 className="text-lg font-black text-white uppercase tracking-tight">Active Offenses</h2>
-              <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">Live System Feed</p>
-            </div>
-            <div className="flex gap-2 w-full md:w-auto">
-              <div className="relative flex-1 md:w-56">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500" />
-                <Input 
-                  placeholder="Quick Search..." 
-                  className="pl-8 bg-[#0B0E14] border-white/5 text-[11px] h-8 rounded-lg focus-visible:ring-red-500/50 text-slate-200"
-                  onChange={onFilterTextChange}
-                />
-              </div>
-              <Button variant="outline" className="h-8 px-3 bg-[#0B0E14] border-white/5 text-slate-500 hover:text-white rounded-lg text-[10px] font-bold">
-                <Filter className="w-3 h-3 mr-2" /> FILTER
-              </Button>
+      <div className="flex-1 px-6 lg:px-10 pt-10 pb-10 space-y-8 overflow-y-auto no-scrollbar relative">
+        <div className="flex flex-col md:flex-row justify-between items-end gap-4 mb-6">
+          <div className="flex flex-col">
+            <h1 className="text-4xl font-black text-white tracking-tighter uppercase leading-none">VIOLATIONS</h1>
+            <div className="flex items-center gap-3 mt-3">
+              <div className="h-[2px] w-8 bg-slate-600" />
+              <p className="text-slate-500 text-[11px] font-black tracking-[0.3em] uppercase">Student Compliance Monitor</p>
             </div>
           </div>
+          <Button className="bg-rose-600 hover:bg-rose-700 text-white h-10 px-6 rounded-xl font-bold text-xs shadow-lg shadow-rose-900/20">
+            <AlertCircle className="w-4 h-4 mr-2" /> REPORT VIOLATION
+          </Button>
+        </div>
 
-          {/* Refined AG Grid */}
-          <div 
-            className="ag-theme-quartz-dark w-full shadow-2xl rounded-xl overflow-hidden border border-white/5" 
-            style={{ 
-              height: 400, 
-              '--ag-background-color': '#0D101666',
-              '--ag-header-background-color': '#ffffff05',
-              '--ag-border-color': '#ffffff0d',
-              '--ag-row-hover-color': '#ef444405',
-              '--ag-font-family': 'inherit',
-              '--ag-header-foreground-color': '#64748b',
-            }}
-          >
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <QuickStat label="Total Violations" value="56" icon={ShieldAlert} color="text-slate-400" />
+          <QuickStat label="Active Offenses" value="12" icon={AlertTriangle} color="text-rose-500" />
+          <QuickStat label="Cleared Records" value="44" icon={CheckCircle2} color="text-emerald-500" />
+        </div>
+
+        <Card className="bg-[#090E1A] border-slate-800 flex flex-col rounded-2xl overflow-hidden shadow-2xl">
+          <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-900/20">
+            <h3 className="text-sm font-bold text-slate-100 uppercase tracking-widest flex items-center gap-3">
+              <History className="h-4 w-4 text-slate-500" /> Disciplinary Logs
+            </h3>
+            <div className="relative w-96">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <Input 
+                placeholder="Search logs..."
+                className="pl-9 bg-[#020617] border-slate-800 text-white text-sm h-10 rounded-xl"
+                onChange={(e) => gridApi?.setQuickFilter(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="ag-theme-quartz-dark w-full" style={{ height: "450px" }}>
             <AgGridReact
+              theme="legacy" // Enforces CSS overrides
               rowData={rowData}
               columnDefs={columnDefs}
               onGridReady={(params) => setGridApi(params.api)}
               animateRows={true}
-              rowHeight={42}
-              headerHeight={44}
+              rowHeight={52}
+              headerHeight={52}
+              pagination={true}
+              paginationPageSize={10}
+              suppressCellFocus={true}
             />
           </div>
-        </div>
+        </Card>
       </div>
-    </>
+    </div>
   );
 };
+
+function QuickStat({ label, value, icon: Icon, color }) {
+  return (
+    <div className="bg-[#090E1A] border border-slate-800 p-5 rounded-2xl flex items-center justify-between transition-all hover:scale-[1.01] text-left">
+      <div className="space-y-1">
+        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{label}</p>
+        <p className="text-2xl font-black text-white leading-none mt-1.5">{value}</p>
+      </div>
+      <div className={`p-2.5 rounded-lg bg-slate-950/40 border border-slate-800 ${color}`}><Icon size={22} /></div>
+    </div>
+  );
+}
 
 export default StudViolations;
