@@ -1,22 +1,14 @@
 import React from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import {
-  LayoutDashboard,
-  Users,
-  ShieldAlert,
-  FileText,
-  Settings,
-  LogOut,
-  UserCircle,
+  LayoutDashboard, Users, ShieldAlert, 
+  FileText, Settings, LogOut, UserCircle 
 } from "lucide-react";
 
 // Components from your UI folder
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarHeader,
-  SidebarProvider,
+  Sidebar, SidebarContent, SidebarFooter, 
+  SidebarHeader, SidebarProvider 
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -24,21 +16,20 @@ import { Button } from "@/components/ui/button";
 const NavItem = ({ icon, label, active = false, onClick }) => (
   <button
     onClick={onClick}
-    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all relative group cursor-pointer ${
+    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[12px] font-black uppercase tracking-wider transition-all relative group cursor-pointer ${
       active
-        ? "bg-[#1A1D25] text-white shadow-lg shadow-black/20"
-        : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+        ? "bg-[#161B26] text-white shadow-lg shadow-black/40" 
+        : "text-slate-500 hover:text-slate-200 hover:bg-white/5"
     } group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0`}
   >
     {active && (
-      <div className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-gradient-to-b from-purple-500 to-blue-500 rounded-r-full" />
+      /* Matches the subtle gray-blue vertical indicator from image_a623f6.png */
+      <div className="absolute left-0 top-1/4 bottom-1/4 w-1.5 bg-slate-400 rounded-r-full shadow-[0_0_10px_rgba(148,163,184,0.3)]" />
     )}
-    <span
-      className={`${active ? "text-blue-400" : "group-hover:text-slate-300"} transition-colors`}
-    >
+    <span className={`${active ? "text-slate-200" : "group-hover:text-slate-300"} transition-colors`}>
       {icon}
     </span>
-    <span className="group-data-[collapsible=icon]:hidden transition-opacity duration-200">
+    <span className="group-data-[collapsible=icon]:hidden">
       {label}
     </span>
   </button>
@@ -48,33 +39,34 @@ export default function StudViolationLayout() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const handleLogout = () => {
-    navigate("/login");
-  };
-
   return (
     <SidebarProvider>
-      <div className="flex h-screen w-full bg-[#07090D] text-slate-200 overflow-hidden select-none font-sans dark">
-        {/* SIDEBAR SECTION */}
+      {/* 1. 'dark' class is REQUIRED to stop shadcn from turning white.
+          2. Forced background to #020617 to match image_a5be9d.png 
+      */}
+      <div className="dark flex h-screen w-full bg-[#020617] text-slate-200 overflow-hidden select-none font-sans">
+        
+        {/* SIDEBAR: Set to #090E1A to match the specific card tone in image_a614f5.png 
+        */}
         <Sidebar
-          className="!bg-[#0B0E14] border-r border-white/5 shadow-xl"
+          className="!bg-[#090E1A] !border-r !border-slate-900 shadow-2xl"
           collapsible="icon"
         >
-          <SidebarHeader className="p-6 flex flex-col items-center !bg-[#0B0E14] pt-12 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:pt-8">
-            <div className="relative group cursor-pointer mb-2">
-              <div className="absolute -inset-2 bg-purple-600/20 rounded-full blur-xl group-hover:bg-purple-600/30 transition"></div>
-              <Avatar className="h-16 w-16 group-data-[collapsible=icon]:h-9 group-data-[collapsible=icon]:w-9 border-2 border-slate-700/50 relative bg-slate-900 shadow-2xl transition-all">
+          <SidebarHeader className="p-6 flex flex-col items-center !bg-[#090E1A] pt-12 group-data-[collapsible=icon]:pt-10">
+            <div className="relative group cursor-pointer mb-3">
+              <div className="absolute -inset-2 bg-slate-500/10 rounded-full blur-xl group-hover:bg-slate-500/20 transition"></div>
+              <Avatar className="h-14 w-14 border border-slate-800 relative bg-[#020617] shadow-2xl">
                 <AvatarFallback className="bg-transparent text-slate-500">
-                  <UserCircle className="w-10 h-10 group-data-[collapsible=icon]:w-6 group-data-[collapsible=icon]:h-6" />
+                  <UserCircle className="w-10 h-10" />
                 </AvatarFallback>
               </Avatar>
             </div>
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.4em] mb-4 group-data-[collapsible=icon]:hidden">
-              ADMIN
+            <span className="text-[11px] font-black text-slate-600 uppercase tracking-[0.4em] mb-6 group-data-[collapsible=icon]:hidden">
+              ADMIN PANEL
             </span>
           </SidebarHeader>
 
-          <SidebarContent className="px-4 flex flex-col gap-1 !bg-[#0B0E14] group-data-[collapsible=icon]:px-0">
+          <SidebarContent className="px-4 flex flex-col gap-2 !bg-[#090E1A] group-data-[collapsible=icon]:px-0">
             <NavItem
               icon={<LayoutDashboard size={18} />}
               label="Dashboard"
@@ -107,23 +99,23 @@ export default function StudViolationLayout() {
             />
           </SidebarContent>
 
-          <SidebarFooter className="p-4 !bg-[#0B0E14] border-t border-white/5 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:py-4">
+          <SidebarFooter className="p-4 !bg-[#090E1A] border-t border-slate-900 group-data-[collapsible=icon]:py-6">
             <Button
               variant="ghost"
-              onClick={handleLogout}
-              className="w-full justify-start group-data-[collapsible=icon]:justify-center text-slate-500 hover:text-red-400 hover:bg-red-500/5 rounded-xl transition-all cursor-pointer group-data-[collapsible=icon]:px-0"
+              onClick={() => navigate("/login")}
+              className="w-full justify-start text-slate-500 hover:text-rose-400 hover:bg-rose-500/5 rounded-xl h-12"
             >
-              <LogOut className="mr-3 h-4 w-4 group-data-[collapsible=icon]:mr-0 transition-all" />
-              <span className="group-data-[collapsible=icon]:hidden font-semibold">
+              <LogOut className="mr-3 h-4 w-4" />
+              <span className="group-data-[collapsible=icon]:hidden text-[12px] font-black uppercase tracking-widest">
                 Log Out
               </span>
             </Button>
           </SidebarFooter>
         </Sidebar>
 
-        {/* MAIN CONTENT SECTION */}
-        <main className="flex-1 flex flex-col min-w-0 bg-[#07090D] relative transition-all duration-300">
-          {/* This Outlet is where StudRecords.jsx or StudViolationDashboard.jsx will be displayed */}
+        {/* MAIN CONTENT: Set to deepest background #020617 
+        */}
+        <main className="flex-1 flex flex-col min-w-0 bg-[#020617] relative">
           <Outlet />
         </main>
       </div>

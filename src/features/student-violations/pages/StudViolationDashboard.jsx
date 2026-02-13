@@ -1,132 +1,166 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
-  Plus, Search, ShieldAlert, Users, FileText, 
-  History, LayoutDashboard, Database 
+  Users, FileText, History, PieChart, Clock, 
+  AlertTriangle, CalendarCheck, RefreshCw, ShieldAlert, BarChart3
 } from "lucide-react";
 
-// Shadcn UI Imports
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
+  Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList,
+  BreadcrumbPage, BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 
 const MainDashboard = () => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
 
   const activities = [
-    { id: 1, type: "RECENT ACTIVITY #1", detail: "Details about this activity or a short description.", time: "JUST NOW" },
-    { id: 2, type: "RECENT ACTIVITY #2", detail: "Details about this activity or a short description.", time: "JUST NOW" },
-    { id: 3, type: "RECENT ACTIVITY #3", detail: "Details about this activity or a short description.", time: "JUST NOW" },
-    { id: 4, type: "RECENT ACTIVITY #4", detail: "Details about this activity or a short description.", time: "JUST NOW" },
+    { id: 1, type: "NEW VIOLATION", detail: "Uniform policy breach reported for Student 2024-001 (Alex Johnson).", time: "JUST NOW" },
+    { id: 2, type: "CASE CLEARED", detail: "Late entry violation for Maria Garcia (2024-002) has been resolved.", time: "10 MIN AGO" },
+    { id: 3, type: "REPORT GENERATED", detail: "Monthly violation summary exported by Admin Panel.", time: "1 HR AGO" },
+    { id: 4, type: "SYSTEM SYNC", detail: "Student database successfully synchronized with Registrar server.", time: "2 HRS AGO" },
+    { id: 5, type: "MAJOR OFFENSE", detail: "Academic dishonesty report filed for Liam Smith (2024-003).", time: "3 HRS AGO" },
   ];
 
-  const quickActions = [
-    { icon: <Plus size={18} />, label: "Add" },
-    { icon: <Search size={18} />, label: "Search" },
-    { icon: <Users size={18} />, label: "Groups", onClick: () => navigate("/students") },
-    { icon: <FileText size={18} />, label: "Report" },
-    { icon: <Database size={18} />, label: "Database" },
+  // UPDATED: Analytics moved to the right side of Reports
+  const navActions = [
+    { 
+      icon: <Users size={20} />, 
+      label: "Records", 
+      onClick: () => navigate('/students'), 
+      color: "text-emerald-400" 
+    },
+    { 
+      icon: <ShieldAlert size={20} />, 
+      label: "Manage", 
+      onClick: () => navigate('/violations'), 
+      color: "text-rose-400" 
+    },
+    { 
+      icon: <FileText size={20} />, 
+      label: "Reports", 
+      onClick: () => navigate('/generate-report'), 
+      color: "text-amber-400" 
+    },
+    { 
+      icon: <BarChart3 size={20} />, 
+      label: "Analytics", 
+      onClick: () => navigate('/analytics'), 
+      color: "text-blue-400" 
+    },
   ];
 
   return (
-    <>
-      {/* Header Bar - Scaled Down */}
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-white/5 px-6 bg-[#0B0E14]/80 backdrop-blur-md z-20">
-        <SidebarTrigger className="text-slate-400 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-md scale-90" />
-        <Separator orientation="vertical" className="mx-1 h-3 bg-white/10" />
+    <div className="flex flex-col h-full bg-[#020617] min-h-screen text-left">
+      {/* HEADER: bg color #090E1A matched */}
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-slate-800/60 px-6 bg-[#090E1A] z-20">
+        <SidebarTrigger className="text-slate-400 hover:text-white transition-colors p-2 hover:bg-slate-800 rounded-md scale-90" />
+        <Separator orientation="vertical" className="mx-1 h-3 bg-slate-800" />
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
-              <BreadcrumbLink className="text-slate-500 text-[10px] font-bold uppercase tracking-widest cursor-default">ISAMS</BreadcrumbLink>
+              <BreadcrumbLink className="text-slate-500 text-[11px] font-bold uppercase tracking-[0.2em] cursor-default">ISAMS</BreadcrumbLink>
             </BreadcrumbItem>
-            <BreadcrumbSeparator className="text-slate-700" />
+            <BreadcrumbSeparator className="text-slate-800" />
             <BreadcrumbItem>
-              <BreadcrumbPage className="text-white font-bold text-xs tracking-tight cursor-default uppercase">DASHBOARD</BreadcrumbPage>
+              <BreadcrumbPage className="text-white font-bold text-sm tracking-tight uppercase">Dashboard</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
       </header>
 
-      {/* Main Content Area */}
-      <div className="flex-1 p-6 lg:p-10 overflow-y-auto overflow-x-hidden no-scrollbar relative">
-        {/* Ambient Background Glows */}
-        <div className="absolute top-[-5%] right-[-2%] w-[500px] h-[500px] bg-purple-600/5 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute bottom-[-5%] left-[-2%] w-[400px] h-[400px] bg-blue-600/5 rounded-full blur-[100px] pointer-events-none" />
-
-        <div className="relative z-10 w-full transition-all duration-300">
-          <header className="mb-10 text-left">
-            <h1 className="text-4xl font-black tracking-tight text-white mb-1 uppercase leading-none">DASHBOARD</h1>
-            <div className="flex items-center gap-2 mt-1">
-              <div className="h-[1.5px] w-6 bg-blue-600" />
-              <p className="text-blue-500 font-bold tracking-[0.3em] text-[9px] uppercase">Violation Management System</p>
+      {/* Standardized pt-10 for pixel-perfect title alignment */}
+      <div className="flex-1 px-6 lg:px-10 pt-10 pb-10 space-y-12 overflow-y-auto no-scrollbar relative">
+        <div className="flex justify-between items-end shrink-0 relative z-10 mb-2">
+          <div className="flex flex-col">
+            <h1 className="text-4xl font-black text-white tracking-tighter uppercase leading-none">DASHBOARD</h1>
+            <div className="flex items-center gap-3 mt-3">
+              <div className="h-[2px] w-8 bg-slate-600" />
+              <p className="text-slate-500 text-[11px] font-black tracking-[0.3em] uppercase">Violation Management Hub</p>
             </div>
-          </header>
-
-          <section className="mb-12 flex flex-col items-center">
-            <h3 className="text-[8px] font-bold tracking-[0.5em] text-slate-600 uppercase mb-8">Quick Actions</h3>
-            <div className="flex flex-wrap justify-center gap-6 w-full">
-              {quickActions.map((action, i) => (
-                <div key={i} className="flex flex-col items-center gap-2">
-                  <button 
-                    onClick={action.onClick}
-                    className="group flex items-center justify-center h-14 w-14 rounded-full border border-white/5 transition-all duration-300 cursor-pointer bg-white/5 hover:bg-blue-600/20 hover:border-blue-500 hover:scale-105 shadow-lg"
-                  >
-                    <div className="text-slate-400 group-hover:text-blue-400 transition-colors">{action.icon}</div>
-                  </button>
-                  <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">{action.label}</span>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <div className="w-full text-left">
-            <Separator className="bg-white/5 mb-8 shadow-2xl" />
-
-            <section>
-              <div className="flex items-center gap-3 mb-5">
-                <div className="p-1.5 rounded-lg bg-blue-600/10 border border-blue-600/20">
-                  <History size={14} className="text-blue-500" />
-                </div>
-                <h2 className="text-sm font-bold text-white tracking-tight uppercase">Recent Activity</h2>
-              </div>
-
-              <div className="space-y-1 pb-10 w-full">
-                {activities.map((item) => (
-                  <Card key={item.id} className="w-full bg-[#0D1016]/40 border-white/5 backdrop-blur-md hover:border-blue-500/20 hover:bg-blue-900/5 transition-all duration-300 group shadow-md border-l-0 border-r-0 rounded-none first:rounded-lg last:rounded-lg">
-                    <CardContent className="py-2 px-5 flex items-center justify-between min-h-[44px]">
-                      <div className="flex items-center gap-4">
-                        <div className="h-1 w-1 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
-                        <div className="flex flex-col">
-                          <h4 className="font-bold text-slate-200 text-[10px] group-hover:text-blue-400 transition-colors tracking-tight uppercase leading-none">{item.type}</h4>
-                          <p className="text-[9px] text-slate-600 font-medium leading-tight mt-0.5">{item.detail}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-6">
-                        <span className="text-[8px] font-bold text-blue-400/30 uppercase tracking-widest italic whitespace-nowrap">{item.time}</span>
-                        <Button variant="outline" className="h-5 px-3 bg-slate-950/80 border-blue-900/50 text-blue-400 hover:text-white hover:bg-blue-600 hover:border-blue-400 rounded-md text-[8px] font-black transition-all cursor-pointer">
-                          DETAILS
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </section>
           </div>
+          <Button 
+            variant="outline" 
+            className="bg-slate-900 border-slate-700 text-slate-400 hover:text-white h-9 px-4 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all mb-0.5"
+            onClick={() => { setLoading(true); setTimeout(() => setLoading(false), 800); }}
+          >
+            <RefreshCw className={`h-3.5 w-3.5 mr-2 ${loading ? 'animate-spin' : ''}`} /> 
+            Refresh Data
+          </Button>
         </div>
+
+        {/* Quick Actions Grid with 4 Modules */}
+        <section className="flex flex-col items-center relative z-10 py-2">
+          <div className="flex flex-wrap justify-center gap-16">
+            {navActions.map((action, i) => (
+              <div key={i} className="flex flex-col items-center gap-4 group">
+                <button 
+                  onClick={action.onClick}
+                  className="flex items-center justify-center h-16 w-16 rounded-2xl border border-slate-800 bg-[#090E1A] hover:border-slate-500 hover:bg-slate-800 transition-all duration-300 shadow-2xl group-hover:-translate-y-2 group-hover:shadow-blue-900/20"
+                >
+                  <div className={`${action.color} group-hover:text-white transition-colors`}>
+                    {action.icon}
+                  </div>
+                </button>
+                <span className="text-[10px] font-bold text-slate-500 group-hover:text-slate-300 uppercase tracking-[0.3em]">{action.label}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Stats Section with Surface BG #090E1A */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 relative z-10">
+          <StatCard title="Compliance" value="94%" icon={PieChart} color="text-emerald-400" border="border-emerald-500/20" />
+          <StatCard title="Active" value="12" icon={Clock} color="text-amber-400" border="border-amber-500/20" />
+          <StatCard title="Critical" value="03" icon={AlertTriangle} color="text-rose-400" border="border-rose-500/20" />
+          <StatCard title="Resolved" value="88%" icon={CalendarCheck} color="text-blue-400" border="border-blue-500/20" />
+        </div>
+
+        {/* Activity Log Feed */}
+        <Card className="bg-[#0f172a66] border-slate-800 rounded-2xl overflow-hidden shadow-2xl relative z-10 pb-10">
+          <CardHeader className="px-8 py-5 border-b border-slate-800 bg-slate-900/20">
+            <CardTitle className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-3">
+              <History className="h-4 w-4 text-slate-500" /> Recent Activity Log
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {activities.map((item, i) => (
+              <div key={item.id} className={`flex items-center justify-between px-8 py-6 border-b border-slate-800/30 hover:bg-white/[0.02] transition-all group ${i === activities.length - 1 ? 'border-b-0' : ''}`}>
+                <div className="flex items-center gap-6">
+                  <div className="h-2 w-2 rounded-full bg-slate-700 group-hover:bg-blue-500 transition-colors shadow-[0_0_8px_rgba(59,130,246,0.3)]" />
+                  <div className="flex flex-col gap-1.5 text-left">
+                    <span className="text-[13px] font-black text-white uppercase tracking-tight">{item.type}</span>
+                    <span className="text-[14px] text-slate-400 font-medium leading-tight">{item.detail}</span>
+                  </div>
+                </div>
+                <span className="text-[11px] font-bold text-slate-600 uppercase tracking-widest italic">{item.time}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       </div>
-    </>
+    </div>
   );
 };
+
+function StatCard({ title, value, icon: Icon, color, border }) {
+  return (
+    <Card className={`bg-[#090E1A] ${border} border rounded-xl shadow-xl transition-all hover:scale-[1.01]`}>
+      <CardContent className="p-5 flex justify-between items-center text-left">
+        <div className="space-y-1">
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{title}</p>
+          <p className="text-2xl font-black text-white">{value}</p>
+        </div>
+        <div className={`p-2.5 rounded-lg bg-slate-950/40 border border-slate-800`}>
+          <Icon className={`h-5 w-5 ${color}`} />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default MainDashboard;
