@@ -4,14 +4,6 @@ import LoginPage from "@/features/auth/pages/LoginPage";
 import DashboardPage from "@/features/dashboard/pages/DashboardPage";
 import ThesisArchivingPage from "@/features/thesis-archiving/pages/ThesisArchivingPage";
 
-// Imports for Student Violations
-import StudViolationDashboard from "@/features/student-violations/pages/StudViolationDashboard";
-import StudRecords from "@/features/student-violations/pages/StudRecords";
-import StudViolationLayout from "@/features/student-violations/pages/StudViolationLayout";
-import StudViolations from "@/features/student-violations/pages/StudViolations";
-import GenerateReport from "@/features/student-violations/pages/GenerateReport";
-import Analytics from "@/features/student-violations/pages/Analytics";
-
 // Imports for Laboratory Monitoring
 import LabLayout from "@/features/lab-monitoring/layouts/LabLayout";
 import LabDashboard from "@/features/lab-monitoring/pages/LabDashboard";
@@ -23,7 +15,8 @@ import LabSettings from "@/features/lab-monitoring/pages/LabSettings";
 import Kiosk from "@/features/lab-monitoring/pages/Kiosk";
 import Success from "@/features/lab-monitoring/pages/Success";
 
-import { AdminAppRoutes } from "./faculty-requirements/AdminAppRoutes"; 
+import { AdminAppRoutes } from "./faculty-requirements/AdminAppRoutes";
+import { StudViolationAppRoutes } from "./student-violation/StudViolationAppRoutes";
 
 // Protected Route wrapper
 function ProtectedRoute({ children }) {
@@ -81,20 +74,7 @@ export function AppRoutes() {
         {AdminAppRoutes}
 
         {/* STUDENT VIOLATIONS MODULE */}
-        <Route
-          element={
-            <ProtectedRoute>
-              <StudViolationLayout />
-            </ProtectedRoute>
-          }
-        >
-          {/* These paths render inside StudViolationLayout's <Outlet /> */}
-          <Route path="/student-violations" element={<StudViolationDashboard />} />
-          <Route path="/students" element={<StudRecords />} />
-          <Route path="/violations" element={<StudViolations />} />
-          <Route path="/generate-report" element={<GenerateReport />} />
-          <Route path="/analytics" element={<Analytics />} />
-        </Route>
+        {StudViolationAppRoutes}
 
         {/* LABORATORY MANAGEMENT MODULE */}
         <Route
