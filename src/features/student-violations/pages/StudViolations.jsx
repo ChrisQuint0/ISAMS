@@ -23,13 +23,13 @@ import {
 // Enforced Dark Theme CSS
 const GRID_STYLE_OVERRIDES = `
   .ag-theme-quartz-dark {
-    --ag-background-color: #090E1A !important;
-    --ag-header-background-color: #161B26 !important;
+    --ag-background-color: #0f172a !important;
+    --ag-header-background-color: #1e293b !important;
     --ag-border-color: #1e293b !important;
     --ag-header-foreground-color: #94a3b8 !important;
     --ag-foreground-color: #ffffff !important; 
     --ag-row-hover-color: #1e293b !important;
-    --ag-odd-row-background-color: #090E1A !important;
+    --ag-odd-row-background-color: #0f172a !important;
   }
   .ag-theme-quartz-dark .ag-header-cell-label {
     font-size: 11px;
@@ -46,7 +46,7 @@ const GRID_STYLE_OVERRIDES = `
   }
   /* Kills white bars */
   .ag-theme-quartz-dark .ag-row {
-    background-color: #090E1A !important;
+    background-color: #0f172a !important;
   }
 `;
 
@@ -123,8 +123,8 @@ const StudViolations = () => {
   ], []);
 
   return (
-    <div className="flex flex-col h-full bg-[#020617] min-h-screen text-left">
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-slate-800/60 px-6 bg-[#090E1A] z-20">
+    <div className="flex flex-col h-full bg-slate-950 min-h-screen text-left">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-slate-800 px-6 bg-slate-900/50 z-20">
         <SidebarTrigger className="text-slate-400 scale-90" />
         <Separator orientation="vertical" className="mx-1 h-3 bg-slate-800" />
         <Breadcrumb>
@@ -133,7 +133,7 @@ const StudViolations = () => {
             <BreadcrumbSeparator className="text-slate-800" />
             <BreadcrumbItem><BreadcrumbLink className="text-slate-500 text-[11px] font-bold uppercase tracking-[0.2em]">Student Violation Module</BreadcrumbLink></BreadcrumbItem>
             <BreadcrumbSeparator className="text-slate-800" />
-            <BreadcrumbItem><BreadcrumbPage className="text-white font-bold text-sm tracking-tight uppercase">Violation Registry</BreadcrumbPage></BreadcrumbItem>
+            <BreadcrumbItem><BreadcrumbPage className="text-slate-100 font-bold text-sm tracking-tight uppercase">Violation Registry</BreadcrumbPage></BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
       </header>
@@ -141,7 +141,7 @@ const StudViolations = () => {
       <div className="flex-1 px-6 lg:px-10 pt-10 pb-10 space-y-8 overflow-y-auto no-scrollbar relative">
         <div className="flex flex-col md:flex-row justify-between items-end gap-4 mb-6">
           <div className="flex flex-col">
-            <h1 className="text-4xl font-black text-white tracking-tighter uppercase leading-none">VIOLATIONS</h1>
+            <h1 className="text-4xl font-black text-slate-100 tracking-tighter uppercase leading-none">VIOLATIONS</h1>
             <div className="flex items-center gap-3 mt-3">
               <div className="h-[2px] w-8 bg-slate-600" />
               <p className="text-slate-500 text-[11px] font-black tracking-[0.3em] uppercase">Student Compliance Monitor</p>
@@ -158,7 +158,7 @@ const StudViolations = () => {
           <QuickStat label="Cleared Records" value="44" icon={CheckCircle2} color="text-emerald-500" />
         </div>
 
-        <Card className="bg-[#090E1A] border-slate-800 flex flex-col rounded-2xl overflow-hidden shadow-2xl">
+        <Card className="bg-slate-900 border-slate-800 flex flex-col rounded-2xl overflow-hidden shadow-2xl">
           <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-900/20">
             <h3 className="text-sm font-bold text-slate-100 uppercase tracking-widest flex items-center gap-3">
               <History className="h-4 w-4 text-slate-500" /> Disciplinary Logs
@@ -167,7 +167,7 @@ const StudViolations = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
               <Input 
                 placeholder="Search logs..."
-                className="pl-9 bg-[#020617] border-slate-800 text-white text-sm h-10 rounded-xl"
+                className="pl-9 bg-slate-950 border-slate-800 text-slate-100 text-sm h-10 rounded-xl"
                 onChange={(e) => gridApi?.setQuickFilter(e.target.value)}
               />
             </div>
@@ -195,10 +195,10 @@ const StudViolations = () => {
 
 function QuickStat({ label, value, icon: Icon, color }) {
   return (
-    <div className="bg-[#090E1A] border border-slate-800 p-5 rounded-2xl flex items-center justify-between transition-all hover:scale-[1.01] text-left">
+    <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex items-center justify-between transition-all hover:scale-[1.01] text-left">
       <div className="space-y-1">
         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{label}</p>
-        <p className="text-2xl font-black text-white leading-none mt-1.5">{value}</p>
+        <p className="text-2xl font-black text-slate-100 leading-none mt-1.5">{value}</p>
       </div>
       <div className={`p-2.5 rounded-lg bg-slate-950/40 border border-slate-800 ${color}`}><Icon size={22} /></div>
     </div>

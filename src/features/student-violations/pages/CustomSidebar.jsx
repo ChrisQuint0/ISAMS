@@ -17,7 +17,7 @@ const NavItem = ({ icon, label, active = false, onClick }) => (
     onClick={onClick}
     className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-[0.15em] transition-all relative group cursor-pointer mb-1 ${
       active 
-        ? "bg-[#161B26] text-white shadow-lg border border-slate-700/50" 
+        ? "bg-slate-800 text-slate-100 shadow-lg border border-slate-700" 
         : "text-slate-500 hover:text-slate-200 hover:bg-white/5 border border-transparent"
     } group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0`}
   >
@@ -40,12 +40,12 @@ export const CustomSidebar = () => {
 
   return (
     /* Background set to #090E1A to match the activity log cards exactly */
-    <Sidebar className="!bg-[#090E1A] border-r border-slate-900 shadow-2xl" collapsible="icon">
+    <Sidebar className="!bg-slate-900 border-r border-slate-800 shadow-2xl" collapsible="icon">
       
       <SidebarHeader className="p-6 flex flex-col items-center !bg-transparent pt-12 group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:pt-10">
         <div className="relative group cursor-pointer mb-3">
           <div className="absolute -inset-2 bg-slate-500/5 rounded-full blur-xl group-hover:bg-slate-500/10 transition"></div>
-          <Avatar className="h-14 w-14 group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10 border border-slate-800 relative bg-[#020617] shadow-2xl transition-all">
+          <Avatar className="h-14 w-14 group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10 border border-slate-800 relative bg-slate-950 shadow-2xl transition-all">
             <AvatarFallback className="bg-transparent text-slate-500">
               <UserCircle className="w-10 h-10 group-data-[collapsible=icon]:w-6 group-data-[collapsible=icon]:h-6" />
             </AvatarFallback>
@@ -97,7 +97,7 @@ export const CustomSidebar = () => {
         </div>
       </SidebarContent>
 
-      <SidebarFooter className="p-4 !bg-transparent border-t border-slate-900 group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:py-6">
+      <SidebarFooter className="p-4 !bg-transparent border-t border-slate-800 group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:py-6">
         <Button 
           variant="ghost" 
           onClick={() => navigate("/login")}

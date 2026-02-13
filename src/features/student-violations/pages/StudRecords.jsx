@@ -19,13 +19,13 @@ import {
 // Enforced Dark Theme CSS
 const GRID_STYLE_OVERRIDES = `
   .ag-theme-quartz-dark {
-    --ag-background-color: #090E1A !important;
-    --ag-header-background-color: #161B26 !important;
+    --ag-background-color: #0f172a !important;
+    --ag-header-background-color: #1e293b !important;
     --ag-border-color: #1e293b !important;
     --ag-header-foreground-color: #94a3b8 !important;
     --ag-foreground-color: #ffffff !important; 
     --ag-row-hover-color: #1e293b !important;
-    --ag-odd-row-background-color: #090E1A !important;
+    --ag-odd-row-background-color: #0f172a !important;
   }
   .ag-theme-quartz-dark .ag-header-cell-label {
     font-size: 11px;
@@ -42,7 +42,7 @@ const GRID_STYLE_OVERRIDES = `
   }
   /* Remove the white zebra bars from your screenshot */
   .ag-theme-quartz-dark .ag-row {
-    background-color: #090E1A !important;
+    background-color: #0f172a !important;
   }
 `;
 
@@ -91,10 +91,10 @@ const StudRecords = () => {
   ], []);
 
   return (
-    <div className="flex flex-col h-full bg-[#020617] min-h-screen text-left">
+    <div className="flex flex-col h-full bg-slate-950 min-h-screen text-left">
       {/* HEADER: bg color #090E1A matched */}
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-slate-800/60 px-6 bg-[#090E1A] z-20">
-        <SidebarTrigger className="text-slate-400 hover:text-white transition-colors p-2 hover:bg-slate-800 rounded-md scale-90" />
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-slate-800 px-6 bg-slate-900/50 z-20">
+        <SidebarTrigger className="text-slate-400 hover:text-slate-100 transition-colors p-2 hover:bg-slate-800 rounded-md scale-90" />
         <Separator orientation="vertical" className="mx-1 h-3 bg-slate-800" />
         <Breadcrumb>
           <BreadcrumbList>
@@ -107,7 +107,7 @@ const StudRecords = () => {
             </BreadcrumbItem>
             <BreadcrumbSeparator className="text-slate-800" />
             <BreadcrumbItem>
-              <BreadcrumbPage className="text-white font-bold text-sm tracking-tight uppercase">Student Record</BreadcrumbPage>
+              <BreadcrumbPage className="text-slate-100 font-bold text-sm tracking-tight uppercase">Student Record</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
@@ -117,7 +117,7 @@ const StudRecords = () => {
         {/* Title Section aligned to pt-10 */}
         <div className="flex justify-between items-end mb-6">
           <div className="flex flex-col">
-            <h1 className="text-4xl font-black text-white tracking-tighter uppercase leading-none">STUDENT DATABASE</h1>
+            <h1 className="text-4xl font-black text-slate-100 tracking-tighter uppercase leading-none">STUDENT DATABASE</h1>
             <div className="flex items-center gap-3 mt-3">
               <div className="h-[2px] w-8 bg-slate-600" />
               <p className="text-slate-500 text-[11px] font-black tracking-[0.3em] uppercase">Academic Year 2025-2026</p>
@@ -136,7 +136,7 @@ const StudRecords = () => {
         </div>
 
         {/* The Card Surface using #090E1A */}
-        <Card className="bg-[#090E1A] border-slate-800 flex flex-col rounded-2xl overflow-hidden shadow-2xl">
+        <Card className="bg-slate-900 border-slate-800 flex flex-col rounded-2xl overflow-hidden shadow-2xl">
           <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-900/20">
             <h3 className="text-sm font-bold text-slate-100 uppercase tracking-widest flex items-center gap-2">
               <GraduationCap className="h-4 w-4 text-slate-500" /> Enrollment Registry
@@ -145,7 +145,7 @@ const StudRecords = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
               <Input 
                 placeholder="Search..." 
-                className="pl-10 bg-[#020617] border-slate-800 text-white text-sm h-10 rounded-xl"
+                className="pl-10 bg-slate-950 border-slate-800 text-slate-100 text-sm h-10 rounded-xl"
                 onChange={(e) => gridApi?.setQuickFilter(e.target.value)}
               />
             </div>
@@ -173,10 +173,10 @@ const StudRecords = () => {
 
 function QuickStat({ title, value, icon: Icon, color }) {
   return (
-    <div className="bg-[#090E1A] border border-slate-800 p-5 rounded-2xl flex items-center justify-between transition-all hover:scale-[1.01]">
+    <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex items-center justify-between transition-all hover:scale-[1.01]">
       <div className="space-y-1">
         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{title}</p>
-        <p className="text-2xl font-black text-white leading-none mt-1">{value}</p>
+        <p className="text-2xl font-black text-slate-100 leading-none mt-1">{value}</p>
       </div>
       <div className={`p-2.5 rounded-lg bg-slate-950/40 border border-slate-800 ${color}`}><Icon size={22} /></div>
     </div>

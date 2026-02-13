@@ -24,11 +24,11 @@ const ReportOption = ({ icon: Icon, title, description, active, onClick }) => (
     onClick={onClick}
     className={`flex items-start gap-4 p-5 rounded-2xl border transition-all text-left w-full ${
       active 
-        ? "bg-[#161B26] border-slate-500 shadow-xl" 
+        ? "bg-slate-800 border-slate-500 shadow-xl" 
         : "bg-slate-900/40 border-slate-800 hover:border-slate-700"
     }`}
   >
-    <div className={`p-2.5 rounded-xl ${active ? "bg-blue-600 text-white" : "bg-slate-950/50 text-slate-500 border border-slate-800"}`}>
+    <div className={`p-2.5 rounded-xl ${active ? "bg-blue-600 text-slate-100" : "bg-slate-950/50 text-slate-500 border border-slate-800"}`}>
       <Icon size={20} />
     </div>
     <div>
@@ -44,10 +44,10 @@ const GenerateReport = () => {
   const [selectedType, setSelectedType] = useState("violations");
 
   return (
-    <div className="flex flex-col h-full bg-[#020617]">
+    <div className="flex flex-col h-full bg-slate-950">
       {/* Updated Header with specific pathing */}
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-slate-800/60 px-6 bg-slate-950/40 backdrop-blur-xl z-20">
-        <SidebarTrigger className="text-slate-400 hover:text-white p-2 hover:bg-slate-800 rounded-md scale-90" />
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-slate-800 px-6 bg-slate-900/50 backdrop-blur-xl z-20">
+        <SidebarTrigger className="text-slate-400 hover:text-slate-100 p-2 hover:bg-slate-800 rounded-md scale-90" />
         <Separator orientation="vertical" className="mx-1 h-3 bg-slate-800" />
         <Breadcrumb>
           <BreadcrumbList>
@@ -60,7 +60,7 @@ const GenerateReport = () => {
             </BreadcrumbItem>
             <BreadcrumbSeparator className="text-slate-800" />
             <BreadcrumbItem>
-              <BreadcrumbPage className="text-white font-bold text-sm tracking-tight uppercase">Reports</BreadcrumbPage>
+              <BreadcrumbPage className="text-slate-100 font-bold text-sm tracking-tight uppercase">Reports</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
@@ -68,7 +68,7 @@ const GenerateReport = () => {
 
       <div className="flex-1 p-6 lg:p-10 space-y-8 overflow-y-auto no-scrollbar relative">
         <header className="mb-10 text-left shrink-0">
-          <h1 className="text-4xl font-black tracking-tight text-white mb-1 uppercase leading-none">GENERATE EXPORT</h1>
+          <h1 className="text-4xl font-black tracking-tight text-slate-100 mb-1 uppercase leading-none">GENERATE EXPORT</h1>
           <div className="flex items-center gap-3 mt-3">
             <div className="h-[2px] w-8 bg-slate-600" />
             <p className="text-slate-500 font-black tracking-[0.3em] text-[11px] uppercase">Data Analytics & Archiving</p>
@@ -115,11 +115,11 @@ const GenerateReport = () => {
               </div>
             </section>
 
-            <Separator className="bg-slate-800/60" />
+            <Separator className="bg-slate-800" />
 
-            <div className="flex items-center justify-between p-8 rounded-[2rem] bg-[#0f172a] border border-slate-800 shadow-2xl">
+            <div className="flex items-center justify-between p-8 rounded-[2rem] bg-slate-900 border border-slate-800 shadow-2xl">
               <div>
-                <h4 className="text-base font-black text-white uppercase tracking-tight">System Ready</h4>
+                <h4 className="text-base font-black text-slate-100 uppercase tracking-tight">System Ready</h4>
                 <p className="text-[11px] text-slate-500 font-bold mt-1 uppercase tracking-widest">Estimated Records: 1,420</p>
               </div>
               <Button className="bg-blue-600 hover:bg-blue-700 text-white font-black text-xs h-14 px-10 rounded-2xl shadow-lg shadow-blue-900/20 transition-all active:scale-95">
@@ -130,8 +130,8 @@ const GenerateReport = () => {
 
           {/* PREVIEW COLUMN */}
           <div className="lg:col-span-5">
-            <Card className="bg-slate-900/40 border-slate-800/60 backdrop-blur-md h-full rounded-[2.5rem] overflow-hidden shadow-2xl">
-              <div className="p-6 border-b border-slate-800/60 bg-slate-900/20 flex items-center justify-between">
+            <Card className="bg-slate-900/50 border-slate-800 backdrop-blur-md h-full rounded-[2.5rem] overflow-hidden shadow-2xl">
+              <div className="p-6 border-b border-slate-800 bg-slate-900/20 flex items-center justify-between">
                 <span className="text-[11px] font-bold text-slate-600 uppercase tracking-widest">Document Preview</span>
                 <div className="flex gap-2">
                   <div className="w-2 h-2 rounded-full bg-slate-800" />
@@ -142,7 +142,7 @@ const GenerateReport = () => {
               <CardContent className="p-8 flex flex-col items-center justify-center text-center h-[500px]">
                 <div className="w-32 h-44 border border-slate-800 border-dashed rounded-2xl flex items-center justify-center mb-8 relative group cursor-pointer hover:border-slate-500 transition-all bg-slate-950/40">
                   <FileText className="text-slate-800 group-hover:text-slate-500 transition-colors" size={60} />
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-[#020617]/60 backdrop-blur-[4px] rounded-2xl">
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-slate-950/60 backdrop-blur-[4px] rounded-2xl">
                      <Share2 className="text-white" size={32} />
                   </div>
                 </div>
