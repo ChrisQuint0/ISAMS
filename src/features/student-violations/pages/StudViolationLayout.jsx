@@ -18,7 +18,7 @@ const NavItem = ({ icon, label, active = false, onClick }) => (
     onClick={onClick}
     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[12px] font-black uppercase tracking-wider transition-all relative group cursor-pointer ${
       active
-        ? "bg-[#161B26] text-white shadow-lg shadow-black/40" 
+        ? "bg-slate-800 text-slate-100 shadow-lg shadow-black/40" 
         : "text-slate-500 hover:text-slate-200 hover:bg-white/5"
     } group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0`}
   >
@@ -44,18 +44,18 @@ export default function StudViolationLayout() {
       {/* 1. 'dark' class is REQUIRED to stop shadcn from turning white.
           2. Forced background to #020617 to match image_a5be9d.png 
       */}
-      <div className="dark flex h-screen w-full bg-[#020617] text-slate-200 overflow-hidden select-none font-sans">
+      <div className="dark flex h-screen w-full bg-slate-950 text-slate-200 overflow-hidden select-none font-sans">
         
         {/* SIDEBAR: Set to #090E1A to match the specific card tone in image_a614f5.png 
         */}
         <Sidebar
-          className="!bg-[#090E1A] !border-r !border-slate-900 shadow-2xl"
+          className="!bg-slate-900 !border-r !border-slate-800 shadow-2xl"
           collapsible="icon"
         >
-          <SidebarHeader className="p-6 flex flex-col items-center !bg-[#090E1A] pt-12 group-data-[collapsible=icon]:pt-10">
+          <SidebarHeader className="p-6 flex flex-col items-center !bg-slate-900 pt-12 group-data-[collapsible=icon]:pt-10">
             <div className="relative group cursor-pointer mb-3">
               <div className="absolute -inset-2 bg-slate-500/10 rounded-full blur-xl group-hover:bg-slate-500/20 transition"></div>
-              <Avatar className="h-14 w-14 border border-slate-800 relative bg-[#020617] shadow-2xl">
+              <Avatar className="h-14 w-14 border border-slate-800 relative bg-slate-950 shadow-2xl">
                 <AvatarFallback className="bg-transparent text-slate-500">
                   <UserCircle className="w-10 h-10" />
                 </AvatarFallback>
@@ -66,7 +66,7 @@ export default function StudViolationLayout() {
             </span>
           </SidebarHeader>
 
-          <SidebarContent className="px-4 flex flex-col gap-2 !bg-[#090E1A] group-data-[collapsible=icon]:px-0">
+          <SidebarContent className="px-4 flex flex-col gap-2 !bg-slate-900 group-data-[collapsible=icon]:px-0">
             <NavItem
               icon={<LayoutDashboard size={18} />}
               label="Dashboard"
@@ -99,7 +99,7 @@ export default function StudViolationLayout() {
             />
           </SidebarContent>
 
-          <SidebarFooter className="p-4 !bg-[#090E1A] border-t border-slate-900 group-data-[collapsible=icon]:py-6">
+          <SidebarFooter className="p-4 !bg-slate-900 border-t border-slate-800 group-data-[collapsible=icon]:py-6">
             <Button
               variant="ghost"
               onClick={() => navigate("/login")}
@@ -115,7 +115,7 @@ export default function StudViolationLayout() {
 
         {/* MAIN CONTENT: Set to deepest background #020617 
         */}
-        <main className="flex-1 flex flex-col min-w-0 bg-[#020617] relative">
+        <main className="flex-1 flex flex-col min-w-0 bg-slate-950 relative">
           <Outlet />
         </main>
       </div>

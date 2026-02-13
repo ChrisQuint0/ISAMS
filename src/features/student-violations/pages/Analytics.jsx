@@ -19,7 +19,7 @@ import {
 
 const AnalyticsCard = ({ title, value, trend, isUp, icon: Icon }) => (
   /* Matching the high-density card style from the Faculty Module */
-  <Card className="bg-[#0f172a66] border-slate-800/60 backdrop-blur-md rounded-2xl overflow-hidden relative group transition-all hover:scale-[1.02]">
+  <Card className="bg-slate-900 border-slate-800 backdrop-blur-md rounded-2xl overflow-hidden relative group transition-all hover:scale-[1.02]">
     <CardContent className="p-6">
       <div className="flex justify-between items-start mb-4">
         <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">{title}</p>
@@ -28,7 +28,7 @@ const AnalyticsCard = ({ title, value, trend, isUp, icon: Icon }) => (
         </div>
       </div>
       <div className="flex items-end justify-between">
-        <h3 className="text-3xl font-black text-white tracking-tighter leading-none">{value}</h3>
+        <h3 className="text-3xl font-black text-slate-100 tracking-tighter leading-none">{value}</h3>
         <div className={`flex items-center gap-1 text-[11px] font-bold ${isUp ? 'text-emerald-500' : 'text-rose-500'}`}>
           {isUp ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
           {trend}
@@ -40,10 +40,10 @@ const AnalyticsCard = ({ title, value, trend, isUp, icon: Icon }) => (
 
 const Analytics = () => {
   return (
-    <div className="flex flex-col h-full bg-[#020617]">
+    <div className="flex flex-col h-full bg-slate-950">
       {/* Updated Header with specific pathing */}
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-slate-800/60 px-6 bg-slate-950/40 backdrop-blur-xl z-20">
-        <SidebarTrigger className="text-slate-400 hover:text-white p-2 hover:bg-slate-800 rounded-md scale-90" />
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-slate-800 px-6 bg-slate-900/50 backdrop-blur-xl z-20">
+        <SidebarTrigger className="text-slate-400 hover:text-slate-100 p-2 hover:bg-slate-800 rounded-md scale-90" />
         <Separator orientation="vertical" className="mx-1 h-3 bg-slate-800" />
         <Breadcrumb>
           <BreadcrumbList>
@@ -56,7 +56,7 @@ const Analytics = () => {
             </BreadcrumbItem>
             <BreadcrumbSeparator className="text-slate-800" />
             <BreadcrumbItem>
-              <BreadcrumbPage className="text-white font-bold text-sm tracking-tight uppercase">Analytics</BreadcrumbPage>
+              <BreadcrumbPage className="text-slate-100 font-bold text-sm tracking-tight uppercase">Analytics</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
@@ -64,7 +64,7 @@ const Analytics = () => {
 
       <div className="flex-1 p-6 lg:p-10 space-y-8 overflow-y-auto no-scrollbar relative">
         <header className="mb-10 text-left shrink-0">
-          <h1 className="text-4xl font-black tracking-tight text-white mb-1 uppercase leading-none">SYSTEM ANALYTICS</h1>
+          <h1 className="text-4xl font-black tracking-tight text-slate-100 mb-1 uppercase leading-none">SYSTEM ANALYTICS</h1>
           <div className="flex items-center gap-3 mt-3">
             <div className="h-[2px] w-8 bg-slate-600" />
             <p className="text-slate-500 font-black tracking-[0.3em] text-[11px] uppercase">Statistical Insights & Trends</p>
@@ -80,8 +80,8 @@ const Analytics = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-10">
           {/* WEEKLY TREND CHART */}
-          <Card className="lg:col-span-2 bg-[#0f172a66] border-slate-800/60 backdrop-blur-md rounded-[2rem] overflow-hidden">
-            <CardHeader className="p-6 border-b border-slate-800/60 bg-slate-900/20">
+          <Card className="lg:col-span-2 bg-slate-900 border-slate-800 backdrop-blur-md rounded-[2rem] overflow-hidden">
+            <CardHeader className="p-6 border-b border-slate-800 bg-slate-900/20">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-bold text-slate-100 uppercase tracking-widest flex items-center gap-2">
                   <TrendingUp size={16} className="text-slate-400" /> Weekly Frequency
@@ -109,8 +109,8 @@ const Analytics = () => {
           </Card>
 
           {/* TOP OFFENSES CATEGORIES */}
-          <Card className="bg-[#0f172a66] border-slate-800/60 backdrop-blur-md rounded-[2rem] overflow-hidden">
-            <CardHeader className="p-6 border-b border-slate-800/60 bg-slate-900/20">
+          <Card className="bg-slate-900 border-slate-800 backdrop-blur-md rounded-[2rem] overflow-hidden">
+            <CardHeader className="p-6 border-b border-slate-800 bg-slate-900/20">
               <CardTitle className="text-sm font-bold text-slate-100 uppercase tracking-widest flex items-center gap-2">
                 <ShieldAlert size={16} className="text-rose-500" /> Priority Alerts
               </CardTitle>
@@ -125,7 +125,7 @@ const Analytics = () => {
                 <div key={i} className="space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="text-[11px] font-black text-slate-400 uppercase tracking-tight">{item.label}</span>
-                    <span className="text-[12px] font-black text-white">{item.count}</span>
+                    <span className="text-[12px] font-black text-slate-100">{item.count}</span>
                   </div>
                   <div className="h-2 w-full bg-slate-950/60 rounded-full overflow-hidden border border-slate-800/50">
                     <div 
