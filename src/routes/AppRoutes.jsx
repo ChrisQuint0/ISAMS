@@ -27,7 +27,8 @@ import LabSettings from "@/features/lab-monitoring/pages/LabSettings";
 import Kiosk from "@/features/lab-monitoring/pages/Kiosk";
 import Success from "@/features/lab-monitoring/pages/Success";
 
-import { AdminAppRoutes } from "./faculty-requirements/AdminAppRoutes"; 
+import { AdminAppRoutes } from "./faculty-requirements/AdminAppRoutes";
+import { StudViolationAppRoutes } from "./student-violation/StudViolationAppRoutes";
 
 // Protected Route wrapper
 function ProtectedRoute({ children }) {
@@ -78,20 +79,7 @@ export function AppRoutes() {
         {AdminAppRoutes}
 
         {/* STUDENT VIOLATIONS MODULE */}
-        <Route
-          element={
-            <ProtectedRoute>
-              <StudViolationLayout />
-            </ProtectedRoute>
-          }
-        >
-          {/* These paths render inside StudViolationLayout's <Outlet /> */}
-          <Route path="/student-violations" element={<StudViolationDashboard />} />
-          <Route path="/students" element={<StudRecords />} />
-          <Route path="/violations" element={<StudViolations />} />
-          <Route path="/generate-report" element={<GenerateReport />} />
-          <Route path="/analytics" element={<Analytics />} />
-        </Route>
+        {StudViolationAppRoutes}
 
         {/* LABORATORY MANAGEMENT MODULE */}
         {LaboratoryRoutes(ProtectedRoute)}
