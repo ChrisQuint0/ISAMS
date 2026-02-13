@@ -1,16 +1,25 @@
 import { Route, Navigate } from "react-router-dom";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import ThesisArchivingPage from "@/features/thesis-archiving/pages/ThesisArchivingPage";
 import ThesisArchivingDashboardPage from "@/features/thesis-archiving/pages/ThesisArchivingDashboardPage";
 import DigitalRepositoryPage from "@/features/thesis-archiving/pages/DigitalRepositoryPage";
 import SimilarityCheckPage from "@/features/thesis-archiving/pages/SimilarityCheckPage";
 
-export const ThesisArchivingRoutes = (ProtectedRoute) => (
+const ThesisProtectedRoute = ({ children }) => {
+    const { user } = useAuth();
+    if (!user) {
+        return <Navigate to="/login" replace />;
+    }
+    return children;
+};
+
+export const ThesisArchivingRoutes = () => (
     <>
         <Route
             element={
-                <ProtectedRoute>
+                <ThesisProtectedRoute>
                     <ThesisArchivingPage />
-                </ProtectedRoute>
+                </ThesisProtectedRoute>
             }
         >
             <Route path="/thesis-archiving" element={<Navigate to="/thesis-archiving/dashboard" replace />} />
