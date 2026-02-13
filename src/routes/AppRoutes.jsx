@@ -2,11 +2,11 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import LoginPage from "@/features/auth/pages/LoginPage";
 import DashboardPage from "@/features/dashboard/pages/DashboardPage";
-import ThesisArchivingPage from "@/features/thesis-archiving/pages/ThesisArchivingPage";
 import ClassManagementPage from "@/features/class-management/pages/ClassManagementPage";
 
 import { AdminAppRoutes } from "./faculty-requirements/AdminAppRoutes"; // Import the admin routes for faculty requirements
 import { LaboratoryRoutes } from "./laboratory-management/LaboratoryRoutes";
+import { ThesisArchivingRoutes } from "./thesis-archiving/ThesisArchivingRoutes";
 
 // Protected Route wrapper
 function ProtectedRoute({ children }) {
@@ -54,15 +54,8 @@ export function AppRoutes() {
           }
         />
 
-        {/* Module Routes */}
-        <Route
-          path="/thesis-archiving"
-          element={
-            <ProtectedRoute>
-              <ThesisArchivingPage />
-            </ProtectedRoute>
-          }
-        />
+        {/* Thesis Archiving Module Routes */}
+        {ThesisArchivingRoutes(ProtectedRoute)}
 
         {/* Faculty Requirements Module Routes */}
         {AdminAppRoutes}
