@@ -1,7 +1,7 @@
 import React from "react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { Settings, Search, Filter, Plus } from "lucide-react";
+import { Search, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
     Select,
@@ -10,25 +10,12 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { ThesisArchivingHeader } from "../components/ThesisArchivingHeader";
 
 export default function DigitalRepositoryPage() {
     return (
         <div className="flex flex-col min-h-screen w-full bg-slate-950">
-            {/* Header */}
-            <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b border-slate-800 bg-slate-900/95 backdrop-blur supports-[backdrop-filter]:bg-slate-900/60 px-4">
-                <div className="flex items-center gap-2 flex-1">
-                    <SidebarTrigger className="text-slate-400 hover:text-slate-300 hover:bg-slate-800" />
-                    <div className="h-6 w-px bg-slate-800" />
-                    <h1 className="text-xl font-semibold text-slate-100">Digital Repository</h1>
-                </div>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-slate-400 hover:text-slate-100 hover:bg-slate-800"
-                >
-                    <Settings className="h-5 w-5" />
-                </Button>
-            </header>
+            <ThesisArchivingHeader title="Digital Repository" />
 
             {/* Main Content */}
             <main className="flex-1 p-6">
