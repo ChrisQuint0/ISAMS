@@ -17,6 +17,8 @@ import Kiosk from "@/features/lab-monitoring/pages/Kiosk";
 import Success from "@/features/lab-monitoring/pages/Success";
 
 import { AdminAppRoutes } from "./faculty-requirements/AdminAppRoutes"; // Import the admin routes for faculty requirements
+import { FacultyAppRoutes } from "./faculty-requirements/FacultyAppRoutes"; // Import the faculty routes
+import RoleSelectionPage from "@/features/faculty-requirements/pages/RoleSelectionPage";
 
 // Protected Route wrapper
 function ProtectedRoute({ children }) {
@@ -75,7 +77,16 @@ export function AppRoutes() {
         />
 
         {/* Faculty Requirements Module Routes */}
+        <Route
+          path="/faculty-requirements"
+          element={
+            <ProtectedRoute>
+              <RoleSelectionPage />
+            </ProtectedRoute>
+          }
+        />
         {AdminAppRoutes}
+        {FacultyAppRoutes}
 
         <Route
           path="/class-management"
