@@ -1,7 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { AgGridReact } from 'ag-grid-react';
-import "ag-grid-community/styles/ag-grid.css";
-import "ag-grid-community/styles/ag-theme-quartz.css";
+import { ModuleRegistry, AllCommunityModule, themeQuartz } from 'ag-grid-community';
+
+// Register AG Grid modules
+ModuleRegistry.registerModules([AllCommunityModule]);
 import {
   Edit, CalendarCheck, CalendarPlus, Clock, Trash2, Calendar, RefreshCw, AlertCircle,
   RotateCcw, CheckCircle, ArrowRight, X
@@ -18,33 +20,18 @@ import { Badge } from "@/components/ui/badge";
 // Hook
 import { useAdminDeadlines } from '../hooks/AdminDeadlineHook';
 
-// --- STYLES INJECTION ---
-const CUSTOM_GRID_STYLES = `
-  .ag-theme-quartz {
-    --ag-background-color: #0f172a;
-    --ag-border-color: #1e293b;
-    --ag-header-background-color: #1e293b;
-    --ag-header-foreground-color: #94a3b8;
-    --ag-odd-row-background-color: #0f172a;
-    --ag-row-hover-color: #1e293b;
-    --ag-input-focus-border-color: #3b82f6;
-  }
-  .ag-theme-quartz .ag-header-cell {
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-weight: 600;
-  }
-  .ag-theme-quartz .ag-cell {
-    display: flex;
-    align-items: center;
-    font-size: 14px;
-    color: #e2e8f0;
-  }
-  .ag-theme-quartz .ag-row {
-    border-bottom: 1px solid #1e293b;
-  }
-`;
+// Custom theme using AG Grid v33+ Theming API
+const customTheme = themeQuartz.withParams({
+  accentColor: '#3b82f6',
+  backgroundColor: '#0f172a',
+  foregroundColor: '#e2e8f0',
+  borderColor: '#1e293b',
+  headerBackgroundColor: '#1e293b',
+  headerTextColor: '#94a3b8',
+  oddRowBackgroundColor: '#0f172a',
+  rowHoverColor: '#1e293b',
+  inputFocusBorderColor: '#3b82f6',
+});
 
 export default function AdminDeadlinePage() {
   const {
@@ -55,7 +42,7 @@ export default function AdminDeadlinePage() {
   // Separate states for Create and Edit to prevent conflicts
   const [newDeadline, setNewDeadline] = useState(initialFormState());
   const [editingDeadline, setEditingDeadline] = useState(null);
-  
+
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [bulkGraceOpen, setBulkGraceOpen] = useState(false);
   const [bulkGraceDays, setBulkGraceDays] = useState(3);
@@ -70,19 +57,10 @@ export default function AdminDeadlinePage() {
     };
   }
 
-  // Inject Grid Styles
-  useEffect(() => {
-    const styleEl = document.createElement('style');
-    styleEl.innerHTML = CUSTOM_GRID_STYLES;
-    document.head.appendChild(styleEl);
-    return () => {
-      document.head.removeChild(styleEl);
-    };
-  }, []);
 
   // --- Calculations ---
-  const completionRate = stats.total_submissions > 0 
-    ? Math.round((stats.on_time / stats.total_submissions) * 100) 
+  const completionRate = stats.total_submissions > 0
+    ? Math.round((stats.on_time / stats.total_submissions) * 100)
     : 0;
 
   const upcomingDeadlines = useMemo(() => {
@@ -141,36 +119,36 @@ export default function AdminDeadlinePage() {
 
   const handleBulkClick = (action) => {
     if (action === 'EXTEND') {
-       if (window.confirm("Are you sure? This will extend ALL active deadlines by 7 days.")) {
-         handleBulkAction('EXTEND', 7);
-       }
+      if (window.confirm("Are you sure? This will extend ALL active deadlines by 7 days.")) {
+        handleBulkAction('EXTEND', 7);
+      }
     } else if (action === 'GRACE') {
-       setBulkGraceOpen(true);
+      setBulkGraceOpen(true);
     } else if (action === 'RESET') {
-       if (window.confirm("Reset all deadlines to default semester schedule?")) {
-         // handleBulkAction('RESET'); 
-         alert("Reset functionality triggered.");
-       }
+      if (window.confirm("Reset all deadlines to default semester schedule?")) {
+        // handleBulkAction('RESET'); 
+        alert("Reset functionality triggered.");
+      }
     }
   };
 
   // Grid Config
   const colDefs = useMemo(() => [
-    { 
-      field: "doc_type_name", 
-      headerName: "Document Type", 
+    {
+      field: "doc_type_name",
+      headerName: "Document Type",
       flex: 1.5,
       cellClass: "font-medium text-slate-200"
     },
-    { 
-      field: "semester", 
-      headerName: "Semester", 
+    {
+      field: "semester",
+      headerName: "Semester",
       width: 120,
       cellClass: "text-slate-400"
     },
-    { 
-      field: "deadline_date", 
-      headerName: "Due Date", 
+    {
+      field: "deadline_date",
+      headerName: "Due Date",
       flex: 1,
       cellRenderer: (p) => (
         <span className="font-mono text-slate-200 text-xs bg-slate-800 px-2 py-1 rounded border border-slate-700">
@@ -178,15 +156,15 @@ export default function AdminDeadlinePage() {
         </span>
       )
     },
-    { 
-      field: "status", 
-      headerName: "Status", 
+    {
+      field: "status",
+      headerName: "Status",
       width: 120,
       cellRenderer: (p) => {
         const styles = {
-           'Active': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-           'Upcoming': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-           'Passed': 'bg-slate-800 text-slate-500 border-slate-700'
+          'Active': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+          'Upcoming': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+          'Passed': 'bg-slate-800 text-slate-500 border-slate-700'
         };
         return (
           <span className={`px-2 py-1 rounded text-[10px] uppercase font-bold border ${styles[p.value] || styles['Passed']}`}>
@@ -201,20 +179,20 @@ export default function AdminDeadlinePage() {
       width: 100,
       cellRenderer: (params) => (
         <div className="flex gap-1">
-          <Button 
-            size="icon" 
-            variant="ghost" 
+          <Button
+            size="icon"
+            variant="ghost"
             className="h-7 w-7 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
             onClick={() => openEditDialog(params.data)}
           >
             <Edit className="h-3.5 w-3.5" />
           </Button>
-          <Button 
-            size="icon" 
-            variant="ghost" 
+          <Button
+            size="icon"
+            variant="ghost"
             className="h-7 w-7 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
-            onClick={() => { 
-               if(window.confirm("Delete this deadline permanently?")) deleteDeadline(params.value); 
+            onClick={() => {
+              if (window.confirm("Delete this deadline permanently?")) deleteDeadline(params.value);
             }}
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -232,14 +210,14 @@ export default function AdminDeadlinePage() {
           <h1 className="text-2xl font-bold text-slate-100">Deadline Management</h1>
           <p className="text-slate-400 text-sm">Configure submission schedules and grace periods</p>
         </div>
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           size="sm"
-          onClick={refresh} 
+          onClick={refresh}
           disabled={loading}
           className="bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
         >
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> 
+          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
           Refresh Data
         </Button>
       </div>
@@ -262,44 +240,44 @@ export default function AdminDeadlinePage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 shrink-0">
-        <StatCard 
-          title="Active Deadlines" 
-          value={deadlines.filter(d => d.is_active).length} 
-          icon={Calendar} 
-          color="text-blue-400" 
+        <StatCard
+          title="Active Deadlines"
+          value={deadlines.filter(d => d.is_active).length}
+          icon={Calendar}
+          color="text-blue-400"
           bg="bg-blue-500/10"
           border="border-blue-500/20"
         />
-        <StatCard 
-          title="Completion Rate" 
-          value={`${completionRate}%`} 
-          icon={CheckCircle} 
-          color="text-emerald-400" 
+        <StatCard
+          title="Completion Rate"
+          value={`${completionRate}%`}
+          icon={CheckCircle}
+          color="text-emerald-400"
           bg="bg-emerald-500/10"
           border="border-emerald-500/20"
         />
-        <StatCard 
-          title="Next Deadline" 
-          value={stats.next_deadline_type || 'None'} 
+        <StatCard
+          title="Next Deadline"
+          value={stats.next_deadline_type || 'None'}
           sub={stats.days_left ? `${stats.days_left} days left` : ''}
-          icon={Clock} 
-          color="text-amber-400" 
+          icon={Clock}
+          color="text-amber-400"
           bg="bg-amber-500/10"
           border="border-amber-500/20"
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
-        
+
         {/* LEFT COLUMN: Table + Form */}
         <div className="lg:col-span-2 flex flex-col gap-6 min-h-0">
-          
+
           {/* Create New Deadline Form */}
           <Card className="bg-slate-900 border-slate-800 shadow-none shrink-0">
             <CardHeader className="border-b border-slate-800 py-3">
               <div className="flex items-center gap-2">
                 <div className="bg-blue-600/20 p-1.5 rounded text-blue-400">
-                    <CalendarPlus className="h-4 w-4" />
+                  <CalendarPlus className="h-4 w-4" />
                 </div>
                 <CardTitle className="text-base text-slate-100">Set New Deadline</CardTitle>
               </div>
@@ -308,9 +286,9 @@ export default function AdminDeadlinePage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-slate-400 uppercase">Document Type</Label>
-                  <Select 
-                    value={newDeadline.doc_type_id} 
-                    onValueChange={(v) => setNewDeadline({...newDeadline, doc_type_id: v})}
+                  <Select
+                    value={newDeadline.doc_type_id}
+                    onValueChange={(v) => setNewDeadline({ ...newDeadline, doc_type_id: v })}
                   >
                     <SelectTrigger className="bg-slate-950/50 border-slate-700 text-slate-200 focus:ring-blue-500/20">
                       <SelectValue placeholder="Select type..." />
@@ -324,34 +302,34 @@ export default function AdminDeadlinePage() {
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-slate-400 uppercase">Due Date</Label>
-                  <Input 
-                    type="date" 
-                    value={newDeadline.deadline_date} 
-                    onChange={(e) => setNewDeadline({...newDeadline, deadline_date: e.target.value})}
+                  <Input
+                    type="date"
+                    value={newDeadline.deadline_date}
+                    onChange={(e) => setNewDeadline({ ...newDeadline, deadline_date: e.target.value })}
                     className="bg-slate-950/50 border-slate-700 text-slate-200 focus:border-blue-500"
                   />
                 </div>
-                
+
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-slate-400 uppercase">Grace Period (Days)</Label>
-                  <Input 
-                    type="number" 
-                    value={newDeadline.grace_period_days} 
-                    onChange={(e) => setNewDeadline({...newDeadline, grace_period_days: e.target.value})}
+                  <Input
+                    type="number"
+                    value={newDeadline.grace_period_days}
+                    onChange={(e) => setNewDeadline({ ...newDeadline, grace_period_days: e.target.value })}
                     min="0"
                     max="30"
                     className="bg-slate-950/50 border-slate-700 text-slate-200 focus:border-blue-500"
                   />
                 </div>
               </div>
-              
+
               <div className="flex justify-end">
-                <Button 
+                <Button
                   className="bg-blue-600 hover:bg-blue-700 text-white"
-                  onClick={handleCreateSubmit} 
+                  onClick={handleCreateSubmit}
                   disabled={loading || !newDeadline.doc_type_id}
                 >
                   Create Deadline
@@ -366,12 +344,13 @@ export default function AdminDeadlinePage() {
               <CardTitle className="text-base text-slate-100">Current Schedule</CardTitle>
             </CardHeader>
             <CardContent className="p-0 flex-1 relative">
-              <div className="absolute inset-0 ag-theme-quartz">
-                <AgGridReact 
-                  rowData={deadlines} 
-                  columnDefs={colDefs} 
-                  pagination={true} 
-                  paginationPageSize={10} 
+              <div className="absolute inset-0">
+                <AgGridReact
+                  theme={customTheme}
+                  rowData={deadlines}
+                  columnDefs={colDefs}
+                  pagination={true}
+                  paginationPageSize={10}
                   suppressCellFocus={true}
                 />
               </div>
@@ -381,7 +360,7 @@ export default function AdminDeadlinePage() {
 
         {/* RIGHT COLUMN: Sidebar Widgets */}
         <div className="flex flex-col gap-6">
-          
+
           {/* Upcoming Deadlines Widget */}
           <Card className="bg-slate-900 border-slate-800 shadow-none">
             <CardHeader className="border-b border-slate-800 py-3">
@@ -392,9 +371,9 @@ export default function AdminDeadlinePage() {
                 <div key={i} className="flex items-start pb-4 border-b border-slate-800 last:border-0 last:pb-0 last:pt-0 first:pt-0 mb-4 last:mb-0">
                   <div className="flex-shrink-0 mt-0.5">
                     <div className="w-8 h-8 rounded bg-slate-800 flex items-center justify-center text-slate-400">
-                        <span className="text-xs font-bold">
-                            {new Date(d.deadline_date).getDate()}
-                        </span>
+                      <span className="text-xs font-bold">
+                        {new Date(d.deadline_date).getDate()}
+                      </span>
                     </div>
                   </div>
                   <div className="ml-3 flex-1 min-w-0">
@@ -424,29 +403,29 @@ export default function AdminDeadlinePage() {
               <CardTitle className="text-base text-slate-100">Bulk Actions</CardTitle>
             </CardHeader>
             <CardContent className="pt-4 px-4 space-y-3">
-              <BulkBtn 
-                icon={CalendarPlus} 
-                label="Extend All" 
+              <BulkBtn
+                icon={CalendarPlus}
+                label="Extend All"
                 sub="+7 days to active items"
-                color="text-emerald-400" 
+                color="text-emerald-400"
                 bg="hover:bg-slate-800 border-slate-800"
-                onClick={() => handleBulkClick('EXTEND')} 
+                onClick={() => handleBulkClick('EXTEND')}
               />
-              <BulkBtn 
-                icon={Clock} 
-                label="Set Grace Period" 
+              <BulkBtn
+                icon={Clock}
+                label="Set Grace Period"
                 sub="Apply bulk grace days"
                 color="text-blue-400"
                 bg="hover:bg-slate-800 border-slate-800"
-                onClick={() => handleBulkClick('GRACE')} 
+                onClick={() => handleBulkClick('GRACE')}
               />
-              <BulkBtn 
-                icon={RotateCcw} 
-                label="Reset Semester" 
+              <BulkBtn
+                icon={RotateCcw}
+                label="Reset Semester"
                 sub="Restore default schedule"
                 color="text-amber-400"
                 bg="hover:bg-slate-800 border-slate-800"
-                onClick={() => handleBulkClick('RESET')} 
+                onClick={() => handleBulkClick('RESET')}
               />
             </CardContent>
           </Card>
@@ -462,51 +441,51 @@ export default function AdminDeadlinePage() {
               Update settings for {editingDeadline?.doc_type_name}
             </DialogDescription>
           </DialogHeader>
-          
+
           {editingDeadline && (
             <div className="space-y-4 py-4">
-               {/* Read-only Document Type field for context */}
-               <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-500 uppercase">Document</Label>
-                  <Input 
-                    value={editingDeadline.doc_type_name || ''} 
-                    disabled 
-                    className="bg-slate-950 border-slate-800 text-slate-400"
-                  />
-               </div>
+              {/* Read-only Document Type field for context */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-500 uppercase">Document</Label>
+                <Input
+                  value={editingDeadline.doc_type_name || ''}
+                  disabled
+                  className="bg-slate-950 border-slate-800 text-slate-400"
+                />
+              </div>
 
-               <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-400 uppercase">Due Date</Label>
-                    <Input 
-                      type="date" 
-                      value={editingDeadline.deadline_date} 
-                      onChange={(e) => setEditingDeadline({...editingDeadline, deadline_date: e.target.value})}
-                      className="bg-slate-800 border-slate-700 text-slate-200"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-400 uppercase">Grace Days</Label>
-                    <Input 
-                      type="number" 
-                      value={editingDeadline.grace_period_days} 
-                      onChange={(e) => setEditingDeadline({...editingDeadline, grace_period_days: e.target.value})}
-                      className="bg-slate-800 border-slate-700 text-slate-200"
-                    />
-                  </div>
-               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-400 uppercase">Due Date</Label>
+                  <Input
+                    type="date"
+                    value={editingDeadline.deadline_date}
+                    onChange={(e) => setEditingDeadline({ ...editingDeadline, deadline_date: e.target.value })}
+                    className="bg-slate-800 border-slate-700 text-slate-200"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-400 uppercase">Grace Days</Label>
+                  <Input
+                    type="number"
+                    value={editingDeadline.grace_period_days}
+                    onChange={(e) => setEditingDeadline({ ...editingDeadline, grace_period_days: e.target.value })}
+                    className="bg-slate-800 border-slate-700 text-slate-200"
+                  />
+                </div>
+              </div>
             </div>
           )}
-          
+
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button 
-                variant="outline"
-                onClick={() => setIsEditDialogOpen(false)}
-                className="bg-transparent border-slate-700 text-slate-300 hover:bg-slate-800"
+            <Button
+              variant="outline"
+              onClick={() => setIsEditDialogOpen(false)}
+              className="bg-transparent border-slate-700 text-slate-300 hover:bg-slate-800"
             >
-                Cancel
+              Cancel
             </Button>
-            <Button 
+            <Button
               className="bg-blue-600 hover:bg-blue-700 text-white"
               onClick={handleEditSubmit}
             >
@@ -522,15 +501,15 @@ export default function AdminDeadlinePage() {
           <DialogHeader>
             <DialogTitle className="text-slate-100">Bulk Grace Period</DialogTitle>
             <DialogDescription className="text-slate-400">
-                This will update the grace period for all currently active deadlines.
+              This will update the grace period for all currently active deadlines.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-3">
             <div className="space-y-2">
               <Label className="text-slate-300">Days</Label>
-              <Input 
-                type="number" 
-                value={bulkGraceDays} 
+              <Input
+                type="number"
+                value={bulkGraceDays}
                 onChange={(e) => setBulkGraceDays(e.target.value)}
                 min="0"
                 max="30"
@@ -539,18 +518,18 @@ export default function AdminDeadlinePage() {
             </div>
           </div>
           <DialogFooter>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="bg-transparent border-slate-700 text-slate-300 hover:bg-slate-800"
               onClick={() => setBulkGraceOpen(false)}
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               className="bg-blue-600 hover:bg-blue-700 text-white"
-              onClick={() => { 
-                handleBulkAction('GRACE', parseInt(bulkGraceDays)); 
-                setBulkGraceOpen(false); 
+              onClick={() => {
+                handleBulkAction('GRACE', parseInt(bulkGraceDays));
+                setBulkGraceOpen(false);
               }}
             >
               Apply to All
@@ -581,12 +560,12 @@ const StatCard = ({ title, value, sub, icon: Icon, color, bg, border }) => (
 );
 
 const BulkBtn = ({ icon: Icon, label, sub, color, bg, onClick }) => (
-  <button 
-    onClick={onClick} 
+  <button
+    onClick={onClick}
     className={`flex items-center w-full p-3 rounded-lg border transition-all text-left group ${bg}`}
   >
     <div className={`mr-3 p-1.5 rounded bg-slate-950/50 group-hover:bg-slate-950 transition-colors`}>
-        <Icon className={`h-4 w-4 ${color}`} /> 
+      <Icon className={`h-4 w-4 ${color}`} />
     </div>
     <div className="flex-1 min-w-0">
       <p className="text-sm font-medium text-slate-200 truncate">{label}</p>
