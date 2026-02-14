@@ -22,6 +22,8 @@ import Kiosk from "@/features/lab-monitoring/pages/Kiosk";
 import Success from "@/features/lab-monitoring/pages/Success";
 
 import { AdminAppRoutes } from "./faculty-requirements/AdminAppRoutes"; // Import the admin routes for faculty requirements
+import { FacultyAppRoutes } from "./faculty-requirements/FacultyAppRoutes"; // Import the faculty routes
+import RoleSelectionPage from "@/features/faculty-requirements/pages/RoleSelectionPage";
 import { LaboratoryRoutes } from "./laboratory-management/LaboratoryRoutes";
 import { ThesisArchivingRoutes } from "./thesis-archiving/ThesisArchivingRoutes";
 import { StudViolationAppRoutes } from "./student-violation/StudViolationAppRoutes";
@@ -72,7 +74,16 @@ export function AppRoutes() {
         {ThesisArchivingRoutes(ProtectedRoute)}
 
         {/* Faculty Requirements Module Routes */}
+        <Route
+          path="/faculty-requirements"
+          element={
+            <ProtectedRoute>
+              <RoleSelectionPage />
+            </ProtectedRoute>
+          }
+        />
         {AdminAppRoutes}
+        {FacultyAppRoutes}
 
         {/* STUDENT VIOLATIONS MODULE */}
         {StudViolationAppRoutes}
