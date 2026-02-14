@@ -1,4 +1,10 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  Outlet,
+} from "react-router-dom"; // Added Outlet
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import LoginPage from "@/features/auth/pages/LoginPage";
 import DashboardPage from "@/features/dashboard/pages/DashboardPage";
@@ -16,6 +22,10 @@ import Kiosk from "@/features/lab-monitoring/pages/Kiosk";
 import Success from "@/features/lab-monitoring/pages/Success";
 
 import { AdminAppRoutes } from "./faculty-requirements/AdminAppRoutes";
+
+import { AdminAppRoutes } from "./faculty-requirements/AdminAppRoutes"; // Import the admin routes for faculty requirements
+import { LaboratoryRoutes } from "./laboratory-management/LaboratoryRoutes";
+import { ThesisArchivingRoutes } from "./thesis-archiving/ThesisArchivingRoutes";
 import { StudViolationAppRoutes } from "./student-violation/StudViolationAppRoutes";
 
 // Protected Route wrapper
@@ -60,15 +70,8 @@ export function AppRoutes() {
           }
         />
 
-        {/* Module Routes */}
-        <Route
-          path="/thesis-archiving"
-          element={
-            <ProtectedRoute>
-              <ThesisArchivingPage />
-            </ProtectedRoute>
-          }
-        />
+        {/* Thesis Archiving Module Routes */}
+        {ThesisArchivingRoutes(ProtectedRoute)}
 
         {/* Faculty Requirements Module Routes */}
         {AdminAppRoutes}
@@ -110,6 +113,7 @@ export function AppRoutes() {
             </ProtectedRoute>
           }
         />
+        {LaboratoryRoutes(ProtectedRoute)}
 
         {/* Default redirect */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
