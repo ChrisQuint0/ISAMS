@@ -21,8 +21,6 @@ import LabSettings from "@/features/lab-monitoring/pages/LabSettings";
 import Kiosk from "@/features/lab-monitoring/pages/Kiosk";
 import Success from "@/features/lab-monitoring/pages/Success";
 
-import { AdminAppRoutes } from "./faculty-requirements/AdminAppRoutes";
-
 import { AdminAppRoutes } from "./faculty-requirements/AdminAppRoutes"; // Import the admin routes for faculty requirements
 import { LaboratoryRoutes } from "./laboratory-management/LaboratoryRoutes";
 import { ThesisArchivingRoutes } from "./thesis-archiving/ThesisArchivingRoutes";
