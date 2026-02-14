@@ -50,11 +50,11 @@ export default function DashboardPage() {
         "bg-gradient-to-r from-blue-800/50 via-blue-700/50 to-blue-800/50",
     },
     {
-      title: "Classlist and Violation Management",
+      title: "Student Violation Management",
       description:
-        "Manage class lists and track student violations effectively",
+        "Manage and track student violations effectively",
       icon: classlistIcon,
-      href: "/class-management",
+      href: "/student-violations",
       bgColor: "bg-purple-950/30",
       iconBg: "bg-purple-900/50",
       iconBorder: "border-purple-800/50",

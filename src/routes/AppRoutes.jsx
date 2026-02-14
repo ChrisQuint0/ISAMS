@@ -1,9 +1,14 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  Outlet,
+} from "react-router-dom"; // Added Outlet
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import LoginPage from "@/features/auth/pages/LoginPage";
 import DashboardPage from "@/features/dashboard/pages/DashboardPage";
 import ThesisArchivingPage from "@/features/thesis-archiving/pages/ThesisArchivingPage";
-import ClassManagementPage from "@/features/class-management/pages/ClassManagementPage";
 
 // Imports for Laboratory Monitoring
 import LabLayout from "@/features/lab-monitoring/layouts/LabLayout";
@@ -19,26 +24,25 @@ import Success from "@/features/lab-monitoring/pages/Success";
 import { AdminAppRoutes } from "./faculty-requirements/AdminAppRoutes"; // Import the admin routes for faculty requirements
 import { FacultyAppRoutes } from "./faculty-requirements/FacultyAppRoutes"; // Import the faculty routes
 import RoleSelectionPage from "@/features/faculty-requirements/pages/RoleSelectionPage";
+import { LaboratoryRoutes } from "./laboratory-management/LaboratoryRoutes";
+import { ThesisArchivingRoutes } from "./thesis-archiving/ThesisArchivingRoutes";
+import { StudViolationAppRoutes } from "./student-violation/StudViolationAppRoutes";
 
 // Protected Route wrapper
 function ProtectedRoute({ children }) {
   const { user } = useAuth();
-
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-
   return children;
 }
 
-// Public Route wrapper (redirect to dashboard if already logged in)
+// Public Route wrapper
 function PublicRoute({ children }) {
   const { user } = useAuth();
-
   if (user) {
     return <Navigate to="/dashboard" replace />;
   }
-
   return children;
 }
 
@@ -66,15 +70,8 @@ export function AppRoutes() {
           }
         />
 
-        {/* Module Routes */}
-        <Route
-          path="/thesis-archiving"
-          element={
-            <ProtectedRoute>
-              <ThesisArchivingPage />
-            </ProtectedRoute>
-          }
-        />
+        {/* Thesis Archiving Module Routes */}
+        {ThesisArchivingRoutes(ProtectedRoute)}
 
         {/* Faculty Requirements Module Routes */}
         <Route
@@ -88,14 +85,8 @@ export function AppRoutes() {
         {AdminAppRoutes}
         {FacultyAppRoutes}
 
-        <Route
-          path="/class-management"
-          element={
-            <ProtectedRoute>
-              <ClassManagementPage />
-            </ProtectedRoute>
-          }
-        />
+        {/* STUDENT VIOLATIONS MODULE */}
+        {StudViolationAppRoutes}
 
         {/* LABORATORY MANAGEMENT MODULE */}
         <Route
@@ -105,10 +96,7 @@ export function AppRoutes() {
             </ProtectedRoute>
           }
         >
-          {/* Default to Dashboard when hitting the root folder */}
           <Route path="/lab-monitoring" element={<LabDashboard />} />
-
-          {/* Admin Mode */}
           <Route path="/lab-dashboard" element={<LabDashboard />} />
           <Route path="/access-logs" element={<AccessLogs />} />
           <Route path="/lab-schedule" element={<LabSchedule />} />
@@ -134,6 +122,7 @@ export function AppRoutes() {
             </ProtectedRoute>
           }
         />
+        {LaboratoryRoutes(ProtectedRoute)}
 
         {/* Default redirect */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
