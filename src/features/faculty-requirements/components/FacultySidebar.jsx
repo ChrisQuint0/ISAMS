@@ -7,6 +7,7 @@ import {
   BarChart,
   Archive,
   Book,
+  Settings,
   User,
   LogOut,
   ChevronUp,
@@ -103,6 +104,24 @@ export function FacultySidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup className="mt-auto">
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  isActive={isActive('/faculty-requirements/settings')}
+                  onClick={() => navigate('/faculty-requirements/settings')}
+                  className="text-slate-400 hover:text-slate-100 hover:bg-slate-800"
+                  tooltip="Faculty Settings"
+                >
+                  <Settings className="h-4 w-4" />
+                  <span className="group-data-[collapsible=icon]:hidden">Settings</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

@@ -7,6 +7,7 @@ import FacultySubmissionPage from "@/features/faculty-requirements/pages/Faculty
 import FacultyAnalyticsPage from "@/features/faculty-requirements/pages/FacultyAnalyticsPage";
 import FacultyArchivePage from "@/features/faculty-requirements/pages/FacultyArchivePage";
 import FacultyTemplateHubPage from "@/features/faculty-requirements/pages/FacultyTemplateHubPage";
+import FacultySettingsPage from "@/features/faculty-requirements/pages/FacultySettingsPage";
 
 export const FacultyAppRoutes = (
   <Route element={<FacultyLayout />}>
@@ -15,5 +16,6 @@ export const FacultyAppRoutes = (
     <Route path="/faculty-requirements/analytics" element={<FacultyAnalyticsPage />} />
     <Route path="/faculty-requirements/archive" element={<FacultyArchivePage />} />
     <Route path="/faculty-requirements/hub" element={<FacultyTemplateHubPage />} />
+    <Route path="/faculty-requirements/settings" element={<FacultySettingsPage />} />
   </Route>
 );
