@@ -1,7 +1,8 @@
 import React from "react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { Settings, LayoutDashboard } from "lucide-react";
+import { LayoutDashboard } from "lucide-react";
+import { ThesisSettingsModal } from "../components/ThesisSettingsModal";
 
 export default function ThesisArchivingDashboardPage() {
     return (
@@ -13,13 +14,7 @@ export default function ThesisArchivingDashboardPage() {
                     <div className="h-6 w-px bg-slate-800" />
                     <h1 className="text-xl font-semibold text-slate-100">Dashboard</h1>
                 </div>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-slate-400 hover:text-slate-100 hover:bg-slate-800"
-                >
-                    <Settings className="h-5 w-5" />
-                </Button>
+                <ThesisSettingsModal />
             </header>
 
             {/* Main Content */}
