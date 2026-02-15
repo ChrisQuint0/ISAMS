@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,9 +14,12 @@ import {
   Presentation,
   Search
 } from "lucide-react";
+import { useFacultyResources } from "../hooks/FacultyResourcesHook";
 
 export default function FacultyTemplateHubPage() {
   const navigate = useNavigate();
+  // Using renamed archives -> archivedDocs to match original variable naming
+  const { templates, archives: archivedDocs, loading, error, loadTemplates, loadArchives } = useFacultyResources();
 
   const [query, setQuery] = useState("");
 
@@ -44,128 +47,78 @@ export default function FacultyTemplateHubPage() {
         size: "0.8 MB",
         icon: FileSpreadsheet,
         iconClass: "text-green-400"
-      },
-      {
-        id: "ppt",
-        title: "Presentation Template",
-        description: "CCS-branded PowerPoint template",
-        version: "1.5",
-        size: "2.4 MB",
-        icon: Presentation,
-        iconClass: "text-orange-400"
-      },
-      {
-        id: "exam",
-        title: "Exam Paper Template",
-        description: "Standard format for midterm/final exams",
-        version: "2.0",
-        size: "0.5 MB",
-        icon: FileType2,
-        iconClass: "text-purple-400"
       }
     ],
     []
   );
 
-  const archivedDocs = useMemo(
-    () => [
-      {
-        id: 1,
-        title: "CCS 101 Syllabus",
-        subtitle: "S1, AY 2023-2024",
-        icon: FileText,
-        iconClass: "text-blue-400"
-      },
-      {
-        id: 2,
-        title: "CCS 201 Grades",
-        subtitle: "S1, AY 2023-2024",
-        icon: FileSpreadsheet,
-        iconClass: "text-green-400"
-      },
-      {
-        id: 3,
-        title: "CCS 102 Presentations",
-        subtitle: "S2, AY 2022-2023",
-        icon: File,
-        iconClass: "text-red-400"
-      }
-    ],
-    []
-  );
+  // Load archives on mount
+  useEffect(() => {
+    // Ideally we would get current semester info here, but hardcoding based on existing patterns for now
+    loadArchives('1', '2023-2024');
+  }, []);
 
-  const handleSearch = () => {
-    // Frontend-only demo behavior for now
-    alert(`Searching archived documents for: ${query || "(empty)"}`);
-  };
-
-  const handleDownloadTemplate = (templateTitle) => {
-    alert(`Downloading: ${templateTitle}`);
+  const handleDownloadTemplate = (title) => {
+    console.log("Download", title);
+    // Implementation would go here
   };
 
   const handlePreview = (title) => {
-    alert(`Preview: ${title}`);
+    console.log("Preview", title);
+    // Implementation would go here
   };
 
   const handleClone = () => {
-    alert("Clone Document for Current Semester");
+    console.log("Clone");
+    // Implementation would go here
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-100 mb-2">
-          Syllabus &amp; Template Hub
-        </h1>
-        <p className="text-slate-400">
-          Official templates, resources, and document management
-        </p>
+    <div className="container mx-auto p-6 space-y-8">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-100">Template Hub</h1>
+          <p className="text-slate-400">
+            Download official templates and clone previous documents
+          </p>
+        </div>
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          <div className="relative flex-1 md:w-64">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
+            <Input
+              placeholder="Search templates..."
+              className="pl-9 bg-slate-900/50 border-slate-700 text-slate-200"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+        </div>
       </div>
 
+      {/* Quick Filters */}
+      <div className="flex gap-2 overflow-x-auto pb-2">
+        {quickFilters.map((f) => (
+          <Button
+            key={f}
+            variant={query === f ? "default" : "outline"}
+            className={`whitespace-nowrap ${query === f
+              ? "bg-blue-600 hover:bg-blue-700"
+              : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
+              }`}
+            onClick={() => setQuery(query === f ? "" : f)}
+          >
+            {f}
+          </Button>
+        ))}
+      </div>
+
+      {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column */}
+        {/* Left Column (2/3 width on large screens) */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Search + Quick Filters */}
-          <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md p-6">
-            <div className="flex flex-col md:flex-row gap-3">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search archived documents by course code, year, or keyword..."
-                  className="pl-10 bg-slate-800 border-slate-700 text-slate-200"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleSearch();
-                  }}
-                />
-              </div>
-              <Button
-                onClick={handleSearch}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <Search className="h-4 w-4 mr-2" />
-                Search
-              </Button>
-            </div>
 
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className="text-sm text-slate-400 mr-2">Quick filters:</span>
-              {quickFilters.map((f) => (
-                <button
-                  key={f}
-                  type="button"
-                  className="px-3 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-full text-sm text-slate-200 transition-colors"
-                  onClick={() => setQuery(f)}
-                >
-                  {f}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Official Templates */}
+          {/* Official Templates Section */}
           <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-semibold text-slate-100">Official Templates</h3>
@@ -209,7 +162,7 @@ export default function FacultyTemplateHubPage() {
             </div>
           </div>
 
-          {/* Clone from Previous Semester */}
+          {/* Clone from Previous Semester Section */}
           <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md p-6">
             <h3 className="font-semibold mb-4 text-slate-100">
               Clone from Previous Semester
@@ -281,36 +234,43 @@ export default function FacultyTemplateHubPage() {
           </div>
         </div>
 
-        {/* Right Column */}
+        {/* Right Column (1/3 width) - Archived Documents */}
         <div>
-          <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md p-6 mb-6">
+          <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md p-6 sticky top-6">
             <h3 className="font-semibold mb-4 text-slate-100">Your Archived Documents</h3>
             <div className="space-y-3">
-              {archivedDocs.map((d) => {
-                const Icon = d.icon;
-                return (
-                  <div
-                    key={d.id}
-                    className="flex items-center justify-between p-3 bg-slate-800/50 rounded"
-                  >
-                    <div className="flex items-center">
-                      <Icon className={`h-5 w-5 ${d.iconClass} mr-3`} />
-                      <div>
-                        <p className="font-medium text-slate-100">{d.title}</p>
-                        <p className="text-sm text-slate-400">{d.subtitle}</p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700"
-                      onClick={() => handlePreview(d.title)}
+              {archivedDocs && archivedDocs.length > 0 ? (
+                archivedDocs.map((d) => {
+                  const Icon = d.icon || FileText;
+                  return (
+                    <div
+                      key={d.id}
+                      className="flex items-center justify-between p-3 bg-slate-800/50 rounded"
                     >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  </div>
-                );
-              })}
+                      <div className="flex items-center">
+                        <Icon className={`h-5 w-5 ${d.iconClass || 'text-slate-400'} mr-3`} />
+                        <div>
+                          <p className="font-medium text-slate-100">{d.title}</p>
+                          <p className="text-sm text-slate-400">{d.subtitle || d.date}</p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700"
+                        onClick={() => handlePreview(d.title)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-center py-4 text-slate-500">
+                  <Archive className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>No archives found</p>
+                </div>
+              )}
             </div>
 
             <Button

@@ -127,16 +127,7 @@ export default function FacultyAnalyticsPage() {
               </div>
             </div>
 
-            {/* College Average */}
-            <div>
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-slate-300">College Average</span>
-                <span className="font-medium text-slate-300">71%</span>
-              </div>
-              <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                <div className="h-full bg-slate-500" style={{ width: '71%' }}></div>
-              </div>
-            </div>
+
 
             {/* Best Performer */}
             <div>

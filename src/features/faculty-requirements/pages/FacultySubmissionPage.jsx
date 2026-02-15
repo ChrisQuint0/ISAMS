@@ -1,21 +1,33 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { 
-  CloudUpload, 
-  FolderOpen, 
-  CheckCircle, 
-  Settings, 
-  FileText, 
+import {
+  CloudUpload,
+  FolderOpen,
+  CheckCircle,
+  Settings,
+  FileText,
   Expand,
   Upload,
   RotateCcw,
-  Eye,
-  Clock
+  Loader2,
+  AlertCircle
 } from "lucide-react";
+import { useFacultySubmission } from "../hooks/FacultySubmissionHook";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function FacultySubmissionPage() {
   const navigate = useNavigate();
+  const {
+    courses,
+    requiredDocs,
+    loading,
+    isSubmitting,
+    error: hookError,
+    loadRequiredDocs,
+    submitDocument
+  } = useFacultySubmission();
+
   const [selectedFile, setSelectedFile] = useState(null);
   const [showValidation, setShowValidation] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -24,35 +36,59 @@ export default function FacultySubmissionPage() {
     course: ""
   });
 
-  const handleFileSelect = () => {
-    // Simulate file selection
-    setSelectedFile({
-      name: "example_document.pdf",
-      size: "2.4 MB",
-      type: "application/pdf"
-    });
-    setShowValidation(true);
-    setShowPreview(true);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+
+  // When course changes, load its required documents
+  useEffect(() => {
+    if (formData.course) {
+      loadRequiredDocs(formData.course);
+    }
+  }, [formData.course]);
+
+  const handleFileSelect = (e) => {
+    // In a real file input, we'd get the file here. 
+    // For this UI, we might need a hidden file input or just simulate if drag/drop isn't fully wired.
+    // Let's assume this is clicked and opens a file dialog.
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = ".pdf,.docx,.xlsx";
+    input.onchange = (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        if (file.size > 10 * 1024 * 1024) {
+          alert("File size exceeds 10MB limit.");
+          return;
+        }
+        setSelectedFile(file);
+        setShowValidation(true);
+        setShowPreview(true);
+      }
+    };
+    input.click();
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!selectedFile || !formData.documentType || !formData.course) {
       alert("Please fill all required fields and select a file.");
       return;
     }
-    
-    alert(
-      'File validation complete!\n✓ Extension validated (.pdf)\n✓ Auto-renamed using convention\n✓ File size within limits\n\nDocument submitted successfully. Digital receipt generated.'
-    );
-    
-    // Reset form
-    setSelectedFile(null);
-    setShowValidation(false);
-    setShowPreview(false);
-    setFormData({
-      documentType: "",
-      course: ""
+
+    const success = await submitDocument({
+      file: selectedFile,
+      courseId: formData.course,
+      docTypeId: formData.documentType
     });
+
+    if (success) {
+      setUploadSuccess(true);
+      setTimeout(() => {
+        // Reset form after 2 seconds
+        setUploadSuccess(false);
+        handleReset();
+        // Optional: navigate to dashboard
+        // navigate('/faculty-requirements/dashboard'); 
+      }, 2000);
+    }
   };
 
   const handleReset = () => {
@@ -63,6 +99,7 @@ export default function FacultySubmissionPage() {
       documentType: "",
       course: ""
     });
+    setUploadSuccess(false);
   };
 
   return (
@@ -76,39 +113,53 @@ export default function FacultySubmissionPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Upload Section */}
         <div className="lg:col-span-2">
+          {hookError && (
+            <Alert variant="destructive" className="mb-4 border-red-900/50 bg-red-900/10 text-red-200">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{hookError}</AlertDescription>
+            </Alert>
+          )}
+
+          {uploadSuccess && (
+            <Alert className="mb-4 border-green-900/50 bg-green-900/10 text-green-200">
+              <CheckCircle className="h-4 w-4 text-green-400" />
+              <AlertDescription>Document submitted successfully! Redirecting...</AlertDescription>
+            </Alert>
+          )}
+
           <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md p-6 mb-6">
             <h3 className="font-semibold text-lg mb-4 text-slate-100">Upload New Document</h3>
-            
+
             {/* Form Fields */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div>
-                <label className="block text-sm font-medium text-slate-200 mb-1">Document Type</label>
-                <select 
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={formData.documentType}
-                  onChange={(e) => setFormData({...formData, documentType: e.target.value})}
-                >
-                  <option value="">Select document type</option>
-                  <option value="Course Syllabus">Course Syllabus</option>
-                  <option value="Final Grades (Excel)">Final Grades (Excel)</option>
-                  <option value="PDF Presentations">PDF Presentations</option>
-                  <option value="Exam Questionnaires">Exam Questionnaires</option>
-                  <option value="Table of Specifications">Table of Specifications</option>
-                  <option value="Course Portfolio">Course Portfolio</option>
-                </select>
-              </div>
-              <div>
                 <label className="block text-sm font-medium text-slate-200 mb-1">Course</label>
-                <select 
+                <select
                   className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={formData.course}
-                  onChange={(e) => setFormData({...formData, course: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, course: e.target.value, documentType: "" })}
                 >
                   <option value="">Select course</option>
-                  <option value="CCS 101 - Intro to Computer Science">CCS 101 - Intro to Computer Science</option>
-                  <option value="CCS 102 - Programming Fundamentals">CCS 102 - Programming Fundamentals</option>
-                  <option value="CCS 201 - Data Structures">CCS 201 - Data Structures</option>
-                  <option value="CCS 202 - Algorithms">CCS 202 - Algorithms</option>
+                  {courses.map(c => (
+                    <option key={c.course_id} value={c.course_id}>{c.course_code} - {c.course_name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-200 mb-1">Document Type</label>
+                <select
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={formData.documentType}
+                  onChange={(e) => setFormData({ ...formData, documentType: e.target.value })}
+                  disabled={!formData.course || loading}
+                >
+                  <option value="">{loading ? "Loading..." : "Select document type"}</option>
+                  {requiredDocs.map(doc => (
+                    <option key={doc.doc_type_id} value={doc.doc_type_id} className={doc.is_submitted ? "text-green-400" : ""}>
+                      {doc.type_name} {doc.is_submitted ? "(✔ Submitted)" : ""}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -116,18 +167,17 @@ export default function FacultySubmissionPage() {
             {/* Upload Area */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-slate-200 mb-2">Upload File</label>
-              <div 
+              <div
                 onClick={handleFileSelect}
                 className="border-3 border-dashed border-slate-600 rounded-xl p-8 text-center bg-slate-800/50 hover:bg-slate-800/70 transition-colors cursor-pointer"
               >
                 <CloudUpload className="text-slate-400 mx-auto mb-3 h-12 w-12" />
-                <p className="text-slate-200 font-medium mb-1">Drag and drop your file here</p>
-                <p className="text-slate-400 mb-4">or click to browse files</p>
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                <p className="text-slate-200 font-medium mb-1">{selectedFile ? selectedFile.name : "Click to browse files"}</p>
+                <p className="text-slate-400 mb-4">{selectedFile ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB` : "Supports: PDF, DOCX, XLSX (Max: 10MB)"}</p>
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white pointer-events-none">
                   <FolderOpen className="h-4 w-4 mr-2" />
-                  Browse Files
+                  {selectedFile ? "Change File" : "Browse Files"}
                 </Button>
-                <p className="text-xs text-slate-500 mt-3">Supports: PDF, DOCX, XLSX (Max: 10MB)</p>
               </div>
             </div>
 
@@ -137,52 +187,34 @@ export default function FacultySubmissionPage() {
                 <div className="flex items-center p-3 bg-green-500/10 border border-green-500/20 rounded">
                   <CheckCircle className="text-green-400 mr-3 h-5 w-5" />
                   <div>
-                    <p className="font-medium text-green-400">File extension validated: .pdf</p>
+                    <p className="font-medium text-green-400">File extension validated: {selectedFile?.name.split('.').pop()}</p>
                   </div>
                 </div>
-                <div className="flex items-center p-3 bg-blue-500/10 border border-blue-500/20 rounded">
-                  <Settings className="text-blue-400 mr-3 h-5 w-5" />
-                  <div>
-                    <p className="font-medium text-blue-400">Auto-rename applied: DOE_JANE_CCS101_SYLLABUS_S2_2024.pdf</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Preview Section */}
-            {showPreview && (
-              <div className="mb-6">
-                <div className="flex justify-between items-center mb-3">
-                  <h4 className="font-medium text-slate-100">Document Preview</h4>
-                  <Button variant="outline" size="sm" className="bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700">
-                    <Expand className="h-4 w-4 mr-1" />Full Screen
-                  </Button>
-                </div>
-                <div className="border border-slate-700 rounded-lg p-4 bg-slate-800/50">
-                  <div className="flex items-center justify-center h-64">
-                    <FileText className="text-red-400 mr-4 h-16 w-16" />
-                    <div>
-                      <p className="font-medium text-slate-100">DOE_JANE_CCS101_SYLLABUS_S2_2024.pdf</p>
-                      <p className="text-slate-400">2.4 MB • 15 pages</p>
-                    </div>
-                  </div>
-                </div>
+                {/* Simplified validation display for now */}
               </div>
             )}
 
             {/* Action Buttons */}
             <div className="flex space-x-4">
-              <Button 
+              <Button
                 onClick={handleSubmit}
-                disabled={!selectedFile || !formData.documentType || !formData.course}
+                disabled={!selectedFile || !formData.documentType || !formData.course || isSubmitting || uploadSuccess}
                 className="bg-blue-600 hover:bg-blue-700 text-white flex-1"
               >
-                <Upload className="h-4 w-4 mr-2" />
-                Submit Document
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Submitting...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4 mr-2" /> Submit Document
+                  </>
+                )}
               </Button>
-              <Button 
+              <Button
                 onClick={handleReset}
-                variant="outline" 
+                variant="outline"
+                disabled={isSubmitting}
                 className="bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
               >
                 <RotateCcw className="h-4 w-4 mr-2" />
@@ -194,42 +226,6 @@ export default function FacultySubmissionPage() {
 
         {/* Sidebar - Submission History */}
         <div className="space-y-6">
-          {/* Recent Submissions */}
-          <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md p-6">
-            <h3 className="font-semibold text-lg mb-4 text-slate-100">Recent Submissions</h3>
-            <div className="space-y-4">
-              <div className="flex justify-between items-start p-3 bg-slate-800/50 rounded">
-                <div className="flex-1">
-                  <p className="font-medium text-slate-100 text-sm">Course Syllabus</p>
-                  <p className="text-xs text-slate-400">CCS 101 • June 3, 2024</p>
-                </div>
-                <span className="px-2 py-1 text-xs font-semibold bg-green-500/10 text-green-400 rounded">Approved</span>
-              </div>
-              <div className="flex justify-between items-start p-3 bg-slate-800/50 rounded">
-                <div className="flex-1">
-                  <p className="font-medium text-slate-100 text-sm">Final Grades</p>
-                  <p className="text-xs text-slate-400">CCS 201 • June 1, 2024</p>
-                </div>
-                <span className="px-2 py-1 text-xs font-semibold bg-blue-500/10 text-blue-400 rounded">Under Review</span>
-              </div>
-              <div className="flex justify-between items-start p-3 bg-slate-800/50 rounded">
-                <div className="flex-1">
-                  <p className="font-medium text-slate-100 text-sm">PDF Presentations</p>
-                  <p className="text-xs text-slate-400">CCS 201 • May 30, 2024</p>
-                </div>
-                <span className="px-2 py-1 text-xs font-semibold bg-red-500/10 text-red-400 rounded">Returned</span>
-              </div>
-            </div>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => navigate("/faculty-requirements/archive")}
-              className="w-full mt-4 bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
-            >
-              View All Submissions
-            </Button>
-          </div>
-
           {/* Submission Guidelines */}
           <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md p-6">
             <h3 className="font-semibold text-lg mb-4 text-slate-100">Submission Guidelines</h3>
@@ -251,8 +247,8 @@ export default function FacultySubmissionPage() {
                 <p className="text-slate-300">File size must not exceed 10MB</p>
               </div>
             </div>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={() => navigate("/faculty-requirements/hub")}
               className="w-full mt-4 bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
@@ -272,13 +268,6 @@ export default function FacultySubmissionPage() {
                 <p className="text-slate-400">Office Hours: 8AM - 5PM</p>
               </div>
             </div>
-            <Button 
-              variant="outline" 
-              size="sm"
-              className="w-full mt-4 bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
-            >
-              Contact Support
-            </Button>
           </div>
         </div>
       </div>
