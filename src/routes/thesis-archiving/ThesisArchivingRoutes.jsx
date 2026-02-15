@@ -16,16 +16,17 @@ const ThesisProtectedRoute = ({ children }) => {
 export const ThesisArchivingRoutes = () => (
     <>
         <Route
+            path="/thesis-archiving"
             element={
                 <ThesisProtectedRoute>
                     <ThesisArchivingPage />
                 </ThesisProtectedRoute>
             }
         >
-            <Route path="/thesis-archiving" element={<Navigate to="/thesis-archiving/dashboard" replace />} />
-            <Route path="/thesis-archiving/dashboard" element={<ThesisArchivingDashboardPage />} />
-            <Route path="/thesis-archiving/digital-repository" element={<DigitalRepositoryPage />} />
-            <Route path="/thesis-archiving/similarity-check" element={<SimilarityCheckPage />} />
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<ThesisArchivingDashboardPage />} />
+            <Route path="digital-repository" element={<DigitalRepositoryPage />} />
+            <Route path="similarity-check" element={<SimilarityCheckPage />} />
         </Route>
     </>
 );
