@@ -5,8 +5,8 @@ const Settings = () => {
     <div className="space-y-6 animate-in fade-in duration-500 text-left">
       {/* PAGE HEADER: Following the Student Database/Dashboard typography */}
       <header className="mb-10 text-left shrink-0">
-        <h1 className="text-xl font-bold text-white tracking-tight">System settings</h1>
-        <p className="text-sm text-slate-500 mt-1">Configure and manage ISAMS module preferences</p>
+        <h1 className="text-3xl font-bold text-white tracking-tight">System settings</h1>
+        <p className="text-slate-400">Configure and manage ISAMS module preferences</p>
       </header>
 
       {/* Placeholder Content */}

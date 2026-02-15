@@ -114,7 +114,7 @@ export function AdminSidebar() {
               </div>
               <div className="flex flex-1 items-center group-data-[collapsible=icon]:hidden ml-3">
                 <span className="truncate font-bold text-slate-100 tracking-tight">
-                  Admin Portal
+                  Violation Management
                 </span>
               </div>
             </SidebarMenuButton>

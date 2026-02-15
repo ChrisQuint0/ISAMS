@@ -46,7 +46,7 @@ export default function AdminLayout() {
             </div>
           </header>
          
-          <main className="flex-1 p-6 lg:p-10 overflow-auto bg-slate-950 text-slate-100 no-scrollbar">
+          <main className="flex-1 p-4 lg:p-7 overflow-auto bg-slate-950 text-slate-100 no-scrollbar">
             <Outlet />
           </main>
         </SidebarInset>

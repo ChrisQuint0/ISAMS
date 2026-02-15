@@ -1,8 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { AgGridReact } from "ag-grid-react";
 
-
-// AG-Grid Styles
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
 
@@ -12,8 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 
-
-// FACULTY THEME: Standardized Slate palette and clean typography
 const GRID_STYLE_OVERRIDES = `
   .ag-theme-quartz-dark {
     --ag-background-color: #0f172a !important;
@@ -127,8 +123,8 @@ const StudRecords = () => {
     <div className="space-y-6 animate-in fade-in duration-500 text-left">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Student database</h1>
-          <p className="text-sm text-slate-500 mt-1">Manage and monitor student enrollment records</p>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Student database</h1>
+          <p className="text-slate-400">Manage and monitor student enrollment records</p>
         </div>
         <Button className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 rounded-md font-medium text-sm transition-all shadow-sm active:scale-95">
           <Plus className="w-4 h-4 mr-2" /> Add student

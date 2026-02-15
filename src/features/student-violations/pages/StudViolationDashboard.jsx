@@ -26,12 +26,10 @@ export default function StudViolationDashboard() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 text-left">
-     
-      {/* PAGE HEADER: Matched to Student Database style */}
       <div className="flex justify-between items-center mb-6">
         <div className="flex flex-col">
-          <h1 className="text-2xl font-bold text-white tracking-tight leading-none">Dashboard</h1>
-          <p className="text-sm text-slate-500 mt-2 font-medium">
+          <h1 className="text-3xl font-bold text-white tracking-tight leading-none">Dashboard</h1>
+          <p className="text-slate-400">
             System overview • Semester 2, AY 2025-2026
           </p>
         </div>

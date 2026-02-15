@@ -35,10 +35,9 @@ const AnalyticsCard = ({ title, value, trend, isUp, icon: Icon }) => (
 const Analytics = () => {
   return (
     <div className="space-y-8 animate-in fade-in duration-500 text-left">
-      {/* PAGE HEADER: Matched to Student Database style */}
       <header className="mb-10 text-left shrink-0">
-        <h1 className="text-2xl font-bold text-white tracking-tight">System Analytics</h1>
-        <p className="text-sm text-slate-500 mt-1">Statistical insights and disciplinary trends</p>
+        <h1 className="text-3xl font-bold text-white tracking-tight">Violation Analytics</h1>
+        <p className="text-slate-400">Statistical insights and disciplinary trends</p>
       </header>
 
 

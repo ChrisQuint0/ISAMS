@@ -41,8 +41,8 @@ const GenerateReport = () => {
     <div className="space-y-8 animate-in fade-in duration-500 text-left">
       {/* PAGE HEADER: Matched to Student Database style */}
       <header className="mb-10 text-left shrink-0">
-        <h1 className="text-2xl font-bold text-white tracking-tight">Generate Report</h1>
-        <p className="text-sm text-slate-500 mt-1">Data analytics and archiving for student records</p>
+        <h1 className="text-3xl font-bold text-white tracking-tight">Generate Report</h1>
+        <p className="text-slate-400">Data analytics and archiving for student records</p>
       </header>
 
 
