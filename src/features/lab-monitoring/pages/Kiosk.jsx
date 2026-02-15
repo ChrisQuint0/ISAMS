@@ -1,14 +1,26 @@
 import { useEffect, useRef, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useLocation } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { ArrowLeft, Monitor, ScanBarcode } from "lucide-react"
+
+// Lab name lookup
+const labNames = {
+  "lab-1": "Computer Laboratory 1",
+  "lab-2": "Computer Laboratory 2",
+  "lab-3": "Computer Laboratory 3",
+  "lab-4": "Computer Laboratory 4",
+};
 
 export default function Kiosk() {
   const slots = ["", "", "-", "", "", "", "", ""]
   const videoRef = useRef(null)
   const inputRef = useRef(null)
+  const streamRef = useRef(null)
   const navigate = useNavigate()
+  const location = useLocation()
+  const labId = location.state?.labId || "lab-1"
+  const labName = location.state?.labName || labNames[labId] || "Computer Laboratory"
   const [cameraError, setCameraError] = useState("")
   const [idEntry, setIdEntry] = useState("")
   const [timestamp, setTimestamp] = useState("")
@@ -39,12 +51,12 @@ export default function Kiosk() {
 
   // Camera
   useEffect(() => {
-    let stream
     async function startCamera() {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
+        const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "environment" },
         })
+        streamRef.current = stream
         if (videoRef.current) {
           videoRef.current.srcObject = stream
         }
@@ -56,8 +68,8 @@ export default function Kiosk() {
     startCamera()
 
     return () => {
-      if (stream) {
-        stream.getTracks().forEach((t) => t.stop())
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop())
       }
     }
   }, [])
@@ -84,8 +96,37 @@ export default function Kiosk() {
     setIdEntry(sanitizedId(e.target.value))
   }
 
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter" && sanitizedId(idEntry).length === 7) {
+      handleSubmitId()
+    }
+  }
+
   const focusInput = () => {
     if (inputRef.current) inputRef.current.focus()
+  }
+
+  const handleSubmitId = () => {
+    const cleanId = sanitizedId(idEntry)
+    if (cleanId.length === 7) {
+      // Format ID with dash (e.g., AB-12345)
+      const formattedId = cleanId.slice(0, 2) + "-" + cleanId.slice(2)
+      
+      // Stop camera before navigating
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop())
+      }
+      
+      navigate("/success", { state: { labId, labName, studentId: formattedId } })
+    }
+  }
+
+  const handleBackClick = () => {
+    // Stop camera before navigating
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop())
+    }
+    navigate("/lab-dashboard", { state: { labId } })
   }
 
   return (
@@ -102,19 +143,19 @@ export default function Kiosk() {
                   Kiosk Mode
                 </h1>
                 <p className="text-sm text-slate-400 mt-0.5">
-                  Computer Laboratory 1 — Lab Check-In
+                  {labName} — Lab Check-In
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <span className="text-sm text-slate-400 hidden md:block">{timestamp}</span>
               <Button
-                onClick={() => navigate("/lab-monitoring")}
+                onClick={handleBackClick}
                 variant="outline"
                 className="bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700 hover:text-slate-100 transition-colors"
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Dashboard
+                Back
               </Button>
             </div>
           </div>
@@ -188,6 +229,7 @@ export default function Kiosk() {
                   className="absolute inset-0 h-full w-full opacity-0"
                   value={idEntry}
                   onChange={handleInputChange}
+                  onKeyPress={handleKeyPress}
                 />
                 {visibleChars().map((char, idx) => (
                   <div
@@ -203,6 +245,16 @@ export default function Kiosk() {
               <p className="text-xs text-slate-500">
                 Format: XX-XXXXX (e.g. AB-12345)
               </p>
+              
+              {/* Submit Button - shows when ID is complete */}
+              {sanitizedId(idEntry).length === 7 && (
+                <Button
+                  onClick={handleSubmitId}
+                  className="bg-cyan-600 hover:bg-cyan-700 text-white px-8 py-2 h-auto text-base font-medium shadow-lg shadow-cyan-900/30 transition-all duration-300"
+                >
+                  Check In
+                </Button>
+              )}
             </div>
           </CardContent>
 
