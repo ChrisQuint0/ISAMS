@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { AgGridReact } from "ag-grid-react";
 
-// Standard CSS imports for Legacy mode
-import "ag-grid-community/styles/ag-grid.css";
-import "ag-grid-community/styles/ag-theme-quartz.css";
+import { ModuleRegistry, AllCommunityModule, themeQuartz } from "ag-grid-community";
+
+// Register AG Grid modules
+ModuleRegistry.registerModules([AllCommunityModule]);
 
 import { Plus, Search, UserCheck, Users, GraduationCap, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -72,17 +73,16 @@ const StudRecords = () => {
     { headerName: "STUDENT ID", field: "id", flex: 1, cellStyle: { fontWeight: '800', color: '#94a3b8' } },
     { headerName: "FULL NAME", field: "name", flex: 1.5, cellStyle: { fontWeight: '700', color: '#f1f5f9' } },
     { headerName: "COURSE", field: "course", flex: 1.5, cellStyle: { color: '#64748b', fontWeight: '700' } },
-    { 
-      headerName: "STATUS", 
+    {
+      headerName: "STATUS",
       field: "status",
       flex: 1,
       cellRenderer: (params) => (
         <div className="flex items-center h-full">
-          <span className={`px-3 py-1 rounded-md text-[10px] font-black tracking-widest border ${
-            params.value === 'ACTIVE' 
-              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+          <span className={`px-3 py-1 rounded-md text-[10px] font-black tracking-widest border ${params.value === 'ACTIVE'
+              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
               : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-          }`}>
+            }`}>
             {params.value}
           </span>
         </div>
@@ -143,17 +143,17 @@ const StudRecords = () => {
             </h3>
             <div className="relative w-96">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-              <Input 
-                placeholder="Search..." 
+              <Input
+                placeholder="Search..."
                 className="pl-10 bg-slate-950 border-slate-800 text-slate-100 text-sm h-10 rounded-xl"
                 onChange={(e) => gridApi?.setQuickFilter(e.target.value)}
               />
             </div>
           </div>
-          
+
           <div className="ag-theme-quartz-dark w-full" style={{ height: "450px" }}>
             <AgGridReact
-              theme="legacy" // Fixes Error #239
+              theme={themeQuartz} // Fixes Error #239
               rowData={rowData}
               columnDefs={columnDefs}
               onGridReady={(params) => setGridApi(params.api)}

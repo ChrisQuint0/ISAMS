@@ -70,8 +70,10 @@ const ActionCellRenderer = (params) => {
         setIsEditing(isRowEditing);
 
         return () => {
-            params.api.removeEventListener('cellEditingStarted', onCellEditingStarted);
-            params.api.removeEventListener('cellEditingStopped', onCellEditingStopped);
+            if (params.api && !params.api.isDestroyed()) {
+                params.api.removeEventListener('cellEditingStarted', onCellEditingStarted);
+                params.api.removeEventListener('cellEditingStopped', onCellEditingStopped);
+            }
         };
     }, [params.api, params.node]);
 
@@ -95,8 +97,8 @@ const ActionCellRenderer = (params) => {
                 onClick={handleClick}
                 disabled={isRecentSave}
                 className={`p-1.5 rounded-md transition-all duration-200 ${isRecentSave
-                        ? "opacity-30 cursor-not-allowed bg-slate-800/50"
-                        : "hover:bg-slate-800 text-slate-400 hover:text-slate-100"
+                    ? "opacity-30 cursor-not-allowed bg-slate-800/50"
+                    : "hover:bg-slate-800 text-slate-400 hover:text-slate-100"
                     }`}
                 title={isEditing ? "Save changes" : isRecentSave ? "Saved" : "Delete adviser"}
             >
