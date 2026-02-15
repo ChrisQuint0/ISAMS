@@ -15,10 +15,10 @@ export const deadlineService = {
    */
   getDocTypes: async () => {
     const { data, error } = await supabase
-      .from('DocumentTypes')
+      .from('document_types')
       .select('doc_type_id, type_name')
       .order('type_name');
-    
+
     if (error) throw error;
     // Remap for UI consistency
     return data.map(d => ({ id: d.doc_type_id, name: d.type_name }));
@@ -36,7 +36,7 @@ export const deadlineService = {
       p_grace: deadline.grace_period_days,
       p_id: deadline.deadline_id || null
     });
-    
+
     if (error) throw error;
     if (!data.success) throw new Error(data.message);
     return data;

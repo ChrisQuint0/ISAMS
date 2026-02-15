@@ -50,7 +50,7 @@ export const dashboardService = {
    * Send Single Reminder
    */
   sendIndividualReminder: async (facultyId, name) => {
-    const { error } = await supabase.from('Notifications').insert({
+    const { error } = await supabase.from('notifications').insert({
       faculty_id: facultyId,
       notification_type: 'DEADLINE_REMINDER',
       subject: 'Reminder: Pending Document Submissions',
@@ -58,5 +58,14 @@ export const dashboardService = {
     });
     if (error) throw error;
     return `Reminder sent to ${name}`;
+  },
+
+  /**
+   * Fetch Top Contributors
+   */
+  getTopContributors: async () => {
+    const { data, error } = await supabase.rpc('get_top_contributors_fn');
+    if (error) throw error;
+    return data;
   }
 };

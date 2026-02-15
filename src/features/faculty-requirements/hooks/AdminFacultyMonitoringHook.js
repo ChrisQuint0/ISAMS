@@ -5,13 +5,15 @@ export function useFacultyMonitor() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-  
+
   const [facultyList, setFacultyList] = useState([]);
   const [options, setOptions] = useState({ departments: [], courses: [] });
 
   // Filters State
   const [filters, setFilters] = useState({
     department: 'All Departments',
+    semester: 'All Semesters',
+    academic_year: 'All Years',
     status: 'All Status',
     course: 'All Courses',
     search: ''
@@ -27,15 +29,15 @@ export function useFacultyMonitor() {
     setLoading(true);
     try {
       const data = await facultyMonitorService.getMonitoringData(filters);
-      
+
       // Frontend Filtering for "Courses" (Since SQL filtering nested JSON is hard)
       let filteredData = data;
       if (filters.course !== 'All Courses') {
-        filteredData = data.filter(f => 
+        filteredData = data.filter(f =>
           f.courses.some(c => c.course_code === filters.course || c.course_name.includes(filters.course))
         );
       }
-      
+
       setFacultyList(filteredData);
     } catch (err) {
       console.error(err);
@@ -84,13 +86,13 @@ export function useFacultyMonitor() {
       `${f.overall_progress}%`,
       f.pending_submissions
     ]);
-    
+
     const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `faculty_report_${new Date().toISOString().slice(0,10)}.csv`;
+    a.download = `faculty_report_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
   };
 

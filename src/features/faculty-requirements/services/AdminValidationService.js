@@ -24,13 +24,13 @@ export const validationService = {
    */
   getRecentApprovals: async () => {
     const { data, error } = await supabase
-      .from('Submissions')
+      .from('submissions')
       .select(`
         submission_id,
         original_filename,
         approved_at,
-        doc_type:DocumentTypes(type_name),
-        faculty:Faculty(first_name, last_name)
+        doc_type:document_types(type_name),
+        faculty:faculty(first_name, last_name)
       `)
       .eq('submission_status', 'APPROVED')
       .order('approved_at', { ascending: false })
@@ -77,7 +77,7 @@ export const validationService = {
    */
   getDownloadLink: async (submissionId) => {
     const { data, error } = await supabase
-      .from('Submissions')
+      .from('submissions')
       .select('storage_provider, gdrive_web_view_link, gdrive_download_link, gdrive_file_id')
       .eq('submission_id', submissionId)
       .single();
@@ -85,8 +85,8 @@ export const validationService = {
     if (error) throw error;
 
     if (data.storage_provider === 'GOOGLE_DRIVE') {
-        return data.gdrive_download_link || 
-               `https://drive.google.com/uc?export=download&id=${data.gdrive_file_id}`;
+      return data.gdrive_download_link ||
+        `https://drive.google.com/uc?export=download&id=${data.gdrive_file_id}`;
     }
     return null;
   }

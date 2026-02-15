@@ -6,24 +6,116 @@ export function useAdminSettings() {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-  
+
   const [settings, setSettings] = useState({});
   const [queue, setQueue] = useState([]);
-  
+  const [facultyList, setFacultyList] = useState([]);
+
+  // Document Requirements State
+  const [docRequirements, setDocRequirements] = useState([
+    { id: 1, name: 'Syllabus', folder: 'Syllabi_2024', is_active: true, required: true },
+    { id: 2, name: 'Class Record', folder: 'Grades_2024', is_active: true, required: true },
+    { id: 3, name: 'Exam Material', folder: 'Exams_2024', is_active: true, required: false }
+  ]);
+
+  // Templates State
+  const [templates, setTemplates] = useState([
+    { id: 1, name: 'Syllabus Template v2.docx', size: '2.4 MB', updated: '2 days ago' },
+    { id: 2, name: 'Grading Sheet 2024.xlsx', size: '1.1 MB', updated: '1 week ago' }
+  ]);
+
   // Test State
   const [testResult, setTestResult] = useState(null);
+
+  // --- Document Requirement Handlers ---
+  const addDocRequirement = (req) => {
+    setDocRequirements(prev => [...prev, { ...req, id: Date.now(), is_active: true }]);
+  };
+
+  const updateDocRequirement = (id, updates) => {
+    setDocRequirements(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+  };
+
+  const deleteDocRequirement = (id) => {
+    setDocRequirements(prev => prev.filter(item => item.id !== id));
+  };
+
+  // --- Template Handlers ---
+  const addTemplate = (file) => {
+    // Mock upload
+    setTemplates(prev => [...prev, {
+      id: Date.now(),
+      name: file.name,
+      size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
+      updated: 'Just now'
+    }]);
+  };
+
+  const deleteTemplate = (id) => {
+    setTemplates(prev => prev.filter(item => item.id !== id));
+  };
+
+  // --- Faculty Handlers ---
+  const handleAddFaculty = async (facultyData) => {
+    setLoading(true);
+    try {
+      const newFaculty = await settingsService.addFaculty(facultyData);
+      setFacultyList(prev => [...prev, newFaculty]);
+      setSuccess("Faculty added successfully.");
+      setTimeout(() => setSuccess(null), 3000);
+      return true;
+    } catch (err) {
+      setError("Failed to add faculty: " + err.message);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleFacultyStatus = async (id, currentStatus) => {
+    // Optimistic update
+    setFacultyList(prev => prev.map(f => f.faculty_id === id ? { ...f, is_active: !currentStatus } : f));
+    try {
+      await settingsService.updateFacultyStatus(id, !currentStatus);
+    } catch (err) {
+      setError("Failed to update status.");
+      // Revert
+      setFacultyList(prev => prev.map(f => f.faculty_id === id ? { ...f, is_active: currentStatus } : f));
+    }
+  };
 
   // Initial Load
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      // FIX: Changed from getOcrSettings to getAllSettings
-      const [allSettings, jobs] = await Promise.all([
+      const [allSettings, jobs, docs, temps, faculty] = await Promise.all([
         settingsService.getAllSettings(),
-        settingsService.getQueue()
+        settingsService.getQueue(),
+        settingsService.getDocTypes(),
+        settingsService.getTemplates(),
+        settingsService.getFaculty()
       ]);
       setSettings(allSettings);
       setQueue(jobs);
+      setFacultyList(faculty.sort((a, b) => a.last_name.localeCompare(b.last_name)));
+
+      // Map DB Document Types to UI shape
+      setDocRequirements(docs.map(d => ({
+        id: d.id,
+        name: d.type_name,
+        folder: d.folder_name || 'General',
+        is_active: d.is_active,
+        required: d.is_required
+      })));
+
+      // Map DB Templates to UI shape
+      setTemplates(temps.map(t => ({
+        id: t.id,
+        name: t.name,
+        size: t.file_size || 'Unknown',
+        updated: new Date(t.created_at).toLocaleDateString()
+      })));
+
     } catch (err) {
       console.error(err);
       setError("Failed to load settings.");
@@ -54,11 +146,11 @@ export function useAdminSettings() {
     setSuccess(null);
     try {
       // Loop through object and save each key
-      const promises = Object.entries(settingsObj).map(([key, value]) => 
+      const promises = Object.entries(settingsObj).map(([key, value]) =>
         settingsService.saveSetting(key, value)
       );
       await Promise.all(promises);
-      
+
       setSuccess("Settings saved successfully.");
       setTimeout(() => setSuccess(null), 3000);
       await fetchData(); // Refresh to be sure
@@ -89,19 +181,19 @@ export function useAdminSettings() {
     try {
       for (const job of queue) {
         if (!job.file_url) {
-            // Handle missing URL gracefully
-            await settingsService.completeJob(job.job_id, job.submission_id, null, false, "No download link");
-            continue;
+          // Handle missing URL gracefully
+          await settingsService.completeJob(job.job_id, job.submission_id, null, false, "No download link");
+          continue;
         }
 
         const result = await settingsService.runOCR(job.file_url, settings.ocr_language);
-        
+
         await settingsService.completeJob(
-            job.job_id, 
-            job.submission_id, 
-            result.text, 
-            result.success, 
-            result.error
+          job.job_id,
+          job.submission_id,
+          result.text,
+          result.success,
+          result.error
         );
         processedCount++;
       }
@@ -117,7 +209,10 @@ export function useAdminSettings() {
   return {
     loading, processing, error, success,
     settings, queue, testResult,
-    updateSetting, saveGroup, // Exporting this is crucial for the new UI
+    updateSetting, saveGroup,
+    docRequirements, addDocRequirement, updateDocRequirement, deleteDocRequirement,
+    templates, addTemplate, deleteTemplate,
+    facultyList, handleAddFaculty, handleToggleFacultyStatus,
     runTestOCR, processQueue, refresh: fetchData
   };
 }
