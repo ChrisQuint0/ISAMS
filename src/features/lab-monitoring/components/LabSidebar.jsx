@@ -111,7 +111,7 @@ export function LabSidebar({ labId, labName }) {
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton 
-                  onClick={() => navigate("/kiosk-mode", { state: { labId } })}
+                  onClick={() => navigate("/kiosk-mode", { state: { labId, labName } })}
                   className="text-slate-400 hover:text-white hover:bg-blue-600/20 active:bg-blue-600/20 focus:bg-blue-600/20 group-data-[collapsible=icon]:justify-center"
                   tooltip="Switch to Kiosk Mode"
                 >
