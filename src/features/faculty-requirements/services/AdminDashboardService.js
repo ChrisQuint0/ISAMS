@@ -50,7 +50,7 @@ export const dashboardService = {
    * Send Single Reminder
    */
   sendIndividualReminder: async (facultyId, name) => {
-    const { error } = await supabase.from('Notifications').insert({
+    const { error } = await supabase.from('notifications').insert({
       faculty_id: facultyId,
       notification_type: 'DEADLINE_REMINDER',
       subject: 'Reminder: Pending Document Submissions',

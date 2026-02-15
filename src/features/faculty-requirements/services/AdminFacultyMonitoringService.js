@@ -6,15 +6,15 @@ export const facultyMonitorService = {
    */
   getMonitoringData: async (filters) => {
     const { data, error } = await supabase.rpc('get_faculty_monitoring_fn', {
-      p_semester: '2nd Sem', // Hardcoded for demo, make dynamic if needed
-      p_academic_year: '2023-2024',
+      p_semester: filters.semester === 'All Semesters' ? null : filters.semester,
+      p_academic_year: filters.academic_year === 'All Years' ? null : filters.academic_year,
       p_department: filters.department === 'All Departments' ? null : filters.department,
       p_status: filters.status === 'All Status' ? null : filters.status,
       p_search: filters.search || null
     });
 
     if (error) throw error;
-    
+
     // Remap the SQL result to match what the UI expects (courses_json -> courses)
     return data.map(f => ({
       ...f,
@@ -27,8 +27,8 @@ export const facultyMonitorService = {
    */
   getOptions: async () => {
     const [depts, courses] = await Promise.all([
-      supabase.from('Faculty').select('department').neq('department', null),
-      supabase.from('Courses').select('course_code')
+      supabase.from('faculty').select('department').neq('department', null),
+      supabase.from('courses').select('course_code')
     ]);
 
     // Unique values
@@ -42,7 +42,7 @@ export const facultyMonitorService = {
    * Send Single Reminder
    */
   sendReminder: async (facultyId) => {
-    const { error } = await supabase.from('Notifications').insert({
+    const { error } = await supabase.from('notifications').insert({
       faculty_id: facultyId,
       notification_type: 'DEADLINE_REMINDER',
       subject: 'Urgent: Submission Reminder',
@@ -60,7 +60,7 @@ export const facultyMonitorService = {
       p_department: dept === 'All Departments' ? null : dept,
       p_status: status === 'All Status' ? null : status
     });
-    
+
     if (error) throw error;
     return { total_sent: data.count, message: data.message };
   }

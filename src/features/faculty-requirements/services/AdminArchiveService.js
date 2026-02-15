@@ -33,7 +33,7 @@ export const archiveService = {
    */
   getStatistics: async () => {
     const { data, error } = await supabase.rpc('get_archive_stats_fn');
-    
+
     if (error) throw error;
 
     const MAX_STORAGE = 15 * 1024 * 1024 * 1024; // 15GB Google Drive standard quota
@@ -57,12 +57,12 @@ export const archiveService = {
       window.open(doc.download_link || doc.view_link, '_blank');
       return { success: true, message: 'Opening Google Drive...' };
     }
-    
+
     // Fallback: Construct link using ID
     if (doc.gdrive_file_id) {
-        const url = `https://drive.google.com/uc?export=download&id=${doc.gdrive_file_id}`;
-        window.open(url, '_blank');
-        return { success: true, message: 'Opening download link...' };
+      const url = `https://drive.google.com/uc?export=download&id=${doc.gdrive_file_id}`;
+      window.open(url, '_blank');
+      return { success: true, message: 'Opening download link...' };
     }
 
     return { success: false, message: 'File link not found.' };
@@ -73,8 +73,8 @@ export const archiveService = {
    */
   getOptions: async () => {
     const [depts, types] = await Promise.all([
-        supabase.from('Faculty').select('department').neq('department', null),
-        supabase.from('DocumentTypes').select('type_name')
+      supabase.from('faculty').select('department').neq('department', null),
+      supabase.from('document_types').select('type_name')
     ]);
 
     const uniqueDepts = [...new Set(depts.data?.map(d => d.department))];

@@ -58,13 +58,32 @@ export function useAdminSettings() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      // FIX: Changed from getOcrSettings to getAllSettings
-      const [allSettings, jobs] = await Promise.all([
+      const [allSettings, jobs, docs, temps] = await Promise.all([
         settingsService.getAllSettings(),
-        settingsService.getQueue()
+        settingsService.getQueue(),
+        settingsService.getDocTypes(),
+        settingsService.getTemplates()
       ]);
       setSettings(allSettings);
       setQueue(jobs);
+
+      // Map DB Document Types to UI shape
+      setDocRequirements(docs.map(d => ({
+        id: d.id,
+        name: d.type_name,
+        folder: d.folder_name || 'General',
+        is_active: d.is_active,
+        required: d.is_required
+      })));
+
+      // Map DB Templates to UI shape
+      setTemplates(temps.map(t => ({
+        id: t.id,
+        name: t.name,
+        size: t.file_size || 'Unknown',
+        updated: new Date(t.created_at).toLocaleDateString()
+      })));
+
     } catch (err) {
       console.error(err);
       setError("Failed to load settings.");

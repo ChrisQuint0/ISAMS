@@ -9,9 +9,9 @@ export const settingsService = {
   getAllSettings: async () => {
     // Fetch all settings from the table
     const { data, error } = await supabase
-      .from('SystemSettings')
+      .from('system_settings')
       .select('setting_key, setting_value');
-      
+
     if (error) throw error;
 
     // Convert array [{setting_key: 'x', setting_value: 'y'}] to object {x: y}
@@ -26,7 +26,7 @@ export const settingsService = {
       ocr_enabled: settingsMap.ocr_enabled === 'true',
       ocr_language: settingsMap.ocr_language || 'eng',
       ocr_confidence_threshold: parseInt(settingsMap.ocr_confidence_threshold || '80'),
-      
+
       // --- General Defaults ---
       general_default_deadline: parseInt(settingsMap.general_default_deadline || '14'),
       general_grace_period: parseInt(settingsMap.general_grace_period || '3'),
@@ -40,7 +40,55 @@ export const settingsService = {
       val_course_outcomes: settingsMap.val_course_outcomes === 'true',
       val_max_file_size: parseInt(settingsMap.val_max_file_size || '10'),
       val_allowed_extensions: settingsMap.val_allowed_extensions || '.pdf, .docx, .xlsx',
+      val_allowed_extensions: settingsMap.val_allowed_extensions || '.pdf, .docx, .xlsx',
     };
+  },
+
+  /**
+   * Get Document Types (Requirements)
+   */
+  getDocTypes: async () => {
+    const { data, error } = await supabase
+      .from('document_types')
+      .select('*')
+      .order('type_name');
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Upsert Document Type
+   */
+  upsertDocType: async (docType) => {
+    const { data, error } = await supabase
+      .from('document_types')
+      .upsert({
+        id: docType.id, // If null, will create new
+        type_name: docType.name || docType.type_name,
+        // Map other fields as needed
+        is_active: docType.is_active,
+        is_required: docType.required
+      })
+      .select();
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Delete Document Type
+   */
+  deleteDocType: async (id) => {
+    const { error } = await supabase.from('document_types').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  /**
+   * Get Templates
+   */
+  getTemplates: async () => {
+    const { data, error } = await supabase.from('templates').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    return data;
   },
 
   /**
