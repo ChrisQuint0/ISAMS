@@ -3,6 +3,7 @@ import { Route } from "react-router-dom";
 
 // Imports for Laboratory Monitoring
 import LabLayout from "@/features/lab-monitoring/layouts/LabLayout";
+import LabSelectionPage from "@/features/lab-monitoring/pages/LabSelectionPage";
 import LabDashboard from "@/features/lab-monitoring/pages/LabDashboard";
 import AccessLogs from "@/features/lab-monitoring/pages/AccessLogs";
 import LabSchedule from "@/features/lab-monitoring/pages/LabSchedule";
@@ -14,6 +15,16 @@ import Success from "@/features/lab-monitoring/pages/Success";
 
 export const LaboratoryRoutes = (ProtectedRoute) => (
   <>
+    {/* Lab Selection Page */}
+    <Route
+      path="/lab-monitoring"
+      element={
+        <ProtectedRoute>
+          <LabSelectionPage />
+        </ProtectedRoute>
+      }
+    />
+
     {/* Lab Layout Routes */}
     <Route
       element={
@@ -22,7 +33,6 @@ export const LaboratoryRoutes = (ProtectedRoute) => (
         </ProtectedRoute>
       }
     >
-      <Route path="/lab-monitoring" element={<LabDashboard />} />
       <Route path="/lab-dashboard" element={<LabDashboard />} />
       <Route path="/access-logs" element={<AccessLogs />} />
       <Route path="/lab-schedule" element={<LabSchedule />} />

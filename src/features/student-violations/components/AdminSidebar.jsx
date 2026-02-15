@@ -163,7 +163,6 @@ export function AdminSidebar() {
 
       <SidebarFooter className="bg-slate-900 border-t border-slate-800 p-2 space-y-1">
         <SidebarMenu>
-          {/* SYSTEM SETTINGS: New section added based on image */}
           <SidebarMenuItem>
             <SidebarMenuButton
               className="w-full text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors"
@@ -176,7 +175,6 @@ export function AdminSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
 
-          {/* USER PROFILE DROPDOWN */}
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

@@ -1,4 +1,8 @@
+import { useOutletContext } from "react-router-dom";
+
 export default function LabDashboard() {
+  const { labName } = useOutletContext();
+
   return (
     <div className="flex items-center justify-center h-full px-6 py-12">
       <div className="text-center">
@@ -6,7 +10,7 @@ export default function LabDashboard() {
           <span className="text-3xl">🔬</span>
         </div>
         <h2 className="text-xl font-semibold text-slate-100 mb-2">
-          Laboratory Dashboard
+          {labName} — Dashboard
         </h2>
         <p className="text-slate-400 max-w-md">
           Welcome to the monitoring module. This dashboard will soon display real-time active users and occupancy rates.
