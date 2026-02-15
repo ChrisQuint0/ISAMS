@@ -11,8 +11,11 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { ThesisArchivingHeader } from "../components/ThesisArchivingHeader";
+import AddThesisEntryModal from "../components/AddThesisEntryModal";
 
 export default function DigitalRepositoryPage() {
+    const [isAddEntryModalOpen, setIsAddEntryModalOpen] = React.useState(false);
+
     return (
         <div className="flex flex-col min-h-screen w-full bg-slate-950">
             <ThesisArchivingHeader title="Digital Repository" />
@@ -50,11 +53,19 @@ export default function DigitalRepositoryPage() {
                                 <SelectItem value="eng">Engineering</SelectItem>
                             </SelectContent>
                         </Select>
-                        <Button className="ml-auto bg-blue-600 hover:bg-blue-500 text-white">
+                        <Button
+                            className="ml-auto bg-blue-600 hover:bg-blue-500 text-white"
+                            onClick={() => setIsAddEntryModalOpen(true)}
+                        >
                             <Plus className="h-4 w-4 mr-2" />
                             Add New Entry
                         </Button>
                     </div>
+
+                    <AddThesisEntryModal
+                        open={isAddEntryModalOpen}
+                        onOpenChange={setIsAddEntryModalOpen}
+                    />
 
                     {/* Thesis Cards */}
                     <div className="space-y-4">
