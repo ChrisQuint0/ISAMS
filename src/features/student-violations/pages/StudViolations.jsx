@@ -2,9 +2,10 @@ import React, { useState, useMemo, useEffect } from "react";
 import { AgGridReact } from "ag-grid-react";
 
 
-// AG-Grid Styles
-import "ag-grid-community/styles/ag-grid.css";
-import "ag-grid-community/styles/ag-theme-quartz.css";
+import { ModuleRegistry, AllCommunityModule, themeQuartz } from "ag-grid-community";
+
+// Register AG Grid modules
+ModuleRegistry.registerModules([AllCommunityModule]);
 
 
 import {
@@ -179,10 +180,10 @@ const StudViolations = () => {
             </Button>
           </div>
         </div>
-       
+
         <div className="ag-theme-quartz-dark w-full" style={{ height: "500px" }}>
           <AgGridReact
-            theme="legacy"
+            theme={themeQuartz}
             rowData={rowData}
             columnDefs={columnDefs}
             defaultColDef={defaultColDef}

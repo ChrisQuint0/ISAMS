@@ -1,8 +1,10 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { AgGridReact } from "ag-grid-react";
 
-import "ag-grid-community/styles/ag-grid.css";
-import "ag-grid-community/styles/ag-theme-quartz.css";
+import { ModuleRegistry, AllCommunityModule, themeQuartz } from "ag-grid-community";
+
+// Register AG Grid modules
+ModuleRegistry.registerModules([AllCommunityModule]);
 
 
 import { Plus, Search, UserCheck, Users, GraduationCap, ShieldCheck, Filter } from "lucide-react";
@@ -99,9 +101,8 @@ const StudRecords = () => {
         const isActive = params.value === 'Active';
         return (
           <div className="flex items-center h-full">
-            <span className={`flex items-center text-[12px] font-bold ${
-              isActive ? 'text-emerald-400' : 'text-amber-400'
-            }`}>
+            <span className={`flex items-center text-[12px] font-bold ${isActive ? 'text-emerald-400' : 'text-amber-400'
+              }`}>
               <span className={`mr-2 h-1.5 w-1.5 rounded-full ${isActive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
               {params.value}
             </span>
@@ -160,10 +161,10 @@ const StudRecords = () => {
             </Button>
           </div>
         </div>
-       
+
         <div className="ag-theme-quartz-dark w-full" style={{ height: "500px" }}>
           <AgGridReact
-            theme="legacy"
+            theme={themeQuartz}
             rowData={rowData}
             columnDefs={columnDefs}
             defaultColDef={defaultColDef}
