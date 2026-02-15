@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { LabSidebar } from "../components/LabSidebar";
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation, Link } from "react-router-dom";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -63,14 +63,14 @@ export default function LabLayout() {
             <Breadcrumb>
               <BreadcrumbList>
                 <BreadcrumbItem>
-                  <BreadcrumbLink href="/lab-monitoring" className="text-slate-500 hover:text-slate-300">
-                    Labs
+                  <BreadcrumbLink asChild className="text-slate-500 hover:text-slate-300">
+                    <Link to="/lab-monitoring">Labs</Link>
                   </BreadcrumbLink>
                 </BreadcrumbItem>
                 <BreadcrumbSeparator className="text-slate-700" />
                 <BreadcrumbItem>
-                  <BreadcrumbLink href="/lab-dashboard" className="text-slate-500 hover:text-slate-300">
-                    {labName}
+                  <BreadcrumbLink asChild className="text-slate-500 hover:text-slate-300">
+                    <Link to="/lab-monitoring">{labName}</Link>
                   </BreadcrumbLink>
                 </BreadcrumbItem>
                 <BreadcrumbSeparator className="text-slate-700" />

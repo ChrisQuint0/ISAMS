@@ -184,7 +184,7 @@ export default function Kiosk() {
 
           <CardContent className="relative space-y-8">
             <div>
-              <div className="relative w-full overflow-hidden rounded-xl border border-slate-700 bg-black/60 shadow-inner">
+              <div className="relative w-full max-w-2xl mx-auto overflow-hidden rounded-xl border border-slate-700 bg-black/60 shadow-inner">
                 <div className="aspect-[16/9] w-full">
                   <video
                     ref={videoRef}
