@@ -1,58 +1,57 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { AgGridReact } from "ag-grid-react";
 
-
-// AG-Grid Styles
+// Standard CSS imports for Legacy mode
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
 
-
-import {
-  ShieldAlert, Search, AlertTriangle,
-  CheckCircle2, History, AlertCircle, Filter
+import { 
+  ShieldAlert, Search, Filter, 
+  AlertTriangle, CheckCircle2, History, AlertCircle
 } from "lucide-react";
-
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Card } from "@/components/ui/card";
+import {
+  Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList,
+  BreadcrumbPage, BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 
-
-// FACULTY THEME: Consistent Slate palette and filter popup styling
+// Enforced Dark Theme CSS
 const GRID_STYLE_OVERRIDES = `
   .ag-theme-quartz-dark {
     --ag-background-color: #0f172a !important;
     --ag-header-background-color: #1e293b !important;
     --ag-border-color: #1e293b !important;
     --ag-header-foreground-color: #94a3b8 !important;
-    --ag-foreground-color: #ffffff !important;
-    --ag-row-hover-color: rgba(30, 41, 59, 0.5) !important;
+    --ag-foreground-color: #ffffff !important; 
+    --ag-row-hover-color: #1e293b !important;
+    --ag-odd-row-background-color: #0f172a !important;
   }
   .ag-theme-quartz-dark .ag-header-cell-label {
-    font-size: 12px;
-    font-weight: 600;
-    color: #64748b;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 800;
   }
   .ag-theme-quartz-dark .ag-cell {
-    font-size: 14px;
-    color: #e2e8f0 !important;
+    font-size: 13px;
+    color: #f1f5f9 !important; 
     display: flex;
     align-items: center;
     border-bottom: 1px solid #1e293b44 !important;
   }
+  /* Kills white bars */
   .ag-theme-quartz-dark .ag-row {
     background-color: #0f172a !important;
   }
-  .ag-theme-quartz-dark .ag-filter-wrapper {
-    background-color: #1e293b !important;
-    border: 1px solid #334155 !important;
-  }
 `;
-
 
 const StudViolations = () => {
   const [gridApi, setGridApi] = useState(null);
-
 
   useEffect(() => {
     const styleEl = document.createElement('style');
@@ -61,157 +60,149 @@ const StudViolations = () => {
     return () => document.head.removeChild(styleEl);
   }, []);
 
-
+  // Hardcoded Violation Data
   const rowData = useMemo(() => [
-    { name: "Jamil C. Saludo", section: "BSCS 3-A", violation: "Uniform Policy", status: "Active" },
-    { name: "Marc Angelo A. Soria", section: "BSIT 2-B", violation: "Late Entry", status: "Cleared" },
-    { name: "Ella Mae C. Leonidas", section: "BSIT 2-B", violation: "Academic Dishonesty", status: "Active" },
-    { name: "John Louis E. Baruelo", section: "BSCS 3-A", violation: "No ID Found", status: "Active" },
-    { name: "Apple Ann Danielle S. Selosa", section: "BSIT 2-B", violation: "Uniform Policy", status: "Active" },
-    { name: "Christopher O. Quinto", section: "BSCS 3-A", violation: "Smoking on Campus", status: "Cleared" },
-    { name: "John Kurt O. Fajutagana", section: "BSIT 2-B", violation: "Misconduct", status: "Active" },
-    { name: "Cristiana Mae P. Montipolca", section: "BSCS 3-A", violation: "Uniform Policy", status: "Active" },
-    { name: "Ruth G. Domino", section: "BSIT 2-B", violation: "Late Entry", status: "Cleared" },
+    { name: "ALEX JOHNSON", section: "BSCS 3-A", violation: "UNIFORM POLICY", status: "ACTIVE" },
+    { name: "MARIA GARCIA", section: "BSIT 2-B", violation: "LATE ENTRY", status: "CLEARED" },
+    { name: "LIAM SMITH", section: "BSDS 4-A", violation: "ACADEMIC DISHONESTY", status: "ACTIVE" },
+    { name: "SOPHIA CHEN", section: "BSSE 1-C", violation: "NO ID FOUND", status: "ACTIVE" },
+    { name: "NOAH WILLIAMS", section: "BSIT 3-B", violation: "SMOKING ON CAMPUS", status: "CLEARED" },
+    { name: "AVA MARTINEZ", section: "BSCS 2-D", violation: "UNIFORM POLICY", status: "ACTIVE" },
+    { name: "MASON DAVIS", section: "BSDS 2-A", violation: "LATE ENTRY", status: "CLEARED" },
+    { name: "EMMA BROWN", section: "BSIT 4-B", violation: "MISCONDUCT", status: "ACTIVE" },
   ], []);
 
-
   const columnDefs = useMemo(() => [
-    {
-      headerName: "Student Name",
-      field: "name",
+    { 
+      headerName: "STUDENT NAME", 
+      field: "name", 
       flex: 1.5,
-      filter: true, // Enabled filtering for names
-      cellStyle: { color: '#f8fafc', fontWeight: '600' }
+      cellStyle: { color: '#f1f5f9', fontWeight: '700' }
     },
-    {
-      headerName: "Section",
-      field: "section",
+    { 
+      headerName: "SECTION", 
+      field: "section", 
       flex: 1,
-      filter: true, // Enabled filtering for sections
-      cellStyle: { color: '#94a3b8', fontWeight: '500' }
+      cellStyle: { color: '#64748b', fontWeight: '700', fontSize: '11px' }
     },
-    {
-      headerName: "Violation Type",
+    { 
+      headerName: "VIOLATION TYPE", 
       field: "violation",
       flex: 1.5,
-      filter: true, // Enabled filtering for violation types
-      cellStyle: { color: '#94a3b8', fontWeight: '500' }
+      cellStyle: { color: '#94a3b8', fontWeight: '700', fontSize: '12px' }
     },
-    {
-      headerName: "Status",
+    { 
+      headerName: "STATUS", 
       field: "status",
       flex: 1,
-      filter: true, // Enabled filtering for status
-      cellRenderer: (params) => {
-        const isCleared = params.value === 'Cleared';
-        return (
-          <div className="flex items-center h-full">
-            <span className={`flex items-center text-[12px] font-bold ${isCleared ? 'text-emerald-400' : 'text-rose-400'}`}>
-              <span className={`mr-2 h-1.5 w-1.5 rounded-full ${isCleared ? 'bg-emerald-400' : 'bg-rose-400 animate-pulse'}`} />
-              {params.value}
-            </span>
-          </div>
-        );
-      }
+      cellRenderer: (params) => (
+        <div className="flex items-center h-full">
+          <span className={`px-3 py-1 rounded-md text-[10px] font-black tracking-widest border ${
+            params.value === 'CLEARED' 
+              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+              : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+          }`}>
+            {params.value}
+          </span>
+        </div>
+      )
     },
     {
-      headerName: "Action",
+      headerName: "ACTION",
       field: "action",
       width: 120,
       pinned: 'right',
       cellRenderer: () => (
         <div className="flex items-center justify-end h-full pr-2">
-          <Button
-            variant="outline"
-            className="h-7 px-4 bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-100 hover:text-slate-900 hover:border-slate-100 rounded-md text-[11px] font-semibold transition-all duration-200"
-          >
-            Manage
+          <Button variant="outline" className="h-7 px-4 bg-slate-800 border-slate-700 text-slate-300 hover:text-white rounded-md text-[10px] font-black">
+            MANAGE
           </Button>
         </div>
       )
     }
   ], []);
 
-
-  const defaultColDef = useMemo(() => ({
-    sortable: true,
-    resizable: true,
-  }), []);
-
-
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 text-left">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Violations</h1>
-          <p className="text-slate-400">Student compliance monitor and disciplinary records</p>
-        </div>
-        <Button className="bg-rose-600 hover:bg-rose-700 text-white h-9 px-4 rounded-md font-medium text-sm transition-all shadow-sm active:scale-95">
-          <AlertCircle className="w-4 h-4 mr-2" /> Report violation
-        </Button>
-      </div>
+    <div className="flex flex-col h-full bg-slate-950 min-h-screen text-left">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-slate-800 px-6 bg-slate-900/50 z-20">
+        <SidebarTrigger className="text-slate-400 scale-90" />
+        <Separator orientation="vertical" className="mx-1 h-3 bg-slate-800" />
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem><BreadcrumbLink className="text-slate-500 text-[11px] font-bold uppercase tracking-[0.2em]">ISAMS</BreadcrumbLink></BreadcrumbItem>
+            <BreadcrumbSeparator className="text-slate-800" />
+            <BreadcrumbItem><BreadcrumbLink className="text-slate-500 text-[11px] font-bold uppercase tracking-[0.2em]">Student Violation Module</BreadcrumbLink></BreadcrumbItem>
+            <BreadcrumbSeparator className="text-slate-800" />
+            <BreadcrumbItem><BreadcrumbPage className="text-slate-100 font-bold text-sm tracking-tight uppercase">Violation Registry</BreadcrumbPage></BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+      </header>
 
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <QuickStat title="Total violations" value="56" icon={ShieldAlert} color="text-slate-400" />
-        <QuickStat title="Active offenses" value="12" icon={AlertTriangle} color="text-rose-500" />
-        <QuickStat title="Cleared records" value="44" icon={CheckCircle2} color="text-emerald-500" />
-      </div>
-
-
-      <Card className="bg-slate-900 border-slate-800 flex flex-col rounded-lg overflow-hidden shadow-sm">
-        <div className="p-4 border-b border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-800/20">
-          <div className="flex items-center gap-2">
-            <History className="h-4 w-4 text-slate-400" />
-            <h3 className="text-sm font-semibold text-slate-200">Disciplinary logs</h3>
+      <div className="flex-1 px-6 lg:px-10 pt-10 pb-10 space-y-8 overflow-y-auto no-scrollbar relative">
+        <div className="flex flex-col md:flex-row justify-between items-end gap-4 mb-6">
+          <div className="flex flex-col">
+            <h1 className="text-4xl font-black text-slate-100 tracking-tighter uppercase leading-none">VIOLATIONS</h1>
+            <div className="flex items-center gap-3 mt-3">
+              <div className="h-[2px] w-8 bg-slate-600" />
+              <p className="text-slate-500 text-[11px] font-black tracking-[0.3em] uppercase">Student Compliance Monitor</p>
+            </div>
           </div>
-          <div className="flex items-center gap-3 w-full md:w-auto">
-            <div className="relative w-full md:w-72">
+          <Button className="bg-rose-600 hover:bg-rose-700 text-white h-10 px-6 rounded-xl font-bold text-xs shadow-lg shadow-rose-900/20">
+            <AlertCircle className="w-4 h-4 mr-2" /> REPORT VIOLATION
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <QuickStat label="Total Violations" value="56" icon={ShieldAlert} color="text-slate-400" />
+          <QuickStat label="Active Offenses" value="12" icon={AlertTriangle} color="text-rose-500" />
+          <QuickStat label="Cleared Records" value="44" icon={CheckCircle2} color="text-emerald-500" />
+        </div>
+
+        <Card className="bg-slate-900 border-slate-800 flex flex-col rounded-2xl overflow-hidden shadow-2xl">
+          <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-900/20">
+            <h3 className="text-sm font-bold text-slate-100 uppercase tracking-widest flex items-center gap-3">
+              <History className="h-4 w-4 text-slate-500" /> Disciplinary Logs
+            </h3>
+            <div className="relative w-96">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-              <Input
-                placeholder="Quick search..."
-                className="pl-9 bg-slate-950 border-slate-800 text-slate-200 text-sm h-9 rounded-md focus:ring-1 focus:ring-blue-600"
+              <Input 
+                placeholder="Search logs..."
+                className="pl-9 bg-slate-950 border-slate-800 text-slate-100 text-sm h-10 rounded-xl"
                 onChange={(e) => gridApi?.setQuickFilter(e.target.value)}
               />
             </div>
-            <Button variant="outline" className="h-9 px-3 bg-slate-800 border-slate-700 text-slate-400 hover:text-white">
-              <Filter className="h-4 w-4" />
-            </Button>
           </div>
-        </div>
-       
-        <div className="ag-theme-quartz-dark w-full" style={{ height: "500px" }}>
-          <AgGridReact
-            theme="legacy"
-            rowData={rowData}
-            columnDefs={columnDefs}
-            defaultColDef={defaultColDef}
-            onGridReady={(params) => setGridApi(params.api)}
-            animateRows={true}
-            rowHeight={48}
-            headerHeight={44}
-            pagination={true}
-            paginationPageSize={10}
-            suppressCellFocus={true}
-          />
-        </div>
-      </Card>
+
+          <div className="ag-theme-quartz-dark w-full" style={{ height: "450px" }}>
+            <AgGridReact
+              theme="legacy" // Enforces CSS overrides
+              rowData={rowData}
+              columnDefs={columnDefs}
+              onGridReady={(params) => setGridApi(params.api)}
+              animateRows={true}
+              rowHeight={52}
+              headerHeight={52}
+              pagination={true}
+              paginationPageSize={10}
+              suppressCellFocus={true}
+            />
+          </div>
+        </Card>
+      </div>
     </div>
   );
 };
 
-
-function QuickStat({ title, value, icon: Icon, color }) {
+function QuickStat({ label, value, icon: Icon, color }) {
   return (
-    <div className="bg-slate-900 border border-slate-800 p-4 rounded-lg flex items-center gap-4 transition-colors hover:border-slate-700">
-      <div className={`p-2 rounded-md bg-slate-800/50 border border-slate-700 ${color}`}><Icon size={20} /></div>
-      <div>
-        <p className="text-xs font-medium text-slate-500 leading-none">{title}</p>
-        <p className="text-lg font-bold text-white mt-1 leading-none">{value}</p>
+    <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex items-center justify-between transition-all hover:scale-[1.01] text-left">
+      <div className="space-y-1">
+        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{label}</p>
+        <p className="text-2xl font-black text-slate-100 leading-none mt-1.5">{value}</p>
       </div>
+      <div className={`p-2.5 rounded-lg bg-slate-950/40 border border-slate-800 ${color}`}><Icon size={22} /></div>
     </div>
   );
 }
-
 
 export default StudViolations;
