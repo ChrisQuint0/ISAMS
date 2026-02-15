@@ -9,6 +9,7 @@ export function useAdminSettings() {
 
   const [settings, setSettings] = useState({});
   const [queue, setQueue] = useState([]);
+  const [facultyList, setFacultyList] = useState([]);
 
   // Document Requirements State
   const [docRequirements, setDocRequirements] = useState([
@@ -54,18 +55,49 @@ export function useAdminSettings() {
     setTemplates(prev => prev.filter(item => item.id !== id));
   };
 
+  // --- Faculty Handlers ---
+  const handleAddFaculty = async (facultyData) => {
+    setLoading(true);
+    try {
+      const newFaculty = await settingsService.addFaculty(facultyData);
+      setFacultyList(prev => [...prev, newFaculty]);
+      setSuccess("Faculty added successfully.");
+      setTimeout(() => setSuccess(null), 3000);
+      return true;
+    } catch (err) {
+      setError("Failed to add faculty: " + err.message);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleFacultyStatus = async (id, currentStatus) => {
+    // Optimistic update
+    setFacultyList(prev => prev.map(f => f.faculty_id === id ? { ...f, is_active: !currentStatus } : f));
+    try {
+      await settingsService.updateFacultyStatus(id, !currentStatus);
+    } catch (err) {
+      setError("Failed to update status.");
+      // Revert
+      setFacultyList(prev => prev.map(f => f.faculty_id === id ? { ...f, is_active: currentStatus } : f));
+    }
+  };
+
   // Initial Load
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [allSettings, jobs, docs, temps] = await Promise.all([
+      const [allSettings, jobs, docs, temps, faculty] = await Promise.all([
         settingsService.getAllSettings(),
         settingsService.getQueue(),
         settingsService.getDocTypes(),
-        settingsService.getTemplates()
+        settingsService.getTemplates(),
+        settingsService.getFaculty()
       ]);
       setSettings(allSettings);
       setQueue(jobs);
+      setFacultyList(faculty.sort((a, b) => a.last_name.localeCompare(b.last_name)));
 
       // Map DB Document Types to UI shape
       setDocRequirements(docs.map(d => ({
@@ -180,6 +212,7 @@ export function useAdminSettings() {
     updateSetting, saveGroup,
     docRequirements, addDocRequirement, updateDocRequirement, deleteDocRequirement,
     templates, addTemplate, deleteTemplate,
+    facultyList, handleAddFaculty, handleToggleFacultyStatus,
     runTestOCR, processQueue, refresh: fetchData
   };
 }

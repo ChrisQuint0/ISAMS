@@ -133,5 +133,35 @@ export const settingsService = {
       p_status: success ? 'COMPLETED' : 'FAILED',
       p_error: errorMsg
     });
+  },
+
+  /**
+   * --- Faculty Management ---
+   */
+  getFaculty: async () => {
+    const { data, error } = await supabase
+      .from('faculty')
+      .select('*')
+      .order('last_name');
+    if (error) throw error;
+    return data;
+  },
+
+  addFaculty: async (facultyData) => {
+    // facultyData: { first_name, last_name, email, department, employee_id }
+    const { data, error } = await supabase
+      .from('faculty')
+      .insert([facultyData])
+      .select();
+    if (error) throw error;
+    return data[0];
+  },
+
+  updateFacultyStatus: async (facultyId, isActive) => {
+    const { error } = await supabase
+      .from('faculty')
+      .update({ is_active: isActive })
+      .eq('faculty_id', facultyId);
+    if (error) throw error;
   }
 };
