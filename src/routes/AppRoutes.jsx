@@ -12,6 +12,7 @@ import ThesisArchivingPage from "@/features/thesis-archiving/pages/ThesisArchivi
 
 // Imports for Laboratory Monitoring
 import LabLayout from "@/features/lab-monitoring/layouts/LabLayout";
+import LabSelectionPage from "@/features/lab-monitoring/pages/LabSelectionPage";
 import LabDashboard from "@/features/lab-monitoring/pages/LabDashboard";
 import AccessLogs from "@/features/lab-monitoring/pages/AccessLogs";
 import LabSchedule from "@/features/lab-monitoring/pages/LabSchedule";
@@ -90,13 +91,20 @@ export function AppRoutes() {
 
         {/* LABORATORY MANAGEMENT MODULE */}
         <Route
+          path="/lab-monitoring"
+          element={
+            <ProtectedRoute>
+              <LabSelectionPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           element={
             <ProtectedRoute>
               <LabLayout />
             </ProtectedRoute>
           }
         >
-          <Route path="/lab-monitoring" element={<LabDashboard />} />
           <Route path="/lab-dashboard" element={<LabDashboard />} />
           <Route path="/access-logs" element={<AccessLogs />} />
           <Route path="/lab-schedule" element={<LabSchedule />} />

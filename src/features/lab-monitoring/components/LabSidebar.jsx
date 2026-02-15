@@ -34,12 +34,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-export function LabSidebar() {
+export function LabSidebar({ labId, labName }) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Helper to check active state
   const isActive = (path) => location.pathname === path;
+
+  const navTo = (path) => navigate(path, { state: { labId } });
 
   const menuItems = [
     { title: "Dashboard", icon: Home, url: "/lab-dashboard" },
@@ -67,7 +68,7 @@ export function LabSidebar() {
                   Lab Manager
                 </span>
                 <span className="truncate text-xs text-slate-400">
-                  Monitoring System
+                  {labName || "Monitoring System"}
                 </span>
               </div>
             </SidebarMenuButton>
@@ -90,7 +91,7 @@ export function LabSidebar() {
                 <SidebarMenuItem key={item.url} className="mb-1">
                   <SidebarMenuButton 
                     isActive={isActive(item.url)}
-                    onClick={() => navigate(item.url)}
+                    onClick={() => navTo(item.url)}
                     tooltip={item.title}
                     // FIXED: Added active:bg-slate-800 and focus:bg-slate-800
                     className="text-slate-300 hover:text-slate-100 hover:bg-slate-800 active:bg-slate-800 focus:bg-slate-800 data-[active=true]:bg-slate-800 data-[active=true]:text-slate-100 focus-visible:ring-0"
@@ -110,7 +111,7 @@ export function LabSidebar() {
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton 
-                  onClick={() => navigate("/kiosk-mode")}
+                  onClick={() => navigate("/kiosk-mode", { state: { labId, labName } })}
                   className="text-slate-400 hover:text-white hover:bg-blue-600/20 active:bg-blue-600/20 focus:bg-blue-600/20 group-data-[collapsible=icon]:justify-center"
                   tooltip="Switch to Kiosk Mode"
                 >
@@ -129,7 +130,7 @@ export function LabSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   isActive={isActive("/lab-settings")}
-                  onClick={() => navigate("/lab-settings")}
+                  onClick={() => navTo("/lab-settings")}
                   // FIXED: Added active:bg-slate-800 and focus:bg-slate-800
                   className="text-slate-400 hover:text-slate-100 hover:bg-slate-800 active:bg-slate-800 focus:bg-slate-800 data-[active=true]:bg-slate-800 data-[active=true]:text-slate-100 group-data-[collapsible=icon]:justify-center focus-visible:ring-0"
                   tooltip="Settings"
@@ -169,11 +170,11 @@ export function LabSidebar() {
               
               <DropdownMenuContent side="top" className="w-56 bg-slate-900 border-slate-800 text-slate-200">
                 <DropdownMenuItem 
-                  onClick={() => navigate("/dashboard")} 
+                  onClick={() => navigate("/lab-monitoring")} 
                   className="text-red-400 hover:bg-red-950/30 focus:bg-red-950/30 focus:text-red-400"
                 >
                   <LogOut className="mr-2 h-4 w-4" />
-                  <span>Back to Dashboard</span>
+                  <span>Back to Lab Selection</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
