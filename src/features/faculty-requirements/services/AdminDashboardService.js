@@ -58,5 +58,14 @@ export const dashboardService = {
     });
     if (error) throw error;
     return `Reminder sent to ${name}`;
+  },
+
+  /**
+   * Fetch Top Contributors
+   */
+  getTopContributors: async () => {
+    const { data, error } = await supabase.rpc('get_top_contributors_fn');
+    if (error) throw error;
+    return data;
   }
 };

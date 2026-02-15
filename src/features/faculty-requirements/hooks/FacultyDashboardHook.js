@@ -12,6 +12,7 @@ export function useFacultyDashboard() {
 
     const [courses, setCourses] = useState([]);
     const [recentActivity, setRecentActivity] = useState([]);
+    const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -19,10 +20,11 @@ export function useFacultyDashboard() {
         setLoading(true);
         setError(null);
         try {
-            const [statsData, coursesData, activityData] = await Promise.all([
+            const [statsData, coursesData, activityData, notificationsData] = await Promise.all([
                 FacultyDashboardService.getDashboardStats(),
                 FacultyDashboardService.getCoursesStatus(),
-                FacultyDashboardService.getRecentActivity()
+                FacultyDashboardService.getRecentActivity(),
+                FacultyDashboardService.getNotifications()
             ]);
 
             setStats(statsData || {
@@ -34,6 +36,7 @@ export function useFacultyDashboard() {
             });
             setCourses(coursesData || []);
             setRecentActivity(activityData || []);
+            setNotifications(notificationsData || []);
         } catch (err) {
             console.error(err);
             setError('Failed to load dashboard data.');
@@ -41,6 +44,17 @@ export function useFacultyDashboard() {
             setLoading(false);
         }
     }, []);
+
+    const markNotificationAsRead = async (id) => {
+        try {
+            await FacultyDashboardService.markNotificationRead(id);
+            setNotifications(prev =>
+                prev.map(n => n.notification_id === id ? { ...n, is_read: true } : n)
+            );
+        } catch (err) {
+            console.error('Failed to mark notification as read:', err);
+        }
+    };
 
     useEffect(() => {
         fetchDashboardData();
@@ -50,8 +64,10 @@ export function useFacultyDashboard() {
         stats,
         courses,
         recentActivity,
+        notifications,
         loading,
         error,
-        refreshDashboard: fetchDashboardData
+        refreshDashboard: fetchDashboardData,
+        markNotificationAsRead
     };
 }
