@@ -50,6 +50,36 @@ export default function FacultyDashboardPage() {
         </p>
       </div>
 
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Button
+          onClick={() => navigate("/faculty-requirements/submission")}
+          className="h-auto py-4 flex flex-col items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-blue-500/50 transition-all group"
+        >
+          <Upload className="h-6 w-6 mb-2 text-blue-400 group-hover:scale-110 transition-transform" />
+          <span className="text-slate-200 font-medium">Upload Requirement</span>
+          <span className="text-xs text-slate-500 mt-1">Submit your documents</span>
+        </Button>
+
+        <Button
+          onClick={() => navigate("/faculty-requirements/analytics")}
+          className="h-auto py-4 flex flex-col items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-amber-500/50 transition-all group"
+        >
+          <Clock className="h-6 w-6 mb-2 text-amber-400 group-hover:scale-110 transition-transform" />
+          <span className="text-slate-200 font-medium">View Deadlines</span>
+          <span className="text-xs text-slate-500 mt-1">Check submission schedule</span>
+        </Button>
+
+        <Button
+          onClick={() => navigate("/faculty-requirements/hub")}
+          className="h-auto py-4 flex flex-col items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-green-500/50 transition-all group"
+        >
+          <FileSliders className="h-6 w-6 mb-2 text-green-400 group-hover:scale-110 transition-transform" />
+          <span className="text-slate-200 font-medium">Download Templates</span>
+          <span className="text-xs text-slate-500 mt-1">Get official forms</span>
+        </Button>
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Overall Progress */}
