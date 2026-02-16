@@ -10,6 +10,7 @@ export function useAdminSettings() {
   const [settings, setSettings] = useState({});
   const [queue, setQueue] = useState([]);
   const [facultyList, setFacultyList] = useState([]);
+  const [courseList, setCourseList] = useState([]);
 
   // Document Requirements State
   const [docRequirements, setDocRequirements] = useState([
@@ -84,6 +85,38 @@ export function useAdminSettings() {
     }
   };
 
+  // --- Course Handlers ---
+  const handleAddCourse = async (courseData) => {
+    setLoading(true);
+    try {
+      await settingsService.upsertCourse(courseData);
+      setSuccess("Course saved successfully.");
+      setTimeout(() => setSuccess(null), 3000);
+      fetchData(); // Refresh list to get new ID/Data
+      return true;
+    } catch (err) {
+      setError("Failed to save course: " + err.message);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteCourse = async (courseId) => {
+    if (!window.confirm("Are you sure you want to delete this course?")) return;
+    setLoading(true);
+    try {
+      await settingsService.deleteCourse(courseId);
+      setCourseList(prev => prev.filter(c => c.course_id !== courseId));
+      setSuccess("Course deleted.");
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError("Failed to delete course: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Initial Load
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -93,11 +126,13 @@ export function useAdminSettings() {
         settingsService.getQueue(),
         settingsService.getDocTypes(),
         settingsService.getTemplates(),
-        settingsService.getFaculty()
+        settingsService.getFaculty(),
+        settingsService.getCourses()
       ]);
       setSettings(allSettings);
       setQueue(jobs);
       setFacultyList(faculty.sort((a, b) => a.last_name.localeCompare(b.last_name)));
+      setCourseList(courses || []);
 
       // Map DB Document Types to UI shape
       setDocRequirements(docs.map(d => ({
@@ -213,6 +248,7 @@ export function useAdminSettings() {
     docRequirements, addDocRequirement, updateDocRequirement, deleteDocRequirement,
     templates, addTemplate, deleteTemplate,
     facultyList, handleAddFaculty, handleToggleFacultyStatus,
+    courseList, handleAddCourse, handleDeleteCourse,
     runTestOCR, processQueue, refresh: fetchData
   };
 }

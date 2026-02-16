@@ -163,5 +163,34 @@ export const settingsService = {
       .update({ is_active: isActive })
       .eq('faculty_id', facultyId);
     if (error) throw error;
+  },
+
+  /**
+   * --- Course Management ---
+   */
+  getCourses: async () => {
+    const { data, error } = await supabase.rpc('get_admin_courses_fn');
+    if (error) throw error;
+    return data;
+  },
+
+  upsertCourse: async (course) => {
+    const { data, error } = await supabase.rpc('upsert_course_fn', {
+      p_course_code: course.code,
+      p_course_name: course.name,
+      p_department: course.department,
+      p_semester: course.semester,
+      p_academic_year: course.academic_year,
+      p_faculty_id: course.faculty_id || null,
+      p_course_id: course.id || null
+    });
+    if (error) throw error;
+    return data;
+  },
+
+  deleteCourse: async (courseId) => {
+    const { data, error } = await supabase.rpc('delete_course_fn', { p_course_id: courseId });
+    if (error) throw error;
+    return data;
   }
 };

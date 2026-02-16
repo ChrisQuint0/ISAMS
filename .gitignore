@@ -26,3 +26,6 @@ Thumbs.db
 # AI / local tooling files
 gemini.md
 .aiexclude
+
+# Database Schema
+final_database_schema.sql
