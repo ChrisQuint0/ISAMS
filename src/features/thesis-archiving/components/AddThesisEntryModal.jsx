@@ -17,7 +17,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Plus, Edit, Upload, Check, X, Trash2 } from "lucide-react";
+import { Plus, Edit, Upload, Check, X, Trash2, FileText } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
 export default function AddThesisEntryModal({ open, onOpenChange }) {
@@ -71,102 +71,142 @@ export default function AddThesisEntryModal({ open, onOpenChange }) {
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[600px] bg-slate-900 text-slate-100 border-slate-800 p-0 overflow-hidden shadow-2xl">
-                <div className="max-h-[90vh] overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-900/50 hover:scrollbar-thumb-slate-600 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:bg-slate-800 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-slate-950/50">
-                    <DialogHeader className="mb-6 relative">
-                        <DialogTitle className="text-2xl font-semibold text-slate-100">Add New Entry</DialogTitle>
-                        <DialogDescription className="text-slate-400 mt-1">
-                            Fill in the details below to archive a new research paper.
-                        </DialogDescription>
-                        <Separator className="bg-slate-800 mt-4" />
+            <DialogContent className="sm:max-w-[700px] bg-slate-900 text-slate-100 border border-slate-800/60 p-0 overflow-hidden shadow-2xl shadow-black/50 gap-0">
+                {/* Header with gradient accent */}
+                <div className="relative px-8 pt-8 pb-6 border-b border-slate-800/50 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-900/95">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/5 blur-[100px] rounded-full pointer-events-none" />
+                    <DialogHeader className="relative space-y-3">
+                        <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+                                <FileText className="h-5 w-5 text-blue-400" />
+                            </div>
+                            <div className="flex-1">
+                                <DialogTitle className="text-2xl font-bold text-slate-50">
+                                    Add New Research Entry
+                                </DialogTitle>
+                                <DialogDescription className="text-slate-400 text-sm mt-1">
+                                    Archive a new research paper to the digital repository
+                                </DialogDescription>
+                            </div>
+                        </div>
                     </DialogHeader>
+                </div>
 
-                    <div className="space-y-8 pb-4">
-                        {/* Title Section */}
-                        <div className="space-y-2.5">
-                            <Label htmlFor="title" className="text-sm font-medium text-slate-300">Title</Label>
+                {/* Scrollable Content */}
+                <div className="max-h-[65vh] overflow-y-auto px-8 py-6 space-y-7">
+                    {/* Basic Information Section */}
+                    <div className="space-y-5">
+                        <div className="flex items-center gap-2">
+                            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+                            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Basic Information</span>
+                            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+                        </div>
+
+                        <div className="space-y-3">
+                            <Label htmlFor="title" className="text-sm font-medium text-slate-300">
+                                Research Title <span className="text-rose-400">*</span>
+                            </Label>
                             <Input
                                 id="title"
                                 value={title}
                                 onChange={(e) => setTitle(e.target.value)}
-                                placeholder="e.g. Automated Crop Monitoring using IoT"
-                                className="bg-slate-950 border-slate-800 text-slate-200 placeholder:text-slate-600 focus-visible:ring-slate-700 h-11"
+                                placeholder="Enter the complete research title"
+                                className="bg-slate-950/80 border-slate-800/70 text-slate-100 placeholder:text-slate-600 focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:border-blue-500/40 h-11 transition-all"
                             />
                         </div>
 
-                        {/* Description Section */}
-                        <div className="space-y-2.5">
-                            <Label htmlFor="description" className="text-sm font-medium text-slate-300">Description</Label>
+                        <div className="space-y-3">
+                            <Label htmlFor="description" className="text-sm font-medium text-slate-300">
+                                Brief Description <span className="text-rose-400">*</span>
+                            </Label>
                             <textarea
                                 id="description"
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
-                                placeholder="Short description of the paper"
-                                className="w-full min-h-[100px] rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus-visible:outline-none focus-visible:ring-[2px] focus-visible:ring-slate-700 transition-all resize-none"
+                                placeholder="Provide a concise summary of the research focus and key findings..."
+                                rows={4}
+                                className="w-full rounded-lg border border-slate-800/70 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:border-blue-500/40 transition-all resize-none leading-relaxed"
                             />
+                            <p className="text-xs text-slate-500">Max 200 characters recommended</p>
+                        </div>
+                    </div>
+
+                    {/* Authors Section */}
+                    <div className="space-y-5">
+                        <div className="flex items-center gap-2">
+                            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+                            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Authors</span>
+                            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
                         </div>
 
-                        {/* Authors Section */}
-                        <div className="space-y-4 pt-2">
-                            <div className="flex items-center justify-between">
-                                <Label className="text-sm font-semibold text-slate-200 tracking-wider">Authors</Label>
-                                <Button
-                                    type="button"
-                                    variant="secondary"
-                                    size="sm"
-                                    onClick={handleAddAuthor}
-                                    className="h-8 bg-slate-800 hover:bg-slate-700 text-slate-200 border-none shadow-sm"
+                        <div className="space-y-3">
+                            {authors.map((author, index) => (
+                                <div
+                                    key={index}
+                                    className="relative group bg-slate-950/40 border border-slate-800/40 rounded-lg p-4 hover:border-slate-700/60 transition-all"
                                 >
-                                    <Plus className="h-3.5 w-3.5 mr-1" /> Add Author
-                                </Button>
-                            </div>
-
-                            <div className="space-y-5">
-                                {authors.map((author, index) => (
-                                    <div key={index} className="group relative bg-slate-950/30 p-4 rounded-lg border border-slate-800/50 space-y-3">
-                                        <div className="flex items-center justify-between gap-4">
-                                            <span className="text-xs font-medium text-white">Author {index + 1}</span>
-                                            {authors.length > 1 && (
-                                                <button
-                                                    onClick={() => handleRemoveAuthor(index)}
-                                                    className="p-1 text-slate-500 hover:text-rose-400 transition-colors rounded-md hover:bg-rose-400/10"
-                                                    title="Remove author"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </button>
-                                            )}
+                                    <div className="flex items-center justify-between mb-3">
+                                        <span className="text-xs font-medium text-slate-400">
+                                            Author {index + 1}
+                                        </span>
+                                        {authors.length > 1 && (
+                                            <button
+                                                onClick={() => handleRemoveAuthor(index)}
+                                                className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-400/10 rounded-md transition-all"
+                                                title="Remove author"
+                                            >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <Input
+                                                placeholder="First Name"
+                                                value={author.firstName}
+                                                onChange={(e) => handleAuthorChange(index, "firstName", e.target.value)}
+                                                className="bg-slate-950/60 border-slate-800/50 text-slate-200 placeholder:text-slate-600 h-9 focus-visible:ring-1 focus-visible:ring-blue-500/30"
+                                            />
                                         </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[10px] text-white ml-1">First Name</Label>
-                                                <Input
-                                                    placeholder="First Name"
-                                                    value={author.firstName}
-                                                    onChange={(e) => handleAuthorChange(index, "firstName", e.target.value)}
-                                                    className="bg-slate-950 border-slate-800 text-slate-200 placeholder:text-slate-700 h-9"
-                                                />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[10px] text-white ml-1">Last Name</Label>
-                                                <Input
-                                                    placeholder="Last Name"
-                                                    value={author.lastName}
-                                                    onChange={(e) => handleAuthorChange(index, "lastName", e.target.value)}
-                                                    className="bg-slate-950 border-slate-800 text-slate-200 placeholder:text-slate-700 h-9"
-                                                />
-                                            </div>
+                                        <div>
+                                            <Input
+                                                placeholder="Last Name"
+                                                value={author.lastName}
+                                                onChange={(e) => handleAuthorChange(index, "lastName", e.target.value)}
+                                                className="bg-slate-950/60 border-slate-800/50 text-slate-200 placeholder:text-slate-600 h-9 focus-visible:ring-1 focus-visible:ring-blue-500/30"
+                                            />
                                         </div>
                                     </div>
-                                ))}
-                            </div>
+                                </div>
+                            ))}
                         </div>
 
-                        {/* Year and Adviser Section */}
-                        <div className="grid grid-cols-2 gap-6 pt-2">
-                            <div className="space-y-2.5">
-                                <Label className="text-sm font-medium text-slate-300">Year</Label>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleAddAuthor}
+                            className="w-full border-dashed border-slate-700 bg-transparent hover:bg-slate-800/50 hover:border-slate-600 text-slate-300 h-10"
+                        >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Another Author
+                        </Button>
+                    </div>
+
+                    {/* Details Section */}
+                    <div className="space-y-5">
+                        <div className="flex items-center gap-2">
+                            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+                            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Research Details</span>
+                            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-3">
+                                <Label className="text-sm font-medium text-slate-300">
+                                    Publication Year <span className="text-rose-400">*</span>
+                                </Label>
                                 <Select value={year} onValueChange={setYear}>
-                                    <SelectTrigger className="bg-slate-950 border-slate-800 text-slate-200 h-10">
+                                    <SelectTrigger className="bg-slate-950/80 border-slate-800/70 text-slate-200 h-10 focus:ring-2 focus:ring-blue-500/40">
                                         <SelectValue placeholder="Select Year" />
                                     </SelectTrigger>
                                     <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
@@ -176,10 +216,13 @@ export default function AddThesisEntryModal({ open, onOpenChange }) {
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="space-y-2.5">
-                                <Label className="text-sm font-medium text-slate-300">Adviser</Label>
+
+                            <div className="space-y-3">
+                                <Label className="text-sm font-medium text-slate-300">
+                                    Research Adviser <span className="text-rose-400">*</span>
+                                </Label>
                                 <Select value={adviser} onValueChange={setAdviser}>
-                                    <SelectTrigger className="bg-slate-950 border-slate-800 text-slate-200 h-10 text-left">
+                                    <SelectTrigger className="bg-slate-950/80 border-slate-800/70 text-slate-200 h-10 text-left focus:ring-2 focus:ring-blue-500/40">
                                         <SelectValue placeholder="Select Adviser" />
                                     </SelectTrigger>
                                     <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
@@ -190,34 +233,83 @@ export default function AddThesisEntryModal({ open, onOpenChange }) {
                                 </Select>
                             </div>
                         </div>
+                    </div>
 
-                        {/* Abstract Section */}
-                        <div className="space-y-3 pt-2">
-                            <Label className="text-sm font-medium text-slate-300">Abstract</Label>
-                            <div>
-                                <Button
-                                    variant="secondary"
-                                    className="bg-slate-800 hover:bg-slate-700 text-slate-200 border-none shadow-sm h-10 px-4"
-                                >
-                                    <Edit className="h-4 w-4 mr-2" />
-                                    Edit Abstract
-                                </Button>
-                            </div>
+                    {/* Files Section */}
+                    <div className="space-y-5">
+                        <div className="flex items-center gap-2">
+                            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+                            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Attachments</span>
+                            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
                         </div>
 
-                        {/* Softcopy Section */}
-                        <div className="space-y-3 pt-2">
-                            <Label className="text-sm font-medium text-slate-300">Softcopy</Label>
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                        <div className="space-y-4">
+                            {/* Abstract */}
+                            <div className="flex items-center justify-between p-4 rounded-lg border border-slate-800/40 bg-slate-950/40 hover:border-slate-700/60 transition-all group">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-9 w-9 rounded-md bg-slate-800/50 border border-slate-700/30 flex items-center justify-center group-hover:border-slate-600/50 transition-all">
+                                        <Edit className="h-4 w-4 text-slate-400 group-hover:text-slate-300" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-slate-200">Research Abstract</p>
+                                        <p className="text-xs text-slate-500">Add detailed abstract content</p>
+                                    </div>
+                                </div>
                                 <Button
-                                    type="button"
-                                    variant="secondary"
-                                    onClick={() => fileInputRef.current.click()}
-                                    className="bg-slate-800 hover:bg-slate-700 text-slate-200 border-none shadow-sm h-10 px-4"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 h-8"
                                 >
-                                    <Upload className="h-4 w-4 mr-2" />
-                                    Upload Softcopy PDF
+                                    Edit
                                 </Button>
+                            </div>
+
+                            {/* PDF Upload */}
+                            <div
+                                onClick={() => !file && fileInputRef.current?.click()}
+                                className={`p-4 rounded-lg border-2 border-dashed transition-all cursor-pointer ${file
+                                        ? 'border-blue-500/30 bg-blue-500/5'
+                                        : 'border-slate-800/40 bg-slate-950/40 hover:border-slate-700/60 hover:bg-slate-900/40'
+                                    }`}
+                            >
+                                {file ? (
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-10 w-10 rounded-md bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+                                                <FileText className="h-5 w-5 text-blue-400" />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-medium text-slate-200 truncate max-w-[300px]">
+                                                    {file.name}
+                                                </p>
+                                                <p className="text-xs text-slate-500">
+                                                    {(file.size / 1024 / 1024).toFixed(2)} MB
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setFile(null);
+                                            }}
+                                            className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-400/10 rounded-md transition-all"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center py-4 text-center">
+                                        <div className="h-12 w-12 rounded-lg bg-slate-800/50 border border-slate-700/30 flex items-center justify-center mb-3">
+                                            <Upload className="h-5 w-5 text-slate-400" />
+                                        </div>
+                                        <p className="text-sm font-medium text-slate-300 mb-1">
+                                            Upload Research PDF
+                                        </p>
+                                        <p className="text-xs text-slate-500">
+                                            Click to browse or drag and drop
+                                        </p>
+                                    </div>
+                                )}
                                 <input
                                     type="file"
                                     accept=".pdf"
@@ -225,34 +317,27 @@ export default function AddThesisEntryModal({ open, onOpenChange }) {
                                     onChange={handleFileChange}
                                     className="hidden"
                                 />
-                                {file && (
-                                    <div className="flex items-center gap-2.5 bg-slate-950 border border-slate-800/50 py-2 px-3 rounded-md overflow-hidden">
-                                        <span className="text-xs text-slate-400 truncate max-w-[200px]">{file.name}</span>
-                                        <Check className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                                    </div>
-                                )}
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <DialogFooter className="p-5 bg-slate-900 border-t border-slate-800 sm:justify-end">
-                    <div className="flex gap-3">
-                        <Button
-                            variant="ghost"
-                            onClick={() => onOpenChange(false)}
-                            className="bg-transparent text-slate-400 hover:text-slate-100 hover:bg-slate-800 px-6 h-10"
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            onClick={handleSave}
-                            className="bg-blue-600 hover:bg-blue-700 text-white min-w-[120px] font-medium shadow-lg shadow-blue-900/20 h-10"
-                        >
-                            Save
-                        </Button>
-                    </div>
-                </DialogFooter>
+                {/* Footer Actions */}
+                <div className="px-8 py-5 bg-slate-900/50 border-t border-slate-800/50 flex items-center justify-end gap-3">
+                    <Button
+                        variant="ghost"
+                        onClick={() => onOpenChange(false)}
+                        className="text-slate-400 hover:text-slate-100 hover:bg-slate-800/60 px-6 h-10"
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleSave}
+                        className="bg-blue-600 hover:bg-blue-500 text-white px-8 h-10 font-medium shadow-lg shadow-blue-900/30 transition-all"
+                    >
+                        Save Entry
+                    </Button>
+                </div>
             </DialogContent>
         </Dialog>
     );
