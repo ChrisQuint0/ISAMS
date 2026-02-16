@@ -84,9 +84,9 @@ const ActionCellRenderer = (params) => {
             // Save the changes by stopping editing
             params.api.stopEditing();
         } else if (!isRecentSave) {
-            // Delete the adviser - only if not in the 1s cooldown
-            if (params.context && params.context.handleDeleteAdviser) {
-                params.context.handleDeleteAdviser(params.data.id);
+            // Delete the item - only if not in the 1s cooldown
+            if (params.context && params.context.handleDelete) {
+                params.context.handleDelete(params.data.id);
             }
         }
     };
@@ -100,7 +100,7 @@ const ActionCellRenderer = (params) => {
                     ? "opacity-30 cursor-not-allowed bg-slate-800/50"
                     : "hover:bg-slate-800 text-slate-400 hover:text-slate-100"
                     }`}
-                title={isEditing ? "Save changes" : isRecentSave ? "Saved" : "Delete adviser"}
+                title={isEditing ? "Save changes" : isRecentSave ? "Saved" : "Delete item"}
             >
                 {isEditing ? (
                     <Check className="h-4 w-4 text-emerald-400" />
@@ -113,14 +113,21 @@ const ActionCellRenderer = (params) => {
 };
 
 export function ThesisSettingsModal() {
-    const [view, setView] = useState('settings'); // 'settings' | 'advisers'
+    const [view, setView] = useState('settings'); // 'settings' | 'advisers' | 'categories'
     const [advisers, setAdvisers] = useState([
         { id: 1, name: "Professor. Alan Turing, Ph.D." },
         { id: 2, name: "Professor. Dorothy Brown, MIT" },
     ]);
     const [newAdviserName, setNewAdviserName] = useState("");
+
+    const [categories, setCategories] = useState([
+        { id: 1, name: "AI" },
+        { id: 2, name: "Internet of things" },
+    ]);
+    const [newCategoryName, setNewCategoryName] = useState("");
+
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-    const [adviserToDelete, setAdviserToDelete] = useState(null);
+    const [itemToDelete, setItemToDelete] = useState(null);
 
     const handleBack = () => {
         setView('settings');
@@ -133,48 +140,75 @@ export function ThesisSettingsModal() {
         setNewAdviserName("");
     };
 
-    const handleDeleteAdviser = (id) => {
-        const adviser = advisers.find(a => a.id === id);
-        setAdviserToDelete(adviser);
+    const handleAddCategory = () => {
+        if (!newCategoryName.trim()) return;
+        const newId = Math.max(...categories.map(c => c.id), 0) + 1;
+        setCategories([...categories, { id: newId, name: newCategoryName }]);
+        setNewCategoryName("");
+    };
+
+    const handleDelete = (id) => {
+        const item = view === 'advisers'
+            ? advisers.find(a => a.id === id)
+            : categories.find(c => c.id === id);
+        setItemToDelete(item);
         setIsDeleteDialogOpen(true);
     };
 
     const confirmDelete = () => {
-        if (adviserToDelete) {
-            setAdvisers(advisers.filter(a => a.id !== adviserToDelete.id));
+        if (itemToDelete) {
+            if (view === 'advisers') {
+                setAdvisers(advisers.filter(a => a.id !== itemToDelete.id));
+            } else {
+                setCategories(categories.filter(c => c.id !== itemToDelete.id));
+            }
             setIsDeleteDialogOpen(false);
-            setAdviserToDelete(null);
+            setItemToDelete(null);
         }
     };
 
     const handleCellValueChanged = (event) => {
-        // Update the advisers state with the new value
-        setAdvisers(prevAdvisers =>
-            prevAdvisers.map(adviser =>
-                adviser.id === event.data.id
-                    ? { ...adviser, name: event.data.name }
-                    : adviser
-            )
-        );
+        if (view === 'advisers') {
+            setAdvisers(prevAdvisers =>
+                prevAdvisers.map(adviser =>
+                    adviser.id === event.data.id
+                        ? { ...adviser, name: event.data.name }
+                        : adviser
+                )
+            );
+        } else {
+            setCategories(prevCategories =>
+                prevCategories.map(category =>
+                    category.id === event.data.id
+                        ? { ...category, name: event.data.name }
+                        : category
+                )
+            );
+        }
     };
 
 
-    const columnDefs = useMemo(() => [
-        {
-            field: "name",
-            headerName: "Name",
-            flex: 1,
-            editable: true,
-            singleClickEdit: false,
-        },
-        {
-            field: "actions",
-            headerName: "Action",
-            width: 100,
-            cellRenderer: ActionCellRenderer,
-            editable: false
-        }
-    ], []);
+    const columnDefs = useMemo(() => {
+        const fieldName = view === 'advisers' ? "name" : "name";
+        const headerName = view === 'advisers' ? "Name" : "Category Name";
+
+        return [
+            {
+                field: "name",
+                headerName: headerName,
+                flex: 1,
+                editable: true,
+                singleClickEdit: false,
+            },
+            {
+                field: "actions",
+                headerName: "Action",
+                width: 100,
+                cellRenderer: ActionCellRenderer,
+                editable: false
+            }
+        ];
+    }, [view]);
 
     return (
         <Dialog>
@@ -243,7 +277,11 @@ export function ThesisSettingsModal() {
 
                             <div className="flex items-center gap-4">
                                 <Label className="text-base w-48 text-slate-100">Categories</Label>
-                                <Button variant="outline" className="flex-1 justify-start gap-2 h-10 px-4 font-normal text-base bg-transparent border-slate-800 text-slate-100 hover:bg-slate-800 hover:text-slate-100">
+                                <Button
+                                    variant="outline"
+                                    className="flex-1 justify-start gap-2 h-10 px-4 font-normal text-base bg-transparent border-slate-800 text-slate-100 hover:bg-slate-800 hover:text-slate-100"
+                                    onClick={() => setView('categories')}
+                                >
                                     <Edit className="h-4 w-4" />
                                     Edit / Add Categories
                                 </Button>
@@ -256,7 +294,7 @@ export function ThesisSettingsModal() {
                             </Button>
                         </div>
                     </>
-                ) : (
+                ) : view === 'advisers' ? (
                     <div className="flex flex-col h-full gap-4">
                         <DialogHeader>
                             <div className="flex items-center gap-1 text-sm mb-1">
@@ -305,7 +343,64 @@ export function ThesisSettingsModal() {
                                         filter: true,
                                         resizable: true,
                                     }}
-                                    context={{ handleDeleteAdviser }}
+                                    context={{ handleDelete }}
+                                    animateRows={true}
+                                    stopEditingWhenCellsLoseFocus={true}
+                                    onCellValueChanged={handleCellValueChanged}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="flex flex-col h-full gap-4">
+                        <DialogHeader>
+                            <div className="flex items-center gap-1 text-sm mb-1">
+                                <button
+                                    onClick={handleBack}
+                                    className="text-slate-400 hover:text-slate-100 transition-colors flex items-center"
+                                >
+                                    Settings
+                                </button>
+                                <ChevronRight className="h-4 w-4 text-slate-600" />
+                                <span className="text-slate-100 font-medium">Categories</span>
+                            </div>
+                            <DialogTitle className="text-xl font-semibold">Manage Categories</DialogTitle>
+                            <DialogDescription className="text-slate-400 text-sm">
+                                These categories would appear as an option in the category dropdown when adding a new research entry.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="flex gap-2 items-center">
+                            <Input
+                                placeholder="Enter Category Name"
+                                value={newCategoryName}
+                                onChange={(e) => setNewCategoryName(e.target.value)}
+                                className="bg-slate-950 border-slate-800 text-slate-100"
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleAddCategory();
+                                }}
+                            />
+                            <Button
+                                variant="outline"
+                                className="bg-slate-100 text-slate-900 hover:bg-slate-200 border-none font-medium shrink-0"
+                                onClick={handleAddCategory}
+                            >
+                                Add
+                            </Button>
+                        </div>
+
+                        <div className="border border-slate-800 rounded-md overflow-hidden bg-slate-950" style={{ height: '350px' }}>
+                            <div style={{ height: '100%', width: '100%' }}>
+                                <AgGridReact
+                                    theme={customTheme}
+                                    rowData={categories}
+                                    columnDefs={columnDefs}
+                                    defaultColDef={{
+                                        sortable: true,
+                                        filter: true,
+                                        resizable: true,
+                                    }}
+                                    context={{ handleDelete }}
                                     animateRows={true}
                                     stopEditingWhenCellsLoseFocus={true}
                                     onCellValueChanged={handleCellValueChanged}
@@ -321,7 +416,7 @@ export function ThesisSettingsModal() {
                     <DialogHeader>
                         <DialogTitle className="text-xl font-semibold text-rose-400">Confirm Deletion</DialogTitle>
                         <DialogDescription className="text-slate-400 pt-2 text-base">
-                            Are you sure you want to delete adviser <span className="text-slate-100 font-medium">"{adviserToDelete?.name}"</span>?
+                            Are you sure you want to delete <span className="text-slate-100 font-medium">"{itemToDelete?.name}"</span>?
                             This action cannot be undone.
                         </DialogDescription>
                     </DialogHeader>
