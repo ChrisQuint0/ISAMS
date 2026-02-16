@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useOutletContext } from "react-router-dom";
+import { Laptop, Monitor, X, Wrench, RotateCcw, History, AlertTriangle, Clock, ShieldCheck, Activity } from "lucide-react";
 
 // Import components
 import PCGridLayout from "../layouts/PCGridLayout"; 
@@ -11,63 +12,437 @@ export default function PCManagement() {
     // State to track which PC the admin clicked on the map
     const [selectedPC, setSelectedPC] = useState(null);
 
+    // Select mode for converting PCs: "laptop" or "pc"
+    const [selectMode, setSelectMode] = useState(null);
+    const [checkedPCs, setCheckedPCs] = useState([]);
+
+    // Maintenance history log
+    const [maintenanceHistory, setMaintenanceHistory] = useState([
+        { id: 1, pcId: "PC-12", action: "Flagged", note: "Monitor flickering intermittently", date: "Feb 14, 2026", time: "09:20 AM" },
+        { id: 2, pcId: "PC-28", action: "Flagged", note: "Keyboard keys unresponsive (F-row)", date: "Feb 15, 2026", time: "02:15 PM" },
+        { id: 3, pcId: "PC-07", action: "Cleared", note: "Replaced faulty RAM module", date: "Feb 15, 2026", time: "04:30 PM" },
+        { id: 4, pcId: "PC-19", action: "Cleared", note: "Reinstalled OS — cleaned up malware", date: "Feb 13, 2026", time: "11:45 AM" },
+        { id: 5, pcId: "PC-33", action: "Flagged", note: "USB ports not recognizing devices", date: "Feb 12, 2026", time: "08:55 AM" },
+        { id: 6, pcId: "PC-33", action: "Cleared", note: "Replaced USB hub controller", date: "Feb 13, 2026", time: "10:00 AM" },
+    ]);
+    const [showHistoryPanel, setShowHistoryPanel] = useState(false);
+
+    // Bulk action mode
+    const [bulkMode, setBulkMode] = useState(null); // null | "maintenance" | "reset"
+    const [bulkChecked, setBulkChecked] = useState([]);
+
     // Dummy Data State (To be replaced with Supabase real-time data later)
-    const [stations] = useState(Array.from({ length: 40 }, (_, i) => {
+    const studentNames = [
+        "Juan Dela Cruz", "Maria Santos", "Jose Rizal Jr.", "Ana Reyes", "Carlo Mendoza",
+        "Bea Garcia", "Mark Villanueva", "Ella Torres", "Luis Ramos", "Sofia Cruz",
+        "Daniel Aquino", "Rina Bautista", "Kevin Lim", "Jasmine Tan", "Paolo Rivera",
+        "Chloe Navarro", "Angelo Pascual", "Trisha Flores", "Ryan De Leon", "Nicole Castillo",
+        "James Soriano", "Bianca Morales", "Miguel Fernandez", "Alyssa Domingo", "Chris Salazar",
+        "Hannah Valdez", "Adrian Mercado", "Camille Aguilar", "Ethan Dizon", "Samantha Perez",
+        "Nathan Gutierrez", "Pauline Herrera", "Jeric Santos", "Mika Evangelista", "Ralph Manalo",
+        "Diane Cordero", "Bryan Ignacio", "Katrina Medina", "Ivan Ocampo", "Lea Santiago"
+    ];
+    const studentIds = studentNames.map((_, i) => `2024-${String(1000 + i)}`);
+
+    const [stations, setStations] = useState(Array.from({ length: 40 }, (_, i) => {
         const num = i + 1;
         const id = `PC-${num.toString().padStart(2, '0')}`;
         
         // Simulating statuses
-        if (num === 12 || num === 28) return { id, status: "Maintenance", user: null, hours: 505 };
-        if (num === 5 || num === 14) return { id, status: "Laptop", user: "Student", hours: 120 };
+        if (num === 12 || num === 28) return { id, status: "Maintenance", user: null, hours: 505, maintenanceNote: num === 12 ? "Monitor flickering intermittently" : "Keyboard keys unresponsive (F-row)", maintenanceDate: num === 12 ? "Feb 14, 2026" : "Feb 15, 2026" };
+        if (num === 5 || num === 14) return { id, status: "Laptop", user: { name: studentNames[i], studentId: studentIds[i], section: "BSIT-3A", timeIn: "14:05" }, hours: 120 };
         if (num % 3 === 0) return { id, status: "Available", user: null, hours: 250 };
-        return { id, status: "Occupied", user: "Student", hours: 340 };
+        return { id, status: "Occupied", user: { name: studentNames[i], studentId: studentIds[i], section: "BSIT-3A", timeIn: "14:05" }, hours: 340 };
     }));
 
-    return (
-        <div className="p-8 space-y-6 bg-[#020617] min-h-screen text-slate-100 flex flex-col lg:flex-row gap-6">
-            
-            {/* LEFT SIDE: The Visual Map */}
-            <div className="flex-1 space-y-6">
-                <div className="flex justify-between items-end">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight">{labName} — Station Map</h1>
-                        <p className="text-slate-400 text-sm italic">Visual Capacity & Hardware Management</p>
-                    </div>
-                    
-                    {/* Map Legend */}
-                    <div className="flex gap-4 text-[10px] font-black uppercase tracking-widest bg-[#0f172a] p-3 rounded-lg border border-[#1e293b]">
-                        <span className="flex items-center gap-1.5 text-sky-500">
-                            <div className="w-2 h-2 rounded-full bg-sky-500"></div> Occupied
-                        </span>
-                        <span className="flex items-center gap-1.5 text-purple-500">
-                            <div className="w-2 h-2 rounded-full bg-purple-500"></div> Laptop
-                        </span>
-                        <span className="flex items-center gap-1.5 text-slate-500">
-                            <div className="w-2 h-2 rounded-full bg-slate-600"></div> Available
-                        </span>
-                        <span className="flex items-center gap-1.5 text-amber-500">
-                            <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div> Alert
-                        </span>
-                    </div>
-                </div>
+    // ── Aggregated health stats ──
+    const healthStats = useMemo(() => {
+        const total = stations.length;
+        const avgHours = Math.round(stations.reduce((sum, s) => sum + s.hours, 0) / total);
+        const atRisk = stations.filter(s => s.hours >= 400).length;
+        const inMaintenance = stations.filter(s => s.status === "Maintenance").length;
+        const occupied = stations.filter(s => s.status === "Occupied").length;
+        const laptops = stations.filter(s => s.status === "Laptop").length;
+        const available = stations.filter(s => s.status === "Available").length;
+        return { total, avgHours, atRisk, inMaintenance, occupied, laptops, available, atRiskPct: Math.round((atRisk / total) * 100) };
+    }, [stations]);
 
-                {/* PC Grid Layout Component */}
-                <PCGridLayout 
-                    stations={stations} 
-                    selectedPC={selectedPC} 
-                    onSelectPC={setSelectedPC} 
-                />
+    const handleToggleCheck = (pcId) => {
+        setCheckedPCs(prev => 
+            prev.includes(pcId) ? prev.filter(id => id !== pcId) : [...prev, pcId]
+        );
+    };
+
+    const handleConvertToLaptop = () => {
+        setStations(prev => prev.map(s => 
+            checkedPCs.includes(s.id) ? { ...s, status: "Laptop" } : s
+        ));
+        setCheckedPCs([]);
+        setSelectMode(null);
+    };
+
+    const handleConvertToPC = () => {
+        setStations(prev => prev.map(s => 
+            checkedPCs.includes(s.id) && s.status === "Laptop" ? { ...s, status: "Available" } : s
+        ));
+        setCheckedPCs([]);
+        setSelectMode(null);
+    };
+
+    const handleCancelSelect = () => {
+        setCheckedPCs([]);
+        setSelectMode(null);
+    };
+
+    // Maintenance handlers
+    const handleFlagMaintenance = (pcId, note) => {
+        const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+        const timeStr = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+        setStations(prev => prev.map(s => 
+            s.id === pcId 
+                ? { ...s, status: "Maintenance", maintenanceNote: note, maintenanceDate: dateStr, user: null }
+                : s
+        ));
+        setSelectedPC(prev => prev?.id === pcId 
+            ? { ...prev, status: "Maintenance", maintenanceNote: note, maintenanceDate: dateStr, user: null }
+            : prev
+        );
+        // Log to history
+        setMaintenanceHistory(prev => [{ id: Date.now(), pcId, action: "Flagged", note, date: dateStr, time: timeStr }, ...prev]);
+    };
+
+    const handleClearMaintenance = (pcId) => {
+        const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+        const timeStr = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+        const station = stations.find(s => s.id === pcId);
+        setStations(prev => prev.map(s => 
+            s.id === pcId 
+                ? { ...s, status: "Available", maintenanceNote: null, maintenanceDate: null, hours: 0 }
+                : s
+        ));
+        setSelectedPC(prev => prev?.id === pcId 
+            ? { ...prev, status: "Available", maintenanceNote: null, maintenanceDate: null, hours: 0 }
+            : prev
+        );
+        // Log to history
+        setMaintenanceHistory(prev => [{ id: Date.now(), pcId, action: "Cleared", note: station?.maintenanceNote || "Maintenance resolved", date: dateStr, time: timeStr }, ...prev]);
+    };
+
+    const handleResetTimer = (pcId) => {
+        setStations(prev => prev.map(s => 
+            s.id === pcId ? { ...s, hours: 0 } : s
+        ));
+        setSelectedPC(prev => prev?.id === pcId ? { ...prev, hours: 0 } : prev);
+    };
+
+    // ── Bulk action handlers ──
+    const handleBulkToggle = (pcId) => {
+        setBulkChecked(prev =>
+            prev.includes(pcId) ? prev.filter(id => id !== pcId) : [...prev, pcId]
+        );
+    };
+
+    const handleBulkMaintenance = () => {
+        const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+        const timeStr = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+        setStations(prev => prev.map(s =>
+            bulkChecked.includes(s.id)
+                ? { ...s, status: "Maintenance", maintenanceNote: "Bulk flagged for maintenance", maintenanceDate: dateStr, user: null }
+                : s
+        ));
+        bulkChecked.forEach(pcId => {
+            setMaintenanceHistory(prev => [{ id: Date.now() + Math.random(), pcId, action: "Flagged", note: "Bulk flagged for maintenance", date: dateStr, time: timeStr }, ...prev]);
+        });
+        setBulkChecked([]);
+        setBulkMode(null);
+    };
+
+    const handleBulkResetTimers = () => {
+        setStations(prev => prev.map(s =>
+            bulkChecked.includes(s.id) ? { ...s, hours: 0 } : s
+        ));
+        setBulkChecked([]);
+        setBulkMode(null);
+    };
+
+    const handleCancelBulk = () => {
+        setBulkChecked([]);
+        setBulkMode(null);
+    };
+
+    // Whether we're in any selection mode (convert or bulk)
+    const isInAnySelectMode = !!selectMode || !!bulkMode;
+
+    return (
+        <div className="p-8 space-y-5 bg-[#020617] min-h-screen text-slate-100">
+            
+            {/* ── Header ── */}
+            <div className="flex justify-between items-end">
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight">{labName} — Station Map</h1>
+                    <p className="text-slate-400 text-sm italic">Visual Capacity & Hardware Management</p>
+                </div>
+                
+                {/* Top-level actions */}
+                <div className="flex items-center gap-2">
+                    {/* History Log Button */}
+                    <button
+                        onClick={() => setShowHistoryPanel(!showHistoryPanel)}
+                        className={`flex items-center gap-2 px-4 py-2.5 text-[11px] font-bold uppercase tracking-widest rounded-xl transition-all group/btn relative overflow-hidden ${
+                            showHistoryPanel
+                                ? "bg-amber-500/15 border border-amber-500/30 text-amber-400"
+                                : "bg-[#0f172a] border border-[#1e293b] hover:border-slate-600 text-slate-400 hover:text-slate-300"
+                        }`}
+                    >
+                        <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover/btn:from-slate-400/5 group-hover/btn:via-slate-400/0 group-hover/btn:to-slate-400/0 transition-all duration-500 pointer-events-none" />
+                        <div className="absolute inset-0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
+                        <History size={13} /> Maintenance Log
+                        {maintenanceHistory.length > 0 && (
+                            <span className="ml-1 px-1.5 py-0.5 rounded text-[8px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                                {maintenanceHistory.length}
+                            </span>
+                        )}
+                    </button>
+                </div>
             </div>
 
-            {/* RIGHT SIDE: Station Inspector Panel */}
-            <div className="w-full lg:w-80 space-y-6">
-                <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-6 h-full shadow-2xl flex flex-col">
-                    <h3 className="text-xs font-black text-slate-500 uppercase tracking-[0.2em] mb-6">
-                        Station Inspector
-                    </h3>
-                    
-                    {/* Station Inspector Component */}
-                    <StationInspector selectedPC={selectedPC} />
+            {/* ═══════════════════ PC HEALTH SUMMARY BAR ═══════════════════ */}
+            <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-4 shadow-xl group relative overflow-hidden hover:border-slate-600 transition-colors">
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none" />
+                <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
+                <div className="flex items-center gap-6 relative z-10">
+                    {/* Stacked bar */}
+                    <div className="flex-1 space-y-2">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.15em] flex items-center gap-1.5">
+                                <Activity size={11} className="text-sky-500" /> Fleet Health Overview
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-600">{healthStats.total} stations</span>
+                        </div>
+                        <div className="h-3 w-full bg-slate-800 rounded-full overflow-hidden flex">
+                            <div className="bg-sky-500 transition-all duration-500" style={{ width: `${(healthStats.occupied / healthStats.total) * 100}%` }} title={`Occupied: ${healthStats.occupied}`} />
+                            <div className="bg-purple-500 transition-all duration-500" style={{ width: `${(healthStats.laptops / healthStats.total) * 100}%` }} title={`Laptop: ${healthStats.laptops}`} />
+                            <div className="bg-slate-600 transition-all duration-500" style={{ width: `${(healthStats.available / healthStats.total) * 100}%` }} title={`Available: ${healthStats.available}`} />
+                            <div className="bg-amber-500 animate-pulse transition-all duration-500" style={{ width: `${(healthStats.inMaintenance / healthStats.total) * 100}%` }} title={`Maintenance: ${healthStats.inMaintenance}`} />
+                        </div>
+                        {/* Inline legend */}
+                        <div className="flex items-center gap-4 text-[9px] font-bold uppercase tracking-widest">
+                            <span className="flex items-center gap-1.5 text-sky-400"><div className="w-2 h-2 rounded-full bg-sky-500" />{healthStats.occupied} Occupied</span>
+                            <span className="flex items-center gap-1.5 text-purple-400"><div className="w-2 h-2 rounded-full bg-purple-500" />{healthStats.laptops} Laptop</span>
+                            <span className="flex items-center gap-1.5 text-slate-500"><div className="w-2 h-2 rounded-full bg-slate-600" />{healthStats.available} Available</span>
+                            <span className="flex items-center gap-1.5 text-amber-400"><div className="w-2 h-2 rounded-full bg-amber-500" />{healthStats.inMaintenance} Maintenance</span>
+                        </div>
+                    </div>
+
+                    {/* Stat cards */}
+                    <div className="flex items-center gap-3 shrink-0">
+                        <div className="bg-[#020617] border border-[#1e293b] rounded-xl px-4 py-3 text-center min-w-[90px]">
+                            <p className="text-lg font-bold text-white">{healthStats.avgHours}</p>
+                            <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Avg Hours</p>
+                        </div>
+                        <div className={`border rounded-xl px-4 py-3 text-center min-w-[90px] ${
+                            healthStats.atRiskPct > 20 
+                                ? "bg-rose-500/10 border-rose-500/20" 
+                                : healthStats.atRiskPct > 10 
+                                    ? "bg-amber-500/10 border-amber-500/20" 
+                                    : "bg-emerald-500/10 border-emerald-500/20"
+                        }`}>
+                            <p className={`text-lg font-bold ${
+                                healthStats.atRiskPct > 20 ? "text-rose-400" : healthStats.atRiskPct > 10 ? "text-amber-400" : "text-emerald-400"
+                            }`}>{healthStats.atRiskPct}%</p>
+                            <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest">At Risk</p>
+                        </div>
+                        <div className={`border rounded-xl px-4 py-3 text-center min-w-[90px] ${
+                            healthStats.inMaintenance > 0 ? "bg-amber-500/10 border-amber-500/20" : "bg-emerald-500/10 border-emerald-500/20"
+                        }`}>
+                            <p className={`text-lg font-bold ${healthStats.inMaintenance > 0 ? "text-amber-400" : "text-emerald-400"}`}>{healthStats.inMaintenance}</p>
+                            <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest">In Maint.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* ═══════════════════ BULK ACTIONS TOOLBAR ═══════════════════ */}
+            <div className="flex items-center gap-2 flex-wrap">
+                {!bulkMode && !selectMode && (
+                    <>
+                        <button
+                            onClick={() => { setBulkMode("maintenance"); setBulkChecked([]); }}
+                            className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/20 hover:border-amber-500/40 text-amber-400 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all group/btn relative overflow-hidden"
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-br from-amber-400/0 via-amber-400/0 to-amber-400/0 group-hover/btn:from-amber-400/5 group-hover/btn:via-amber-400/0 group-hover/btn:to-amber-400/0 transition-all duration-500 pointer-events-none" />
+                            <div className="absolute inset-0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
+                            <Wrench size={12} /> Bulk Maintenance
+                        </button>
+                        <button
+                            onClick={() => { setBulkMode("reset"); setBulkChecked([]); }}
+                            className="flex items-center gap-2 px-4 py-2 bg-sky-500/10 border border-sky-500/20 hover:border-sky-500/40 text-sky-400 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all group/btn relative overflow-hidden"
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-br from-sky-400/0 via-sky-400/0 to-sky-400/0 group-hover/btn:from-sky-400/5 group-hover/btn:via-sky-400/0 group-hover/btn:to-sky-400/0 transition-all duration-500 pointer-events-none" />
+                            <div className="absolute inset-0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
+                            <RotateCcw size={12} /> Bulk Reset Timers
+                        </button>
+                        <div className="border-l border-[#1e293b] h-6 mx-1" />
+                        <button
+                            onClick={() => setSelectMode("laptop")}
+                            className="flex items-center gap-2 px-4 py-2 bg-purple-500/10 border border-purple-500/20 hover:border-purple-500/40 text-purple-400 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all group/btn relative overflow-hidden"
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-br from-purple-400/0 via-purple-400/0 to-purple-400/0 group-hover/btn:from-purple-400/5 group-hover/btn:via-purple-400/0 group-hover/btn:to-purple-400/0 transition-all duration-500 pointer-events-none" />
+                            <div className="absolute inset-0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
+                            <Laptop size={12} /> To Laptop
+                        </button>
+                        <button
+                            onClick={() => setSelectMode("pc")}
+                            className="flex items-center gap-2 px-4 py-2 bg-sky-500/10 border border-sky-500/20 hover:border-sky-500/40 text-sky-400 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all group/btn relative overflow-hidden"
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-br from-sky-400/0 via-sky-400/0 to-sky-400/0 group-hover/btn:from-sky-400/5 group-hover/btn:via-sky-400/0 group-hover/btn:to-sky-400/0 transition-all duration-500 pointer-events-none" />
+                            <div className="absolute inset-0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
+                            <Monitor size={12} /> To PC
+                        </button>
+                    </>
+                )}
+
+                {/* Convert select mode active */}
+                {selectMode && (
+                    <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg border ${
+                            selectMode === "laptop"
+                                ? "text-purple-400 bg-purple-500/10 border-purple-500/20"
+                                : "text-sky-400 bg-sky-500/10 border-sky-500/20"
+                        }`}>
+                            {checkedPCs.length} Selected
+                        </span>
+                        <button
+                            onClick={selectMode === "laptop" ? handleConvertToLaptop : handleConvertToPC}
+                            disabled={checkedPCs.length === 0}
+                            className={`flex items-center gap-2 px-4 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${
+                                checkedPCs.length > 0
+                                    ? selectMode === "laptop"
+                                        ? 'bg-purple-500 hover:bg-purple-600 text-white shadow-lg shadow-purple-500/20'
+                                        : 'bg-sky-500 hover:bg-sky-600 text-white shadow-lg shadow-sky-500/20'
+                                    : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                            }`}
+                        >
+                            {selectMode === "laptop" ? <Laptop size={12} /> : <Monitor size={12} />}
+                            Confirm
+                        </button>
+                        <button onClick={handleCancelSelect} className="p-2 text-slate-500 hover:text-slate-300 bg-[#1e293b] hover:bg-[#334155] rounded-lg transition-all">
+                            <X size={13} />
+                        </button>
+                    </div>
+                )}
+
+                {/* Bulk mode active */}
+                {bulkMode && (
+                    <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg border ${
+                            bulkMode === "maintenance"
+                                ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
+                                : "text-sky-400 bg-sky-500/10 border-sky-500/20"
+                        }`}>
+                            {bulkChecked.length} Selected — {bulkMode === "maintenance" ? "Mark Maintenance" : "Reset Timers"}
+                        </span>
+                        <button
+                            onClick={bulkMode === "maintenance" ? handleBulkMaintenance : handleBulkResetTimers}
+                            disabled={bulkChecked.length === 0}
+                            className={`flex items-center gap-2 px-4 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${
+                                bulkChecked.length > 0
+                                    ? bulkMode === "maintenance"
+                                        ? "bg-amber-500 hover:bg-amber-600 text-slate-900 shadow-lg shadow-amber-500/20"
+                                        : "bg-sky-500 hover:bg-sky-600 text-white shadow-lg shadow-sky-500/20"
+                                    : "bg-slate-800 text-slate-500 cursor-not-allowed"
+                            }`}
+                        >
+                            {bulkMode === "maintenance" ? <Wrench size={12} /> : <RotateCcw size={12} />}
+                            Confirm
+                        </button>
+                        <button onClick={handleCancelBulk} className="p-2 text-slate-500 hover:text-slate-300 bg-[#1e293b] hover:bg-[#334155] rounded-lg transition-all">
+                            <X size={13} />
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            {/* ═══════════════════ MAIN CONTENT ═══════════════════ */}
+            <div className="flex flex-col lg:flex-row gap-6">
+
+                {/* LEFT SIDE: The Visual Map */}
+                <div className="flex-1 space-y-4">
+                    {/* PC Grid Layout Component */}
+                    <PCGridLayout 
+                        stations={stations} 
+                        selectedPC={selectedPC} 
+                        onSelectPC={setSelectedPC}
+                        selectMode={!!selectMode || !!bulkMode}
+                        checkedPCs={selectMode ? checkedPCs : bulkChecked}
+                        onToggleCheck={selectMode ? handleToggleCheck : handleBulkToggle}
+                    />
+                </div>
+
+                {/* RIGHT SIDE: Station Inspector Panel + History */}
+                <div className="w-full lg:w-80 space-y-4">
+                    {/* Station Inspector */}
+                    <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-6 shadow-2xl flex flex-col group relative overflow-hidden hover:border-slate-600 transition-colors" style={{ minHeight: showHistoryPanel ? 300 : 'auto' }}>
+                        <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none" />
+                        <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
+                        <h3 className="text-xs font-black text-slate-500 uppercase tracking-[0.2em] mb-6">
+                            Station Inspector
+                        </h3>
+                        <StationInspector 
+                            selectedPC={selectedPC}
+                            onFlagMaintenance={handleFlagMaintenance}
+                            onClearMaintenance={handleClearMaintenance}
+                            onResetTimer={handleResetTimer}
+                        />
+                    </div>
+
+                    {/* ═══════════════ MAINTENANCE HISTORY LOG ═══════════════ */}
+                    {showHistoryPanel && (
+                        <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-5 shadow-2xl group relative overflow-hidden hover:border-slate-600 transition-colors">
+                            <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none" />
+                            <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
+                            <div className="flex items-center justify-between mb-4 relative z-10">
+                                <h3 className="text-xs font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                                    <History size={12} className="text-amber-500" /> Maintenance History
+                                </h3>
+                                <button
+                                    onClick={() => setShowHistoryPanel(false)}
+                                    className="p-1.5 text-slate-500 hover:text-slate-300 bg-[#1e293b] hover:bg-[#334155] rounded-lg transition-all"
+                                >
+                                    <X size={12} />
+                                </button>
+                            </div>
+                            <div className="space-y-2 max-h-80 overflow-y-auto pr-1 relative z-10">
+                                {maintenanceHistory.length === 0 ? (
+                                    <p className="text-xs text-slate-600 italic text-center py-6">No maintenance events recorded</p>
+                                ) : (
+                                    maintenanceHistory.map((entry) => (
+                                        <div key={entry.id} className={`border rounded-lg p-3 transition-colors hover:border-slate-600 ${
+                                            entry.action === "Flagged"
+                                                ? "bg-amber-500/5 border-amber-500/15"
+                                                : "bg-emerald-500/5 border-emerald-500/15"
+                                        }`}>
+                                            <div className="flex items-center justify-between mb-1.5">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-bold text-white">{entry.pcId}</span>
+                                                    <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border ${
+                                                        entry.action === "Flagged"
+                                                            ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
+                                                            : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                                                    }`}>
+                                                        {entry.action === "Flagged" ? <span className="flex items-center gap-1"><AlertTriangle size={8} /> Flagged</span> : <span className="flex items-center gap-1"><ShieldCheck size={8} /> Cleared</span>}
+                                                    </span>
+                                                </div>
+                                                <span className="text-[9px] font-mono text-slate-600">{entry.time}</span>
+                                            </div>
+                                            <p className="text-[10px] text-slate-400 leading-relaxed truncate">{entry.note}</p>
+                                            <p className="text-[9px] text-slate-600 font-mono mt-1">{entry.date}</p>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
             

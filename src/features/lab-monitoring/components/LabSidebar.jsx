@@ -6,7 +6,8 @@ import {
   FileText,
   Calendar, 
   Monitor, 
-  BarChart3, 
+  BarChart3,
+  ShieldCheck,
   Tablet, 
   User, 
   LogOut,
@@ -48,6 +49,7 @@ export function LabSidebar({ labId, labName }) {
     { title: "Laboratory Schedule", icon: Calendar, url: "/lab-schedule" },
     { title: "PC Management", icon: Monitor, url: "/pc-management" },
     { title: "Reports & Analytics", icon: BarChart3, url: "/reports-analytics" },
+    { title: "Audit Trails", icon: ShieldCheck, url: "/audit-trails" },
   ];
 
   return (

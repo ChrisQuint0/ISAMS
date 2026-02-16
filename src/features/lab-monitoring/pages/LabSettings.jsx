@@ -29,8 +29,10 @@ export default function LabSettings() {
                 
                 <button 
                     onClick={() => setIsSaving(true)}
-                    className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold py-2.5 px-6 rounded-lg transition-all shadow-lg shadow-sky-900/20 active:scale-95"
+                    className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold py-2.5 px-6 rounded-lg transition-all shadow-lg shadow-sky-900/20 active:scale-95 group/btn relative overflow-hidden"
                 >
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/0 via-white/0 to-white/0 group-hover/btn:from-white/10 group-hover/btn:via-white/0 group-hover/btn:to-white/0 transition-all duration-500 pointer-events-none" />
+                    <div className="absolute inset-0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
                     <Save size={16} /> 
                     <span>{isSaving ? "Saving..." : "Save Changes"}</span>
                 </button>
@@ -90,7 +92,11 @@ export default function LabSettings() {
                             </h2>
                         </div>
 
-                        <div className="p-6 bg-[#0f172a] border border-[#1e293b] rounded-xl flex flex-col gap-6 shadow-sm">
+                        <div className="p-6 bg-[#0f172a] border border-[#1e293b] rounded-xl flex flex-col gap-6 shadow-sm group relative overflow-hidden hover:border-slate-600 transition-colors">
+                            {/* Gloss effect overlay */}
+                            <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none" />
+                            {/* Shimmer effect */}
+                            <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
                             <div className="flex justify-between items-center">
                                 <div className="space-y-1">
                                     <p className="text-sm font-bold text-slate-200">Predictive Health Threshold</p>
@@ -119,7 +125,11 @@ export default function LabSettings() {
                         </div>
 
                         <div className="flex flex-col gap-4 flex-1">
-                            <button className="flex items-center gap-4 p-5 bg-[#0f172a] border border-[#1e293b] rounded-xl hover:bg-[#1e293b] hover:border-slate-700 transition-all group flex-1">
+                            <button className="flex items-center gap-4 p-5 bg-[#0f172a] border border-[#1e293b] rounded-xl hover:bg-[#1e293b] hover:border-slate-700 transition-all group relative overflow-hidden flex-1">
+                                {/* Gloss effect overlay */}
+                                <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none" />
+                                {/* Shimmer effect */}
+                                <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
                                 <div className="p-3 bg-sky-500/10 rounded-lg group-hover:scale-110 transition-transform">
                                     <RefreshCcw size={20} className="text-sky-500" />
                                 </div>
@@ -129,7 +139,11 @@ export default function LabSettings() {
                                 </div>
                             </button>
 
-                            <button className="flex items-center gap-4 p-5 bg-[#0f172a] border border-[#1e293b] rounded-xl hover:bg-[#1e293b] hover:border-slate-700 transition-all group flex-1">
+                            <button className="flex items-center gap-4 p-5 bg-[#0f172a] border border-[#1e293b] rounded-xl hover:bg-[#1e293b] hover:border-slate-700 transition-all group relative overflow-hidden flex-1">
+                                {/* Gloss effect overlay */}
+                                <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none" />
+                                {/* Shimmer effect */}
+                                <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
                                 <div className="p-3 bg-emerald-500/10 rounded-lg group-hover:scale-110 transition-transform">
                                     <Database size={20} className="text-emerald-500" />
                                 </div>

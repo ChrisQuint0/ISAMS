@@ -45,14 +45,21 @@ export default function UsageChart() {
                     axisLine={false} 
                 />
                 
-                {/* Forced high-contrast tooltip text */}
                 <ChartTooltip 
                     cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }} 
-                    content={
-                        <ChartTooltipContent 
-                            className="bg-[#1e293b] border-[#334155] shadow-2xl [&_.text-foreground]:text-white [&_.text-muted-foreground]:text-slate-400" 
-                        />
-                    } 
+                    content={({ active, payload, label }) => {
+                        if (!active || !payload?.length) return null;
+                        return (
+                            <div style={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: 8, padding: '8px 12px', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
+                                <p style={{ color: '#94a3b8', fontSize: 11, marginBottom: 4, fontWeight: 700 }}>{label}</p>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <div style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: '#38bdf8' }} />
+                                    <span style={{ color: '#e2e8f0', fontSize: 12 }}>Total Logins</span>
+                                    <span style={{ color: '#fff', fontSize: 13, fontWeight: 700, marginLeft: 4 }}>{payload[0].value}</span>
+                                </div>
+                            </div>
+                        );
+                    }}
                 />
                 
                 {/* Single Smooth Trend Line */}
