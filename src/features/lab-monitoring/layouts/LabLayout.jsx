@@ -36,6 +36,7 @@ export default function LabLayout() {
     "/lab-schedule": "Laboratory Schedule",
     "/pc-management": "PC Monitoring",
     "/reports-analytics": "Analytics & Reports",
+    "/audit-trails": "Audit Trails",
     "/lab-settings": "Settings"
   };
 

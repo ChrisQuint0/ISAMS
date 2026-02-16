@@ -19,6 +19,7 @@ import LabSchedule from "@/features/lab-monitoring/pages/LabSchedule";
 import PCManagement from "@/features/lab-monitoring/pages/PCManagement";
 import ReportsAnalytics from "@/features/lab-monitoring/pages/ReportsAnalytics";
 import LabSettings from "@/features/lab-monitoring/pages/LabSettings";
+import AuditTrails from "@/features/lab-monitoring/pages/AuditTrails";
 import Kiosk from "@/features/lab-monitoring/pages/Kiosk";
 import Success from "@/features/lab-monitoring/pages/Success";
 
@@ -110,6 +111,7 @@ export function AppRoutes() {
           <Route path="/lab-schedule" element={<LabSchedule />} />
           <Route path="/pc-management" element={<PCManagement />} />
           <Route path="/reports-analytics" element={<ReportsAnalytics />} />
+          <Route path="/audit-trails" element={<AuditTrails />} />
           <Route path="/lab-settings" element={<LabSettings />} />
         </Route>
 
