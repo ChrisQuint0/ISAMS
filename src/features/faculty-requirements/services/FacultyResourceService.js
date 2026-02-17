@@ -122,5 +122,24 @@ export const FacultyResourceService = {
             console.error('Error fetching course versions:', error);
             throw error;
         }
+    },
+
+    /**
+     * Download all documents for a course (ZIP)
+     * Mocking this for now as it requires backend generation
+     */
+    async downloadAllDocuments(courseId) {
+        try {
+            // In real implementation: Call RPC or Edge Function to generate ZIP and return URL
+            // const { data, error } = await supabase.functions.invoke('generate-course-zip', { body: { courseId } });
+
+            // Mock delay
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
+            return { success: true, message: "ZIP generation initiated. Check email for download link." };
+        } catch (error) {
+            console.error('Error downloading all documents:', error);
+            throw error;
+        }
     }
 };

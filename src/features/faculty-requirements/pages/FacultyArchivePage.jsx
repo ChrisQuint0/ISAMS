@@ -33,6 +33,13 @@ export default function FacultyArchivePage() {
   const [selectedSemester, setSelectedSemester] = useState("2023-2"); // Default to current
   const [expandedCourse, setExpandedCourse] = useState(null);
   const [expandedDocType, setExpandedDocType] = useState(null);
+  const [query, setQuery] = useState("");
+
+  // Filter courses based on search query
+  const filteredCourses = courseList.filter(course =>
+    course.course_code.toLowerCase().includes(query.toLowerCase()) ||
+    course.course_name.toLowerCase().includes(query.toLowerCase())
+  );
 
   useEffect(() => {
     loadArchivedCourses(selectedSemester);
@@ -93,6 +100,17 @@ export default function FacultyArchivePage() {
 
         <div className="flex items-center gap-3 w-full md:w-auto">
           <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Search courses..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="pl-9 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-64"
+            />
+          </div>
+
+          <div className="relative">
             <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500" />
             <select
               value={selectedSemester}
@@ -124,12 +142,18 @@ export default function FacultyArchivePage() {
 
       {/* Course List */}
       <div className="space-y-4">
-        {courseList.map(course => (
+        {filteredCourses.length === 0 && !loading && (
+          <p className="text-center text-slate-500">No courses match your search.</p>
+        )}
+        {filteredCourses.map(course => (
           <div key={course.course_id} className="bg-slate-900/50 border border-slate-800 rounded-lg overflow-hidden transition-all duration-200 hover:border-slate-700">
-            {/* Course Header */}
             <div
-              onClick={() => handleCourseClick(course.course_id)}
               className="p-4 flex items-center justify-between cursor-pointer hover:bg-slate-800/50"
+              onClick={(e) => {
+                // Prevent expanding if clicking the download button logic is separate? 
+                // Actually, let's just let it expand unless we click download specifically
+                handleCourseClick(course.course_id);
+              }}
             >
               <div className="flex items-center gap-4">
                 <div className={`p-2 rounded-lg ${expandedCourse === course.course_id ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-800 text-slate-400'}`}>
@@ -140,7 +164,24 @@ export default function FacultyArchivePage() {
                   <p className="text-sm text-slate-400">{course.submission_count} document types submitted</p>
                 </div>
               </div>
-              {expandedCourse === course.course_id ? <ChevronDown className="h-5 w-5 text-slate-500" /> : <ChevronRight className="h-5 w-5 text-slate-500" />}
+
+              <div className="flex items-center gap-3">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Call download service
+                    // For now just alert
+                    alert(`Initiating bulk download for ${course.course_code}... (Service Stub)`);
+                  }}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download All
+                </Button>
+                {expandedCourse === course.course_id ? <ChevronDown className="h-5 w-5 text-slate-500" /> : <ChevronRight className="h-5 w-5 text-slate-500" />}
+              </div>
             </div>
 
             {/* Expanded Content: Document Types */}

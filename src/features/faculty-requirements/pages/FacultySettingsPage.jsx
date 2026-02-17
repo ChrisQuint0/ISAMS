@@ -30,7 +30,8 @@ export default function FacultySettingsPage() {
     lastName: "",
     email: "",
     department: "",
-    position: ""
+    position: "",
+    consultationHours: ""
   });
 
   const [preferences, setPreferences] = useState({
@@ -46,7 +47,8 @@ export default function FacultySettingsPage() {
         lastName: profile.last_name || "",
         email: profile.email || "",
         department: profile.department || "",
-        position: profile.position || ""
+        position: profile.position || "",
+        consultationHours: profile.consultation_hours || ""
       });
       setPreferences({
         emailEnabled: profile.email_reminders_enabled ?? true,
@@ -56,7 +58,7 @@ export default function FacultySettingsPage() {
   }, [profile]);
 
   const handleProfileSave = async () => {
-    await updateProfile(formData.firstName, formData.lastName);
+    await updateProfile(formData.firstName, formData.lastName, formData.consultationHours);
   };
 
   const handlePreferencesSave = async () => {
@@ -148,6 +150,16 @@ export default function FacultySettingsPage() {
                   className="bg-slate-800/50 border-slate-700 text-slate-400 cursor-not-allowed"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-1">Consultation Hours</label>
+              <Input
+                value={formData.consultationHours}
+                onChange={(e) => setFormData({ ...formData, consultationHours: e.target.value })}
+                placeholder="e.g. Mon/Wed 10:00 AM - 12:00 PM"
+                className="bg-slate-800 border-slate-700 text-slate-100"
+              />
             </div>
 
             <div className="pt-4">

@@ -207,5 +207,36 @@ export const settingsService = {
     saveAs(blob, `ISAMS_System_Backup_${new Date().toISOString().slice(0, 10)}.json`);
 
     return { success: true, message: "Backup downloaded successfully." };
+  },
+  /**
+   * DANGER ZONE: Reset Semester
+   */
+  resetSemester: async (semester, year) => {
+    const { data, error } = await supabase.rpc('reset_semester_fn', {
+      p_target_semester: semester,
+      p_target_year: year
+    });
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * DANGER ZONE: Purge Old Archives
+   */
+  purgeArchives: async (yearsToKeep = 5) => {
+    const { data, error } = await supabase.rpc('purge_old_archives_fn', {
+      p_retention_years: yearsToKeep
+    });
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * DANGER ZONE: Approve All Pending (Clear Queue)
+   */
+  approveAllPending: async () => {
+    const { data, error } = await supabase.rpc('approve_all_submissions_fn');
+    if (error) throw error;
+    return data;
   }
 };

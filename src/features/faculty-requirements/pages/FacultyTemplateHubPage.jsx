@@ -15,6 +15,12 @@ import {
   Search
 } from "lucide-react";
 import { useFacultyResources } from "../hooks/FacultyResourcesHook";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 export default function FacultyTemplateHubPage() {
   const navigate = useNavigate();
@@ -281,6 +287,31 @@ export default function FacultyTemplateHubPage() {
               <Archive className="h-4 w-4 mr-2" />
               View All Archives
             </Button>
+          </div>
+
+          {/* FAQ Section */}
+          <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md p-6 mt-6">
+            <h3 className="font-semibold mb-4 text-slate-100">Frequently Asked Questions</h3>
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="item-1" className="border-slate-800">
+                <AccordionTrigger className="text-slate-200 hover:text-slate-100">How do I submit my syllabus?</AccordionTrigger>
+                <AccordionContent className="text-slate-400">
+                  Go to the <strong>Submission Portal</strong>, select your course, choose "Course Syllabus" from the document type list, and upload your PDF file.
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="item-2" className="border-slate-800">
+                <AccordionTrigger className="text-slate-200 hover:text-slate-100">What file formats are accepted?</AccordionTrigger>
+                <AccordionContent className="text-slate-400">
+                  We accept PDF, DOCX, XLSX, PNG, and JPG files. Maximum file size is 10MB per upload.
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="item-3" className="border-slate-800">
+                <AccordionTrigger className="text-slate-200 hover:text-slate-100">Can I edit my submission?</AccordionTrigger>
+                <AccordionContent className="text-slate-400">
+                  If your submission is still <strong>PENDING</strong>, you can resubmit to overwrite it. If it has been <strong>APPROVED</strong>, you cannot change it without administrative override.
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </div>
         </div>
       </div>

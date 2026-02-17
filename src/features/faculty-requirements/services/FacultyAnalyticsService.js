@@ -71,5 +71,31 @@ export const FacultyAnalyticsService = {
             console.error('Error fetching submission history:', error);
             throw error;
         }
+    },
+
+    /**
+     * Get course-by-course analytics (Reuse dashboard status for now)
+     */
+    async getCourseAnalytics() {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error('User not authenticated');
+
+            const { data: faculty } = await supabase
+                .from('faculty')
+                .select('faculty_id')
+                .eq('user_id', user.id)
+                .single();
+
+            // Reusing the dashboard RPC as it has exactly what we need (submitted/total per course)
+            const { data, error } = await supabase
+                .rpc('get_faculty_courses_status', { p_faculty_id: faculty.faculty_id });
+
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('Error fetching course analytics:', error);
+            throw error;
+        }
     }
 };

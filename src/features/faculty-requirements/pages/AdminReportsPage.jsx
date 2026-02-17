@@ -49,6 +49,50 @@ export default function AdminReportsPage() {
     // generateReport(quickConfig); 
   };
 
+  // Filter Data based on Configuration
+  const filteredData = React.useMemo(() => {
+    if (!reportData || !reportData.data_preview) return null;
+
+    return reportData.data_preview.map(row => {
+      const newRow = {};
+
+      // Always include these or strict mapping? Let's map config to keys.
+      // Mapping: Config Key -> Array of related data keys
+      if (config.include_faculty_names) {
+        if (row.faculty_name) newRow['Faculty Name'] = row.faculty_name;
+      }
+      if (config.include_department_data) {
+        if (row.department) newRow['Department'] = row.department;
+      }
+      if (config.include_course_info) {
+        if (row.original_filename) newRow['Filename'] = row.original_filename;
+        if (row.document_type) newRow['Document Type'] = row.document_type;
+        if (row.type_name) newRow['Document Type'] = row.type_name;
+      }
+      if (config.include_submission_dates) {
+        if (row.submitted_at) newRow['Submitted Date'] = new Date(row.submitted_at).toLocaleDateString();
+        if (row.deadline_date) newRow['Deadline'] = new Date(row.deadline_date).toLocaleDateString();
+      }
+      if (config.include_status_indicators) {
+        if (row.submission_status) newRow['Status'] = row.submission_status;
+      }
+
+      return newRow;
+    });
+  }, [reportData, config]);
+
+  const handleExport = () => {
+    if (filteredData) {
+      // Pass the filtered data structure to the export function
+      // We need to mimic the original structure but with filtered data
+      const exportPayload = {
+        ...reportData,
+        data_preview: filteredData
+      };
+      exportCSV(exportPayload);
+    }
+  };
+
   return (
     <div className="space-y-6 flex flex-col h-full">
       {/* Header */}
@@ -89,10 +133,8 @@ export default function AdminReportsPage() {
                     <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
                       <SelectItem value="Submission Status Summary" className="focus:bg-slate-800">Submission Status Summary</SelectItem>
                       <SelectItem value="Late Submission Analysis" className="focus:bg-slate-800">Late Submission Analysis</SelectItem>
-                      <SelectItem value="Faculty Performance Report" className="focus:bg-slate-800">Faculty Performance Report</SelectItem>
-                      <SelectItem value="Department Comparison" className="focus:bg-slate-800">Department Comparison</SelectItem>
-                      <SelectItem value="Validation Failure Report" className="focus:bg-slate-800">Validation Failure Report</SelectItem>
-                      <SelectItem value="Clearance Status Report" className="focus:bg-slate-800">Clearance Status Report</SelectItem>
+                      {/* <SelectItem value="Faculty Performance Report" className="focus:bg-slate-800">Faculty Performance Report</SelectItem> */}
+                      {/* <SelectItem value="Department Comparison" className="focus:bg-slate-800">Department Comparison</SelectItem> */}
                     </SelectContent>
                   </Select>
                 </div>
@@ -163,8 +205,8 @@ export default function AdminReportsPage() {
                 </Button>
                 <Button
                   className="bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-900/20"
-                  onClick={exportCSV}
-                  disabled={!reportData}
+                  onClick={handleExport}
+                  disabled={!reportData || !filteredData || filteredData.length === 0}
                 >
                   <Download className="mr-2 h-4 w-4" /> Export CSV
                 </Button>
@@ -192,7 +234,7 @@ export default function AdminReportsPage() {
                 </div>
               )}
 
-              {reportData ? (
+              {reportData && filteredData ? (
                 <div className="flex-1 flex flex-col h-full">
                   {/* Summary Stats Row */}
                   {reportData.summary && (
@@ -211,15 +253,15 @@ export default function AdminReportsPage() {
                     <table className="w-full text-sm text-left border-collapse">
                       <thead className="bg-slate-950 text-slate-400 font-semibold sticky top-0 z-10 shadow-sm shadow-slate-950">
                         <tr>
-                          {reportData.data_preview?.[0] && Object.keys(reportData.data_preview[0]).map(h => (
+                          {filteredData[0] && Object.keys(filteredData[0]).map(h => (
                             <th key={h} className="px-4 py-3 border-b border-slate-800 whitespace-nowrap text-xs uppercase tracking-wider bg-slate-950">
-                              {h.replace(/_/g, ' ')}
+                              {h}
                             </th>
                           ))}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/50">
-                        {reportData.data_preview?.map((row, i) => (
+                        {filteredData.map((row, i) => (
                           <tr key={i} className="hover:bg-slate-800/40 transition-colors">
                             {Object.values(row).map((val, j) => (
                               <td key={j} className="px-4 py-2.5 text-slate-300 whitespace-nowrap font-mono text-xs">

@@ -834,19 +834,19 @@ export default function AdminSettingsPage() {
                                     title="Clear Validation Queue"
                                     desc="Approve all currently pending items automatically."
                                     btnText="Auto-Approve All"
-                                    onClick={() => alert("This would auto-approve all items.")}
+                                    onClick={() => handleDangerAction('CLEAR_QUEUE')}
                                 />
                                 <DangerRow
                                     title="Reset Semester Data"
                                     desc="Clear all submissions for the current semester. Does not delete archives."
                                     btnText="Reset Semester"
-                                    onClick={() => alert("Resetting semester...")}
+                                    onClick={() => handleDangerAction('RESET_SEMESTER')}
                                 />
                                 <DangerRow
                                     title="Purge Old Archives"
                                     desc="Permanently remove files older than the retention period."
                                     btnText="Purge Archives"
-                                    onClick={() => alert("Purging old files...")}
+                                    onClick={() => handleDangerAction('PURGE_ARCHIVES')}
                                 />
                             </CardContent>
                         </Card>
@@ -856,6 +856,13 @@ export default function AdminSettingsPage() {
         </div >
     );
 }
+
+// ... helper function to be placed inside the component or outside if it doesn't need state ...
+// But wait, I need access to the service and state. I should insert the handler inside the component.
+// Let's do this in two steps or be careful.
+// actually, I'll insert the handler logic inside the component body in a separate `replace` or just assume I can add it before the return.
+// For now, let's just update the rows, and I will add the function definition in the next step to avoid context issues.
+
 
 // --- Sub-components ---
 
