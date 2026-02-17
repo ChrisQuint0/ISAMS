@@ -8,7 +8,7 @@ export const FacultyResourceService = {
     async getTemplates() {
         try {
             const { data, error } = await supabase
-                .rpc('get_available_templates');
+                .rpc('get_available_templates_fs');
 
             if (error) throw error;
             return data;
@@ -26,7 +26,7 @@ export const FacultyResourceService = {
         try {
             // In a real app, this would get a signed URL from Supabase Storage
             const { data, error } = await supabase
-                .from('templates')
+                .from('templates_fs')
                 .select('file_url')
                 .eq('template_id', templateId)
                 .single();
@@ -49,13 +49,13 @@ export const FacultyResourceService = {
             if (!user) throw new Error('User not authenticated');
 
             const { data: faculty } = await supabase
-                .from('faculty')
+                .from('faculty_fs')
                 .select('faculty_id')
                 .eq('user_id', user.id)
                 .single();
 
             let query = supabase
-                .from('submissions')
+                .from('submissions_fs')
                 .select(`
           submission_id,
           standardized_filename,
@@ -82,13 +82,13 @@ export const FacultyResourceService = {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             const { data: faculty } = await supabase
-                .from('faculty')
+                .from('faculty_fs')
                 .select('faculty_id')
                 .eq('user_id', user.id)
                 .single();
 
             const { data, error } = await supabase
-                .rpc('get_faculty_archived_courses', {
+                .rpc('get_faculty_archived_courses_fs', {
                     p_faculty_id: faculty.faculty_id,
                     p_semester: semester
                 });
@@ -105,13 +105,13 @@ export const FacultyResourceService = {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             const { data: faculty } = await supabase
-                .from('faculty')
+                .from('faculty_fs')
                 .select('faculty_id')
                 .eq('user_id', user.id)
                 .single();
 
             const { data, error } = await supabase
-                .rpc('get_course_submissions_archive', {
+                .rpc('get_course_submissions_archive_fs', {
                     p_faculty_id: faculty.faculty_id,
                     p_course_id: courseId
                 });
