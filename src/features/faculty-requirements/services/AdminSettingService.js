@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 import Tesseract from 'tesseract.js';
+import { saveAs } from 'file-saver';
 
 export const settingsService = {
   /**
@@ -192,5 +193,19 @@ export const settingsService = {
     const { data, error } = await supabase.rpc('delete_course_fn', { p_course_id: courseId });
     if (error) throw error;
     return data;
+  },
+
+  /**
+   * Run System Backup
+   */
+  runBackup: async () => {
+    const { data, error } = await supabase.rpc('backup_system_data_fn');
+    if (error) throw error;
+
+    // Create JSON Blob
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    saveAs(blob, `ISAMS_System_Backup_${new Date().toISOString().slice(0, 10)}.json`);
+
+    return { success: true, message: "Backup downloaded successfully." };
   }
 };

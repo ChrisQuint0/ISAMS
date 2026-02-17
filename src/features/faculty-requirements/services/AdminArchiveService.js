@@ -1,4 +1,6 @@
 import { supabase } from '@/lib/supabaseClient';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 export const archiveService = {
   /**
@@ -81,6 +83,57 @@ export const archiveService = {
     const uniqueTypes = types.data?.map(t => t.type_name);
 
     return { departments: uniqueDepts, types: uniqueTypes };
+  },
+
+  /**
+   * Bulk Download as ZIP
+   */
+  downloadArchiveZip: async (config, onProgress) => {
+    try {
+      // 1. Get Links
+      const { data: files, error } = await supabase.rpc('get_archive_export_links_fn', {
+        p_semester: config.semester === 'All Semesters' ? null : config.semester,
+        p_department: config.department === 'All Departments' ? null : config.department
+      });
+
+      if (error) throw error;
+      if (!files || files.length === 0) return { success: false, message: 'No files found to export.' };
+
+      const zip = new JSZip();
+      const folder = zip.folder(`Archive_${new Date().toISOString().slice(0, 10)}`);
+
+      let processed = 0;
+      const total = files.length;
+
+      // 2. Download each file
+      // Note: This relies on the file URL being accessible via fetch (CORS).
+      // If GDrive links block CORS, this step will fail.
+      const downloadPromises = files.map(async (file) => {
+        try {
+          const response = await fetch(file.download_link);
+          if (!response.ok) throw new Error('Network response was not ok');
+          const blob = await response.blob();
+          folder.file(file.filename, blob);
+          processed++;
+          if (onProgress) onProgress(Math.round((processed / total) * 100));
+        } catch (err) {
+          console.warn(`Failed to download ${file.filename}:`, err);
+          folder.file(`${file.filename}.txt`, `Failed to download. Link: ${file.download_link}`);
+        }
+      });
+
+      await Promise.all(downloadPromises);
+
+      // 3. Generate ZIP
+      const content = await zip.generateAsync({ type: "blob" });
+      saveAs(content, `ISAMS_Archive_Export.zip`);
+
+      return { success: true, message: `Successfully exported ${processed} files.` };
+
+    } catch (err) {
+      console.error("ZIP Export Failed:", err);
+      return { success: false, message: err.message || "Export failed." };
+    }
   }
 };
 

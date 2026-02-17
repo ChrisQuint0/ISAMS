@@ -25,7 +25,7 @@ export default function AdminSettingsPage() {
     const {
         loading, processing, error, success,
         settings, queue, testResult,
-        updateSetting, runTestOCR, processQueue, refresh,
+        updateSetting, runTestOCR, processQueue, runBackup, refresh,
         docRequirements, addDocRequirement, updateDocRequirement, deleteDocRequirement,
         templates, addTemplate, deleteTemplate,
 
@@ -219,8 +219,15 @@ export default function AdminSettingsPage() {
                                             <Button
                                                 variant="outline"
                                                 className="w-full justify-start bg-slate-950 border-slate-700 text-slate-300 hover:bg-slate-800"
+                                                onClick={runBackup}
+                                                disabled={processing}
                                             >
-                                                <HardDrive className="mr-2 h-4 w-4 text-blue-400" /> Run Backup
+                                                {processing ? (
+                                                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <HardDrive className="mr-2 h-4 w-4 text-blue-400" />
+                                                )}
+                                                Run Backup
                                             </Button>
                                             <Button
                                                 variant="outline"

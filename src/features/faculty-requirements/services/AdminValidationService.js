@@ -89,5 +89,17 @@ export const validationService = {
         `https://drive.google.com/uc?export=download&id=${data.gdrive_file_id}`;
     }
     return null;
+  },
+
+  /**
+   * Approve All Pending
+   */
+  approveAllPending: async (department) => {
+    const { data, error } = await supabase.rpc('approve_all_pending_fn', {
+      p_department: department === 'All Departments' ? null : department
+    });
+
+    if (error) throw error;
+    return data;
   }
 };
