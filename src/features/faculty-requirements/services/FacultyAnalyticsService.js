@@ -11,7 +11,7 @@ export const FacultyAnalyticsService = {
             if (!user) throw new Error('User not authenticated');
 
             const { data: faculty } = await supabase
-                .from('faculty')
+                .from('faculty_fs')
                 .select('faculty_id')
                 .eq('user_id', user.id)
                 .single();
@@ -19,7 +19,7 @@ export const FacultyAnalyticsService = {
             if (!faculty) throw new Error('Faculty profile not found');
 
             const { data, error } = await supabase
-                .rpc('get_faculty_analytics_overview', { p_faculty_id: faculty.faculty_id });
+                .rpc('get_faculty_analytics_overview_fs', { p_faculty_id: faculty.faculty_id });
 
             if (error) throw error;
             return data;
@@ -37,13 +37,13 @@ export const FacultyAnalyticsService = {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             const { data: faculty } = await supabase
-                .from('faculty')
+                .from('faculty_fs')
                 .select('faculty_id')
                 .eq('user_id', user.id)
                 .single();
 
             const { data, error } = await supabase
-                .rpc('get_faculty_submission_timeline', { p_faculty_id: faculty.faculty_id });
+                .rpc('get_faculty_submission_timeline_fs', { p_faculty_id: faculty.faculty_id });
 
             if (error) throw error;
             return data || [];
@@ -60,7 +60,7 @@ export const FacultyAnalyticsService = {
     async getSubmissionHistory() {
         try {
             const { data, error } = await supabase
-                .rpc('get_faculty_submissions_fn', {
+                .rpc('get_faculty_submissions_fs', {
                     p_limit: 50,
                     p_offset: 0
                 });
@@ -82,14 +82,14 @@ export const FacultyAnalyticsService = {
             if (!user) throw new Error('User not authenticated');
 
             const { data: faculty } = await supabase
-                .from('faculty')
+                .from('faculty_fs')
                 .select('faculty_id')
                 .eq('user_id', user.id)
                 .single();
 
             // Reusing the dashboard RPC as it has exactly what we need (submitted/total per course)
             const { data, error } = await supabase
-                .rpc('get_faculty_courses_status', { p_faculty_id: faculty.faculty_id });
+                .rpc('get_faculty_courses_status_fs', { p_faculty_id: faculty.faculty_id });
 
             if (error) throw error;
             return data || [];

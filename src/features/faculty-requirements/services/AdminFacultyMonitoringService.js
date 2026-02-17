@@ -5,7 +5,7 @@ export const facultyMonitorService = {
    * Get Faculty Monitor List (with filters)
    */
   getMonitoringData: async (filters) => {
-    const { data, error } = await supabase.rpc('get_faculty_monitoring_fn', {
+    const { data, error } = await supabase.rpc('get_faculty_monitoring_fs', {
       p_semester: filters.semester === 'All Semesters' ? null : filters.semester,
       p_academic_year: filters.academic_year === 'All Years' ? null : filters.academic_year,
       p_department: filters.department === 'All Departments' ? null : filters.department,
@@ -27,8 +27,8 @@ export const facultyMonitorService = {
    */
   getOptions: async () => {
     const [depts, courses] = await Promise.all([
-      supabase.from('faculty').select('department').neq('department', null),
-      supabase.from('courses').select('course_code')
+      supabase.from('faculty_fs').select('department').neq('department', null),
+      supabase.from('courses_fs').select('course_code')
     ]);
 
     // Unique values
@@ -42,7 +42,7 @@ export const facultyMonitorService = {
    * Send Single Reminder
    */
   sendReminder: async (facultyId) => {
-    const { error } = await supabase.from('notifications').insert({
+    const { error } = await supabase.from('notifications_fs').insert({
       faculty_id: facultyId,
       notification_type: 'DEADLINE_REMINDER',
       subject: 'Urgent: Submission Reminder',
@@ -56,7 +56,7 @@ export const facultyMonitorService = {
    * Send Bulk Reminders
    */
   sendBulkReminders: async (dept, status) => {
-    const { data, error } = await supabase.rpc('send_bulk_reminders_filter_fn', {
+    const { data, error } = await supabase.rpc('send_bulk_reminders_filter_fs', {
       p_department: dept === 'All Departments' ? null : dept,
       p_status: status === 'All Status' ? null : status
     });

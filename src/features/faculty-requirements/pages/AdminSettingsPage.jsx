@@ -49,6 +49,7 @@ export default function AdminSettingsPage() {
     // -- State for General Settings --
     const [deadlineDays, setDeadlineDays] = useState(14);
     const [graceDays, setGraceDays] = useState(3);
+    const [gdriveFolderLink, setGdriveFolderLink] = useState(() => localStorage.getItem('fsFolderLink') || '');
 
     // -- UI STATE FOR NON-OCR SETTINGS --
     const [valRules, setValRules] = useState({
@@ -185,6 +186,48 @@ export default function AdminSettingsPage() {
                                             </Button>
                                             <Button className="bg-blue-600 hover:bg-blue-700 text-white">
                                                 <Save className="mr-2 h-4 w-4" /> Save Changes
+                                            </Button>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                {/* Google Drive Folder */}
+                                <Card className="bg-slate-900 border-slate-800 shadow-none">
+                                    <CardHeader className="border-b border-slate-800 py-4">
+                                        <CardTitle className="text-base text-slate-100 flex items-center gap-2">
+                                            <HardDrive className="h-4 w-4 text-slate-400" /> Google Drive Integration
+                                        </CardTitle>
+                                        <CardDescription className="text-slate-500">Set the root folder where faculty submissions will be uploaded</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="pt-6 space-y-4">
+                                        <div className="space-y-2">
+                                            <Label className="text-xs font-semibold text-slate-400 uppercase">Google Drive Folder Link</Label>
+                                            <Input
+                                                id="gdrive-folder-link"
+                                                placeholder="https://drive.google.com/drive/folders/..."
+                                                value={gdriveFolderLink}
+                                                onChange={(e) => setGdriveFolderLink(e.target.value)}
+                                                className="bg-slate-950 border-slate-700 text-slate-200 focus:border-blue-500"
+                                            />
+                                            {gdriveFolderLink && (
+                                                <p className="text-xs text-slate-500">
+                                                    Folder ID: {(() => {
+                                                        const match = gdriveFolderLink.match(/folders\/([a-zA-Z0-9_-]+)/);
+                                                        return match ? <span className="text-emerald-400 font-mono">{match[1]}</span> : <span className="text-red-400">Invalid link</span>;
+                                                    })()}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="flex justify-end">
+                                            <Button
+                                                size="sm"
+                                                className="bg-blue-600 hover:bg-blue-700 text-white"
+                                                onClick={() => {
+                                                    localStorage.setItem('fsFolderLink', gdriveFolderLink);
+                                                    alert('Google Drive folder link saved!');
+                                                }}
+                                            >
+                                                <Save className="mr-2 h-4 w-4" /> Save Folder Link
                                             </Button>
                                         </div>
                                     </CardContent>

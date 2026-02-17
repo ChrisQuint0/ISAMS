@@ -7,7 +7,7 @@ export const archiveService = {
    * Fetch filtered documents using the SQL function
    */
   getDocuments: async (filters) => {
-    const { data, error } = await supabase.rpc('get_archived_documents_fn', {
+    const { data, error } = await supabase.rpc('get_archived_documents_fs', {
       p_semester: filters.semester === 'All Semesters' ? null : filters.semester,
       p_academic_year: filters.academic_year === 'All Years' ? null : filters.academic_year,
       p_department: filters.department === 'All Departments' ? null : filters.department,
@@ -34,7 +34,7 @@ export const archiveService = {
    * Fetch statistics
    */
   getStatistics: async () => {
-    const { data, error } = await supabase.rpc('get_archive_stats_fn');
+    const { data, error } = await supabase.rpc('get_archive_stats_fs');
 
     if (error) throw error;
 
@@ -75,8 +75,8 @@ export const archiveService = {
    */
   getOptions: async () => {
     const [depts, types] = await Promise.all([
-      supabase.from('faculty').select('department').neq('department', null),
-      supabase.from('document_types').select('type_name')
+      supabase.from('faculty_fs').select('department').neq('department', null),
+      supabase.from('documenttypes_fs').select('type_name')
     ]);
 
     const uniqueDepts = [...new Set(depts.data?.map(d => d.department))];
@@ -91,7 +91,7 @@ export const archiveService = {
   downloadArchiveZip: async (config, onProgress) => {
     try {
       // 1. Get Links
-      const { data: files, error } = await supabase.rpc('get_archive_export_links_fn', {
+      const { data: files, error } = await supabase.rpc('get_archive_export_links_fs', {
         p_semester: config.semester === 'All Semesters' ? null : config.semester,
         p_department: config.department === 'All Departments' ? null : config.department
       });

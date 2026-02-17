@@ -5,7 +5,7 @@ export const dashboardService = {
    * Fetch all main stats
    */
   getStats: async () => {
-    const { data, error } = await supabase.rpc('get_dashboard_stats_fn');
+    const { data, error } = await supabase.rpc('get_dashboard_stats_fs');
     if (error) throw error;
     return data;
   },
@@ -14,7 +14,7 @@ export const dashboardService = {
    * Fetch Department Progress
    */
   getDeptProgress: async () => {
-    const { data, error } = await supabase.rpc('get_department_progress_fn');
+    const { data, error } = await supabase.rpc('get_department_progress_fs');
     if (error) throw error;
     return data;
   },
@@ -23,7 +23,7 @@ export const dashboardService = {
    * Fetch Faculty List with calculated status
    */
   getFacultyStatus: async () => {
-    const { data, error } = await supabase.rpc('get_faculty_status_overview_fn');
+    const { data, error } = await supabase.rpc('get_faculty_status_overview_fs');
     if (error) throw error;
     return data;
   },
@@ -32,7 +32,7 @@ export const dashboardService = {
    * Fetch Trends
    */
   getTrends: async (days = 30) => {
-    const { data, error } = await supabase.rpc('get_submission_trends_fn', { p_days: days });
+    const { data, error } = await supabase.rpc('get_submission_trends_fs', { p_days: days });
     if (error) throw error;
     return data;
   },
@@ -41,7 +41,7 @@ export const dashboardService = {
    * Trigger Bulk Reminders
    */
   sendBulkReminders: async () => {
-    const { data, error } = await supabase.rpc('send_bulk_reminders_fn');
+    const { data, error } = await supabase.rpc('send_bulk_reminders_fs');
     if (error) throw error;
     return data;
   },
@@ -50,7 +50,7 @@ export const dashboardService = {
    * Send Single Reminder
    */
   sendIndividualReminder: async (facultyId, name) => {
-    const { error } = await supabase.from('notifications').insert({
+    const { error } = await supabase.from('notifications_fs').insert({
       faculty_id: facultyId,
       notification_type: 'DEADLINE_REMINDER',
       subject: 'Reminder: Pending Document Submissions',
@@ -64,7 +64,7 @@ export const dashboardService = {
    * Fetch Top Contributors
    */
   getTopContributors: async () => {
-    const { data, error } = await supabase.rpc('get_top_contributors_fn');
+    const { data, error } = await supabase.rpc('get_top_contributors_fs');
     if (error) throw error;
     return data;
   }

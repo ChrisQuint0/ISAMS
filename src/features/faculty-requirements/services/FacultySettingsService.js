@@ -10,7 +10,7 @@ export const FacultySettingsService = {
             if (!user) throw new Error('User not authenticated');
 
             const { data, error } = await supabase
-                .rpc('get_faculty_profile', { p_user_id: user.id });
+                .rpc('get_faculty_profile_fs', { p_user_id: user.id });
 
             if (error) throw error;
             return data;
@@ -26,7 +26,7 @@ export const FacultySettingsService = {
     async updateProfile(facultyId, { firstName, lastName, consultationHours }) {
         try {
             const { error } = await supabase
-                .rpc('update_faculty_profile', {
+                .rpc('update_faculty_profile_fs', {
                     p_faculty_id: facultyId,
                     p_first_name: firstName,
                     p_last_name: lastName,
@@ -47,7 +47,7 @@ export const FacultySettingsService = {
     async updatePreferences(facultyId, { emailEnabled, frequency }) {
         try {
             const { error } = await supabase
-                .rpc('update_faculty_preferences', {
+                .rpc('update_faculty_preferences_fs', {
                     p_faculty_id: facultyId,
                     p_email_enabled: emailEnabled,
                     p_frequency: frequency
