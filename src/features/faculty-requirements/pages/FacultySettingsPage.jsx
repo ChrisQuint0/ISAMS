@@ -5,7 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import {
   User,
   Bell,
-  Lock,
+
   Save,
   Loader2,
   CheckCircle,
@@ -225,23 +225,7 @@ export default function FacultySettingsPage() {
           </div>
         </div>
 
-        {/* Security Settings (Placeholder) */}
-        <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md p-6 md:col-span-2">
-          <div className="flex items-center mb-6">
-            <Lock className="text-green-400 mr-3 h-6 w-6" />
-            <h2 className="text-lg font-semibold text-slate-100">Security</h2>
-          </div>
 
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium text-slate-100">Password</p>
-              <p className="text-sm text-slate-400">Last changed: 3 months ago</p>
-            </div>
-            <Button variant="outline" className="bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700">
-              Change Password
-            </Button>
-          </div>
-        </div>
       </div>
     </div>
   );

@@ -77,5 +77,50 @@ export const FacultyResourceService = {
             console.error('Error fetching archives:', error);
             throw error;
         }
+    },
+    async getArchivedCourses(semester) {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            const { data: faculty } = await supabase
+                .from('faculty')
+                .select('faculty_id')
+                .eq('user_id', user.id)
+                .single();
+
+            const { data, error } = await supabase
+                .rpc('get_faculty_archived_courses', {
+                    p_faculty_id: faculty.faculty_id,
+                    p_semester: semester
+                });
+
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            console.error('Error fetching archived courses:', error);
+            throw error;
+        }
+    },
+
+    async getCourseVersions(courseId) {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            const { data: faculty } = await supabase
+                .from('faculty')
+                .select('faculty_id')
+                .eq('user_id', user.id)
+                .single();
+
+            const { data, error } = await supabase
+                .rpc('get_course_submissions_archive', {
+                    p_faculty_id: faculty.faculty_id,
+                    p_course_id: courseId
+                });
+
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            console.error('Error fetching course versions:', error);
+            throw error;
+        }
     }
 };

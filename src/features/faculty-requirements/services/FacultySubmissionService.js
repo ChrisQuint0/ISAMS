@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
+import Tesseract from 'tesseract.js';
 
 export const FacultySubmissionService = {
     /**
@@ -101,6 +102,64 @@ export const FacultySubmissionService = {
 
         } catch (error) {
             console.error('Error uploading submission:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Run OCR on a file (Client-side)
+     */
+    async runOCR(file) {
+        try {
+            const result = await Tesseract.recognize(file, 'eng');
+            return {
+                text: result.data.text,
+                confidence: result.data.confidence,
+                success: true
+            };
+        } catch (err) {
+            console.error("OCR Failed:", err);
+            return { success: false, error: err.message };
+        }
+    },
+
+    /**
+     * Get Submission History for Faculty
+     */
+    async getSubmissionHistory() {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error('User not authenticated');
+
+            // 1. Get faculty ID
+            const { data: faculty } = await supabase
+                .from('faculty')
+                .select('faculty_id')
+                .eq('user_id', user.id)
+                .single();
+
+            if (!faculty) throw new Error('Faculty profile not found');
+
+            // 2. Fetch submissions
+            const { data, error } = await supabase
+                .from('submissions')
+                .select(`
+                    submission_id,
+                    submitted_at,
+                    submission_status,
+                    original_filename,
+                    courses (course_code, course_name),
+                    document_types (type_name, doc_type_id),
+                    course_id,
+                    doc_type_id
+                `)
+                .eq('faculty_id', faculty.faculty_id)
+                .order('submitted_at', { ascending: false });
+
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            console.error('Error fetching submission history:', error);
             throw error;
         }
     }

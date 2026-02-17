@@ -98,7 +98,8 @@ export default function FacultyAnalyticsPage() {
                 <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
                   <div
                     className={`h-full ${item.status === 'On Time' ? 'bg-green-500' :
-                        item.status === 'Late' ? 'bg-amber-500' : 'bg-slate-600'
+                      item.status === 'Late' ? 'bg-amber-500' :
+                        item.status === 'Submitted' ? 'bg-blue-500' : 'bg-slate-600'
                       }`}
                     style={{ width: item.status === 'Pending' ? '0%' : '100%' }}
                   ></div>
@@ -188,8 +189,8 @@ export default function FacultyAnalyticsPage() {
                   </td>
                   <td className="py-3 px-4">
                     <span className={`px-2 py-1 text-xs font-semibold rounded ${record.status === 'APPROVED' ? 'bg-green-500/10 text-green-400' :
-                        record.status === 'REJECTED' ? 'bg-red-500/10 text-red-400' :
-                          'bg-amber-500/10 text-amber-400'
+                      record.status === 'REJECTED' ? 'bg-red-500/10 text-red-400' :
+                        'bg-amber-500/10 text-amber-400'
                       }`}>
                       {record.status}
                     </span>
