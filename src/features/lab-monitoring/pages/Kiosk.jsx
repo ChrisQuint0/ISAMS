@@ -24,6 +24,7 @@ export default function Kiosk() {
   const [cameraError, setCameraError] = useState("")
   const [idEntry, setIdEntry] = useState("")
   const [timestamp, setTimestamp] = useState("")
+  const [isFocused, setIsFocused] = useState(false)
 
   // Live clock
   useEffect(() => {
@@ -90,6 +91,15 @@ export default function Kiosk() {
       }
     })
     return output
+  }
+
+  // Get the active slot index (where the cursor should blink)
+  const getActiveSlotIndex = () => {
+    const len = sanitizedId(idEntry).length
+    if (len >= 7) return -1 // all filled
+    // Map typed char count to slot index (skip dash at index 2)
+    if (len < 2) return len        // slots 0, 1
+    return len + 1                  // slots 3-7 (skip dash)
   }
 
   const handleInputChange = (e) => {
@@ -230,15 +240,25 @@ export default function Kiosk() {
                   value={idEntry}
                   onChange={handleInputChange}
                   onKeyPress={handleKeyPress}
+                  onFocus={() => setIsFocused(true)}
+                  onBlur={() => setIsFocused(false)}
                 />
                 {visibleChars().map((char, idx) => (
                   <div
                     key={`${char}-${idx}`}
-                    className={`flex h-12 w-12 items-center justify-center rounded-lg border border-slate-600 bg-slate-900/80 text-lg font-semibold text-slate-100 md:h-14 md:w-14 ${
-                      slots[idx] === "-" ? "w-10 md:w-12 border-transparent bg-transparent text-slate-500" : ""
+                    className={`relative flex h-12 w-12 items-center justify-center rounded-lg border text-lg font-semibold text-slate-100 md:h-14 md:w-14 transition-all duration-200 ${
+                      slots[idx] === "-" 
+                        ? "w-10 md:w-12 border-transparent bg-transparent text-slate-500" 
+                        : isFocused && idx === getActiveSlotIndex()
+                          ? "border-cyan-400 bg-slate-900/80 ring-1 ring-cyan-400/30"
+                          : "border-slate-600 bg-slate-900/80"
                     }`}
                   >
                     {char || (slots[idx] === "-" ? "-" : "")}
+                    {/* Blinking cursor for active slot */}
+                    {isFocused && idx === getActiveSlotIndex() && !char && slots[idx] !== "-" && (
+                      <div className="absolute bottom-2.5 md:bottom-3 w-5 h-0.5 bg-cyan-400 rounded-full animate-pulse" />
+                    )}
                   </div>
                 ))}
               </div>
