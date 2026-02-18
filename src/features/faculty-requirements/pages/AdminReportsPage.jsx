@@ -49,6 +49,50 @@ export default function AdminReportsPage() {
     // generateReport(quickConfig); 
   };
 
+  // Filter Data based on Configuration
+  const filteredData = React.useMemo(() => {
+    if (!reportData || !reportData.data_preview) return null;
+
+    return reportData.data_preview.map(row => {
+      const newRow = {};
+
+      // Always include these or strict mapping? Let's map config to keys.
+      // Mapping: Config Key -> Array of related data keys
+      if (config.include_faculty_names) {
+        if (row.faculty_name) newRow['Faculty Name'] = row.faculty_name;
+      }
+      if (config.include_department_data) {
+        if (row.department) newRow['Department'] = row.department;
+      }
+      if (config.include_course_info) {
+        if (row.original_filename) newRow['Filename'] = row.original_filename;
+        if (row.document_type) newRow['Document Type'] = row.document_type;
+        if (row.type_name) newRow['Document Type'] = row.type_name;
+      }
+      if (config.include_submission_dates) {
+        if (row.submitted_at) newRow['Submitted Date'] = new Date(row.submitted_at).toLocaleDateString();
+        if (row.deadline_date) newRow['Deadline'] = new Date(row.deadline_date).toLocaleDateString();
+      }
+      if (config.include_status_indicators) {
+        if (row.submission_status) newRow['Status'] = row.submission_status;
+      }
+
+      return newRow;
+    });
+  }, [reportData, config]);
+
+  const handleExport = () => {
+    if (filteredData) {
+      // Pass the filtered data structure to the export function
+      // We need to mimic the original structure but with filtered data
+      const exportPayload = {
+        ...reportData,
+        data_preview: filteredData
+      };
+      exportCSV(exportPayload);
+    }
+  };
+
   return (
     <div className="space-y-6 flex flex-col h-full">
       {/* Header */}
@@ -60,16 +104,16 @@ export default function AdminReportsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
-        
+
         {/* LEFT COLUMN: Generator & Preview (Span 2) */}
         <div className="lg:col-span-2 flex flex-col gap-6 min-h-0">
-          
+
           {/* 1. Generate Report Configuration */}
           <Card className="bg-slate-900 border-slate-800 shadow-none shrink-0">
             <CardHeader className="border-b border-slate-800 py-3">
               <div className="flex items-center gap-2">
                 <div className="bg-blue-600/20 p-1.5 rounded text-blue-400">
-                    <Filter className="h-4 w-4" />
+                  <Filter className="h-4 w-4" />
                 </div>
                 <CardTitle className="text-base text-slate-100">Report Configuration</CardTitle>
               </div>
@@ -79,9 +123,9 @@ export default function AdminReportsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-slate-400 uppercase">Report Type</Label>
-                  <Select 
-                    value={config.reportType} 
-                    onValueChange={(v) => setConfig({...config, reportType: v})}
+                  <Select
+                    value={config.reportType}
+                    onValueChange={(v) => setConfig({ ...config, reportType: v })}
                   >
                     <SelectTrigger className="bg-slate-950/50 border-slate-700 text-slate-200 focus:ring-blue-500/20">
                       <SelectValue placeholder="Select type" />
@@ -89,18 +133,16 @@ export default function AdminReportsPage() {
                     <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
                       <SelectItem value="Submission Status Summary" className="focus:bg-slate-800">Submission Status Summary</SelectItem>
                       <SelectItem value="Late Submission Analysis" className="focus:bg-slate-800">Late Submission Analysis</SelectItem>
-                      <SelectItem value="Faculty Performance Report" className="focus:bg-slate-800">Faculty Performance Report</SelectItem>
-                      <SelectItem value="Department Comparison" className="focus:bg-slate-800">Department Comparison</SelectItem>
-                      <SelectItem value="Validation Failure Report" className="focus:bg-slate-800">Validation Failure Report</SelectItem>
-                      <SelectItem value="Clearance Status Report" className="focus:bg-slate-800">Clearance Status Report</SelectItem>
+                      {/* <SelectItem value="Faculty Performance Report" className="focus:bg-slate-800">Faculty Performance Report</SelectItem> */}
+                      {/* <SelectItem value="Department Comparison" className="focus:bg-slate-800">Department Comparison</SelectItem> */}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-slate-400 uppercase">Time Period</Label>
-                  <Select 
-                    value={config.timePeriod} 
-                    onValueChange={(v) => setConfig({...config, timePeriod: v})}
+                  <Select
+                    value={config.timePeriod}
+                    onValueChange={(v) => setConfig({ ...config, timePeriod: v })}
                   >
                     <SelectTrigger className="bg-slate-950/50 border-slate-700 text-slate-200 focus:ring-blue-500/20">
                       <SelectValue placeholder="Select period" />
@@ -118,53 +160,53 @@ export default function AdminReportsPage() {
               <div className="mb-6 bg-slate-950/30 p-4 rounded-lg border border-slate-800/50">
                 <Label className="mb-3 block text-xs font-semibold text-slate-400 uppercase">Include Data Columns</Label>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-4">
-                  <CheckboxItem 
-                    label="Faculty Names" 
-                    checked={config.include_faculty_names} 
-                    onChange={() => handleCheckboxChange('include_faculty_names')} 
+                  <CheckboxItem
+                    label="Faculty Names"
+                    checked={config.include_faculty_names}
+                    onChange={() => handleCheckboxChange('include_faculty_names')}
                   />
-                  <CheckboxItem 
-                    label="Department Data" 
-                    checked={config.include_department_data} 
-                    onChange={() => handleCheckboxChange('include_department_data')} 
+                  <CheckboxItem
+                    label="Department Data"
+                    checked={config.include_department_data}
+                    onChange={() => handleCheckboxChange('include_department_data')}
                   />
-                  <CheckboxItem 
-                    label="Course Information" 
-                    checked={config.include_course_info} 
-                    onChange={() => handleCheckboxChange('include_course_info')} 
+                  <CheckboxItem
+                    label="Course Information"
+                    checked={config.include_course_info}
+                    onChange={() => handleCheckboxChange('include_course_info')}
                   />
-                  <CheckboxItem 
-                    label="Submission Dates" 
-                    checked={config.include_submission_dates} 
-                    onChange={() => handleCheckboxChange('include_submission_dates')} 
+                  <CheckboxItem
+                    label="Submission Dates"
+                    checked={config.include_submission_dates}
+                    onChange={() => handleCheckboxChange('include_submission_dates')}
                   />
-                  <CheckboxItem 
-                    label="Validation Details" 
-                    checked={config.include_validation_details} 
-                    onChange={() => handleCheckboxChange('include_validation_details')} 
+                  <CheckboxItem
+                    label="Validation Details"
+                    checked={config.include_validation_details}
+                    onChange={() => handleCheckboxChange('include_validation_details')}
                   />
-                  <CheckboxItem 
-                    label="Status Indicators" 
-                    checked={config.include_status_indicators} 
-                    onChange={() => handleCheckboxChange('include_status_indicators')} 
+                  <CheckboxItem
+                    label="Status Indicators"
+                    checked={config.include_status_indicators}
+                    onChange={() => handleCheckboxChange('include_status_indicators')}
                   />
                 </div>
               </div>
 
               {/* Actions */}
               <div className="flex justify-end gap-3">
-                <Button 
-                  variant="outline" 
-                  onClick={handleGenerate} 
+                <Button
+                  variant="outline"
+                  onClick={handleGenerate}
                   disabled={loading}
                   className="bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
                 >
                   <Eye className="mr-2 h-4 w-4" /> Preview Report
                 </Button>
-                <Button 
-                  className="bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-900/20" 
-                  onClick={exportCSV} 
-                  disabled={!reportData}
+                <Button
+                  className="bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-900/20"
+                  onClick={handleExport}
+                  disabled={!reportData || !filteredData || filteredData.length === 0}
                 >
                   <Download className="mr-2 h-4 w-4" /> Export CSV
                 </Button>
@@ -177,7 +219,7 @@ export default function AdminReportsPage() {
             <CardHeader className="border-b border-slate-800 py-3 shrink-0 bg-slate-950/30">
               <div className="flex items-center gap-2">
                 <div className="bg-emerald-600/20 p-1.5 rounded text-emerald-400">
-                    <FileText className="h-4 w-4" />
+                  <FileText className="h-4 w-4" />
                 </div>
                 <CardTitle className="text-base text-slate-100">Report Preview</CardTitle>
               </div>
@@ -191,8 +233,8 @@ export default function AdminReportsPage() {
                   </Alert>
                 </div>
               )}
-              
-              {reportData ? (
+
+              {reportData && filteredData ? (
                 <div className="flex-1 flex flex-col h-full">
                   {/* Summary Stats Row */}
                   {reportData.summary && (
@@ -211,15 +253,15 @@ export default function AdminReportsPage() {
                     <table className="w-full text-sm text-left border-collapse">
                       <thead className="bg-slate-950 text-slate-400 font-semibold sticky top-0 z-10 shadow-sm shadow-slate-950">
                         <tr>
-                          {reportData.data_preview?.[0] && Object.keys(reportData.data_preview[0]).map(h => (
+                          {filteredData[0] && Object.keys(filteredData[0]).map(h => (
                             <th key={h} className="px-4 py-3 border-b border-slate-800 whitespace-nowrap text-xs uppercase tracking-wider bg-slate-950">
-                                {h.replace(/_/g, ' ')}
+                              {h}
                             </th>
                           ))}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/50">
-                        {reportData.data_preview?.map((row, i) => (
+                        {filteredData.map((row, i) => (
                           <tr key={i} className="hover:bg-slate-800/40 transition-colors">
                             {Object.values(row).map((val, j) => (
                               <td key={j} className="px-4 py-2.5 text-slate-300 whitespace-nowrap font-mono text-xs">
@@ -249,41 +291,41 @@ export default function AdminReportsPage() {
 
         {/* RIGHT COLUMN: Sidebar Widgets (Span 1) */}
         <div className="flex flex-col gap-6">
-          
+
           {/* 3. Quick Reports Widget */}
           <Card className="bg-slate-900 border-slate-800 shadow-none">
             <CardHeader className="border-b border-slate-800 py-3">
               <CardTitle className="text-base text-slate-100">Quick Templates</CardTitle>
             </CardHeader>
             <CardContent className="pt-4 space-y-3 px-4">
-              <QuickReportBtn 
-                icon={PieChart} 
-                label="Current Status" 
-                sub="Snapshot of current semester" 
+              <QuickReportBtn
+                icon={PieChart}
+                label="Current Status"
+                sub="Snapshot of current semester"
                 color="text-emerald-400"
                 bg="hover:bg-slate-800 border-slate-800"
                 onClick={() => handleQuickReport('Submission Status Summary')}
               />
-              <QuickReportBtn 
-                icon={Clock} 
-                label="Late Submissions" 
-                sub="All overdue documents" 
+              <QuickReportBtn
+                icon={Clock}
+                label="Late Submissions"
+                sub="All overdue documents"
                 color="text-rose-400"
                 bg="hover:bg-slate-800 border-slate-800"
                 onClick={() => handleQuickReport('Late Submission Analysis')}
               />
-              <QuickReportBtn 
-                icon={CheckCircle} 
-                label="Validation Stats" 
-                sub="Success/failure rates" 
+              <QuickReportBtn
+                icon={CheckCircle}
+                label="Validation Stats"
+                sub="Success/failure rates"
                 color="text-blue-400"
                 bg="hover:bg-slate-800 border-slate-800"
                 onClick={() => handleQuickReport('Validation Failure Report')}
               />
-              <QuickReportBtn 
-                icon={FileBadge} 
-                label="Clearance Report" 
-                sub="Faculty clearance status" 
+              <QuickReportBtn
+                icon={FileBadge}
+                label="Clearance Report"
+                sub="Faculty clearance status"
                 color="text-purple-400"
                 bg="hover:bg-slate-800 border-slate-800"
                 onClick={() => handleQuickReport('Clearance Status Report')}
@@ -302,9 +344,9 @@ export default function AdminReportsPage() {
                 <RecentExportItem name="Late Faculty Report" date="June 3, 2024" type="PDF" />
                 <RecentExportItem name="Department Comparison" date="June 1, 2024" type="CSV" />
                 <div className="p-3 text-center">
-                    <Button variant="link" className="text-xs text-slate-500 h-auto p-0 hover:text-blue-400">
-                        View All History
-                    </Button>
+                  <Button variant="link" className="text-xs text-slate-500 h-auto p-0 hover:text-blue-400">
+                    View All History
+                  </Button>
                 </div>
               </div>
             </CardContent>
@@ -320,14 +362,14 @@ export default function AdminReportsPage() {
 
 const CheckboxItem = ({ label, checked, onChange }) => (
   <div className="flex items-center space-x-2.5">
-    <Checkbox 
-      id={label} 
-      checked={checked} 
+    <Checkbox
+      id={label}
+      checked={checked}
       onCheckedChange={onChange}
       className="border-slate-600 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 h-4 w-4"
     />
-    <label 
-      htmlFor={label} 
+    <label
+      htmlFor={label}
       className="text-sm font-medium leading-none text-slate-300 peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer select-none"
     >
       {label}
@@ -336,12 +378,12 @@ const CheckboxItem = ({ label, checked, onChange }) => (
 );
 
 const QuickReportBtn = ({ icon: Icon, label, sub, color, bg, onClick }) => (
-  <button 
-    onClick={onClick} 
+  <button
+    onClick={onClick}
     className={`flex items-center w-full p-3 rounded-lg border transition-all text-left group ${bg}`}
   >
     <div className={`mr-3 p-1.5 rounded bg-slate-950/50 group-hover:bg-slate-950 transition-colors`}>
-        <Icon className={`h-4 w-4 ${color}`} /> 
+      <Icon className={`h-4 w-4 ${color}`} />
     </div>
     <div className="flex-1 min-w-0">
       <p className="font-medium text-sm text-slate-200 truncate">{label}</p>
@@ -354,17 +396,17 @@ const QuickReportBtn = ({ icon: Icon, label, sub, color, bg, onClick }) => (
 const RecentExportItem = ({ name, date, type }) => (
   <div className="flex items-center justify-between p-4 hover:bg-slate-800/30 transition-colors group">
     <div className="flex items-center gap-3">
-        <div className={`p-1.5 rounded bg-slate-950 border border-slate-800 ${type === 'PDF' ? 'text-rose-400' : 'text-emerald-400'}`}>
-            <File className="h-3.5 w-3.5" />
-        </div>
-        <div>
-            <p className="font-medium text-sm text-slate-200">{name}</p>
-            <p className="text-[10px] text-slate-500">{date} • {type}</p>
-        </div>
+      <div className={`p-1.5 rounded bg-slate-950 border border-slate-800 ${type === 'PDF' ? 'text-rose-400' : 'text-emerald-400'}`}>
+        <File className="h-3.5 w-3.5" />
+      </div>
+      <div>
+        <p className="font-medium text-sm text-slate-200">{name}</p>
+        <p className="text-[10px] text-slate-500">{date} • {type}</p>
+      </div>
     </div>
-    <Button 
-      variant="ghost" 
-      size="icon" 
+    <Button
+      variant="ghost"
+      size="icon"
       className="h-7 w-7 text-slate-500 hover:text-slate-100 hover:bg-slate-800 opacity-0 group-hover:opacity-100 transition-opacity"
     >
       <Download className="h-3.5 w-3.5" />

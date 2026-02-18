@@ -241,6 +241,21 @@ export function useAdminSettings() {
     }
   };
 
+  const runBackup = async () => {
+    setProcessing(true);
+    try {
+      const result = await settingsService.runBackup();
+      if (result.success) {
+        setSuccess(result.message);
+        setTimeout(() => setSuccess(null), 3000);
+      }
+    } catch (err) {
+      setError("Backup failed: " + err.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   return {
     loading, processing, error, success,
     settings, queue, testResult,
@@ -249,6 +264,6 @@ export function useAdminSettings() {
     templates, addTemplate, deleteTemplate,
     facultyList, handleAddFaculty, handleToggleFacultyStatus,
     courseList, handleAddCourse, handleDeleteCourse,
-    runTestOCR, processQueue, refresh: fetchData
+    runTestOCR, processQueue, runBackup, refresh: fetchData
   };
 }

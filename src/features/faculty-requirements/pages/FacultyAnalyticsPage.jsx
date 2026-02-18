@@ -5,7 +5,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function FacultyAnalyticsPage() {
   const navigate = useNavigate();
-  const { overview, timeline, history, loading, error } = useFacultyAnalytics();
+  const { overview, timeline, history, courseAnalytics, loading, error } = useFacultyAnalytics();
 
   if (loading) {
     return (
@@ -162,6 +162,65 @@ export default function FacultyAnalyticsPage() {
               }
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* Course Completion Breakdown */}
+      <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md p-6">
+        <h3 className="font-semibold text-lg mb-4 text-slate-100">Course Completion Breakdown</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-slate-700">
+                <th className="text-left py-3 px-4 font-medium text-slate-300">Course Code</th>
+                <th className="text-left py-3 px-4 font-medium text-slate-300">Course Name</th>
+                <th className="text-left py-3 px-4 font-medium text-slate-300">Progress</th>
+                <th className="text-left py-3 px-4 font-medium text-slate-300">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {courseAnalytics && courseAnalytics.map((course) => {
+                const percentage = Math.round((course.submitted_count / course.total_required) * 100) || 0;
+                // RPC get_faculty_courses_status returns 'submitted_count' and 'total_required' (hardcoded to 4 currently)
+                // It does NOT return 'pending_count' explicitly in the root object, so we calculate it.
+                const pendingCount = Math.max(0, course.total_required - course.submitted_count);
+
+                return (
+                  <tr key={course.course_id} className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors">
+                    <td className="py-3 px-4 font-medium text-slate-100">{course.course_code}</td>
+                    <td className="py-3 px-4 text-slate-300">{course.course_name}</td>
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 bg-slate-700 rounded-full h-2 w-24 overflow-hidden">
+                          <div
+                            className={`h-full ${percentage >= 100 ? 'bg-green-500' : 'bg-blue-500'}`}
+                            style={{ width: `${percentage}%` }}
+                          ></div>
+                        </div>
+                        <span className="text-xs text-slate-400">{course.submitted_count}/{course.total_required}</span>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      {pendingCount === 0 ? (
+                        <span className="px-2 py-1 text-xs font-semibold bg-green-500/10 text-green-400 rounded">
+                          Completed
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 text-xs font-semibold bg-amber-500/10 text-amber-400 rounded">
+                          {pendingCount} Pending
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+              {(!courseAnalytics || courseAnalytics.length === 0) && (
+                <tr>
+                  <td colSpan={4} className="py-6 text-center text-slate-500">No course data available.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 

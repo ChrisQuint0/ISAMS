@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 import Tesseract from 'tesseract.js';
+import { saveAs } from 'file-saver';
 
 export const settingsService = {
   /**
@@ -9,7 +10,7 @@ export const settingsService = {
   getAllSettings: async () => {
     // Fetch all settings from the table
     const { data, error } = await supabase
-      .from('system_settings')
+      .from('systemsettings_fs')
       .select('setting_key, setting_value');
 
     if (error) throw error;
@@ -49,7 +50,7 @@ export const settingsService = {
    */
   getDocTypes: async () => {
     const { data, error } = await supabase
-      .from('document_types')
+      .from('documenttypes_fs')
       .select('*')
       .order('type_name');
     if (error) throw error;
@@ -61,13 +62,13 @@ export const settingsService = {
    */
   upsertDocType: async (docType) => {
     const { data, error } = await supabase
-      .from('document_types')
+      .from('documenttypes_fs')
       .upsert({
-        id: docType.id, // If null, will create new
+        doc_type_id: docType.id || docType.doc_type_id, // If null, will create new
         type_name: docType.name || docType.type_name,
         // Map other fields as needed
         is_active: docType.is_active,
-        is_required: docType.required
+        required_by_default: docType.required
       })
       .select();
     if (error) throw error;
@@ -78,7 +79,7 @@ export const settingsService = {
    * Delete Document Type
    */
   deleteDocType: async (id) => {
-    const { error } = await supabase.from('document_types').delete().eq('id', id);
+    const { error } = await supabase.from('documenttypes_fs').delete().eq('doc_type_id', id);
     if (error) throw error;
   },
 
@@ -86,7 +87,7 @@ export const settingsService = {
    * Get Templates
    */
   getTemplates: async () => {
-    const { data, error } = await supabase.from('templates').select('*').order('created_at', { ascending: false });
+    const { data, error } = await supabase.from('templates_fs').select('*').order('created_at', { ascending: false });
     if (error) throw error;
     return data;
   },
@@ -95,7 +96,7 @@ export const settingsService = {
    * Save a single setting (Generic)
    */
   saveSetting: async (key, value) => {
-    const { error } = await supabase.rpc('upsert_setting_fn', {
+    const { error } = await supabase.rpc('upsert_setting_fs', {
       p_key: key,
       p_value: String(value)
     });
@@ -106,7 +107,7 @@ export const settingsService = {
    * OCR Queue & Processing (Existing Logic)
    */
   getQueue: async () => {
-    const { data, error } = await supabase.rpc('get_pending_ocr_jobs_fn');
+    const { data, error } = await supabase.rpc('get_pending_ocr_jobs_fs');
     if (error) throw error;
     return data;
   },
@@ -126,7 +127,7 @@ export const settingsService = {
   },
 
   completeJob: async (jobId, submissionId, text, success, errorMsg) => {
-    await supabase.rpc('complete_ocr_job_fn', {
+    await supabase.rpc('complete_ocr_job_fs', {
       p_job_id: jobId,
       p_submission_id: submissionId,
       p_text: text || '',
@@ -140,7 +141,7 @@ export const settingsService = {
    */
   getFaculty: async () => {
     const { data, error } = await supabase
-      .from('faculty')
+      .from('faculty_fs')
       .select('*')
       .order('last_name');
     if (error) throw error;
@@ -148,9 +149,9 @@ export const settingsService = {
   },
 
   addFaculty: async (facultyData) => {
-    // facultyData: { first_name, last_name, email, department, employee_id }
+    // facultyData: { first_name, last_name, email, department, faculty_id }
     const { data, error } = await supabase
-      .from('faculty')
+      .from('faculty_fs')
       .insert([facultyData])
       .select();
     if (error) throw error;
@@ -159,7 +160,7 @@ export const settingsService = {
 
   updateFacultyStatus: async (facultyId, isActive) => {
     const { error } = await supabase
-      .from('faculty')
+      .from('faculty_fs')
       .update({ is_active: isActive })
       .eq('faculty_id', facultyId);
     if (error) throw error;
@@ -169,13 +170,13 @@ export const settingsService = {
    * --- Course Management ---
    */
   getCourses: async () => {
-    const { data, error } = await supabase.rpc('get_admin_courses_fn');
+    const { data, error } = await supabase.rpc('get_admin_courses_fs');
     if (error) throw error;
     return data;
   },
 
   upsertCourse: async (course) => {
-    const { data, error } = await supabase.rpc('upsert_course_fn', {
+    const { data, error } = await supabase.rpc('upsert_course_fs', {
       p_course_code: course.code,
       p_course_name: course.name,
       p_department: course.department,
@@ -189,7 +190,52 @@ export const settingsService = {
   },
 
   deleteCourse: async (courseId) => {
-    const { data, error } = await supabase.rpc('delete_course_fn', { p_course_id: courseId });
+    const { data, error } = await supabase.rpc('delete_course_fs', { p_course_id: courseId });
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Run System Backup
+   */
+  runBackup: async () => {
+    const { data, error } = await supabase.rpc('backup_system_data_fs');
+    if (error) throw error;
+
+    // Create JSON Blob
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    saveAs(blob, `ISAMS_System_Backup_${new Date().toISOString().slice(0, 10)}.json`);
+
+    return { success: true, message: "Backup downloaded successfully." };
+  },
+  /**
+   * DANGER ZONE: Reset Semester
+   */
+  resetSemester: async (semester, year) => {
+    const { data, error } = await supabase.rpc('reset_semester_fs', {
+      p_target_semester: semester,
+      p_target_year: year
+    });
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * DANGER ZONE: Purge Old Archives
+   */
+  purgeArchives: async (yearsToKeep = 5) => {
+    const { data, error } = await supabase.rpc('purge_old_archives_fs', {
+      p_retention_years: yearsToKeep
+    });
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * DANGER ZONE: Approve All Pending (Clear Queue)
+   */
+  approveAllPending: async () => {
+    const { data, error } = await supabase.rpc('approve_all_submissions_fs');
     if (error) throw error;
     return data;
   }

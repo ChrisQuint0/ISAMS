@@ -4,7 +4,7 @@ import { validationService } from '../services/AdminValidationService';
 export function useAdminValidation() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
   const [queue, setQueue] = useState([]);
   const [recentApprovals, setRecentApprovals] = useState([]);
   const [stats, setStats] = useState({
@@ -13,10 +13,10 @@ export function useAdminValidation() {
     rejected_count: 0,
     avg_processing_time: '-'
   });
-  
-  const [filters, setFilters] = useState({ 
-    status: 'All Status', 
-    department: 'All Departments' 
+
+  const [filters, setFilters] = useState({
+    status: 'All Status',
+    department: 'All Departments'
   });
 
   const fetchData = useCallback(async () => {
@@ -27,7 +27,7 @@ export function useAdminValidation() {
         validationService.getRecentApprovals(),
         validationService.getStats()
       ]);
-      
+
       setQueue(queueData);
       setRecentApprovals(recentData);
       setStats(statsData);
@@ -56,11 +56,21 @@ export function useAdminValidation() {
   const downloadFile = async (submissionId) => {
     try {
       const url = await validationService.getDownloadLink(submissionId);
-      if(url) window.open(url, '_blank');
+      if (url) window.open(url, '_blank');
       else alert("Download link not available.");
     } catch (err) {
       console.error(err);
       alert("Failed to get download link.");
+    }
+  };
+
+  const approveAll = async () => {
+    try {
+      const msg = await validationService.approveAllPending(filters.department);
+      await fetchData();
+      return { success: true, message: msg };
+    } catch (err) {
+      return { success: false, message: err.message };
     }
   };
 
@@ -73,6 +83,7 @@ export function useAdminValidation() {
     filters,
     setFilters,
     processAction,
+    approveAll,
     downloadFile,
     refresh: fetchData
   };

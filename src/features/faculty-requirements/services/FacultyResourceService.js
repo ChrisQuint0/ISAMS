@@ -8,7 +8,7 @@ export const FacultyResourceService = {
     async getTemplates() {
         try {
             const { data, error } = await supabase
-                .rpc('get_available_templates');
+                .rpc('get_available_templates_fs');
 
             if (error) throw error;
             return data;
@@ -26,7 +26,7 @@ export const FacultyResourceService = {
         try {
             // In a real app, this would get a signed URL from Supabase Storage
             const { data, error } = await supabase
-                .from('templates')
+                .from('templates_fs')
                 .select('file_url')
                 .eq('template_id', templateId)
                 .single();
@@ -49,19 +49,19 @@ export const FacultyResourceService = {
             if (!user) throw new Error('User not authenticated');
 
             const { data: faculty } = await supabase
-                .from('faculty')
+                .from('faculty_fs')
                 .select('faculty_id')
                 .eq('user_id', user.id)
                 .single();
 
             let query = supabase
-                .from('submissions')
+                .from('submissions_fs')
                 .select(`
           submission_id,
           standardized_filename,
           submitted_at,
-          courses (course_code, course_name),
-          document_types (type_name)
+          courses_fs (course_code, course_name),
+          documenttypes_fs (type_name)
         `)
                 .eq('faculty_id', faculty.faculty_id)
                 .eq('submission_status', 'ARCHIVED'); // Assuming we have an ARCHIVED status
@@ -82,13 +82,13 @@ export const FacultyResourceService = {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             const { data: faculty } = await supabase
-                .from('faculty')
+                .from('faculty_fs')
                 .select('faculty_id')
                 .eq('user_id', user.id)
                 .single();
 
             const { data, error } = await supabase
-                .rpc('get_faculty_archived_courses', {
+                .rpc('get_faculty_archived_courses_fs', {
                     p_faculty_id: faculty.faculty_id,
                     p_semester: semester
                 });
@@ -105,13 +105,13 @@ export const FacultyResourceService = {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             const { data: faculty } = await supabase
-                .from('faculty')
+                .from('faculty_fs')
                 .select('faculty_id')
                 .eq('user_id', user.id)
                 .single();
 
             const { data, error } = await supabase
-                .rpc('get_course_submissions_archive', {
+                .rpc('get_course_submissions_archive_fs', {
                     p_faculty_id: faculty.faculty_id,
                     p_course_id: courseId
                 });
@@ -120,6 +120,25 @@ export const FacultyResourceService = {
             return data;
         } catch (error) {
             console.error('Error fetching course versions:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Download all documents for a course (ZIP)
+     * Mocking this for now as it requires backend generation
+     */
+    async downloadAllDocuments(courseId) {
+        try {
+            // In real implementation: Call RPC or Edge Function to generate ZIP and return URL
+            // const { data, error } = await supabase.functions.invoke('generate-course-zip', { body: { courseId } });
+
+            // Mock delay
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
+            return { success: true, message: "ZIP generation initiated. Check email for download link." };
+        } catch (error) {
+            console.error('Error downloading all documents:', error);
             throw error;
         }
     }

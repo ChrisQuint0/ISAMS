@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 
 // Import our new Hook
 import { useAdminArchive } from '../hooks/AdminArchiveHook';
+import { archiveService } from '../services/AdminArchiveService';
 
 // Custom theme using AG Grid v33+ Theming API
 const customTheme = themeQuartz.withParams({
@@ -57,6 +58,25 @@ export default function AdminArchivePage() {
     include_presentations: false,
     include_exams: false
   });
+
+  const [downloading, setDownloading] = useState(false);
+
+  const handleBulkExport = async () => {
+    setDownloading(true);
+    // Use toast or alert for progress? For now simple alert on completion
+    try {
+      const result = await archiveService.downloadArchiveZip(bulkConfig);
+      if (result.success) {
+        alert(result.message);
+      } else {
+        alert("Export Error: " + result.message);
+      }
+    } catch (err) {
+      alert("Export failed: " + err.message);
+    } finally {
+      setDownloading(false);
+    }
+  };
 
 
   // Grid Columns Configuration
@@ -352,9 +372,15 @@ export default function AdminArchivePage() {
 
               <Button
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-900/20"
-                onClick={() => alert("Exporting archive...")}
+                onClick={handleBulkExport}
+                disabled={downloading}
               >
-                <Download className="mr-2 h-4 w-4" /> Download .ZIP Archive
+                {downloading ? (
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                {downloading ? "Compressing & Downloading..." : "Download .ZIP Archive"}
               </Button>
             </CardContent>
           </Card>

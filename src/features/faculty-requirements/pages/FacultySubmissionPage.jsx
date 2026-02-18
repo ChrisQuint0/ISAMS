@@ -400,8 +400,8 @@ export default function FacultySubmissionPage() {
                   <div key={sub.submission_id} className="p-3 bg-slate-950/50 rounded-lg border border-slate-800 text-sm hover:border-slate-700 transition-colors">
                     <div className="flex justify-between items-start mb-2">
                       <div>
-                        <p className="font-medium text-slate-200">{sub.document_types?.type_name}</p>
-                        <p className="text-xs text-slate-400">{sub.courses?.course_code}</p>
+                        <p className="font-medium text-slate-200">{sub.documenttypes_fs?.type_name}</p>
+                        <p className="text-xs text-slate-400">{sub.courses_fs?.course_code}</p>
                       </div>
                       <span className={`px-2 py-0.5 text-[10px] font-semibold rounded uppercase tracking-wider ${sub.submission_status === 'APPROVED' ? 'bg-green-500/10 text-green-400' :
                         sub.submission_status === 'REJECTED' || sub.submission_status === 'REVISION_REQUESTED' ? 'bg-red-500/10 text-red-400' :

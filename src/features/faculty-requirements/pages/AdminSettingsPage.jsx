@@ -25,7 +25,7 @@ export default function AdminSettingsPage() {
     const {
         loading, processing, error, success,
         settings, queue, testResult,
-        updateSetting, runTestOCR, processQueue, refresh,
+        updateSetting, runTestOCR, processQueue, runBackup, refresh,
         docRequirements, addDocRequirement, updateDocRequirement, deleteDocRequirement,
         templates, addTemplate, deleteTemplate,
 
@@ -38,7 +38,7 @@ export default function AdminSettingsPage() {
 
     // Faculty Form State
     const [newFaculty, setNewFaculty] = useState({
-        first_name: '', last_name: '', email: '', department: '', employee_id: ''
+        first_name: '', last_name: '', email: '', department: '', faculty_id: ''
     });
 
     // Course Form State
@@ -49,6 +49,7 @@ export default function AdminSettingsPage() {
     // -- State for General Settings --
     const [deadlineDays, setDeadlineDays] = useState(14);
     const [graceDays, setGraceDays] = useState(3);
+    const [gdriveFolderLink, setGdriveFolderLink] = useState(() => localStorage.getItem('fsFolderLink') || '');
 
     // -- UI STATE FOR NON-OCR SETTINGS --
     const [valRules, setValRules] = useState({
@@ -189,6 +190,48 @@ export default function AdminSettingsPage() {
                                         </div>
                                     </CardContent>
                                 </Card>
+
+                                {/* Google Drive Folder */}
+                                <Card className="bg-slate-900 border-slate-800 shadow-none">
+                                    <CardHeader className="border-b border-slate-800 py-4">
+                                        <CardTitle className="text-base text-slate-100 flex items-center gap-2">
+                                            <HardDrive className="h-4 w-4 text-slate-400" /> Google Drive Integration
+                                        </CardTitle>
+                                        <CardDescription className="text-slate-500">Set the root folder where faculty submissions will be uploaded</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="pt-6 space-y-4">
+                                        <div className="space-y-2">
+                                            <Label className="text-xs font-semibold text-slate-400 uppercase">Google Drive Folder Link</Label>
+                                            <Input
+                                                id="gdrive-folder-link"
+                                                placeholder="https://drive.google.com/drive/folders/..."
+                                                value={gdriveFolderLink}
+                                                onChange={(e) => setGdriveFolderLink(e.target.value)}
+                                                className="bg-slate-950 border-slate-700 text-slate-200 focus:border-blue-500"
+                                            />
+                                            {gdriveFolderLink && (
+                                                <p className="text-xs text-slate-500">
+                                                    Folder ID: {(() => {
+                                                        const match = gdriveFolderLink.match(/folders\/([a-zA-Z0-9_-]+)/);
+                                                        return match ? <span className="text-emerald-400 font-mono">{match[1]}</span> : <span className="text-red-400">Invalid link</span>;
+                                                    })()}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="flex justify-end">
+                                            <Button
+                                                size="sm"
+                                                className="bg-blue-600 hover:bg-blue-700 text-white"
+                                                onClick={() => {
+                                                    localStorage.setItem('fsFolderLink', gdriveFolderLink);
+                                                    alert('Google Drive folder link saved!');
+                                                }}
+                                            >
+                                                <Save className="mr-2 h-4 w-4" /> Save Folder Link
+                                            </Button>
+                                        </div>
+                                    </CardContent>
+                                </Card>
                             </div>
 
                             {/* Right Col: System Info */}
@@ -219,8 +262,15 @@ export default function AdminSettingsPage() {
                                             <Button
                                                 variant="outline"
                                                 className="w-full justify-start bg-slate-950 border-slate-700 text-slate-300 hover:bg-slate-800"
+                                                onClick={runBackup}
+                                                disabled={processing}
                                             >
-                                                <HardDrive className="mr-2 h-4 w-4 text-blue-400" /> Run Backup
+                                                {processing ? (
+                                                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <HardDrive className="mr-2 h-4 w-4 text-blue-400" />
+                                                )}
+                                                Run Backup
                                             </Button>
                                             <Button
                                                 variant="outline"
@@ -384,8 +434,8 @@ export default function AdminSettingsPage() {
                                         />
                                         <Input
                                             placeholder="Employee ID"
-                                            value={newFaculty.employee_id}
-                                            onChange={e => setNewFaculty({ ...newFaculty, employee_id: e.target.value })}
+                                            value={newFaculty.faculty_id}
+                                            onChange={e => setNewFaculty({ ...newFaculty, faculty_id: e.target.value })}
                                             className="bg-slate-900 border-slate-700 text-slate-200"
                                         />
                                         <Select
@@ -409,7 +459,7 @@ export default function AdminSettingsPage() {
                                             onClick={async () => {
                                                 if (newFaculty.email && newFaculty.first_name) {
                                                     const success = await handleAddFaculty(newFaculty);
-                                                    if (success) setNewFaculty({ first_name: '', last_name: '', email: '', department: '', employee_id: '' });
+                                                    if (success) setNewFaculty({ first_name: '', last_name: '', email: '', department: '', faculty_id: '' });
                                                 }
                                             }}
                                         >
@@ -432,7 +482,7 @@ export default function AdminSettingsPage() {
                                             <div className="col-span-3 font-medium text-slate-200">{f.last_name}, {f.first_name}</div>
                                             <div className="col-span-3 text-slate-400 truncate pr-2">{f.email}</div>
                                             <div className="col-span-2 text-slate-400">{f.department}</div>
-                                            <div className="col-span-2 text-slate-500 font-mono text-xs">{f.employee_id || '-'}</div>
+                                            <div className="col-span-2 text-slate-500 font-mono text-xs">{f.faculty_id || '-'}</div>
                                             <div className="col-span-2 flex justify-end">
                                                 <Switch
                                                     checked={f.is_active}
@@ -827,19 +877,19 @@ export default function AdminSettingsPage() {
                                     title="Clear Validation Queue"
                                     desc="Approve all currently pending items automatically."
                                     btnText="Auto-Approve All"
-                                    onClick={() => alert("This would auto-approve all items.")}
+                                    onClick={() => handleDangerAction('CLEAR_QUEUE')}
                                 />
                                 <DangerRow
                                     title="Reset Semester Data"
                                     desc="Clear all submissions for the current semester. Does not delete archives."
                                     btnText="Reset Semester"
-                                    onClick={() => alert("Resetting semester...")}
+                                    onClick={() => handleDangerAction('RESET_SEMESTER')}
                                 />
                                 <DangerRow
                                     title="Purge Old Archives"
                                     desc="Permanently remove files older than the retention period."
                                     btnText="Purge Archives"
-                                    onClick={() => alert("Purging old files...")}
+                                    onClick={() => handleDangerAction('PURGE_ARCHIVES')}
                                 />
                             </CardContent>
                         </Card>
@@ -849,6 +899,13 @@ export default function AdminSettingsPage() {
         </div >
     );
 }
+
+// ... helper function to be placed inside the component or outside if it doesn't need state ...
+// But wait, I need access to the service and state. I should insert the handler inside the component.
+// Let's do this in two steps or be careful.
+// actually, I'll insert the handler logic inside the component body in a separate `replace` or just assume I can add it before the return.
+// For now, let's just update the rows, and I will add the function definition in the next step to avoid context issues.
+
 
 // --- Sub-components ---
 

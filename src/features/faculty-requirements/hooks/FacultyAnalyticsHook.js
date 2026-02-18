@@ -10,6 +10,7 @@ export function useFacultyAnalytics() {
     });
     const [timeline, setTimeline] = useState([]);
     const [history, setHistory] = useState([]);
+    const [courseAnalytics, setCourseAnalytics] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -17,10 +18,11 @@ export function useFacultyAnalytics() {
         setLoading(true);
         setError(null);
         try {
-            const [overviewData, timelineData, historyData] = await Promise.all([
+            const [overviewData, timelineData, historyData, courseData] = await Promise.all([
                 FacultyAnalyticsService.getAnalyticsOverview(),
                 FacultyAnalyticsService.getSubmissionTimeline(),
-                FacultyAnalyticsService.getSubmissionHistory()
+                FacultyAnalyticsService.getSubmissionHistory(),
+                FacultyAnalyticsService.getCourseAnalytics()
             ]);
 
             setOverview(overviewData || {
@@ -31,6 +33,7 @@ export function useFacultyAnalytics() {
             });
             setTimeline(timelineData || []);
             setHistory(historyData || []);
+            setCourseAnalytics(courseData || []);
         } catch (err) {
             console.error(err);
             setError('Failed to load analytics data.');
@@ -47,6 +50,7 @@ export function useFacultyAnalytics() {
         overview,
         timeline,
         history,
+        courseAnalytics,
         loading,
         error,
         refreshAnalytics: loadAnalytics

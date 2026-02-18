@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { useNavigate } from 'react-router-dom';
 import {
   Eye, Mail, Bell, FileText, FileSpreadsheet, Search, Filter,
@@ -50,11 +52,11 @@ export default function FacultyMonitorPage() {
 
   // Helper: Status Colors
   const getStatusColor = (status) => {
-    switch(status) {
-        case 'On Track': return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20';
-        case 'At Risk': return 'bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20';
-        case 'Delayed': return 'bg-rose-500/10 text-rose-400 border-rose-500/20 hover:bg-rose-500/20';
-        default: return 'bg-slate-800 text-slate-400 border-slate-700';
+    switch (status) {
+      case 'On Track': return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20';
+      case 'At Risk': return 'bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20';
+      case 'Delayed': return 'bg-rose-500/10 text-rose-400 border-rose-500/20 hover:bg-rose-500/20';
+      default: return 'bg-slate-800 text-slate-400 border-slate-700';
     }
   };
 
@@ -64,9 +66,9 @@ export default function FacultyMonitorPage() {
   };
 
   const confirmReminder = async () => {
-    if(selectedFaculty) {
-        await sendReminder(selectedFaculty.faculty_id);
-        setReminderDialogOpen(false);
+    if (selectedFaculty) {
+      await sendReminder(selectedFaculty.faculty_id);
+      setReminderDialogOpen(false);
     }
   };
 
@@ -80,10 +82,45 @@ export default function FacultyMonitorPage() {
     });
   };
 
-  const hasActiveFilters = filters.department !== "All Departments" || 
-                           filters.status !== "All Status" || 
-                           filters.course !== "All Courses" || 
-                           filters.search !== "";
+  const hasActiveFilters = filters.department !== "All Departments" ||
+    filters.status !== "All Status" ||
+    filters.course !== "All Courses" ||
+    filters.search !== "";
+
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+
+    // Title
+    doc.setFontSize(18);
+    doc.text('Faculty Monitoring Report', 14, 22);
+
+    // Meta
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 30);
+    doc.text(`Filter: ${filters.department} | ${filters.status}`, 14, 36);
+
+    // Table Data
+    const tableData = facultyList.map(f => [
+      `${f.first_name} ${f.last_name}`,
+      f.department,
+      f.status,
+      `${f.overall_progress}%`,
+      f.pending_submissions,
+      f.late_submissions
+    ]);
+
+    autoTable(doc, {
+      head: [['Faculty Name', 'Department', 'Status', 'Progress', 'Pending', 'Late']],
+      body: tableData,
+      startY: 44,
+      theme: 'grid',
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [15, 23, 42] }
+    });
+
+    doc.save('Faculty_Monitoring_Report.pdf');
+  };
 
   return (
     <div className="space-y-6 flex flex-col h-full">
@@ -94,19 +131,19 @@ export default function FacultyMonitorPage() {
           <p className="text-slate-400 text-sm">Track and manage faculty submissions across all departments</p>
         </div>
         <div className="flex gap-2 w-full md:w-auto">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={refresh} 
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={refresh}
             disabled={loading}
             className="bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> 
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh Faculty
           </Button>
-          <Button 
-            className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-900/20" 
-            size="sm" 
+          <Button
+            className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-900/20"
+            size="sm"
             onClick={() => sendBulkReminders()}
           >
             <Bell className="h-4 w-4 mr-2" /> Bulk Reminders
@@ -139,11 +176,11 @@ export default function FacultyMonitorPage() {
               <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Search Faculty</label>
               <div className="relative">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-                <Input 
-                  placeholder="Search by name..." 
+                <Input
+                  placeholder="Search by name..."
                   className="pl-9 bg-slate-950/50 border-slate-700 text-slate-200 placeholder:text-slate-500 focus:ring-blue-500/20 focus:border-blue-500/50"
                   value={filters.search}
-                  onChange={e => setFilters(prev => ({...prev, search: e.target.value}))}
+                  onChange={e => setFilters(prev => ({ ...prev, search: e.target.value }))}
                 />
               </div>
             </div>
@@ -151,7 +188,7 @@ export default function FacultyMonitorPage() {
             {/* Department Filter */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Department</label>
-              <Select value={filters.department} onValueChange={v => setFilters(prev => ({...prev, department: v}))}>
+              <Select value={filters.department} onValueChange={v => setFilters(prev => ({ ...prev, department: v }))}>
                 <SelectTrigger className="bg-slate-950/50 border-slate-700 text-slate-200 focus:ring-blue-500/20">
                   <SelectValue placeholder="Select department" />
                 </SelectTrigger>
@@ -167,7 +204,7 @@ export default function FacultyMonitorPage() {
             {/* Status Filter */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Status</label>
-              <Select value={filters.status} onValueChange={v => setFilters(prev => ({...prev, status: v}))}>
+              <Select value={filters.status} onValueChange={v => setFilters(prev => ({ ...prev, status: v }))}>
                 <SelectTrigger className="bg-slate-950/50 border-slate-700 text-slate-200 focus:ring-blue-500/20">
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
@@ -190,7 +227,7 @@ export default function FacultyMonitorPage() {
                   </button>
                 )}
               </div>
-              <Select value={filters.course} onValueChange={v => setFilters(prev => ({...prev, course: v}))}>
+              <Select value={filters.course} onValueChange={v => setFilters(prev => ({ ...prev, course: v }))}>
                 <SelectTrigger className="bg-slate-950/50 border-slate-700 text-slate-200 focus:ring-blue-500/20">
                   <SelectValue placeholder="Select course" />
                 </SelectTrigger>
@@ -232,7 +269,7 @@ export default function FacultyMonitorPage() {
                   <p className="text-xs text-slate-500 mt-1 truncate" title={f.department}>{f.department}</p>
                 </div>
               </CardHeader>
-              
+
               <CardContent className="p-5 pt-0 flex-1">
                 {/* Overall Progress */}
                 <div className="mb-4 bg-slate-950/50 p-3 rounded-lg border border-slate-800/50">
@@ -240,11 +277,11 @@ export default function FacultyMonitorPage() {
                     <span className="text-slate-400 font-medium">Completion Rate</span>
                     <span className="font-bold text-slate-200">{f.overall_progress}%</span>
                   </div>
-                  <Progress 
-                    value={f.overall_progress} 
-                    className="h-1.5 bg-slate-800" 
-                    // Note: Shadcn Progress uses internal classes for bar color, 
-                    // usually accessible via CSS variable or standard tailwind config.
+                  <Progress
+                    value={f.overall_progress}
+                    className="h-1.5 bg-slate-800"
+                  // Note: Shadcn Progress uses internal classes for bar color, 
+                  // usually accessible via CSS variable or standard tailwind config.
                   />
                 </div>
 
@@ -276,18 +313,18 @@ export default function FacultyMonitorPage() {
               </CardContent>
 
               <CardFooter className="p-5 pt-0 gap-2">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="flex-1 h-9 bg-transparent border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
                   onClick={() => navigate(`/faculty/${f.faculty_id}`)}
                 >
-                  <Eye className="h-3.5 w-3.5 mr-2"/> Details
+                  <Eye className="h-3.5 w-3.5 mr-2" /> Details
                 </Button>
-                <Button 
+                <Button
                   className="flex-1 h-9 bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-900/10"
                   onClick={() => handleReminderClick(f)}
                 >
-                  <Mail className="h-3.5 w-3.5 mr-2"/> Remind
+                  <Mail className="h-3.5 w-3.5 mr-2" /> Remind
                 </Button>
               </CardFooter>
             </Card>
@@ -304,8 +341,8 @@ export default function FacultyMonitorPage() {
               <p className="text-xs text-slate-500">Download reports for offline analysis</p>
             </div>
             <div className="flex gap-3 w-full sm:w-auto">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={exportCSV}
                 className="flex-1 sm:flex-none bg-slate-950/50 border-slate-700 text-slate-300 hover:bg-slate-800"
@@ -313,10 +350,10 @@ export default function FacultyMonitorPage() {
                 <FileSpreadsheet className="h-4 w-4 mr-2 text-emerald-500" />
                 CSV Report
               </Button>
-              <Button 
+              <Button
                 variant="outline"
                 size="sm"
-                onClick={() => alert("PDF export would go here")}
+                onClick={handleExportPDF}
                 className="flex-1 sm:flex-none bg-slate-950/50 border-slate-700 text-slate-300 hover:bg-slate-800"
               >
                 <File className="h-4 w-4 mr-2 text-rose-500" />
@@ -338,7 +375,7 @@ export default function FacultyMonitorPage() {
               Notify faculty members about their pending submission deadlines.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="py-4">
             <div className="bg-slate-950/50 p-4 rounded-lg border border-slate-800">
               <p className="text-sm text-slate-300 mb-3">
@@ -346,7 +383,7 @@ export default function FacultyMonitorPage() {
                 <br />
                 <span className="font-bold text-lg text-white block mt-1">{selectedFaculty?.first_name} {selectedFaculty?.last_name}</span>
               </p>
-              
+
               <div className="space-y-2 mt-4">
                 <div className="flex justify-between text-sm bg-slate-900 p-2 rounded border border-slate-800">
                   <span className="text-slate-400">Pending Submissions</span>
@@ -358,21 +395,21 @@ export default function FacultyMonitorPage() {
                 </div>
               </div>
             </div>
-            
+
             <p className="text-xs text-slate-500 mt-4 italic">
               * This action will be logged in the system audit trail.
             </p>
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setReminderDialogOpen(false)}
               className="bg-transparent border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               className="bg-blue-600 hover:bg-blue-700 text-white"
               onClick={confirmReminder}
             >
