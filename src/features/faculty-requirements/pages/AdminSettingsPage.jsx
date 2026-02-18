@@ -38,7 +38,7 @@ export default function AdminSettingsPage() {
 
     // Faculty Form State
     const [newFaculty, setNewFaculty] = useState({
-        first_name: '', last_name: '', email: '', department: '', employee_id: ''
+        first_name: '', last_name: '', email: '', department: '', faculty_id: ''
     });
 
     // Course Form State
@@ -434,8 +434,8 @@ export default function AdminSettingsPage() {
                                         />
                                         <Input
                                             placeholder="Employee ID"
-                                            value={newFaculty.employee_id}
-                                            onChange={e => setNewFaculty({ ...newFaculty, employee_id: e.target.value })}
+                                            value={newFaculty.faculty_id}
+                                            onChange={e => setNewFaculty({ ...newFaculty, faculty_id: e.target.value })}
                                             className="bg-slate-900 border-slate-700 text-slate-200"
                                         />
                                         <Select
@@ -459,7 +459,7 @@ export default function AdminSettingsPage() {
                                             onClick={async () => {
                                                 if (newFaculty.email && newFaculty.first_name) {
                                                     const success = await handleAddFaculty(newFaculty);
-                                                    if (success) setNewFaculty({ first_name: '', last_name: '', email: '', department: '', employee_id: '' });
+                                                    if (success) setNewFaculty({ first_name: '', last_name: '', email: '', department: '', faculty_id: '' });
                                                 }
                                             }}
                                         >
@@ -482,7 +482,7 @@ export default function AdminSettingsPage() {
                                             <div className="col-span-3 font-medium text-slate-200">{f.last_name}, {f.first_name}</div>
                                             <div className="col-span-3 text-slate-400 truncate pr-2">{f.email}</div>
                                             <div className="col-span-2 text-slate-400">{f.department}</div>
-                                            <div className="col-span-2 text-slate-500 font-mono text-xs">{f.employee_id || '-'}</div>
+                                            <div className="col-span-2 text-slate-500 font-mono text-xs">{f.faculty_id || '-'}</div>
                                             <div className="col-span-2 flex justify-end">
                                                 <Switch
                                                     checked={f.is_active}

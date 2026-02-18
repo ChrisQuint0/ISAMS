@@ -64,11 +64,11 @@ export const settingsService = {
     const { data, error } = await supabase
       .from('documenttypes_fs')
       .upsert({
-        id: docType.id, // If null, will create new
+        doc_type_id: docType.id || docType.doc_type_id, // If null, will create new
         type_name: docType.name || docType.type_name,
         // Map other fields as needed
         is_active: docType.is_active,
-        is_required: docType.required
+        required_by_default: docType.required
       })
       .select();
     if (error) throw error;
@@ -79,7 +79,7 @@ export const settingsService = {
    * Delete Document Type
    */
   deleteDocType: async (id) => {
-    const { error } = await supabase.from('documenttypes_fs').delete().eq('id', id);
+    const { error } = await supabase.from('documenttypes_fs').delete().eq('doc_type_id', id);
     if (error) throw error;
   },
 
@@ -149,7 +149,7 @@ export const settingsService = {
   },
 
   addFaculty: async (facultyData) => {
-    // facultyData: { first_name, last_name, email, department, employee_id }
+    // facultyData: { first_name, last_name, email, department, faculty_id }
     const { data, error } = await supabase
       .from('faculty_fs')
       .insert([facultyData])
