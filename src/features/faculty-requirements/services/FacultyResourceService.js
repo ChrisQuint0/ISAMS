@@ -60,8 +60,8 @@ export const FacultyResourceService = {
           submission_id,
           standardized_filename,
           submitted_at,
-          courses (course_code, course_name),
-          document_types (type_name)
+          courses_fs (course_code, course_name),
+          documenttypes_fs (type_name)
         `)
                 .eq('faculty_id', faculty.faculty_id)
                 .eq('submission_status', 'ARCHIVED'); // Assuming we have an ARCHIVED status
