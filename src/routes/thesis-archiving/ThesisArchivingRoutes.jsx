@@ -1,12 +1,11 @@
 import { Route, Navigate } from "react-router-dom";
-import { useAuth } from "@/features/auth/hooks/useAuth";
 import ThesisArchivingPage from "@/features/thesis-archiving/pages/ThesisArchivingPage";
 import ThesisArchivingDashboardPage from "@/features/thesis-archiving/pages/ThesisArchivingDashboardPage";
 import DigitalRepositoryPage from "@/features/thesis-archiving/pages/DigitalRepositoryPage";
 import ThesisDetailPage from "@/features/thesis-archiving/pages/ThesisDetailPage";
 import SimilarityCheckPage from "@/features/thesis-archiving/pages/SimilarityCheckPage";
-
-// Local ProtectedRoute is no longer needed as we use the passed one
+import HTEDocumentArchivePage from "@/features/thesis-archiving/pages/HTEDocumentArchivePage";
+import ReportsAnalyticsPage from "@/features/thesis-archiving/pages/ReportsAnalyticsPage";
 
 export const ThesisArchivingRoutes = (ProtectedRoute) => (
     <>
@@ -25,6 +24,14 @@ export const ThesisArchivingRoutes = (ProtectedRoute) => (
                 <Route path=":id" element={<ThesisDetailPage />} />
             </Route>
             <Route path="similarity-check" element={<SimilarityCheckPage />} />
+
+            <Route path="hte-archiving">
+                <Route path="document-archive" element={<HTEDocumentArchivePage />} />
+            </Route>
+
+            <Route path="insights">
+                <Route path="reports" element={<ReportsAnalyticsPage />} />
+            </Route>
         </Route>
     </>
 );
