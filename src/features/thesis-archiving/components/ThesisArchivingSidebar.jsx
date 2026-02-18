@@ -1,6 +1,16 @@
 import React from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
-import { Database, BookOpen, FileSearch, User, ChevronUp, LogOut, LayoutDashboard } from "lucide-react";
+import {
+    Database,
+    BookOpen,
+    FileSearch,
+    User,
+    ChevronUp,
+    LogOut,
+    LayoutDashboard,
+    Archive,
+    BarChart3
+} from "lucide-react";
 import {
     Sidebar,
     SidebarContent,
@@ -38,6 +48,22 @@ export function ThesisArchivingSidebar() {
             path: "/thesis-archiving/similarity-check",
             label: "Similarity Check",
             icon: FileSearch,
+        },
+    ];
+
+    const hteItems = [
+        {
+            path: "/thesis-archiving/hte-archiving/document-archive",
+            label: "Document Archive",
+            icon: Archive,
+        },
+    ];
+
+    const insightItems = [
+        {
+            path: "/thesis-archiving/insights/reports",
+            label: "Reports and Analytics",
+            icon: BarChart3,
         },
     ];
 
@@ -95,6 +121,66 @@ export function ThesisArchivingSidebar() {
                     <SidebarGroupContent>
                         <SidebarMenu>
                             {navItems.map((item) => (
+                                <SidebarMenuItem key={item.path} className="mb-1">
+                                    <SidebarMenuButton
+                                        asChild
+                                        isActive={isActive(item.path)}
+                                        tooltip={item.label}
+                                        className={`text-slate-300 hover:!text-slate-300 hover:!bg-slate-800 transition-colors ${isActive(item.path) ? "!bg-slate-800 !text-slate-300" : ""
+                                            }`}
+                                    >
+                                        <Link to={item.path}>
+                                            <item.icon
+                                                className={`h-4 w-4 ${isActive(item.path) ? "text-blue-400" : ""}`}
+                                            />
+                                            <span className="group-data-[collapsible=icon]:hidden">
+                                                {item.label}
+                                            </span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            ))}
+                        </SidebarMenu>
+                    </SidebarGroupContent>
+                </SidebarGroup>
+
+                <SidebarGroup>
+                    <SidebarGroupLabel className="text-slate-500 group-data-[collapsible=icon]:hidden text-[10px] font-bold tracking-wider uppercase">
+                        HTE / INTERNSHIP
+                    </SidebarGroupLabel>
+                    <SidebarGroupContent>
+                        <SidebarMenu>
+                            {hteItems.map((item) => (
+                                <SidebarMenuItem key={item.path} className="mb-1">
+                                    <SidebarMenuButton
+                                        asChild
+                                        isActive={isActive(item.path)}
+                                        tooltip={item.label}
+                                        className={`text-slate-300 hover:!text-slate-300 hover:!bg-slate-800 transition-colors ${isActive(item.path) ? "!bg-slate-800 !text-slate-300" : ""
+                                            }`}
+                                    >
+                                        <Link to={item.path}>
+                                            <item.icon
+                                                className={`h-4 w-4 ${isActive(item.path) ? "text-blue-400" : ""}`}
+                                            />
+                                            <span className="group-data-[collapsible=icon]:hidden">
+                                                {item.label}
+                                            </span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            ))}
+                        </SidebarMenu>
+                    </SidebarGroupContent>
+                </SidebarGroup>
+
+                <SidebarGroup>
+                    <SidebarGroupLabel className="text-slate-500 group-data-[collapsible=icon]:hidden text-[10px] font-bold tracking-wider uppercase">
+                        INSIGHTS
+                    </SidebarGroupLabel>
+                    <SidebarGroupContent>
+                        <SidebarMenu>
+                            {insightItems.map((item) => (
                                 <SidebarMenuItem key={item.path} className="mb-1">
                                     <SidebarMenuButton
                                         asChild
