@@ -74,6 +74,18 @@ export function useAdminValidation() {
     }
   };
 
+  const runBotCheck = async (submissionId) => {
+    try {
+      const result = await validationService.runBotCheck(submissionId);
+      // We don't automatically refresh because we likely want to update local state or just show results,
+      // but refreshing ensures we get the updated 'bot_analysis' column data.
+      await fetchData();
+      return result;
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
+  };
+
   return {
     loading,
     error,
@@ -85,6 +97,7 @@ export function useAdminValidation() {
     processAction,
     approveAll,
     downloadFile,
+    runBotCheck,
     refresh: fetchData
   };
 }

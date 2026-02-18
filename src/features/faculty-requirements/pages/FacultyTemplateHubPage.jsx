@@ -25,38 +25,33 @@ import {
 export default function FacultyTemplateHubPage() {
   const navigate = useNavigate();
   // Using renamed archives -> archivedDocs to match original variable naming
-  const { templates, archives: archivedDocs, loading, error, loadTemplates, loadArchives } = useFacultyResources();
+  const {
+    templates,
+    archives: archivedDocs,
+    loading,
+    error,
+    loadTemplates,
+    loadArchives,
+    faqs,
+    categories
+  } = useFacultyResources();
 
   const [query, setQuery] = useState("");
 
   const quickFilters = useMemo(
-    () => ["CCS 101", "Syllabus", "AY 2022-2023", "Exam Papers"],
-    []
+    () => ["All", ...categories],
+    [categories]
   );
 
-  const officialTemplates = useMemo(
-    () => [
-      {
-        id: "syllabus",
-        title: "Course Syllabus Template",
-        description: "Official CCS format with required sections",
-        version: "3.2",
-        size: "1.2 MB",
-        icon: FileText,
-        iconClass: "text-blue-400"
-      },
-      {
-        id: "grades",
-        title: "Final Grades Template",
-        description: "Excel sheet with automatic calculations",
-        version: "2.1",
-        size: "0.8 MB",
-        icon: FileSpreadsheet,
-        iconClass: "text-green-400"
-      }
-    ],
-    []
-  );
+  const filteredTemplates = useMemo(() => {
+    if (!query || query === "All") return templates;
+    const lowerQuery = query.toLowerCase();
+    return templates.filter(t =>
+      t.title.toLowerCase().includes(lowerQuery) ||
+      t.description?.toLowerCase().includes(lowerQuery) ||
+      t.category?.toLowerCase() === lowerQuery
+    );
+  }, [templates, query]);
 
   // Load archives on mount
   useEffect(() => {
@@ -107,12 +102,12 @@ export default function FacultyTemplateHubPage() {
         {quickFilters.map((f) => (
           <Button
             key={f}
-            variant={query === f ? "default" : "outline"}
-            className={`whitespace-nowrap ${query === f
+            variant={(query === f || (f === "All" && query === "")) ? "default" : "outline"}
+            className={`whitespace-nowrap ${query === f || (f === "All" && query === "")
               ? "bg-blue-600 hover:bg-blue-700"
               : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
               }`}
-            onClick={() => setQuery(query === f ? "" : f)}
+            onClick={() => setQuery(f === "All" ? "" : f)}
           >
             {f}
           </Button>
@@ -134,37 +129,47 @@ export default function FacultyTemplateHubPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {officialTemplates.map((t) => {
-                const Icon = t.icon;
-                return (
-                  <div
-                    key={t.id}
-                    className="border border-slate-700 rounded-lg p-4 hover:bg-slate-800/40 transition-colors"
-                  >
-                    <div className="flex items-start mb-3">
-                      <Icon className={`h-8 w-8 mr-3 ${t.iconClass}`} />
-                      <div>
-                        <h4 className="font-medium text-slate-100">{t.title}</h4>
-                        <p className="text-sm text-slate-400">{t.description}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between text-sm text-slate-500">
-                      <span>Version {t.version}</span>
-                      <span>{t.size}</span>
-                    </div>
-
-                    <Button
-                      variant="outline"
-                      className="w-full mt-3 bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700"
-                      onClick={() => handleDownloadTemplate(t.title)}
+              {filteredTemplates.length === 0 ? (
+                <div className="col-span-2 text-center py-8 text-slate-500">
+                  <File className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p>No templates found.</p>
+                </div>
+              ) : (
+                filteredTemplates.map((t) => {
+                  const Icon = t.icon || FileText; // Default icon if not mapped
+                  return (
+                    <div
+                      key={t.template_id}
+                      className="border border-slate-700 rounded-lg p-4 hover:bg-slate-800/40 transition-colors"
                     >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download
-                    </Button>
-                  </div>
-                );
-              })}
+                      <div className="flex items-start mb-3">
+                        <Icon className={`h-8 w-8 mr-3 text-blue-400`} />
+                        <div>
+                          <h4 className="font-medium text-slate-100">{t.title}</h4>
+                          <p className="text-sm text-slate-400 line-clamp-2">{t.description}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-between text-sm text-slate-500">
+                        <span className="bg-slate-800 px-2 py-0.5 rounded text-xs border border-slate-700">{t.category || 'General'}</span>
+                        {/* <span>{t.size}</span> */}{/* Size not always available in DB yet */}
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        className="w-full mt-3 bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700"
+                        onClick={() => {
+                          if (t.file_url) window.open(t.file_url, '_blank');
+                          else handleDownloadTemplate(t.title);
+                        }}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Download
+                      </Button>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
 
@@ -238,6 +243,37 @@ export default function FacultyTemplateHubPage() {
               Clone Document for Current Semester
             </Button>
           </div>
+
+          {/* Submission Guidelines Section */}
+          <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md p-6">
+            <h3 className="font-semibold mb-4 text-slate-100 flex items-center gap-2">
+              <FileType2 className="h-5 w-5 text-indigo-400" />
+              Submission Guidelines
+            </h3>
+            <div className="space-y-4 text-sm text-slate-400">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-slate-950/50 p-3 rounded border border-slate-800">
+                  <h4 className="font-medium text-slate-200 mb-2">File Naming Convention</h4>
+                  <p>Please use the following format:</p>
+                  <code className="block bg-slate-900 p-2 rounded mt-1 text-xs font-mono text-green-400">
+                    [CourseCode]_[DocType]_[LastName]_[Semester].pdf
+                  </code>
+                  <p className="mt-1 text-xs">Example: CCS101_Syllabus_Doe_2023-2.pdf</p>
+                </div>
+                <div className="bg-slate-950/50 p-3 rounded border border-slate-800">
+                  <h4 className="font-medium text-slate-200 mb-2">Accepted Formats</h4>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>PDF (Preferred)</li>
+                    <li>DOCX / XLSX (for editable templates)</li>
+                    <li>PNG / JPG (for evidence)</li>
+                  </ul>
+                </div>
+              </div>
+              <p className="text-xs bg-blue-900/20 text-blue-400 p-3 rounded border border-blue-900/50">
+                <strong>Note:</strong> All submissions are automatically checked for basic formatting requirements. Please ensure your documents are complete before uploading.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Right Column (1/3 width) - Archived Documents */}
@@ -293,24 +329,20 @@ export default function FacultyTemplateHubPage() {
           <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md p-6 mt-6">
             <h3 className="font-semibold mb-4 text-slate-100">Frequently Asked Questions</h3>
             <Accordion type="single" collapsible className="w-full">
-              <AccordionItem value="item-1" className="border-slate-800">
-                <AccordionTrigger className="text-slate-200 hover:text-slate-100">How do I submit my syllabus?</AccordionTrigger>
-                <AccordionContent className="text-slate-400">
-                  Go to the <strong>Submission Portal</strong>, select your course, choose "Course Syllabus" from the document type list, and upload your PDF file.
-                </AccordionContent>
-              </AccordionItem>
-              <AccordionItem value="item-2" className="border-slate-800">
-                <AccordionTrigger className="text-slate-200 hover:text-slate-100">What file formats are accepted?</AccordionTrigger>
-                <AccordionContent className="text-slate-400">
-                  We accept PDF, DOCX, XLSX, PNG, and JPG files. Maximum file size is 10MB per upload.
-                </AccordionContent>
-              </AccordionItem>
-              <AccordionItem value="item-3" className="border-slate-800">
-                <AccordionTrigger className="text-slate-200 hover:text-slate-100">Can I edit my submission?</AccordionTrigger>
-                <AccordionContent className="text-slate-400">
-                  If your submission is still <strong>PENDING</strong>, you can resubmit to overwrite it. If it has been <strong>APPROVED</strong>, you cannot change it without administrative override.
-                </AccordionContent>
-              </AccordionItem>
+              {faqs.length === 0 ? (
+                <div className="text-center py-4 text-slate-500 text-sm">No FAQs available.</div>
+              ) : (
+                faqs.map((faq) => (
+                  <AccordionItem key={faq.faq_id} value={`item-${faq.faq_id}`} className="border-slate-800">
+                    <AccordionTrigger className="text-slate-200 hover:text-slate-100 text-left">
+                      {faq.question}
+                    </AccordionTrigger>
+                    <AccordionContent className="text-slate-400">
+                      {faq.answer}
+                    </AccordionContent>
+                  </AccordionItem>
+                ))
+              )}
             </Accordion>
           </div>
         </div>

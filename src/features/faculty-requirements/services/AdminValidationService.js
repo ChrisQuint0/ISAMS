@@ -101,5 +101,13 @@ export const validationService = {
 
     if (error) throw error;
     return data;
+  },
+
+  runBotCheck: async (submissionId) => {
+    const { data, error } = await supabase.rpc('run_bot_check_fs', {
+      p_submission_id: submissionId
+    });
+    if (error) throw error;
+    return { success: true, data };
   }
 };

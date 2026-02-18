@@ -61,15 +61,17 @@ export const settingsService = {
    * Upsert Document Type
    */
   upsertDocType: async (docType) => {
+    const payload = {
+      type_name: docType.name || docType.type_name,
+      description: docType.folder || docType.description, // Map UI 'folder' to DB description/folder
+      is_active: docType.is_active,
+      required_by_default: docType.required
+    };
+    if (docType.id) payload.doc_type_id = docType.id;
+
     const { data, error } = await supabase
       .from('documenttypes_fs')
-      .upsert({
-        doc_type_id: docType.id || docType.doc_type_id, // If null, will create new
-        type_name: docType.name || docType.type_name,
-        // Map other fields as needed
-        is_active: docType.is_active,
-        required_by_default: docType.required
-      })
+      .upsert(payload)
       .select();
     if (error) throw error;
     return data;
@@ -90,6 +92,43 @@ export const settingsService = {
     const { data, error } = await supabase.from('templates_fs').select('*').order('created_at', { ascending: false });
     if (error) throw error;
     return data;
+  },
+
+  addTemplate: async (file, category, description) => {
+    // 1. Upload
+    const fileName = `templates/${Date.now()}_${file.name}`;
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('faculty_documents')
+      .upload(fileName, file);
+
+    if (uploadError) throw uploadError;
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('faculty_documents')
+      .getPublicUrl(fileName);
+
+    // 2. Insert
+    const { data, error } = await supabase
+      .from('templates_fs')
+      .insert({
+        title: file.name,
+        description: description || '',
+        category: category || 'General',
+        file_url: publicUrl,
+        file_size_bytes: file.size
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  deleteTemplate: async (templateId) => {
+    // Note: We could also delete from storage, but for now just DB record
+    const { error } = await supabase.from('templates_fs').delete().eq('template_id', templateId);
+    if (error) throw error;
   },
 
   /**
@@ -198,6 +237,12 @@ export const settingsService = {
   /**
    * Run System Backup
    */
+  getSystemHealth: async () => {
+    const { data, error } = await supabase.rpc('get_system_health_fs');
+    if (error) throw error;
+    return data;
+  },
+
   runBackup: async () => {
     const { data, error } = await supabase.rpc('backup_system_data_fs');
     if (error) throw error;
@@ -208,6 +253,37 @@ export const settingsService = {
 
     return { success: true, message: "Backup downloaded successfully." };
   },
+
+  restoreSystem: async (jsonData) => {
+    const { data, error } = await supabase.rpc('restore_system_data_fs', { p_data: jsonData });
+    if (error) throw error;
+    return { success: true, message: data };
+  },
+
+  /**
+   * Holiday Management
+   */
+  getHolidays: async () => {
+    const { data, error } = await supabase.rpc('get_holidays_fs');
+    if (error) throw error;
+    return data;
+  },
+
+  upsertHoliday: async (holiday) => {
+    const { error } = await supabase.rpc('upsert_holiday_fs', {
+      p_date: holiday.date,
+      p_description: holiday.description,
+      p_recurring: holiday.is_recurring,
+      p_id: holiday.id || null
+    });
+    if (error) throw error;
+  },
+
+  deleteHoliday: async (holidayId) => {
+    const { error } = await supabase.rpc('delete_holiday_fs', { p_id: holidayId });
+    if (error) throw error;
+  },
+
   /**
    * DANGER ZONE: Reset Semester
    */

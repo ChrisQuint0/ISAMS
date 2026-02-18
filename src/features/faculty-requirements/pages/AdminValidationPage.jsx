@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Eye, Check, RotateCcw, AlertTriangle,
-  FileText, Bot, Scale, CheckCircle,
+  FileText, Bot, Scale, CheckCircle, Zap, CheckCircle2,
   SlidersHorizontal, Mail, FileCheck, Download, RefreshCw, X, ArrowRight
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ import { useAdminValidation } from '../hooks/AdminValidationHook';
 export default function AdminValidationPage() {
   const navigate = useNavigate();
   const {
-    loading, queue, recentApprovals, stats, processAction, approveAll, downloadFile, refresh
+    loading, queue, recentApprovals, stats, processAction, approveAll, downloadFile, runBotCheck, refresh
   } = useAdminValidation();
 
   // Dialog State
@@ -28,6 +28,11 @@ export default function AdminValidationPage() {
   const [pendingAction, setPendingAction] = useState(null);
   const [remarks, setRemarks] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Preview & Analysis State
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [analyzingId, setAnalyzingId] = useState(null);
 
   // --- Handlers ---
 
@@ -59,6 +64,21 @@ export default function AdminValidationPage() {
     const result = await approveAll();
     if (!result.success) alert("Error: " + result.message);
     refresh();
+  };
+
+  const handlePreview = (url) => {
+    if (!url) return;
+    // Google Drive specific: Convert /view to /preview for embedding
+    const embedUrl = url.replace('/view', '/preview');
+    setPreviewUrl(embedUrl);
+    setIsPreviewOpen(true);
+  };
+
+  const handleRunAnalysis = async (item) => {
+    setAnalyzingId(item.submission_id);
+    const result = await runBotCheck(item.submission_id);
+    setAnalyzingId(null);
+    if (!result.success) alert("Analysis failed: " + result.message);
   };
 
   // --- Helpers ---
@@ -174,23 +194,52 @@ export default function AdminValidationPage() {
                                 variant="ghost"
                                 size="sm"
                                 className="h-8 text-slate-400 hover:text-slate-100 hover:bg-slate-800"
-                                onClick={() => window.open(item.gdrive_web_view_link, '_blank')}
+                                onClick={() => handlePreview(item.gdrive_web_view_link)}
                               >
                                 <Eye className="h-4 w-4 mr-2" /> Preview
                               </Button>
                             )}
                           </div>
 
-                          {/* Error Detail Box */}
-                          {item.validation_issues && item.validation_issues.length > 0 && (
+                          {/* Bot Analysis Section */}
+                          <div className="flex items-center gap-2 mb-4">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20"
+                              onClick={() => handleRunAnalysis(item)}
+                              disabled={analyzingId === item.submission_id}
+                            >
+                              {analyzingId === item.submission_id ? (
+                                <RefreshCw className="h-3.5 w-3.5 mr-2 animate-spin" />
+                              ) : (
+                                <Zap className="h-3.5 w-3.5 mr-2" />
+                              )}
+                              {item.bot_analysis && item.bot_analysis.status ? 'Re-Run Analysis' : 'Run AI Analysis'}
+                            </Button>
+
+                            {item.bot_analysis && item.bot_analysis.status === 'PASSED' && (
+                              <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                                <CheckCircle2 className="h-3 w-3 mr-1" /> AI Clean
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* Analysis Results / Issues */}
+                          {((item.validation_issues && item.validation_issues.length > 0) || (item.bot_analysis && item.bot_analysis.issues && item.bot_analysis.issues.length > 0)) && (
                             <div className="bg-rose-950/10 border border-rose-900/30 rounded-md p-3 mb-4">
                               <div className="flex items-start gap-2">
                                 <AlertTriangle className="h-4 w-4 text-rose-500 mt-0.5 shrink-0" />
                                 <div className="min-w-0">
                                   <p className="font-semibold text-rose-400 text-xs uppercase tracking-wider mb-1">Issues Detected</p>
                                   <ul className="list-disc list-inside text-xs text-rose-300/80 space-y-0.5">
-                                    {item.validation_issues.map((issue, i) => (
-                                      <li key={i} className="truncate">{issue}</li>
+                                    {/* Traditional Issues */}
+                                    {item.validation_issues?.map((issue, i) => (
+                                      <li key={`v-${i}`} className="truncate">{issue}</li>
+                                    ))}
+                                    {/* Bot Issues */}
+                                    {item.bot_analysis?.issues?.map((issue, i) => (
+                                      <li key={`b-${i}`} className="truncate">{issue} <span className="text-[10px] opacity-60 ml-1">(AI)</span></li>
                                     ))}
                                   </ul>
                                 </div>
@@ -381,6 +430,24 @@ export default function AdminValidationPage() {
               {submitting ? 'Processing...' : 'Confirm Action'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Preview Dialog */}
+      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+        <DialogContent className="bg-slate-900 border-slate-800 text-slate-100 w-[90vw] max-w-4xl h-[80vh] p-0 overflow-hidden flex flex-col">
+          <div className="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-900 shrink-0">
+            <DialogTitle className="text-slate-100 text-sm">Document Preview</DialogTitle>
+            {/* Close button provided by Dialog primitive, usually */}
+          </div>
+          <div className="flex-1 bg-slate-950 relative">
+            <iframe
+              src={previewUrl}
+              className="w-full h-full border-0"
+              title="Document Preview"
+              allow="autoplay"
+            />
+          </div>
         </DialogContent>
       </Dialog>
     </div>

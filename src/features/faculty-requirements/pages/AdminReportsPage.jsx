@@ -73,8 +73,14 @@ export default function AdminReportsPage() {
         if (row.submitted_at) newRow['Submitted Date'] = new Date(row.submitted_at).toLocaleDateString();
         if (row.deadline_date) newRow['Deadline'] = new Date(row.deadline_date).toLocaleDateString();
       }
+      if (config.include_validation_details) {
+        if (row.validation_issues && row.validation_issues.length > 0) newRow['Validation Issues'] = row.validation_issues.join(', ');
+        if (row.bot_issues) newRow['AI Analysis'] = row.bot_issues;
+      }
       if (config.include_status_indicators) {
         if (row.submission_status) newRow['Status'] = row.submission_status;
+        if (row.status) newRow['Clearance'] = row.status; // For Clearance Report
+        if (row.progress_percentage) newRow['Progress'] = row.progress_percentage;
       }
 
       return newRow;
@@ -133,8 +139,8 @@ export default function AdminReportsPage() {
                     <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
                       <SelectItem value="Submission Status Summary" className="focus:bg-slate-800">Submission Status Summary</SelectItem>
                       <SelectItem value="Late Submission Analysis" className="focus:bg-slate-800">Late Submission Analysis</SelectItem>
-                      {/* <SelectItem value="Faculty Performance Report" className="focus:bg-slate-800">Faculty Performance Report</SelectItem> */}
-                      {/* <SelectItem value="Department Comparison" className="focus:bg-slate-800">Department Comparison</SelectItem> */}
+                      <SelectItem value="Validation Failure Report" className="focus:bg-slate-800">Validation Failure Report</SelectItem>
+                      <SelectItem value="Clearance Status Report" className="focus:bg-slate-800">Clearance Status Report</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
