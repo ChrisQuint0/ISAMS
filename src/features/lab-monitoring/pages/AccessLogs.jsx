@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Search, Download, Monitor, Laptop, X, User, Clock, GraduationCap, CalendarDays, History, LogOut, CheckSquare, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Download, Monitor, Laptop, X, User, Clock, GraduationCap, CalendarDays, History, LogOut, CheckSquare, ChevronLeft, ChevronRight, FileText, FileSpreadsheet } from "lucide-react";
 import { AgGridReact } from 'ag-grid-react';
 import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-community';
 
@@ -21,6 +21,8 @@ const accessLogTheme = themeBalham.withParams({
 export default function AccessLogs() {
     const { labName } = useOutletContext();
     const [gridApi, setGridApi] = useState(null);
+
+    const [exportFormat, setExportFormat] = useState("csv");
 
     const [dateFrom, setDateFrom] = useState("2026-02-16");
     const [dateTo, setDateTo] = useState("2026-02-16");
@@ -76,10 +78,28 @@ export default function AccessLogs() {
 
     const handleBulkExport = () => {
         if (!gridApi) return;
-        gridApi.exportDataAsCsv({
-            onlySelected: true,
-            fileName: `access-logs-${dateFrom}-to-${dateTo}.csv`
-        });
+        if (exportFormat === "csv") {
+            gridApi.exportDataAsCsv({
+                onlySelected: true,
+                fileName: `access-logs-${dateFrom}-to-${dateTo}.csv`
+            });
+            return;
+        }
+
+        const rows = selectedRows || [];
+        const cols = ['student_no','student_name','section','pc_number','session_mode','date','time_in','time_out','status'];
+        const header = ['Student No','Name','Section','PC','Mode','Date','Time In','Time Out','Status'];
+        const tableRows = rows.map(r => `\n<tr>${cols.map(c => `<td>${(r[c] ?? '')}</td>`).join('')}</tr>`).join('');
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>Access Logs</title><style>body{font-family:Arial,Helvetica,sans-serif;color:#0f172a;padding:20px}h2{margin-bottom:10px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:12px}th{background:#f4f4f4}</style></head><body><h2>Access Logs ${dateFrom} — ${dateTo}</h2><table><thead><tr>${header.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${tableRows}</tbody></table></body></html>`;
+        const w = window.open('', '_blank');
+        if (w) {
+            w.document.write(html);
+            w.document.close();
+            w.focus();
+            w.print();
+        } else {
+            alert('Popup blocked. Allow popups to export PDF.');
+        }
     };
 
     const columnDefs = useMemo(() => [
@@ -224,14 +244,60 @@ export default function AccessLogs() {
                             </button>
                         </>
                     )}
-                    <button 
-                        onClick={() => gridApi?.exportDataAsCsv({ fileName: `access-logs-${dateFrom}-to-${dateTo}.csv` })}
-                        className="flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 hover:border-blue-500/40 text-blue-400 hover:text-blue-300 text-[10px] font-bold py-2 px-5 rounded-lg uppercase tracking-widest transition-all group/btn relative overflow-hidden shrink-0"
-                    >
-                        <div className="absolute inset-0 bg-gradient-to-br from-white/0 via-white/0 to-white/0 group-hover/btn:from-white/10 group-hover/btn:via-white/0 group-hover/btn:to-white/0 transition-all duration-500 pointer-events-none" />
-                        <div className="absolute inset-0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
-                        <Download size={13} /> Export All
-                    </button>
+                    <div className="flex items-center gap-0">
+                        <div className="flex items-center bg-[#0f172a] border border-[#1e293b] rounded-l-lg p-0.5">
+                            <button
+                                onClick={() => setExportFormat("csv")}
+                                className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-[9px] font-bold uppercase tracking-widest transition-all ${
+                                    exportFormat === "csv" ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30" : "text-slate-500 hover:text-slate-300 border border-transparent"
+                                }`}
+                            >
+                                <FileSpreadsheet size={11} /> CSV
+                            </button>
+                            <button
+                                onClick={() => setExportFormat("pdf")}
+                                className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-[9px] font-bold uppercase tracking-widest transition-all ${
+                                    exportFormat === "pdf" ? "bg-rose-500/15 text-rose-400 border border-rose-500/30" : "text-slate-500 hover:text-slate-300 border border-transparent"
+                                }`}
+                            >
+                                <FileText size={11} /> PDF
+                            </button>
+                        </div>
+                        <button
+                            onClick={() => {
+                                const rows = (selectedRows && selectedRows.length > 0) ? selectedRows : (filteredData || []);
+                                if (exportFormat === "csv") {
+                                    // If using AG Grid and rows are selected, prefer gridApi export (onlySelected)
+                                    if (selectedRows && selectedRows.length > 0) {
+                                        gridApi?.exportDataAsCsv({ onlySelected: true, fileName: `access-logs-${dateFrom}-to-${dateTo}.csv` });
+                                    } else {
+                                        gridApi?.exportDataAsCsv({ fileName: `access-logs-${dateFrom}-to-${dateTo}.csv` });
+                                    }
+                                    return;
+                                }
+
+                                // PDF export for selected or filtered rows
+                                const cols = ['student_no','student_name','section','pc_number','session_mode','date','time_in','time_out','status'];
+                                const header = ['Student No','Name','Section','PC','Mode','Date','Time In','Time Out','Status'];
+                                const tableRows = rows.map(r => `\n<tr>${cols.map(c => `<td>${(r[c] ?? '')}</td>`).join('')}</tr>`).join('');
+                                const html = `<!doctype html><html><head><meta charset="utf-8"><title>Access Logs</title><style>body{font-family:Arial,Helvetica,sans-serif;color:#0f172a;padding:20px}h2{margin-bottom:10px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:12px}th{background:#f4f4f4}</style></head><body><h2>Access Logs ${dateFrom} — ${dateTo}</h2><table><thead><tr>${header.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${tableRows}</tbody></table></body></html>`;
+                                const w = window.open('', '_blank');
+                                if (w) {
+                                    w.document.write(html);
+                                    w.document.close();
+                                    w.focus();
+                                    w.print();
+                                } else {
+                                    alert('Popup blocked. Allow popups to export PDF.');
+                                }
+                            }}
+                            className="flex items-center gap-2 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-r-lg bg-blue-500/10 border border-blue-500/20 border-l-0 hover:border-blue-500/40 text-blue-400 transition-all group/btn relative overflow-hidden"
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-br from-white/0 via-white/0 to-white/0 group-hover/btn:from-white/10 group-hover/btn:via-white/0 group-hover/btn:to-white/0 transition-all duration-500 pointer-events-none" />
+                            <div className="absolute inset-0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
+                            <Download size={13} /> {selectedRows && selectedRows.length > 0 ? 'Export Selected' : `Export .${exportFormat}`}
+                        </button>
+                    </div>
                 </div>
             </div>
 

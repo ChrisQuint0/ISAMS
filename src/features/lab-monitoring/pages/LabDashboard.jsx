@@ -4,6 +4,7 @@ import {
     ShieldAlert,
     CheckCircle,
     Users,
+    Activity,
     Laptop,
     AlertTriangle,
     Monitor,
@@ -30,6 +31,17 @@ export default function LabDashboard() {
         const timer = setInterval(() => setClock(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
+
+    // Fleet health snapshot (placeholder - replace with real data hookup)
+    const healthStats = {
+        total: 40,
+        avgHours: 210,
+        atRiskPct: 8,
+        inMaintenance: 3,
+        occupied: 38,
+        laptops: 5,
+        available: 4,
+    };
 
     return (
         <div className="p-8 bg-[#0F172A] min-h-screen text-slate-100 font-sans">
@@ -65,18 +77,18 @@ export default function LabDashboard() {
                     </div>
 
                     <button
-                    onClick={() => setIsDismissed(!isDismissed)}
-                    className={`text-[10px] font-bold py-2 px-5 rounded-lg flex items-center gap-2 transition-all duration-300 shadow-lg uppercase tracking-widest relative overflow-hidden group/btn ${
-                        isDismissed
-                            ? "bg-slate-800 text-slate-400 border border-slate-700"
-                            : "bg-rose-500/80 hover:bg-rose-500 text-white shadow-rose-900/20 active:scale-95"
-                    }`}
-                >
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/0 via-white/0 to-white/0 group-hover/btn:from-white/10 group-hover/btn:via-white/0 group-hover/btn:to-white/0 transition-all duration-500 pointer-events-none" />
-                    <div className="absolute inset-0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
-                    {isDismissed ? <CheckCircle size={13} /> : <ShieldAlert size={13} />}
-                    {isDismissed ? "Class Dismissed" : "Dismiss Class"}
-                </button>
+                        onClick={() => setIsDismissed(!isDismissed)}
+                        className={`flex items-center gap-2 text-[10px] font-bold py-2 px-5 rounded-lg uppercase tracking-widest transition-all duration-300 relative overflow-hidden group/btn ${
+                            isDismissed
+                                ? "bg-slate-800 text-slate-400 border border-slate-700"
+                                : "bg-rose-500/10 border border-rose-500/20 hover:border-rose-500/40 text-rose-400 hover:text-rose-300"
+                        }`}
+                    >
+                        <div className="absolute inset-0 bg-gradient-to-br from-white/0 via-white/0 to-white/0 group-hover/btn:from-white/10 group-hover/btn:via-white/0 group-hover/btn:to-white/0 transition-all duration-500 pointer-events-none" />
+                        <div className="absolute inset-0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
+                        {isDismissed ? <CheckCircle size={13} /> : <ShieldAlert size={13} />}
+                        {isDismissed ? "Class Dismissed" : "Dismiss Class"}
+                    </button>
                 </div>
             </div>
 
@@ -89,13 +101,57 @@ export default function LabDashboard() {
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                     <SystemOverviewCard label="Occupancy" value="38/40" sub="95% Capacity" color="sky" icon={<Users size={16} />} live trend="+5%" trendUp />
-                    <SystemOverviewCard label="PC Users" value="33" sub="Desktop" color="purple" icon={<Monitor size={16} />} />
-                    <SystemOverviewCard label="Laptop Users" value="05" sub="Hybrid" color="sky" icon={<Laptop size={16} />} />
+                    <SystemOverviewCard label="Laptop Users" value="05" sub="Hybrid" color="purple" icon={<Laptop size={16} />} />
+                    <SystemOverviewCard label="PC Users" value="33" sub="Desktop" color="sky" icon={<Monitor size={16} />} />
                     <SystemOverviewCard label="Available" value="04" sub="Ready" color="emerald" icon={<Monitor size={16} />} />
                     <SystemOverviewCard label="Maintenance" value="03" sub="Flagged" color="amber" icon={<Wrench size={16} />} />
-                    <SystemOverviewCard label="Uptime" value="03:22:15" sub="Session" color="sky" icon={<Zap size={16} />} live />
+                    <SystemOverviewCard label="Uptime" value="03:22:15" sub="Session" color="emerald" icon={<Zap size={16} />} live />
                 </div>
             </section>
+
+            <div className="mb-6">
+                <div className="w-full bg-[#1E293B] border border-[#334155] rounded-2xl p-4 shadow-xl group relative overflow-hidden hover:border-slate-500 transition-colors">
+                    <div className="flex items-center gap-6 relative z-10">
+                        <div className="flex-1 space-y-2">
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] flex items-center gap-1.5">
+                                    <Activity size={12} className="text-sky-500" /> Fleet Health Overview
+                                </span>
+                                <span className="text-[10px] font-mono text-slate-500">{healthStats.total} stations</span>
+                            </div>
+                            <div className="h-3 w-full bg-slate-800 rounded-full overflow-hidden flex">
+                                <div className="bg-sky-500" style={{ width: `${(healthStats.occupied / healthStats.total) * 100}%` }} title={`Occupied: ${healthStats.occupied}`} />
+                                <div className="bg-purple-500" style={{ width: `${(healthStats.laptops / healthStats.total) * 100}%` }} title={`Laptop: ${healthStats.laptops}`} />
+                                <div className="bg-slate-600" style={{ width: `${(healthStats.available / healthStats.total) * 100}%` }} title={`Available: ${healthStats.available}`} />
+                                <div className="bg-amber-500 animate-pulse" style={{ width: `${(healthStats.inMaintenance / healthStats.total) * 100}%` }} title={`Maintenance: ${healthStats.inMaintenance}`} />
+                            </div>
+                            <div className="flex items-center gap-4 text-[9px] font-bold uppercase tracking-widest">
+                                <span className="flex items-center gap-1.5 text-sky-400"><div className="w-2 h-2 rounded-full bg-sky-500" />{healthStats.occupied} Occupied</span>
+                                <span className="flex items-center gap-1.5 text-purple-400"><div className="w-2 h-2 rounded-full bg-purple-500" />{healthStats.laptops} Laptop</span>
+                                <span className="flex items-center gap-1.5 text-slate-500"><div className="w-2 h-2 rounded-full bg-slate-600" />{healthStats.available} Available</span>
+                                <span className="flex items-center gap-1.5 text-amber-400"><div className="w-2 h-2 rounded-full bg-amber-500" />{healthStats.inMaintenance} Maintenance</span>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 shrink-0">
+                            <div className="bg-[#0F172A] border border-[#334155] rounded-lg px-4 py-3 text-center min-w-[90px]">
+                                <p className="text-lg font-bold text-white">{healthStats.avgHours}</p>
+                                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Avg Hours</p>
+                            </div>
+                            <div className={`border rounded-lg px-4 py-3 text-center min-w-[90px] ${
+                                healthStats.atRiskPct > 20 ? "bg-rose-500/10 border-rose-500/20" : healthStats.atRiskPct > 10 ? "bg-amber-500/10 border-amber-500/20" : "bg-emerald-500/10 border-emerald-500/20"
+                            }`}>
+                                <p className={`text-lg font-bold ${healthStats.atRiskPct > 20 ? "text-rose-400" : healthStats.atRiskPct > 10 ? "text-amber-400" : "text-emerald-400"}`}>{healthStats.atRiskPct}%</p>
+                                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">At Risk</p>
+                            </div>
+                            <div className={`border rounded-lg px-4 py-3 text-center min-w-[90px] ${healthStats.inMaintenance > 0 ? "bg-amber-500/10 border-amber-500/20" : "bg-emerald-500/10 border-emerald-500/20"}`}>
+                                <p className={`text-lg font-bold ${healthStats.inMaintenance > 0 ? "text-amber-400" : "text-emerald-400"}`}>{healthStats.inMaintenance}</p>
+                                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">In Maint.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <div className="grid grid-cols-12 gap-5">
 

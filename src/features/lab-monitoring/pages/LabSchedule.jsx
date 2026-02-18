@@ -165,11 +165,26 @@ export default function LabSchedule() {
     return (
         <div className="p-8 space-y-5 bg-[#020617] min-h-screen">
 
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-2xl font-bold text-white tracking-tight">{labName} — Laboratory Schedule</h1>
-                    <p className="text-slate-400 text-sm italic">Defines parameters for the Kiosk Anti-Cutting Protocol</p>
+            <div>
+                <h1 className="text-2xl font-bold text-white tracking-tight">{labName} — Laboratory Schedule</h1>
+                <p className="text-slate-400 text-sm italic">Defines parameters for the Kiosk Anti-Cutting Protocol</p>
+            </div>
+
+            <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-wrap gap-2">
+                    {recurringPatterns.map((p, i) => {
+                        const c = colorMap[p.subject];
+                        return (
+                            <div key={i} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${c.bg} ${c.border} transition-colors`}>
+                                <div className={`w-2 h-2 rounded-full ${c.dot}`} />
+                                <span className={`text-[10px] font-bold uppercase tracking-wider ${c.text}`}>{p.subject}</span>
+                                <span className="text-[9px] text-slate-600">·</span>
+                                <span className="text-[9px] text-slate-500 font-mono">{p.days.map(d => d.slice(0, 3)).join(", ")}</span>
+                            </div>
+                        );
+                    })}
                 </div>
+
                 <div className="flex items-center gap-3">
                     <div className="flex items-center bg-[#0f172a] border border-[#1e293b] rounded-lg p-0.5">
                         <button
@@ -204,20 +219,6 @@ export default function LabSchedule() {
 
             {view === "timetable" && (
                 <div className="space-y-5">
-                    <div className="flex flex-wrap gap-2">
-                        {recurringPatterns.map((p, i) => {
-                            const c = colorMap[p.subject];
-                            return (
-                                <div key={i} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${c.bg} ${c.border} transition-colors`}>
-                                    <div className={`w-2 h-2 rounded-full ${c.dot}`} />
-                                    <span className={`text-[10px] font-bold uppercase tracking-wider ${c.text}`}>{p.subject}</span>
-                                    <span className="text-[9px] text-slate-600">·</span>
-                                    <span className="text-[9px] text-slate-500 font-mono">{p.days.map(d => d.slice(0, 3)).join(", ")}</span>
-                                </div>
-                            );
-                        })}
-                    </div>
-
                     <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl shadow-2xl overflow-hidden group relative hover:border-slate-600 transition-colors">
                         <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none z-10" />
                         <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none z-10" />
@@ -264,7 +265,17 @@ export default function LabSchedule() {
                                                                 <div className="space-y-1.5 relative z-10">
                                                                     <div className="flex items-center justify-between">
                                                                         <span className={`text-sm font-bold ${c.text}`}>{entry.subject}</span>
-                                                                        <span className={`text-[8px] font-black uppercase tracking-widest ${c.sub}`}>{entry.section}</span>
+                                                                        <div className="flex flex-col items-end gap-1">
+                                                                            <span className={`text-[8px] font-black uppercase tracking-widest ${c.sub}`}>{entry.section}</span>
+                                                                            <div className="flex items-center gap-2">
+                                                                                <button className="p-1 rounded-md text-slate-400 hover:text-sky-400 hover:bg-slate-800 transition-colors">
+                                                                                    <Edit size={14} />
+                                                                                </button>
+                                                                                <button className="p-1 rounded-md text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors">
+                                                                                    <Trash2 size={14} />
+                                                                                </button>
+                                                                            </div>
+                                                                        </div>
                                                                     </div>
                                                                     <p className="text-[10px] text-slate-400 leading-relaxed truncate">{entry.desc}</p>
                                                                     <div className="flex items-center gap-1.5 pt-1">
@@ -315,6 +326,7 @@ export default function LabSchedule() {
                     />
                 </div>
             )}
+
         </div>
     );
 }

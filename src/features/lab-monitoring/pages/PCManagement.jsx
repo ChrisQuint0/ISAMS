@@ -21,7 +21,7 @@ export default function PCManagement() {
         { id: 5, pcId: "PC-33", action: "Flagged", note: "USB ports not recognizing devices", date: "Feb 12, 2026", time: "08:55 AM" },
         { id: 6, pcId: "PC-33", action: "Cleared", note: "Replaced USB hub controller", date: "Feb 13, 2026", time: "10:00 AM" },
     ]);
-    const [showHistoryPanel, setShowHistoryPanel] = useState(false);
+    
 
     const [bulkMode, setBulkMode] = useState(null); 
     const [bulkChecked, setBulkChecked] = useState([]);
@@ -168,81 +168,10 @@ export default function PCManagement() {
                     <h1 className="text-2xl font-bold tracking-tight">{labName} — Station Map</h1>
                     <p className="text-slate-400 text-sm italic">Visual Capacity & Hardware Management</p>
                 </div>
-                
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => setShowHistoryPanel(!showHistoryPanel)}
-                        className={`flex items-center gap-2 px-4 py-2.5 text-[11px] font-bold uppercase tracking-widest rounded-xl transition-all group/btn relative overflow-hidden ${
-                            showHistoryPanel
-                                ? "bg-amber-500/15 border border-amber-500/30 text-amber-400"
-                                : "bg-[#0f172a] border border-[#1e293b] hover:border-slate-600 text-slate-400 hover:text-slate-300"
-                        }`}
-                    >
-                        <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover/btn:from-slate-400/5 group-hover/btn:via-slate-400/0 group-hover/btn:to-slate-400/0 transition-all duration-500 pointer-events-none" />
-                        <div className="absolute inset-0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
-                        <History size={13} /> Maintenance Log
-                        {maintenanceHistory.length > 0 && (
-                            <span className="ml-1 px-1.5 py-0.5 rounded text-[8px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                                {maintenanceHistory.length}
-                            </span>
-                        )}
-                    </button>
-                </div>
             </div>
-
-            <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-4 shadow-xl group relative overflow-hidden hover:border-slate-600 transition-colors">
-                <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none" />
-                <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
-                <div className="flex items-center gap-6 relative z-10">
-                    <div className="flex-1 space-y-2">
-                        <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.15em] flex items-center gap-1.5">
-                                <Activity size={11} className="text-sky-500" /> Fleet Health Overview
-                            </span>
-                            <span className="text-[10px] font-mono text-slate-600">{healthStats.total} stations</span>
-                        </div>
-                        <div className="h-3 w-full bg-slate-800 rounded-full overflow-hidden flex">
-                            <div className="bg-sky-500 transition-all duration-500" style={{ width: `${(healthStats.occupied / healthStats.total) * 100}%` }} title={`Occupied: ${healthStats.occupied}`} />
-                            <div className="bg-purple-500 transition-all duration-500" style={{ width: `${(healthStats.laptops / healthStats.total) * 100}%` }} title={`Laptop: ${healthStats.laptops}`} />
-                            <div className="bg-slate-600 transition-all duration-500" style={{ width: `${(healthStats.available / healthStats.total) * 100}%` }} title={`Available: ${healthStats.available}`} />
-                            <div className="bg-amber-500 animate-pulse transition-all duration-500" style={{ width: `${(healthStats.inMaintenance / healthStats.total) * 100}%` }} title={`Maintenance: ${healthStats.inMaintenance}`} />
-                        </div>
-                        <div className="flex items-center gap-4 text-[9px] font-bold uppercase tracking-widest">
-                            <span className="flex items-center gap-1.5 text-sky-400"><div className="w-2 h-2 rounded-full bg-sky-500" />{healthStats.occupied} Occupied</span>
-                            <span className="flex items-center gap-1.5 text-purple-400"><div className="w-2 h-2 rounded-full bg-purple-500" />{healthStats.laptops} Laptop</span>
-                            <span className="flex items-center gap-1.5 text-slate-500"><div className="w-2 h-2 rounded-full bg-slate-600" />{healthStats.available} Available</span>
-                            <span className="flex items-center gap-1.5 text-amber-400"><div className="w-2 h-2 rounded-full bg-amber-500" />{healthStats.inMaintenance} Maintenance</span>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 shrink-0">
-                        <div className="bg-[#020617] border border-[#1e293b] rounded-xl px-4 py-3 text-center min-w-[90px]">
-                            <p className="text-lg font-bold text-white">{healthStats.avgHours}</p>
-                            <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Avg Hours</p>
-                        </div>
-                        <div className={`border rounded-xl px-4 py-3 text-center min-w-[90px] ${
-                            healthStats.atRiskPct > 20 
-                                ? "bg-rose-500/10 border-rose-500/20" 
-                                : healthStats.atRiskPct > 10 
-                                    ? "bg-amber-500/10 border-amber-500/20" 
-                                    : "bg-emerald-500/10 border-emerald-500/20"
-                        }`}>
-                            <p className={`text-lg font-bold ${
-                                healthStats.atRiskPct > 20 ? "text-rose-400" : healthStats.atRiskPct > 10 ? "text-amber-400" : "text-emerald-400"
-                            }`}>{healthStats.atRiskPct}%</p>
-                            <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest">At Risk</p>
-                        </div>
-                        <div className={`border rounded-xl px-4 py-3 text-center min-w-[90px] ${
-                            healthStats.inMaintenance > 0 ? "bg-amber-500/10 border-amber-500/20" : "bg-emerald-500/10 border-emerald-500/20"
-                        }`}>
-                            <p className={`text-lg font-bold ${healthStats.inMaintenance > 0 ? "text-amber-400" : "text-emerald-400"}`}>{healthStats.inMaintenance}</p>
-                            <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest">In Maint.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
+            
+            
+            <div className="flex items-center gap-2">
                 {!bulkMode && !selectMode && (
                     <>
                         <button
@@ -280,6 +209,7 @@ export default function PCManagement() {
                         </button>
                     </>
                 )}
+        
 
                 {selectMode && (
                     <div className="flex items-center gap-2">
@@ -340,9 +270,9 @@ export default function PCManagement() {
                 )}
             </div>
 
-            <div className="flex flex-col lg:flex-row gap-6">
+            <div className="flex flex-col lg:flex-row gap-6 items-stretch">
 
-                <div className="flex-1 space-y-4">
+                <div className="flex-1 space-y-4 min-h-0">
                     <PCGridLayout 
                         stations={stations} 
                         selectedPC={selectedPC} 
@@ -353,66 +283,60 @@ export default function PCManagement() {
                     />
                 </div>
 
-                <div className="w-full lg:w-80 space-y-4">
-                    <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-6 shadow-2xl flex flex-col group relative overflow-hidden hover:border-slate-600 transition-colors" style={{ minHeight: showHistoryPanel ? 300 : 'auto' }}>
-                        <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none" />
-                        <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
-                        <h3 className="text-xs font-black text-slate-500 uppercase tracking-[0.2em] mb-6">
-                            Station Inspector
-                        </h3>
-                        <StationInspector 
-                            selectedPC={selectedPC}
-                            onFlagMaintenance={handleFlagMaintenance}
-                            onClearMaintenance={handleClearMaintenance}
-                            onResetTimer={handleResetTimer}
-                        />
-                    </div>
-
-                    {showHistoryPanel && (
-                        <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-5 shadow-2xl group relative overflow-hidden hover:border-slate-600 transition-colors">
-                            <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none" />
-                            <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
-                            <div className="flex items-center justify-between mb-4 relative z-10">
-                                <h3 className="text-xs font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                                    <History size={12} className="text-amber-500" /> Maintenance History
+                <div className="w-full lg:w-80 space-y-4 flex flex-col">
+                            <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-6 shadow-2xl flex-1 min-h-0 flex flex-col group relative overflow-hidden hover:border-slate-600 transition-colors">
+                                <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none" />
+                                <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
+                                <h3 className="text-xs font-black text-slate-500 uppercase tracking-[0.2em] mb-6">
+                                    Station Inspector
                                 </h3>
-                                <button
-                                    onClick={() => setShowHistoryPanel(false)}
-                                    className="p-1.5 text-slate-500 hover:text-slate-300 bg-[#1e293b] hover:bg-[#334155] rounded-lg transition-all"
-                                >
-                                    <X size={12} />
-                                </button>
+                                <div className="min-h-0 flex-1">
+                                    <StationInspector 
+                                    selectedPC={selectedPC}
+                                    onFlagMaintenance={handleFlagMaintenance}
+                                    onClearMaintenance={handleClearMaintenance}
+                                    onResetTimer={handleResetTimer}
+                                    />
+                                </div>
                             </div>
-                            <div className="space-y-2 max-h-80 overflow-y-auto pr-1 relative z-10">
-                                {maintenanceHistory.length === 0 ? (
-                                    <p className="text-xs text-slate-600 italic text-center py-6">No maintenance events recorded</p>
-                                ) : (
-                                    maintenanceHistory.map((entry) => (
-                                        <div key={entry.id} className={`border rounded-lg p-3 transition-colors hover:border-slate-600 ${
+                </div>
+            </div>
+
+            <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-5 shadow-2xl group relative overflow-hidden hover:border-slate-600 transition-colors">
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none" />
+                <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
+                <div className="flex items-center justify-between mb-4 relative z-10">
+                    <h3 className="text-xs font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                        <History size={12} className="text-amber-500" /> Maintenance History
+                    </h3>
+                </div>
+                <div className="space-y-2 overflow-y-auto pr-1 relative z-10 max-h-64">
+                    {maintenanceHistory.length === 0 ? (
+                        <p className="text-xs text-slate-600 italic text-center py-6">No maintenance events recorded</p>
+                    ) : (
+                        maintenanceHistory.map((entry) => (
+                            <div key={entry.id} className={`border rounded-lg p-3 transition-colors hover:border-slate-600 ${
+                                entry.action === "Flagged"
+                                    ? "bg-amber-500/5 border-amber-500/15"
+                                    : "bg-emerald-500/5 border-emerald-500/15"
+                            }`}>
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs font-bold text-white">{entry.pcId}</span>
+                                        <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border ${
                                             entry.action === "Flagged"
-                                                ? "bg-amber-500/5 border-amber-500/15"
-                                                : "bg-emerald-500/5 border-emerald-500/15"
+                                                ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
+                                                : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
                                         }`}>
-                                            <div className="flex items-center justify-between mb-1.5">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-xs font-bold text-white">{entry.pcId}</span>
-                                                    <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border ${
-                                                        entry.action === "Flagged"
-                                                            ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
-                                                            : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
-                                                    }`}>
-                                                        {entry.action === "Flagged" ? <span className="flex items-center gap-1"><AlertTriangle size={8} /> Flagged</span> : <span className="flex items-center gap-1"><ShieldCheck size={8} /> Cleared</span>}
-                                                    </span>
-                                                </div>
-                                                <span className="text-[9px] font-mono text-slate-600">{entry.time}</span>
-                                            </div>
-                                            <p className="text-[10px] text-slate-400 leading-relaxed truncate">{entry.note}</p>
-                                            <p className="text-[9px] text-slate-600 font-mono mt-1">{entry.date}</p>
-                                        </div>
-                                    ))
-                                )}
+                                            {entry.action === "Flagged" ? <span className="flex items-center gap-1"><AlertTriangle size={8} /> Flagged</span> : <span className="flex items-center gap-1"><ShieldCheck size={8} /> Cleared</span>}
+                                        </span>
+                                    </div>
+                                    <span className="text-[9px] font-mono text-slate-600">{entry.time}</span>
+                                </div>
+                                <p className="text-[10px] text-slate-400 leading-relaxed truncate">{entry.note}</p>
+                                <p className="text-[9px] text-slate-600 font-mono mt-1">{entry.date}</p>
                             </div>
-                        </div>
+                        ))
                     )}
                 </div>
             </div>
