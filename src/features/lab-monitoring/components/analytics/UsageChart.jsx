@@ -6,7 +6,6 @@ import {
     ChartTooltipContent 
 } from "@/components/ui/chart";
 
-// Merged Dummy Data (Total Users per day)
 const dummyUsageData = [
     { day: "Mon", total_users: 185 },
     { day: "Tue", total_users: 215 },
@@ -16,11 +15,10 @@ const dummyUsageData = [
     { day: "Sat", total_users: 95 },
 ];
 
-// 🎨 Shadcn Chart Configuration 
 const chartConfig = {
     total_users: {
         label: "Total Logins",
-        color: "#38bdf8", // Tailwind sky-400
+        color: "#38bdf8", 
     },
 };
 
@@ -62,7 +60,6 @@ export default function UsageChart() {
                     }}
                 />
                 
-                {/* Single Smooth Trend Line */}
                 <Line 
                     type="monotone" 
                     dataKey="total_users" 

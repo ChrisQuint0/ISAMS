@@ -11,7 +11,6 @@ const sections = [
 export default function SectionAttendanceTable() {
     return (
         <div className="overflow-hidden">
-            {/* Header */}
             <div className="grid grid-cols-5 gap-2 px-3 py-2 text-[9px] font-black uppercase tracking-widest text-slate-600 border-b border-[#1e293b]">
                 <span>Section</span>
                 <span className="text-right">Total</span>
@@ -19,7 +18,6 @@ export default function SectionAttendanceTable() {
                 <span className="text-right">Rate</span>
                 <span className="text-right">Trend</span>
             </div>
-            {/* Rows */}
             {sections.map((s, i) => (
                 <div key={i} className="grid grid-cols-5 gap-2 px-3 py-2.5 text-xs border-b border-[#1e293b]/50 last:border-b-0 hover:bg-slate-800/30 transition-colors">
                     <span className="font-bold text-slate-100">{s.section}</span>

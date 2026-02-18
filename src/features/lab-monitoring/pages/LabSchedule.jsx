@@ -4,10 +4,8 @@ import { Calendar, Plus, Edit, Trash2, Clock, Table, LayoutGrid, GraduationCap, 
 import { AgGridReact } from 'ag-grid-react';
 import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-community';
 
-// Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
 
-// Uses the AG Grid v33+ Theming API — same as ThesisSettingsModal.jsx
 const scheduleTheme = themeBalham.withParams({
     accentColor: '#3b82f6',
     backgroundColor: '#020617',
@@ -20,7 +18,6 @@ const scheduleTheme = themeBalham.withParams({
     headerHeight: 40,
 });
 
-// ── Color palette for timetable blocks ──
 const BLOCK_COLORS = [
     { bg: "bg-sky-500/15",    border: "border-sky-500/30",    text: "text-sky-300",    sub: "text-sky-500",    dot: "bg-sky-400"    },
     { bg: "bg-purple-500/15", border: "border-purple-500/30", text: "text-purple-300", sub: "text-purple-500", dot: "bg-purple-400" },
@@ -31,9 +28,8 @@ const BLOCK_COLORS = [
 ];
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const HOURS = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]; // 7AM – 5PM
+const HOURS = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]; 
 
-/** Convert "01:00 PM" → 13 */
 function parseHour(timeStr) {
     const [time, meridiem] = timeStr.split(" ");
     let [h] = time.split(":").map(Number);
@@ -50,16 +46,14 @@ function formatHour(h) {
 export default function LabSchedule() {
     const { labName } = useOutletContext();
     const [gridApi, setGridApi] = useState(null);
-    const [view, setView] = useState("timetable"); // "table" | "timetable"
+    const [view, setView] = useState("timetable"); 
 
-    // Dummy recurring schedule data
     const [rowData] = useState([
         { id: 1,  subject: "CC101",  desc: "Introduction to Computing",   prof: "Prof. Dela Cruz", day: "Monday",    time_start: "08:00 AM", time_end: "11:00 AM", section: "BSCS-1A" },
         { id: 2,  subject: "IT305",  desc: "Advanced Web Development",    prof: "Prof. Reyes",     day: "Tuesday",   time_start: "01:00 PM", time_end: "04:00 PM", section: "BSIT-3A" },
         { id: 3,  subject: "CS202",  desc: "Data Structures",             prof: "Prof. Santos",    day: "Wednesday", time_start: "02:00 PM", time_end: "05:00 PM", section: "BSCS-2B" },
         { id: 4,  subject: "IT401",  desc: "Capstone Project 1",          prof: "Prof. Garcia",    day: "Thursday",  time_start: "09:00 AM", time_end: "12:00 PM", section: "BSIT-4A" },
         { id: 5,  subject: "CC102",  desc: "Computer Programming 1",      prof: "Prof. Dela Cruz", day: "Friday",    time_start: "01:00 PM", time_end: "04:00 PM", section: "BSIT-1C" },
-        // Recurring — same subjects on additional days
         { id: 6,  subject: "CC101",  desc: "Introduction to Computing",   prof: "Prof. Dela Cruz", day: "Wednesday", time_start: "08:00 AM", time_end: "11:00 AM", section: "BSCS-1A" },
         { id: 7,  subject: "IT305",  desc: "Advanced Web Development",    prof: "Prof. Reyes",     day: "Thursday",  time_start: "01:00 PM", time_end: "04:00 PM", section: "BSIT-3A" },
         { id: 8,  subject: "CS202",  desc: "Data Structures",             prof: "Prof. Santos",    day: "Friday",    time_start: "08:00 AM", time_end: "11:00 AM", section: "BSCS-2B" },
@@ -69,7 +63,6 @@ export default function LabSchedule() {
         { id: 12, subject: "IT102",  desc: "Platform Technologies",       prof: "Prof. Villanueva",day: "Saturday",  time_start: "01:00 PM", time_end: "04:00 PM", section: "BSIT-1C" },
     ]);
 
-    // Assign stable colors by subject code
     const colorMap = useMemo(() => {
         const subjects = [...new Set(rowData.map(r => r.subject))];
         const map = {};
@@ -77,7 +70,6 @@ export default function LabSchedule() {
         return map;
     }, [rowData]);
 
-    // Build timetable lookup: { "Monday-8": [schedule, ...] }
     const timetableMap = useMemo(() => {
         const map = {};
         rowData.forEach(entry => {
@@ -90,7 +82,6 @@ export default function LabSchedule() {
         return map;
     }, [rowData]);
 
-    // Track which cells are "occupied" by a spanning block so we skip them
     const occupiedCells = useMemo(() => {
         const set = new Set();
         Object.values(timetableMap).forEach(entries => {
@@ -103,7 +94,6 @@ export default function LabSchedule() {
         return set;
     }, [timetableMap]);
 
-    // Recurring pattern summary
     const recurringPatterns = useMemo(() => {
         const groups = {};
         rowData.forEach(r => {
@@ -175,14 +165,12 @@ export default function LabSchedule() {
     return (
         <div className="p-8 space-y-5 bg-[#020617] min-h-screen">
 
-            {/* ── Header ── */}
             <div className="flex justify-between items-center">
                 <div>
                     <h1 className="text-2xl font-bold text-white tracking-tight">{labName} — Laboratory Schedule</h1>
                     <p className="text-slate-400 text-sm italic">Defines parameters for the Kiosk Anti-Cutting Protocol</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    {/* View Toggle */}
                     <div className="flex items-center bg-[#0f172a] border border-[#1e293b] rounded-lg p-0.5">
                         <button
                             onClick={() => setView("timetable")}
@@ -206,7 +194,6 @@ export default function LabSchedule() {
                         </button>
                     </div>
 
-                    {/* Add Schedule */}
                     <button className="flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 hover:border-blue-500/40 text-blue-400 hover:text-blue-300 text-[11px] font-bold py-2.5 px-6 rounded-lg uppercase tracking-widest transition-all group/btn relative overflow-hidden">
                         <div className="absolute inset-0 bg-gradient-to-br from-blue-400/0 via-blue-400/0 to-blue-400/0 group-hover/btn:from-blue-400/5 group-hover/btn:via-blue-400/0 group-hover/btn:to-blue-400/0 transition-all duration-500 pointer-events-none" />
                         <div className="absolute inset-0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
@@ -215,10 +202,8 @@ export default function LabSchedule() {
                 </div>
             </div>
 
-            {/* ═══════════════════ TIMETABLE VIEW ═══════════════════ */}
             {view === "timetable" && (
                 <div className="space-y-5">
-                    {/* Recurring pattern summary bar */}
                     <div className="flex flex-wrap gap-2">
                         {recurringPatterns.map((p, i) => {
                             const c = colorMap[p.subject];
@@ -233,14 +218,12 @@ export default function LabSchedule() {
                         })}
                     </div>
 
-                    {/* Timetable Grid */}
                     <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl shadow-2xl overflow-hidden group relative hover:border-slate-600 transition-colors">
                         <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none z-10" />
                         <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none z-10" />
 
                         <div className="overflow-auto max-h-[calc(100vh-260px)]">
                             <table className="w-full border-collapse relative z-20" style={{ minWidth: 900 }}>
-                                {/* Day headers */}
                                 <thead className="sticky top-0 z-30">
                                     <tr>
                                         <th className="w-20 bg-[#0f172a] border-b border-r border-[#1e293b] p-3">
@@ -254,20 +237,16 @@ export default function LabSchedule() {
                                     </tr>
                                 </thead>
 
-                                {/* Time rows */}
                                 <tbody>
                                     {HOURS.map(hour => (
                                         <tr key={hour} className="hover:bg-slate-800/20 transition-colors">
-                                            {/* Hour label */}
                                             <td className="border-r border-b border-[#1e293b] p-2 text-right align-top">
                                                 <span className="text-[10px] font-mono text-slate-600 whitespace-nowrap">{formatHour(hour)}</span>
                                             </td>
 
-                                            {/* Day cells */}
                                             {DAYS.map(day => {
                                                 const cellKey = `${day}-${hour}`;
 
-                                                // Skip if this cell is occupied by a spanning block above
                                                 if (occupiedCells.has(cellKey)) return null;
 
                                                 const entries = timetableMap[cellKey];
@@ -302,7 +281,6 @@ export default function LabSchedule() {
                                                     );
                                                 }
 
-                                                // Empty cell
                                                 return (
                                                     <td key={cellKey} className="border-r border-b border-[#1e293b] last:border-r-0 p-1 align-top h-16">
                                                         <div className="h-full w-full rounded-lg border border-transparent hover:border-slate-700 hover:bg-slate-800/20 transition-all cursor-pointer" />
@@ -318,7 +296,6 @@ export default function LabSchedule() {
                 </div>
             )}
 
-            {/* ═══════════════════ TABLE VIEW ═══════════════════ */}
             {view === "table" && (
                 <div className="h-[calc(100vh-220px)] w-full rounded-xl overflow-hidden border border-[#1e293b] shadow-2xl group relative hover:border-slate-600 transition-colors">
                     <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none z-10" />

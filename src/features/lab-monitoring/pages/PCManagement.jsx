@@ -2,21 +2,17 @@ import React, { useState, useMemo } from "react";
 import { useOutletContext } from "react-router-dom";
 import { Laptop, Monitor, X, Wrench, RotateCcw, History, AlertTriangle, Clock, ShieldCheck, Activity } from "lucide-react";
 
-// Import components
 import PCGridLayout from "../layouts/PCGridLayout"; 
 import StationInspector from "../components/pc-management/StationInspector";
 
 export default function PCManagement() {
     const { labName } = useOutletContext();
     
-    // State to track which PC the admin clicked on the map
     const [selectedPC, setSelectedPC] = useState(null);
 
-    // Select mode for converting PCs: "laptop" or "pc"
     const [selectMode, setSelectMode] = useState(null);
     const [checkedPCs, setCheckedPCs] = useState([]);
 
-    // Maintenance history log
     const [maintenanceHistory, setMaintenanceHistory] = useState([
         { id: 1, pcId: "PC-12", action: "Flagged", note: "Monitor flickering intermittently", date: "Feb 14, 2026", time: "09:20 AM" },
         { id: 2, pcId: "PC-28", action: "Flagged", note: "Keyboard keys unresponsive (F-row)", date: "Feb 15, 2026", time: "02:15 PM" },
@@ -27,11 +23,9 @@ export default function PCManagement() {
     ]);
     const [showHistoryPanel, setShowHistoryPanel] = useState(false);
 
-    // Bulk action mode
-    const [bulkMode, setBulkMode] = useState(null); // null | "maintenance" | "reset"
+    const [bulkMode, setBulkMode] = useState(null); 
     const [bulkChecked, setBulkChecked] = useState([]);
 
-    // Dummy Data State (To be replaced with Supabase real-time data later)
     const studentNames = [
         "Juan Dela Cruz", "Maria Santos", "Jose Rizal Jr.", "Ana Reyes", "Carlo Mendoza",
         "Bea Garcia", "Mark Villanueva", "Ella Torres", "Luis Ramos", "Sofia Cruz",
@@ -48,14 +42,12 @@ export default function PCManagement() {
         const num = i + 1;
         const id = `PC-${num.toString().padStart(2, '0')}`;
         
-        // Simulating statuses
         if (num === 12 || num === 28) return { id, status: "Maintenance", user: null, hours: 505, maintenanceNote: num === 12 ? "Monitor flickering intermittently" : "Keyboard keys unresponsive (F-row)", maintenanceDate: num === 12 ? "Feb 14, 2026" : "Feb 15, 2026" };
         if (num === 5 || num === 14) return { id, status: "Laptop", user: { name: studentNames[i], studentId: studentIds[i], section: "BSIT-3A", timeIn: "14:05" }, hours: 120 };
         if (num % 3 === 0) return { id, status: "Available", user: null, hours: 250 };
         return { id, status: "Occupied", user: { name: studentNames[i], studentId: studentIds[i], section: "BSIT-3A", timeIn: "14:05" }, hours: 340 };
     }));
 
-    // ── Aggregated health stats ──
     const healthStats = useMemo(() => {
         const total = stations.length;
         const avgHours = Math.round(stations.reduce((sum, s) => sum + s.hours, 0) / total);
@@ -94,7 +86,6 @@ export default function PCManagement() {
         setSelectMode(null);
     };
 
-    // Maintenance handlers
     const handleFlagMaintenance = (pcId, note) => {
         const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
         const timeStr = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
@@ -107,7 +98,6 @@ export default function PCManagement() {
             ? { ...prev, status: "Maintenance", maintenanceNote: note, maintenanceDate: dateStr, user: null }
             : prev
         );
-        // Log to history
         setMaintenanceHistory(prev => [{ id: Date.now(), pcId, action: "Flagged", note, date: dateStr, time: timeStr }, ...prev]);
     };
 
@@ -124,7 +114,6 @@ export default function PCManagement() {
             ? { ...prev, status: "Available", maintenanceNote: null, maintenanceDate: null, hours: 0 }
             : prev
         );
-        // Log to history
         setMaintenanceHistory(prev => [{ id: Date.now(), pcId, action: "Cleared", note: station?.maintenanceNote || "Maintenance resolved", date: dateStr, time: timeStr }, ...prev]);
     };
 
@@ -135,7 +124,6 @@ export default function PCManagement() {
         setSelectedPC(prev => prev?.id === pcId ? { ...prev, hours: 0 } : prev);
     };
 
-    // ── Bulk action handlers ──
     const handleBulkToggle = (pcId) => {
         setBulkChecked(prev =>
             prev.includes(pcId) ? prev.filter(id => id !== pcId) : [...prev, pcId]
@@ -170,22 +158,18 @@ export default function PCManagement() {
         setBulkMode(null);
     };
 
-    // Whether we're in any selection mode (convert or bulk)
     const isInAnySelectMode = !!selectMode || !!bulkMode;
 
     return (
         <div className="p-8 space-y-5 bg-[#020617] min-h-screen text-slate-100">
             
-            {/* ── Header ── */}
             <div className="flex justify-between items-end">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight">{labName} — Station Map</h1>
                     <p className="text-slate-400 text-sm italic">Visual Capacity & Hardware Management</p>
                 </div>
                 
-                {/* Top-level actions */}
                 <div className="flex items-center gap-2">
-                    {/* History Log Button */}
                     <button
                         onClick={() => setShowHistoryPanel(!showHistoryPanel)}
                         className={`flex items-center gap-2 px-4 py-2.5 text-[11px] font-bold uppercase tracking-widest rounded-xl transition-all group/btn relative overflow-hidden ${
@@ -206,12 +190,10 @@ export default function PCManagement() {
                 </div>
             </div>
 
-            {/* ═══════════════════ PC HEALTH SUMMARY BAR ═══════════════════ */}
             <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-4 shadow-xl group relative overflow-hidden hover:border-slate-600 transition-colors">
                 <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none" />
                 <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
                 <div className="flex items-center gap-6 relative z-10">
-                    {/* Stacked bar */}
                     <div className="flex-1 space-y-2">
                         <div className="flex items-center justify-between">
                             <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.15em] flex items-center gap-1.5">
@@ -225,7 +207,6 @@ export default function PCManagement() {
                             <div className="bg-slate-600 transition-all duration-500" style={{ width: `${(healthStats.available / healthStats.total) * 100}%` }} title={`Available: ${healthStats.available}`} />
                             <div className="bg-amber-500 animate-pulse transition-all duration-500" style={{ width: `${(healthStats.inMaintenance / healthStats.total) * 100}%` }} title={`Maintenance: ${healthStats.inMaintenance}`} />
                         </div>
-                        {/* Inline legend */}
                         <div className="flex items-center gap-4 text-[9px] font-bold uppercase tracking-widest">
                             <span className="flex items-center gap-1.5 text-sky-400"><div className="w-2 h-2 rounded-full bg-sky-500" />{healthStats.occupied} Occupied</span>
                             <span className="flex items-center gap-1.5 text-purple-400"><div className="w-2 h-2 rounded-full bg-purple-500" />{healthStats.laptops} Laptop</span>
@@ -234,7 +215,6 @@ export default function PCManagement() {
                         </div>
                     </div>
 
-                    {/* Stat cards */}
                     <div className="flex items-center gap-3 shrink-0">
                         <div className="bg-[#020617] border border-[#1e293b] rounded-xl px-4 py-3 text-center min-w-[90px]">
                             <p className="text-lg font-bold text-white">{healthStats.avgHours}</p>
@@ -262,7 +242,6 @@ export default function PCManagement() {
                 </div>
             </div>
 
-            {/* ═══════════════════ BULK ACTIONS TOOLBAR ═══════════════════ */}
             <div className="flex items-center gap-2 flex-wrap">
                 {!bulkMode && !selectMode && (
                     <>
@@ -302,7 +281,6 @@ export default function PCManagement() {
                     </>
                 )}
 
-                {/* Convert select mode active */}
                 {selectMode && (
                     <div className="flex items-center gap-2">
                         <span className={`text-[10px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg border ${
@@ -332,7 +310,6 @@ export default function PCManagement() {
                     </div>
                 )}
 
-                {/* Bulk mode active */}
                 {bulkMode && (
                     <div className="flex items-center gap-2">
                         <span className={`text-[10px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg border ${
@@ -363,12 +340,9 @@ export default function PCManagement() {
                 )}
             </div>
 
-            {/* ═══════════════════ MAIN CONTENT ═══════════════════ */}
             <div className="flex flex-col lg:flex-row gap-6">
 
-                {/* LEFT SIDE: The Visual Map */}
                 <div className="flex-1 space-y-4">
-                    {/* PC Grid Layout Component */}
                     <PCGridLayout 
                         stations={stations} 
                         selectedPC={selectedPC} 
@@ -379,9 +353,7 @@ export default function PCManagement() {
                     />
                 </div>
 
-                {/* RIGHT SIDE: Station Inspector Panel + History */}
                 <div className="w-full lg:w-80 space-y-4">
-                    {/* Station Inspector */}
                     <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-6 shadow-2xl flex flex-col group relative overflow-hidden hover:border-slate-600 transition-colors" style={{ minHeight: showHistoryPanel ? 300 : 'auto' }}>
                         <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none" />
                         <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
@@ -396,7 +368,6 @@ export default function PCManagement() {
                         />
                     </div>
 
-                    {/* ═══════════════ MAINTENANCE HISTORY LOG ═══════════════ */}
                     {showHistoryPanel && (
                         <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-5 shadow-2xl group relative overflow-hidden hover:border-slate-600 transition-colors">
                             <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none" />

@@ -23,7 +23,6 @@ import {
     X,
 } from "lucide-react";
 
-// Shadcn Select Dropdown Imports
 import {
     Select,
     SelectContent,
@@ -32,7 +31,6 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 
-// Import Separated Components
 import SummaryCard from "../components/analytics/SummaryCard";
 import ChartBox from "../components/analytics/ChartBox";
 import ExportCard from "../components/analytics/ExportCard";
@@ -48,23 +46,19 @@ import SectionAttendanceTable from "../components/analytics/SectionAttendanceTab
 export default function ReportsAnalytics() {
     const { labName } = useOutletContext();
 
-    // State to track the currently selected semester filter
     const [semester, setSemester] = useState("current");
 
-    // Date range picker
     const [dateFrom, setDateFrom] = useState("2026-01-06");
     const [dateTo, setDateTo] = useState("2026-02-16");
 
-    // Comparison mode
     const [compareActive, setCompareActive] = useState(false);
-    const [compareType, setCompareType] = useState("lab"); // "lab" | "period"
+    const [compareType, setCompareType] = useState("lab"); 
     const [compareLab, setCompareLab] = useState("lab-2");
     const [comparePeriod, setComparePeriod] = useState("last-month");
 
     return (
         <div className="p-8 space-y-8 bg-[#020617] min-h-screen text-slate-100">
 
-            {/* ── Header & Controls ── */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-white tracking-tight">{labName} — Reports & Analytics</h1>
@@ -72,7 +66,6 @@ export default function ReportsAnalytics() {
                 </div>
 
                 <div className="flex items-center gap-3 flex-wrap">
-                    {/* Semester Filter */}
                     <Select value={semester} onValueChange={setSemester}>
                         <SelectTrigger className="w-fit min-w-[200px] h-10 bg-[#0f172a] border-[#1e293b] hover:bg-[#1e293b] text-slate-300 font-bold focus:ring-sky-500 rounded-lg px-3 transition-all flex items-center justify-start gap-0">
                             <Calendar size={16} className="text-sky-500 shrink-0" />
@@ -102,7 +95,6 @@ export default function ReportsAnalytics() {
                         </SelectContent>
                     </Select>
 
-                    {/* Date Range Picker */}
                     <div className="flex items-center gap-2 bg-[#0f172a] border border-[#1e293b] rounded-lg px-3 py-2 hover:border-slate-600 transition-colors">
                         <CalendarDays size={13} className="text-slate-500 shrink-0" />
                         <input 
@@ -120,7 +112,6 @@ export default function ReportsAnalytics() {
                         />
                     </div>
 
-                    {/* Compare Toggle */}
                     <button
                         onClick={() => setCompareActive(!compareActive)}
                         className={`flex items-center gap-2 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all group/btn relative overflow-hidden ${
@@ -136,7 +127,6 @@ export default function ReportsAnalytics() {
                 </div>
             </div>
 
-            {/* ═══════════════════ COMPARISON MODE BAR ═══════════════════ */}
             {compareActive && (
                 <div className="bg-purple-500/5 border border-purple-500/20 rounded-2xl p-4 group relative overflow-hidden hover:border-purple-500/30 transition-colors">
                     <div className="absolute inset-0 bg-gradient-to-br from-purple-400/0 via-purple-400/0 to-purple-400/0 group-hover:from-purple-400/3 group-hover:via-purple-400/0 group-hover:to-purple-400/0 transition-all duration-500 pointer-events-none" />
@@ -147,7 +137,6 @@ export default function ReportsAnalytics() {
                             <span className="text-[10px] font-black text-purple-400 uppercase tracking-[0.15em]">Comparison Mode</span>
                         </div>
 
-                        {/* Compare Type Toggle */}
                         <div className="flex items-center bg-[#0f172a] border border-[#1e293b] rounded-lg p-0.5">
                             <button
                                 onClick={() => setCompareType("lab")}
@@ -171,7 +160,6 @@ export default function ReportsAnalytics() {
                             </button>
                         </div>
 
-                        {/* Comparison Selector */}
                         {compareType === "lab" ? (
                             <div className="flex items-center gap-2">
                                 <span className="text-[10px] text-sky-400 font-bold px-2.5 py-1.5 bg-sky-500/10 border border-sky-500/20 rounded-lg">{labName}</span>
@@ -214,7 +202,6 @@ export default function ReportsAnalytics() {
                 </div>
             )}
 
-            {/* ═══════════════════ KPI SUMMARY ROW ═══════════════════ */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 <SummaryCard title="Peak Hour" value="1–2 PM" icon={<Clock size={22} />} trend="Consistent" trendUp={true} />
                 <SummaryCard title="Peak Day" value="Wed" icon={<Sun size={22} />} trend="This week" trendUp={true} />
@@ -224,16 +211,13 @@ export default function ReportsAnalytics() {
                 <SummaryCard title="Predicted Laptop Users" value="~128" icon={<Laptop size={22} />} trend="+15%" trendUp={true} />
             </div>
 
-            {/* ═══════════════════ ROW 1: Session Duration + Laptop vs PC ═══════════════════ */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Session Duration Statistics */}
                 <div className="lg:col-span-2">
                     <ChartBox title="Session Duration Statistics" subtitle="Distribution of session lengths this month">
                         <SessionDurationChart />
                     </ChartBox>
                 </div>
 
-                {/* Laptop vs. PC Usage Distribution */}
                 <div className="lg:col-span-1">
                     <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-6 shadow-xl flex flex-col h-full group relative overflow-hidden hover:border-slate-600 transition-colors">
                         <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none" />
@@ -266,16 +250,13 @@ export default function ReportsAnalytics() {
                 </div>
             </div>
 
-            {/* ═══════════════════ ROW 2: Section Usage + Attendance Table ═══════════════════ */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Usage by Section */}
                 <div className="lg:col-span-2">
                     <ChartBox title="Usage by Section" subtitle="Session counts per section — filterable by time range">
                         <SectionUsageChart />
                     </ChartBox>
                 </div>
 
-                {/* Section-Based Attendance Reports */}
                 <div className="lg:col-span-1">
                     <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-6 shadow-xl flex flex-col h-full group relative overflow-hidden hover:border-slate-600 transition-colors">
                         <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none" />
@@ -291,14 +272,11 @@ export default function ReportsAnalytics() {
                 </div>
             </div>
 
-            {/* ═══════════════════ ROW 3: Peak Usage + Predicted High-Traffic ═══════════════════ */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Peak Laboratory Usage (existing chart) */}
                 <ChartBox title="Peak Laboratory Usage" subtitle="Daily student logins trend (this week)">
                     <UsageChart />
                 </ChartBox>
 
-                {/* Predicted High-Traffic Days */}
                 <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-6 shadow-xl flex flex-col h-full group relative overflow-hidden hover:border-slate-600 transition-colors">
                     <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none" />
                     <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
@@ -315,12 +293,10 @@ export default function ReportsAnalytics() {
                 </div>
             </div>
 
-            {/* ═══════════════════ ROW 4: Forecasted Attendance ═══════════════════ */}
             <ChartBox title="Forecasted Attendance Levels" subtitle="Actual vs predicted weekly attendance — dashed line = forecast">
                 <ForecastChart />
             </ChartBox>
 
-            {/* ═══════════════════ ROW 5: PC Usage History + PC Health ═══════════════════ */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2">
                     <ChartBox title="PC Usage History" subtitle="Total cumulative hours per month across all stations">
@@ -334,7 +310,6 @@ export default function ReportsAnalytics() {
                 </div>
             </div>
 
-            {/* ═══════════════════ EXPORT / DOWNLOAD SECTION ═══════════════════ */}
             <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-6 shadow-xl group relative overflow-hidden hover:border-slate-600 transition-colors">
                 <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none" />
                 <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />

@@ -16,7 +16,6 @@ export default function LabSettings() {
     return (
         <div className="p-8 space-y-10 bg-[#020617] min-h-screen text-slate-100">
             
-            {/* Header Area */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-[#1e293b] pb-6">
                 <div>
                     <h1 className="text-2xl font-bold text-white tracking-tight">
@@ -38,10 +37,8 @@ export default function LabSettings() {
                 </button>
             </div>
 
-            {/* MAIN GRID*/}
             <div className="grid grid-cols-1 xl:grid-cols-7 gap-8 items-stretch">
                 
-                {/* LEFT: ATTENDANCE PROTOCOLS */}
                 <section className="xl:col-span-4 flex flex-col gap-6">
                     <div className="flex items-center gap-2">
                         <ShieldCheck size={18} className="text-sky-500" />
@@ -80,10 +77,8 @@ export default function LabSettings() {
                     </div>
                 </section>
 
-                {/* RIGHT: HARDWARE & DATA */}
                 <div className="xl:col-span-3 flex flex-col gap-10">
                     
-                    {/* Hardware Maintenance */}
                     <section className="space-y-6">
                         <div className="flex items-center gap-2">
                             <Monitor size={18} className="text-sky-500" />
@@ -93,9 +88,7 @@ export default function LabSettings() {
                         </div>
 
                         <div className="p-6 bg-[#0f172a] border border-[#1e293b] rounded-xl flex flex-col gap-6 shadow-sm group relative overflow-hidden hover:border-slate-600 transition-colors">
-                            {/* Gloss effect overlay */}
                             <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none" />
-                            {/* Shimmer effect */}
                             <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
                             <div className="flex justify-between items-center">
                                 <div className="space-y-1">
@@ -115,7 +108,6 @@ export default function LabSettings() {
                         </div>
                     </section>
 
-                    {/* Data & Audit */}
                     <section className="space-y-6 flex-1 flex flex-col">
                         <div className="flex items-center gap-2">
                             <Database size={18} className="text-sky-500" />
@@ -126,9 +118,7 @@ export default function LabSettings() {
 
                         <div className="flex flex-col gap-4 flex-1">
                             <button className="flex items-center gap-4 p-5 bg-[#0f172a] border border-[#1e293b] rounded-xl hover:bg-[#1e293b] hover:border-slate-700 transition-all group relative overflow-hidden flex-1">
-                                {/* Gloss effect overlay */}
                                 <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none" />
-                                {/* Shimmer effect */}
                                 <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
                                 <div className="p-3 bg-sky-500/10 rounded-lg group-hover:scale-110 transition-transform">
                                     <RefreshCcw size={20} className="text-sky-500" />
@@ -140,9 +130,7 @@ export default function LabSettings() {
                             </button>
 
                             <button className="flex items-center gap-4 p-5 bg-[#0f172a] border border-[#1e293b] rounded-xl hover:bg-[#1e293b] hover:border-slate-700 transition-all group relative overflow-hidden flex-1">
-                                {/* Gloss effect overlay */}
                                 <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none" />
-                                {/* Shimmer effect */}
                                 <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
                                 <div className="p-3 bg-emerald-500/10 rounded-lg group-hover:scale-110 transition-transform">
                                     <Database size={20} className="text-emerald-500" />

@@ -23,10 +23,8 @@ import OccupancyChart from "../components/dashboard/OccupancyChart";
 export default function LabDashboard() {
     const { labName } = useOutletContext();
 
-    // Master Anti-Cutting Override State
     const [isDismissed, setIsDismissed] = useState(false);
 
-    // Real-time clock
     const [clock, setClock] = useState(new Date());
     useEffect(() => {
         const timer = setInterval(() => setClock(new Date()), 1000);
@@ -36,7 +34,6 @@ export default function LabDashboard() {
     return (
         <div className="p-8 bg-[#0F172A] min-h-screen text-slate-100 font-sans">
 
-            {/* ═══════════════════ HEADER ═══════════════════ */}
             <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8">
                 <div className="space-y-0.5">
                     <div className="flex items-center gap-3 flex-wrap">
@@ -60,7 +57,6 @@ export default function LabDashboard() {
                 </div>
 
                 <div className="flex items-center gap-4">
-                    {/* Live Clock */}
                     <div className="flex items-center gap-2 px-4 py-2 bg-[#1E293B] border border-[#334155] rounded-lg">
                         <Clock size={14} className="text-sky-500" />
                         <span className="text-sm font-mono text-white tracking-widest tabular-nums">
@@ -84,7 +80,6 @@ export default function LabDashboard() {
                 </div>
             </div>
 
-            {/* ═══════════════════ UNIFIED STATS ROW ═══════════════════ */}
             <section className="mb-6">
                 <div className="mb-3">
                     <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
@@ -102,13 +97,10 @@ export default function LabDashboard() {
                 </div>
             </section>
 
-            {/* ═══════════════════ MAIN GRID ═══════════════════ */}
             <div className="grid grid-cols-12 gap-5">
 
-                {/* ── LEFT COLUMN (8 cols) ── */}
                 <div className="col-span-12 lg:col-span-8 space-y-5">
 
-                    {/* Occupancy Trend Chart */}
                     <div className="bg-[#1E293B] border border-[#334155] rounded-2xl p-6 shadow-xl shadow-black/20 group relative overflow-hidden hover:border-slate-500 transition-colors">
                         <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none" />
                         <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
@@ -129,10 +121,8 @@ export default function LabDashboard() {
                         <OccupancyChart />
                     </div>
 
-                    {/* Report Highlights + Maintenance — side by side */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-                        {/* Report Highlights */}
                         <div className="space-y-3">
                             <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
                                 <BarChart3 size={12} className="text-sky-500" /> Report Highlights
@@ -143,7 +133,6 @@ export default function LabDashboard() {
                             </div>
                         </div>
 
-                        {/* PCs Flagged for Maintenance */}
                         <div className="space-y-3">
                             <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
                                 <Wrench size={12} className="text-amber-500" /> Maintenance
@@ -162,10 +151,8 @@ export default function LabDashboard() {
                     </div>
                 </div>
 
-                {/* ── RIGHT COLUMN (4 cols) ── */}
                 <div className="col-span-12 lg:col-span-4">
 
-                    {/* Recent Activities */}
                     <div className="bg-[#1E293B] border border-[#334155] rounded-2xl p-6 shadow-xl shadow-black/20 group relative overflow-hidden hover:border-slate-500 transition-colors h-full">
                         <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none" />
                         <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />

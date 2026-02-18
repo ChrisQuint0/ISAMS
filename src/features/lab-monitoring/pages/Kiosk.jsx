@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { ArrowLeft, Monitor, ScanBarcode } from "lucide-react"
 
-// Lab name lookup
 const labNames = {
   "lab-1": "Computer Laboratory 1",
   "lab-2": "Computer Laboratory 2",
@@ -26,7 +25,6 @@ export default function Kiosk() {
   const [timestamp, setTimestamp] = useState("")
   const [isFocused, setIsFocused] = useState(false)
 
-  // Live clock
   useEffect(() => {
     const tick = () => {
       const now = new Date()
@@ -93,13 +91,11 @@ export default function Kiosk() {
     return output
   }
 
-  // Get the active slot index (where the cursor should blink)
   const getActiveSlotIndex = () => {
     const len = sanitizedId(idEntry).length
-    if (len >= 7) return -1 // all filled
-    // Map typed char count to slot index (skip dash at index 2)
-    if (len < 2) return len        // slots 0, 1
-    return len + 1                  // slots 3-7 (skip dash)
+    if (len >= 7) return -1 
+    if (len < 2) return len        
+    return len + 1                 
   }
 
   const handleInputChange = (e) => {
@@ -119,10 +115,8 @@ export default function Kiosk() {
   const handleSubmitId = () => {
     const cleanId = sanitizedId(idEntry)
     if (cleanId.length === 7) {
-      // Format ID with dash (e.g., AB-12345)
       const formattedId = cleanId.slice(0, 2) + "-" + cleanId.slice(2)
       
-      // Stop camera before navigating
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop())
       }
@@ -132,7 +126,6 @@ export default function Kiosk() {
   }
 
   const handleBackClick = () => {
-    // Stop camera before navigating
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop())
     }
@@ -227,7 +220,6 @@ export default function Kiosk() {
               <div className="flex-1 h-px bg-slate-700" />
             </div>
 
-            {/* Manual ID Entry */}
             <div className="flex flex-col items-center gap-4">
               <div
                 className="relative flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/60 px-5 py-4 cursor-text hover:border-slate-600 transition-colors"
@@ -255,7 +247,6 @@ export default function Kiosk() {
                     }`}
                   >
                     {char || (slots[idx] === "-" ? "-" : "")}
-                    {/* Blinking cursor for active slot */}
                     {isFocused && idx === getActiveSlotIndex() && !char && slots[idx] !== "-" && (
                       <div className="absolute bottom-2.5 md:bottom-3 w-5 h-0.5 bg-cyan-400 rounded-full animate-pulse" />
                     )}
@@ -266,7 +257,6 @@ export default function Kiosk() {
                 Format: XX-XXXXX (e.g. AB-12345)
               </p>
               
-              {/* Submit Button - shows when ID is complete */}
               {sanitizedId(idEntry).length === 7 && (
                 <Button
                   onClick={handleSubmitId}
