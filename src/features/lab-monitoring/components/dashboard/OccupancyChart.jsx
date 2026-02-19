@@ -23,13 +23,11 @@ const hourlyData = [
 const chartConfig = {
     occupancy: {
         label: "Students",
-        color: "#38bdf8", // sky-400
+        color: "#38bdf8", 
     },
 };
 
-/**
- * Real-time-style occupancy area chart for the dashboard.
- */
+
 export default function OccupancyChart() {
     return (
         <ChartContainer config={chartConfig} className="w-full h-[220px]">

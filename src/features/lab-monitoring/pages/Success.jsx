@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Monitor, CheckCircle2, User, Calendar, Clock, ArrowLeft } from "lucide-react";
 
-// Lab name lookup
 const labNames = {
   "lab-1": "Computer Laboratory 1",
   "lab-2": "Computer Laboratory 2",
@@ -20,7 +19,6 @@ export default function Success() {
   const studentId = location.state?.studentId || "AB-12345";
   const [timestamp, setTimestamp] = useState("");
 
-  // Mock student data
   const studentData = {
     id: studentId,
     name: "Juan Dela Cruz",
@@ -45,7 +43,6 @@ export default function Success() {
         })
     );
 
-    // Auto-redirect after 5 seconds
     const timer = setTimeout(() => {
       navigate("/kiosk-mode", { state: { labId, labName } });
     }, 5000);

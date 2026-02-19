@@ -5,7 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import {
   User,
   Bell,
-  Lock,
+
   Save,
   Loader2,
   CheckCircle,
@@ -30,7 +30,8 @@ export default function FacultySettingsPage() {
     lastName: "",
     email: "",
     department: "",
-    position: ""
+    position: "",
+    consultationHours: ""
   });
 
   const [preferences, setPreferences] = useState({
@@ -46,7 +47,8 @@ export default function FacultySettingsPage() {
         lastName: profile.last_name || "",
         email: profile.email || "",
         department: profile.department || "",
-        position: profile.position || ""
+        position: profile.position || "",
+        consultationHours: profile.consultation_hours || ""
       });
       setPreferences({
         emailEnabled: profile.email_reminders_enabled ?? true,
@@ -56,7 +58,13 @@ export default function FacultySettingsPage() {
   }, [profile]);
 
   const handleProfileSave = async () => {
-    await updateProfile(formData.firstName, formData.lastName);
+    await updateProfile(
+      formData.firstName,
+      formData.lastName,
+      formData.consultationHours,
+      formData.department,
+      formData.email
+    );
   };
 
   const handlePreferencesSave = async () => {
@@ -126,9 +134,10 @@ export default function FacultySettingsPage() {
               <label className="block text-sm font-medium text-slate-400 mb-1">Email Address</label>
               <Input
                 value={formData.email}
-                disabled
-                className="bg-slate-800/50 border-slate-700 text-slate-400 cursor-not-allowed"
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="bg-slate-800 border-slate-700 text-slate-100"
               />
+              <p className="text-xs text-yellow-500 mt-1">Note: Changing this email affects notifications but not your login credentials.</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -136,8 +145,8 @@ export default function FacultySettingsPage() {
                 <label className="block text-sm font-medium text-slate-400 mb-1">Department</label>
                 <Input
                   value={formData.department}
-                  disabled
-                  className="bg-slate-800/50 border-slate-700 text-slate-400 cursor-not-allowed"
+                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                  className="bg-slate-800 border-slate-700 text-slate-100"
                 />
               </div>
               <div>
@@ -148,6 +157,16 @@ export default function FacultySettingsPage() {
                   className="bg-slate-800/50 border-slate-700 text-slate-400 cursor-not-allowed"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-1">Consultation Hours</label>
+              <Input
+                value={formData.consultationHours}
+                onChange={(e) => setFormData({ ...formData, consultationHours: e.target.value })}
+                placeholder="e.g. Mon/Wed 10:00 AM - 12:00 PM"
+                className="bg-slate-800 border-slate-700 text-slate-100"
+              />
             </div>
 
             <div className="pt-4">
@@ -225,23 +244,7 @@ export default function FacultySettingsPage() {
           </div>
         </div>
 
-        {/* Security Settings (Placeholder) */}
-        <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md p-6 md:col-span-2">
-          <div className="flex items-center mb-6">
-            <Lock className="text-green-400 mr-3 h-6 w-6" />
-            <h2 className="text-lg font-semibold text-slate-100">Security</h2>
-          </div>
 
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium text-slate-100">Password</p>
-              <p className="text-sm text-slate-400">Last changed: 3 months ago</p>
-            </div>
-            <Button variant="outline" className="bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700">
-              Change Password
-            </Button>
-          </div>
-        </div>
       </div>
     </div>
   );

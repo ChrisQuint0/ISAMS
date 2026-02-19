@@ -3,7 +3,8 @@ import {
     Save, Database, Terminal, Trash2, RefreshCw, Eye, Settings,
     Cpu, CheckCircle, AlertCircle, Play, Shield, FileText,
     Clock, Archive, AlertTriangle, HardDrive, Server, Activity,
-    ChevronUp, ChevronDown, Plus, Folder, File as FileIcon, LayoutTemplate, Users
+
+    ChevronUp, ChevronDown, Plus, Folder, File as FileIcon, LayoutTemplate, Users, BookOpen
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -24,23 +25,33 @@ export default function AdminSettingsPage() {
     const {
         loading, processing, error, success,
         settings, queue, testResult,
-        updateSetting, runTestOCR, processQueue, refresh,
+        updateSetting, runTestOCR, processQueue, runBackup, refresh,
         docRequirements, addDocRequirement, updateDocRequirement, deleteDocRequirement,
         templates, addTemplate, deleteTemplate,
-        facultyList, handleAddFaculty, handleToggleFacultyStatus
+
+        facultyList, handleAddFaculty, handleToggleFacultyStatus,
+        courseList, handleAddCourse, handleDeleteCourse,
+        systemHealth, holidays, handleAddHoliday, handleDeleteHoliday, restoreSystem
     } = useAdminSettings();
 
     const [testFile, setTestFile] = useState(null);
     const [newReq, setNewReq] = useState({ name: '', folder: '', required: true });
+    const [newHoliday, setNewHoliday] = useState({ date: '', description: '', is_recurring: false });
 
     // Faculty Form State
     const [newFaculty, setNewFaculty] = useState({
-        first_name: '', last_name: '', email: '', department: '', employee_id: ''
+        first_name: '', last_name: '', email: '', department: '', faculty_id: ''
+    });
+
+    // Course Form State
+    const [newCourse, setNewCourse] = useState({
+        code: '', name: '', department: 'CCS', semester: '1st Semester', academic_year: '2023-2024', faculty_id: ''
     });
 
     // -- State for General Settings --
     const [deadlineDays, setDeadlineDays] = useState(14);
     const [graceDays, setGraceDays] = useState(3);
+    const [gdriveFolderLink, setGdriveFolderLink] = useState(() => localStorage.getItem('fsFolderLink') || '');
 
     // -- UI STATE FOR NON-OCR SETTINGS --
     const [valRules, setValRules] = useState({
@@ -88,11 +99,13 @@ export default function AdminSettingsPage() {
                 <div className="shrink-0 border-b border-slate-800 pb-0">
                     <TabsList className="bg-transparent p-0 h-auto space-x-6">
                         <TabItem value="general" label="General" icon={Settings} />
+                        <TabItem value="courses" label="Courses" icon={BookOpen} />
                         <TabItem value="faculty" label="Faculty" icon={Users} />
                         <TabItem value="doc_types" label="Document Types" icon={Folder} />
                         <TabItem value="validation" label="Validation Rules" icon={Shield} />
                         <TabItem value="ocr" label="OCR & AI" icon={Cpu} />
                         <TabItem value="templates" label="Templates" icon={LayoutTemplate} />
+                        <TabItem value="scheduling" label="Scheduling" icon={Clock} />
                         <TabItem value="maintenance" label="Maintenance" icon={Database} />
                     </TabsList>
                 </div>
@@ -180,6 +193,48 @@ export default function AdminSettingsPage() {
                                         </div>
                                     </CardContent>
                                 </Card>
+
+                                {/* Google Drive Folder */}
+                                <Card className="bg-slate-900 border-slate-800 shadow-none">
+                                    <CardHeader className="border-b border-slate-800 py-4">
+                                        <CardTitle className="text-base text-slate-100 flex items-center gap-2">
+                                            <HardDrive className="h-4 w-4 text-slate-400" /> Google Drive Integration
+                                        </CardTitle>
+                                        <CardDescription className="text-slate-500">Set the root folder where faculty submissions will be uploaded</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="pt-6 space-y-4">
+                                        <div className="space-y-2">
+                                            <Label className="text-xs font-semibold text-slate-400 uppercase">Google Drive Folder Link</Label>
+                                            <Input
+                                                id="gdrive-folder-link"
+                                                placeholder="https://drive.google.com/drive/folders/..."
+                                                value={gdriveFolderLink}
+                                                onChange={(e) => setGdriveFolderLink(e.target.value)}
+                                                className="bg-slate-950 border-slate-700 text-slate-200 focus:border-blue-500"
+                                            />
+                                            {gdriveFolderLink && (
+                                                <p className="text-xs text-slate-500">
+                                                    Folder ID: {(() => {
+                                                        const match = gdriveFolderLink.match(/folders\/([a-zA-Z0-9_-]+)/);
+                                                        return match ? <span className="text-emerald-400 font-mono">{match[1]}</span> : <span className="text-red-400">Invalid link</span>;
+                                                    })()}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="flex justify-end">
+                                            <Button
+                                                size="sm"
+                                                className="bg-blue-600 hover:bg-blue-700 text-white"
+                                                onClick={() => {
+                                                    localStorage.setItem('fsFolderLink', gdriveFolderLink);
+                                                    alert('Google Drive folder link saved!');
+                                                }}
+                                            >
+                                                <Save className="mr-2 h-4 w-4" /> Save Folder Link
+                                            </Button>
+                                        </div>
+                                    </CardContent>
+                                </Card>
                             </div>
 
                             {/* Right Col: System Info */}
@@ -200,18 +255,25 @@ export default function AdminSettingsPage() {
                                         </div>
 
                                         <div className="space-y-1 pt-2">
-                                            <InfoRow label="Version" value="2.1.0" />
-                                            <InfoRow label="Last Backup" value="Today, 02:00 AM" />
-                                            <InfoRow label="DB Size" value="4.2 GB" />
-                                            <InfoRow label="Users" value="49 Active" />
+                                            <InfoRow label="Version" value={systemHealth?.version || "Loading..."} />
+                                            <InfoRow label="Last Backup" value={systemHealth ? new Date(systemHealth.last_backup).toLocaleDateString() : "-"} />
+                                            <InfoRow label="DB Size" value={systemHealth?.db_size || "Calculated nightly"} />
+                                            <InfoRow label="Users" value={systemHealth?.active_users ? `${systemHealth.active_users} Active` : "-"} />
                                         </div>
 
                                         <div className="pt-4 space-y-2">
                                             <Button
                                                 variant="outline"
                                                 className="w-full justify-start bg-slate-950 border-slate-700 text-slate-300 hover:bg-slate-800"
+                                                onClick={runBackup}
+                                                disabled={processing}
                                             >
-                                                <HardDrive className="mr-2 h-4 w-4 text-blue-400" /> Run Backup
+                                                {processing ? (
+                                                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <HardDrive className="mr-2 h-4 w-4 text-blue-400" />
+                                                )}
+                                                Run Backup
                                             </Button>
                                             <Button
                                                 variant="outline"
@@ -227,6 +289,119 @@ export default function AdminSettingsPage() {
                     </TabsContent>
 
 
+
+                    {/* TAB: COURSE MANAGEMENT */}
+                    <TabsContent value="courses" className="mt-0">
+                        <Card className="bg-slate-900 border-slate-800 shadow-none">
+                            <CardHeader className="border-b border-slate-800 py-4">
+                                <CardTitle className="text-base text-slate-100 flex items-center gap-2">
+                                    <BookOpen className="h-4 w-4 text-emerald-400" /> Course Management
+                                </CardTitle>
+                                <CardDescription className="text-slate-500">Manage courses and faculty assignments</CardDescription>
+                            </CardHeader>
+                            <CardContent className="pt-6 space-y-6">
+                                {/* Add Course Form */}
+                                <div className="p-4 bg-slate-950/50 border border-slate-800 rounded-lg space-y-4">
+                                    <h3 className="text-sm font-medium text-slate-200">Add New Course</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
+                                        <Input
+                                            placeholder="Course Code (e.g. IT101)"
+                                            value={newCourse.code}
+                                            onChange={e => setNewCourse({ ...newCourse, code: e.target.value })}
+                                            className="bg-slate-900 border-slate-700 text-slate-200"
+                                        />
+                                        <Input
+                                            placeholder="Course Name"
+                                            value={newCourse.name}
+                                            onChange={e => setNewCourse({ ...newCourse, name: e.target.value })}
+                                            className="bg-slate-900 border-slate-700 text-slate-200 lg:col-span-2"
+                                        />
+                                        <Select
+                                            value={newCourse.faculty_id}
+                                            onValueChange={v => setNewCourse({ ...newCourse, faculty_id: v })}
+                                        >
+                                            <SelectTrigger className="bg-slate-900 border-slate-700 text-slate-200">
+                                                <SelectValue placeholder="Assign Faculty" />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
+                                                {facultyList.filter(f => f.is_active).map(f => (
+                                                    <SelectItem key={f.faculty_id} value={f.faculty_id}>
+                                                        {f.first_name} {f.last_name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <Select
+                                            value={newCourse.semester}
+                                            onValueChange={v => setNewCourse({ ...newCourse, semester: v })}
+                                        >
+                                            <SelectTrigger className="bg-slate-900 border-slate-700 text-slate-200">
+                                                <SelectValue placeholder="Semester" />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
+                                                <SelectItem value="1st Semester">1st Sem</SelectItem>
+                                                <SelectItem value="2nd Semester">2nd Sem</SelectItem>
+                                                <SelectItem value="Summer">Summer</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <div className="flex justify-end">
+                                            <Button
+                                                size="sm"
+                                                className="bg-emerald-600 hover:bg-emerald-700 text-white w-full"
+                                                onClick={async () => {
+                                                    if (newCourse.code && newCourse.name) {
+                                                        const success = await handleAddCourse(newCourse);
+                                                        if (success) setNewCourse({ code: '', name: '', department: 'CCS', semester: '1st Semester', academic_year: '2023-2024', faculty_id: '' });
+                                                    }
+                                                }}
+                                            >
+                                                <Plus className="h-4 w-4 mr-2" /> Add
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Course List */}
+                                <div className="space-y-2">
+                                    <div className="grid grid-cols-12 text-xs font-medium text-slate-500 px-3 pb-2 border-b border-slate-800">
+                                        <div className="col-span-2">Code</div>
+                                        <div className="col-span-4">Course Name</div>
+                                        <div className="col-span-3">Assigned Faculty</div>
+                                        <div className="col-span-2">Sem</div>
+                                        <div className="col-span-1 text-right">Action</div>
+                                    </div>
+                                    {courseList.length === 0 ? (
+                                        <div className="text-center py-8 text-slate-500">No courses found. Add one above.</div>
+                                    ) : (
+                                        courseList.map(c => (
+                                            <div key={c.course_id} className="grid grid-cols-12 items-center p-3 text-sm bg-slate-950/30 border border-slate-800 rounded-lg hover:border-slate-700">
+                                                <div className="col-span-2 font-mono text-emerald-400">{c.course_code}</div>
+                                                <div className="col-span-4 text-slate-300 truncate pr-2">{c.course_name}</div>
+                                                <div className="col-span-3 text-slate-400 flex items-center gap-2">
+                                                    {c.faculty_name ? (
+                                                        <span className="text-slate-200">{c.faculty_name}</span>
+                                                    ) : (
+                                                        <span className="text-slate-600 italic">Unassigned</span>
+                                                    )}
+                                                </div>
+                                                <div className="col-span-2 text-slate-500 text-xs">{c.semester}</div>
+                                                <div className="col-span-1 flex justify-end">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 text-slate-500 hover:text-red-400 hover:bg-slate-900"
+                                                        onClick={() => handleDeleteCourse(c.course_id)}
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
 
                     {/* TAB: FACULTY MANAGEMENT */}
                     <TabsContent value="faculty" className="mt-0">
@@ -262,8 +437,8 @@ export default function AdminSettingsPage() {
                                         />
                                         <Input
                                             placeholder="Employee ID"
-                                            value={newFaculty.employee_id}
-                                            onChange={e => setNewFaculty({ ...newFaculty, employee_id: e.target.value })}
+                                            value={newFaculty.faculty_id}
+                                            onChange={e => setNewFaculty({ ...newFaculty, faculty_id: e.target.value })}
                                             className="bg-slate-900 border-slate-700 text-slate-200"
                                         />
                                         <Select
@@ -287,7 +462,7 @@ export default function AdminSettingsPage() {
                                             onClick={async () => {
                                                 if (newFaculty.email && newFaculty.first_name) {
                                                     const success = await handleAddFaculty(newFaculty);
-                                                    if (success) setNewFaculty({ first_name: '', last_name: '', email: '', department: '', employee_id: '' });
+                                                    if (success) setNewFaculty({ first_name: '', last_name: '', email: '', department: '', faculty_id: '' });
                                                 }
                                             }}
                                         >
@@ -310,7 +485,7 @@ export default function AdminSettingsPage() {
                                             <div className="col-span-3 font-medium text-slate-200">{f.last_name}, {f.first_name}</div>
                                             <div className="col-span-3 text-slate-400 truncate pr-2">{f.email}</div>
                                             <div className="col-span-2 text-slate-400">{f.department}</div>
-                                            <div className="col-span-2 text-slate-500 font-mono text-xs">{f.employee_id || '-'}</div>
+                                            <div className="col-span-2 text-slate-500 font-mono text-xs">{f.faculty_id || '-'}</div>
                                             <div className="col-span-2 flex justify-end">
                                                 <Switch
                                                     checked={f.is_active}
@@ -476,6 +651,84 @@ export default function AdminSettingsPage() {
                                         ))}
                                     </div>
                                 )}
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    {/* TAB: SCHEDULING (HOLIDAYS) */}
+                    <TabsContent value="scheduling" className="mt-0">
+                        <Card className="bg-slate-900 border-slate-800 shadow-none">
+                            <CardHeader className="border-b border-slate-800 py-4">
+                                <CardTitle className="text-base text-slate-100 flex items-center gap-2">
+                                    <Clock className="h-4 w-4 text-blue-400" /> Holiday Scheduling
+                                </CardTitle>
+                                <CardDescription className="text-slate-500">Manage holidays to pause automated email reminders</CardDescription>
+                            </CardHeader>
+                            <CardContent className="pt-6 space-y-6">
+                                {/* Add Holiday */}
+                                <div className="p-4 bg-slate-950/50 border border-slate-800 rounded-lg flex flex-col md:flex-row gap-4 items-end">
+                                    <div className="space-y-2">
+                                        <Label className="text-xs font-semibold text-slate-400 uppercase">Date</Label>
+                                        <Input
+                                            type="date"
+                                            value={newHoliday.date}
+                                            onChange={e => setNewHoliday({ ...newHoliday, date: e.target.value })}
+                                            className="bg-slate-900 border-slate-700 text-slate-200"
+                                        />
+                                    </div>
+                                    <div className="flex-1 space-y-2 w-full">
+                                        <Label className="text-xs font-semibold text-slate-400 uppercase">Description</Label>
+                                        <Input
+                                            placeholder="e.g. Christmas Day"
+                                            value={newHoliday.description}
+                                            onChange={e => setNewHoliday({ ...newHoliday, description: e.target.value })}
+                                            className="bg-slate-900 border-slate-700 text-slate-200"
+                                        />
+                                    </div>
+                                    <div className="flex items-center h-10 pb-1">
+                                        <CheckboxItem
+                                            label="Recurring"
+                                            checked={newHoliday.is_recurring}
+                                            onChange={(c) => setNewHoliday({ ...newHoliday, is_recurring: c })}
+                                        />
+                                    </div>
+                                    <Button
+                                        className="bg-blue-600 hover:bg-blue-700 text-white shrink-0"
+                                        onClick={async () => {
+                                            if (newHoliday.date && newHoliday.description) {
+                                                const success = await handleAddHoliday(newHoliday);
+                                                if (success) setNewHoliday({ date: '', description: '', is_recurring: false });
+                                            }
+                                        }}
+                                    >
+                                        <Plus className="h-4 w-4 mr-2" /> Add
+                                    </Button>
+                                </div>
+
+                                {/* List */}
+                                <div className="space-y-2">
+                                    {holidays.length === 0 ? (
+                                        <div className="text-center py-8 text-slate-500">No holidays scheduled.</div>
+                                    ) : (
+                                        holidays.map(h => (
+                                            <div key={h.holiday_id} className="flex items-center justify-between p-3 bg-slate-950/30 border border-slate-800 rounded-lg text-sm">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="font-mono text-emerald-400">{new Date(h.holiday_date).toLocaleDateString()}</div>
+                                                    <div className="font-medium text-slate-200">{h.description}</div>
+                                                    {h.is_recurring && <Badge variant="outline" className="text-[10px] border-blue-900 text-blue-400">Recurring</Badge>}
+                                                </div>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7 text-slate-500 hover:text-red-400 hover:bg-slate-900"
+                                                    onClick={() => handleDeleteHoliday(h.holiday_id)}
+                                                >
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                </Button>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
                             </CardContent>
                         </Card>
                     </TabsContent>
@@ -705,20 +958,42 @@ export default function AdminSettingsPage() {
                                     title="Clear Validation Queue"
                                     desc="Approve all currently pending items automatically."
                                     btnText="Auto-Approve All"
-                                    onClick={() => alert("This would auto-approve all items.")}
+                                    onClick={() => handleDangerAction('CLEAR_QUEUE')}
                                 />
                                 <DangerRow
                                     title="Reset Semester Data"
                                     desc="Clear all submissions for the current semester. Does not delete archives."
                                     btnText="Reset Semester"
-                                    onClick={() => alert("Resetting semester...")}
+                                    onClick={() => handleDangerAction('RESET_SEMESTER')}
                                 />
                                 <DangerRow
                                     title="Purge Old Archives"
                                     desc="Permanently remove files older than the retention period."
                                     btnText="Purge Archives"
-                                    onClick={() => alert("Purging old files...")}
+                                    onClick={() => handleDangerAction('PURGE_ARCHIVES')}
                                 />
+                                <div className="pt-4 border-t border-red-900/30">
+                                    <h4 className="font-medium text-slate-300 text-sm mb-2">System Restore</h4>
+                                    <div className="flex items-center gap-4">
+                                        <input
+                                            type="file"
+                                            id="restore-upload"
+                                            className="hidden"
+                                            accept=".json"
+                                            onChange={(e) => restoreSystem(e.target.files[0])}
+                                        />
+                                        <Button
+                                            variant="outline"
+                                            className="bg-slate-950 border-slate-700 text-slate-300 hover:bg-slate-800"
+                                            onClick={() => document.getElementById('restore-upload')?.click()}
+                                        >
+                                            <HardDrive className="mr-2 h-4 w-4 text-emerald-400" /> Upload Backup File
+                                        </Button>
+                                        <p className="text-xs text-slate-500">
+                                            Restoring will overwrite current system data.
+                                        </p>
+                                    </div>
+                                </div>
                             </CardContent>
                         </Card>
                     </TabsContent>
@@ -727,6 +1002,13 @@ export default function AdminSettingsPage() {
         </div >
     );
 }
+
+// ... helper function to be placed inside the component or outside if it doesn't need state ...
+// But wait, I need access to the service and state. I should insert the handler inside the component.
+// Let's do this in two steps or be careful.
+// actually, I'll insert the handler logic inside the component body in a separate `replace` or just assume I can add it before the return.
+// For now, let's just update the rows, and I will add the function definition in the next step to avoid context issues.
+
 
 // --- Sub-components ---
 

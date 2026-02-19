@@ -5,7 +5,7 @@ export const deadlineService = {
    * Get all deadlines
    */
   getAll: async () => {
-    const { data, error } = await supabase.rpc('get_all_deadlines_fn');
+    const { data, error } = await supabase.rpc('get_all_deadlines_fs');
     if (error) throw error;
     return data;
   },
@@ -15,7 +15,7 @@ export const deadlineService = {
    */
   getDocTypes: async () => {
     const { data, error } = await supabase
-      .from('document_types')
+      .from('documenttypes_fs')
       .select('doc_type_id, type_name')
       .order('type_name');
 
@@ -28,7 +28,7 @@ export const deadlineService = {
    * Create or Update Deadline
    */
   save: async (deadline) => {
-    const { data, error } = await supabase.rpc('upsert_deadline_fn', {
+    const { data, error } = await supabase.rpc('upsert_deadline_fs', {
       p_semester: deadline.semester,
       p_year: deadline.academic_year,
       p_doc_type_id: deadline.doc_type_id,
@@ -46,7 +46,7 @@ export const deadlineService = {
    * Delete Deadline
    */
   delete: async (id) => {
-    const { data, error } = await supabase.rpc('delete_deadline_fn', { p_id: id });
+    const { data, error } = await supabase.rpc('delete_deadline_fs', { p_id: id });
     if (error) throw error;
     return data; // Returns { success, mode, message }
   },
@@ -55,7 +55,7 @@ export const deadlineService = {
    * Get Statistics
    */
   getStats: async () => {
-    const { data, error } = await supabase.rpc('get_deadline_stats_fn');
+    const { data, error } = await supabase.rpc('get_deadline_stats_fs');
     if (error) throw error;
     return data;
   },
@@ -64,7 +64,7 @@ export const deadlineService = {
    * Bulk Actions
    */
   extendAll: async (days) => {
-    const { data, error } = await supabase.rpc('bulk_deadline_op_fn', {
+    const { data, error } = await supabase.rpc('bulk_deadline_op_fs', {
       p_operation: 'EXTEND',
       p_value: days
     });
@@ -73,9 +73,21 @@ export const deadlineService = {
   },
 
   applyGracePeriod: async (days) => {
-    const { data, error } = await supabase.rpc('bulk_deadline_op_fn', {
+    const { data, error } = await supabase.rpc('bulk_deadline_op_fs', {
       p_operation: 'GRACE',
       p_value: days
+    });
+    if (error) throw error;
+    return { success: true, message: data };
+  },
+
+  /**
+   * Reset Semester Deadlines (Delete & Re-seed)
+   */
+  resetToDefaults: async (semester, year) => {
+    const { data, error } = await supabase.rpc('reset_deadlines_fs', {
+      p_semester: semester,
+      p_academic_year: year
     });
     if (error) throw error;
     return { success: true, message: data };

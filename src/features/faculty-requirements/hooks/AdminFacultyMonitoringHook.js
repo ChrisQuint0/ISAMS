@@ -76,24 +76,8 @@ export function useFacultyMonitor() {
   };
 
   const exportCSV = () => {
-    // Generate CSV from current state
-    const headers = ["ID", "Name", "Department", "Status", "Progress", "Pending"];
-    const rows = facultyList.map(f => [
-      f.faculty_id,
-      `${f.first_name} ${f.last_name}`,
-      f.department,
-      f.status,
-      `${f.overall_progress}%`,
-      f.pending_submissions
-    ]);
-
-    const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `faculty_report_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
+    // Use service's robust export
+    facultyMonitorService.exportToCSV(facultyList, `faculty_report_${new Date().toISOString().slice(0, 10)}.csv`);
   };
 
   return {

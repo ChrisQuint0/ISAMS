@@ -49,7 +49,6 @@ export default function SectionUsageChart() {
 
     return (
         <div className="space-y-4">
-            {/* Period Tabs */}
             <div className="flex gap-1 bg-[#020617] rounded-lg p-1 border border-[#1e293b] w-fit">
                 {tabs.map((tab) => (
                     <button

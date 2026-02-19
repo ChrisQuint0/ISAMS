@@ -20,9 +20,10 @@ export function useAdminReports() {
     }
   };
 
-  const exportCSV = () => {
-    if (reportData) {
-      reportService.exportCSV(reportData);
+  const exportCSV = (data = null) => {
+    const dataToExport = data || reportData;
+    if (dataToExport) {
+      reportService.exportCSV(dataToExport);
     }
   };
 

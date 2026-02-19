@@ -25,14 +25,19 @@ export function useFacultySettings() {
         }
     };
 
-    const updateProfile = async (firstName, lastName) => {
+    const updateProfile = async (firstName, lastName, consultationHours) => {
         if (!profile) return;
         setSaving(true);
         setError(null);
         setSuccessMessage(null);
         try {
-            await FacultySettingsService.updateProfile(profile.faculty_id, { firstName, lastName });
-            setProfile(prev => ({ ...prev, first_name: firstName, last_name: lastName }));
+            await FacultySettingsService.updateProfile(profile.faculty_id, { firstName, lastName, consultationHours });
+            setProfile(prev => ({
+                ...prev,
+                first_name: firstName,
+                last_name: lastName,
+                consultation_hours: consultationHours
+            }));
             setSuccessMessage('Profile updated successfully.');
         } catch (err) {
             setError('Failed to update profile.');

@@ -5,7 +5,6 @@ export default function StationInspector({ selectedPC, onFlagMaintenance, onClea
     const [showNoteInput, setShowNoteInput] = useState(false);
     const [maintenanceNote, setMaintenanceNote] = useState("");
 
-    // Reset note input when selected PC changes
     useEffect(() => {
         setShowNoteInput(false);
         setMaintenanceNote("");
@@ -32,7 +31,6 @@ export default function StationInspector({ selectedPC, onFlagMaintenance, onClea
 
     return (
         <div className="space-y-5 flex-1 flex flex-col h-full">
-            {/* ── Header ── */}
             <div className="flex items-center gap-4 border-b border-[#1e293b] pb-4">
                 <div className={`p-3 rounded-xl ${
                     isMaintenance ? 'bg-amber-500/20 text-amber-500'
@@ -53,7 +51,6 @@ export default function StationInspector({ selectedPC, onFlagMaintenance, onClea
                 </div>
             </div>
 
-            {/* ── Current User ── */}
             <div>
                 <span className="text-[10px] text-slate-500 uppercase tracking-widest font-black">Current User</span>
                 {selectedPC.user ? (
@@ -86,7 +83,6 @@ export default function StationInspector({ selectedPC, onFlagMaintenance, onClea
                 )}
             </div>
 
-            {/* ── Hardware Pulse ── */}
             <div>
                 <span className="text-[10px] text-slate-500 uppercase tracking-widest font-black">Hardware Pulse</span>
                 <div className="bg-[#020617] p-3 rounded-lg border border-[#1e293b] mt-1 space-y-2">
@@ -105,7 +101,6 @@ export default function StationInspector({ selectedPC, onFlagMaintenance, onClea
                 </div>
             </div>
 
-            {/* ── Maintenance Description (if already flagged) ── */}
             {isMaintenance && selectedPC.maintenanceNote && (
                 <div>
                     <span className="text-[10px] text-amber-500 uppercase tracking-widest font-black flex items-center gap-1.5">
@@ -118,7 +113,6 @@ export default function StationInspector({ selectedPC, onFlagMaintenance, onClea
                 </div>
             )}
 
-            {/* ── Note Input (when flagging) ── */}
             {showNoteInput && !isMaintenance && (
                 <div className="space-y-2">
                     <span className="text-[10px] text-amber-400 uppercase tracking-widest font-black">Describe the Issue</span>
@@ -151,7 +145,6 @@ export default function StationInspector({ selectedPC, onFlagMaintenance, onClea
                 </div>
             )}
 
-            {/* ── Action Buttons ── */}
             <div className="mt-auto pt-4 space-y-2">
                 {isMaintenance ? (
                     <button 

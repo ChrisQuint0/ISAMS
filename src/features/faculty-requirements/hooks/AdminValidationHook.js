@@ -4,7 +4,7 @@ import { validationService } from '../services/AdminValidationService';
 export function useAdminValidation() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
   const [queue, setQueue] = useState([]);
   const [recentApprovals, setRecentApprovals] = useState([]);
   const [stats, setStats] = useState({
@@ -13,10 +13,10 @@ export function useAdminValidation() {
     rejected_count: 0,
     avg_processing_time: '-'
   });
-  
-  const [filters, setFilters] = useState({ 
-    status: 'All Status', 
-    department: 'All Departments' 
+
+  const [filters, setFilters] = useState({
+    status: 'All Status',
+    department: 'All Departments'
   });
 
   const fetchData = useCallback(async () => {
@@ -27,7 +27,7 @@ export function useAdminValidation() {
         validationService.getRecentApprovals(),
         validationService.getStats()
       ]);
-      
+
       setQueue(queueData);
       setRecentApprovals(recentData);
       setStats(statsData);
@@ -56,11 +56,33 @@ export function useAdminValidation() {
   const downloadFile = async (submissionId) => {
     try {
       const url = await validationService.getDownloadLink(submissionId);
-      if(url) window.open(url, '_blank');
+      if (url) window.open(url, '_blank');
       else alert("Download link not available.");
     } catch (err) {
       console.error(err);
       alert("Failed to get download link.");
+    }
+  };
+
+  const approveAll = async () => {
+    try {
+      const msg = await validationService.approveAllPending(filters.department);
+      await fetchData();
+      return { success: true, message: msg };
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
+  };
+
+  const runBotCheck = async (submissionId) => {
+    try {
+      const result = await validationService.runBotCheck(submissionId);
+      // We don't automatically refresh because we likely want to update local state or just show results,
+      // but refreshing ensures we get the updated 'bot_analysis' column data.
+      await fetchData();
+      return result;
+    } catch (err) {
+      return { success: false, message: err.message };
     }
   };
 
@@ -73,7 +95,9 @@ export function useAdminValidation() {
     filters,
     setFilters,
     processAction,
+    approveAll,
     downloadFile,
+    runBotCheck,
     refresh: fetchData
   };
 }

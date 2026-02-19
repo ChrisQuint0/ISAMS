@@ -10,10 +10,8 @@ import {
 import { AgGridReact } from 'ag-grid-react';
 import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-community';
 
-// Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
 
-// AG Grid v33+ Theming API — consistent with ThesisSettingsModal.jsx
 const auditTheme = themeBalham.withParams({
     accentColor: '#3b82f6',
     backgroundColor: '#020617',
@@ -26,7 +24,6 @@ const auditTheme = themeBalham.withParams({
     headerHeight: 40,
 });
 
-// Category configuration
 const categoryConfig = {
     "Authentication": { icon: KeyRound, color: "sky", bg: "bg-sky-500/10", text: "text-sky-400", border: "border-sky-500/20" },
     "PC Management":  { icon: Monitor, color: "purple", bg: "bg-purple-500/10", text: "text-purple-400", border: "border-purple-500/20" },
@@ -36,7 +33,6 @@ const categoryConfig = {
     "Override":       { icon: ShieldAlert, color: "rose", bg: "bg-rose-500/10", text: "text-rose-400", border: "border-rose-500/20" },
 };
 
-// Severity configuration
 const severityConfig = {
     "Info":     { bg: "bg-sky-500/10", text: "text-sky-400", border: "border-sky-500/20", dot: "bg-sky-400" },
     "Warning":  { bg: "bg-amber-500/10", text: "text-amber-400", border: "border-amber-500/20", dot: "bg-amber-400" },
@@ -48,20 +44,16 @@ export default function AuditTrails() {
     const { labName } = useOutletContext();
     const [gridApi, setGridApi] = useState(null);
 
-    // Filters
     const [dateFrom, setDateFrom] = useState("2026-02-10");
     const [dateTo, setDateTo] = useState("2026-02-16");
     const [categoryFilter, setCategoryFilter] = useState("all");
     const [severityFilter, setSeverityFilter] = useState("all");
 
-    // Detail drawer
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [selectedEvent, setSelectedEvent] = useState(null);
 
-    // Export format
-    const [exportFormat, setExportFormat] = useState("csv"); // "csv" | "pdf"
+    const [exportFormat, setExportFormat] = useState("csv"); 
 
-    // Dummy audit trail data
     const [rowData] = useState([
         { id: "AUD-001", timestamp: "2026-02-16 03:45:12 PM", user: "Admin — Prof. Garcia", category: "Override", action: "Dismiss Class Override", description: "Triggered anti-cutting override — dismissed class for Lab Schedule IT305", severity: "Critical", ip: "192.168.1.101" },
         { id: "AUD-002", timestamp: "2026-02-16 03:30:05 PM", user: "Admin — Prof. Garcia", category: "PC Management", action: "Flag Maintenance", description: "Flagged PC-12 for maintenance — Monitor flickering intermittently", severity: "Warning", ip: "192.168.1.101" },
@@ -85,7 +77,6 @@ export default function AuditTrails() {
         { id: "AUD-020", timestamp: "2026-02-10 10:00:00 AM", user: "System", category: "Authentication", action: "Admin Login", description: "Prof. Garcia authenticated via Supabase — session started", severity: "Info", ip: "192.168.1.101" },
     ]);
 
-    // Filtered data
     const filteredData = useMemo(() => {
         return rowData.filter(row => {
             if (categoryFilter !== "all" && row.category !== categoryFilter) return false;
@@ -94,7 +85,6 @@ export default function AuditTrails() {
         });
     }, [rowData, categoryFilter, severityFilter]);
 
-    // Summary stats
     const stats = useMemo(() => {
         const total = filteredData.length;
         const critical = filteredData.filter(r => r.severity === "Critical").length;
@@ -103,7 +93,6 @@ export default function AuditTrails() {
         return { total, critical, warnings, today };
     }, [filteredData]);
 
-    // Column definitions
     const columnDefs = useMemo(() => [
         {
             headerName: "Severity",
@@ -206,7 +195,6 @@ export default function AuditTrails() {
         if (exportFormat === "csv" && gridApi) {
             gridApi.exportDataAsCsv({ fileName: `audit-trail-${labName}.csv` });
         } else {
-            // PDF export placeholder
             console.log(`Exporting audit trail as PDF for ${labName}`);
         }
     }, [gridApi, labName, exportFormat]);
@@ -214,7 +202,6 @@ export default function AuditTrails() {
     return (
         <div className="p-8 space-y-6 bg-[#020617] min-h-screen text-slate-100">
 
-            {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-white tracking-tight">{labName} — Audit Trails</h1>
@@ -222,7 +209,6 @@ export default function AuditTrails() {
                 </div>
 
                 <div className="flex items-center gap-3 flex-wrap">
-                    {/* Date Range */}
                     <div className="flex items-center gap-2 bg-[#0f172a] border border-[#1e293b] rounded-lg px-3 py-2 hover:border-slate-600 transition-colors">
                         <CalendarDays size={13} className="text-slate-500 shrink-0" />
                         <input 
@@ -240,7 +226,6 @@ export default function AuditTrails() {
                         />
                     </div>
 
-                    {/* Export Format Toggle + Download */}
                     <div className="flex items-center gap-0">
                         <div className="flex items-center bg-[#0f172a] border border-[#1e293b] rounded-l-lg p-0.5">
                             <button
@@ -276,7 +261,6 @@ export default function AuditTrails() {
                 </div>
             </div>
 
-            {/* Summary Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
                     { label: "Total Events", value: stats.total, icon: <Shield size={18} />, color: "sky" },
@@ -300,14 +284,12 @@ export default function AuditTrails() {
                 })}
             </div>
 
-            {/* Filter Bar */}
             <div className="flex items-center gap-3 flex-wrap">
                 <div className="flex items-center gap-2 text-slate-500">
                     <Filter size={14} />
                     <span className="text-[10px] font-black uppercase tracking-widest">Filters</span>
                 </div>
 
-                {/* Category Filter */}
                 <div className="flex items-center gap-1 bg-[#0f172a] border border-[#1e293b] rounded-lg p-0.5">
                     <button
                         onClick={() => setCategoryFilter("all")}
@@ -338,7 +320,6 @@ export default function AuditTrails() {
                     })}
                 </div>
 
-                {/* Severity Filter */}
                 <div className="flex items-center gap-1 bg-[#0f172a] border border-[#1e293b] rounded-lg p-0.5 ml-auto">
                     <button
                         onClick={() => setSeverityFilter("all")}
@@ -367,7 +348,6 @@ export default function AuditTrails() {
                 </div>
             </div>
 
-            {/* AG Grid */}
             <div className="rounded-2xl border border-[#1e293b] overflow-hidden shadow-2xl" style={{ height: "calc(100vh - 420px)" }}>
                 <AgGridReact
                     theme={auditTheme}
@@ -383,7 +363,6 @@ export default function AuditTrails() {
                 />
             </div>
 
-            {/* Event Detail Drawer */}
             <div className={`fixed inset-y-0 right-0 w-[420px] bg-[#0f172a] border-l border-[#1e293b] shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${drawerOpen ? "translate-x-0" : "translate-x-full"}`}>
                 {selectedEvent && (
                     <div className="flex flex-col h-full">
@@ -406,9 +385,7 @@ export default function AuditTrails() {
                             </button>
                         </div>
 
-                        {/* Drawer Body */}
                         <div className="flex-1 overflow-y-auto p-6 space-y-5">
-                            {/* Severity Badge */}
                             {(() => {
                                 const cfg = severityConfig[selectedEvent.severity] || severityConfig["Info"];
                                 return (
@@ -419,7 +396,6 @@ export default function AuditTrails() {
                                 );
                             })()}
 
-                            {/* Info Grid */}
                             <div className="space-y-3">
                                 {[
                                     { label: "Timestamp", value: selectedEvent.timestamp, icon: <Clock size={13} className="text-slate-600" /> },
@@ -442,7 +418,6 @@ export default function AuditTrails() {
                                 ))}
                             </div>
 
-                            {/* Description */}
                             <div className="p-4 bg-[#020617] border border-[#1e293b] rounded-xl">
                                 <p className="text-[9px] font-black uppercase tracking-widest text-slate-600 mb-2">Full Description</p>
                                 <p className="text-xs text-slate-300 leading-relaxed">{selectedEvent.description}</p>
@@ -452,7 +427,6 @@ export default function AuditTrails() {
                 )}
             </div>
 
-            {/* Drawer Backdrop */}
             {drawerOpen && (
                 <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setDrawerOpen(false)} />
             )}

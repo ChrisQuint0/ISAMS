@@ -12,7 +12,7 @@ export const FacultyDashboardService = {
 
             // Get faculty_id from user_id
             const { data: faculty, error: facultyError } = await supabase
-                .from('faculty')
+                .from('faculty_fs')
                 .select('faculty_id')
                 .eq('user_id', user.id)
                 .single();
@@ -20,7 +20,7 @@ export const FacultyDashboardService = {
             if (facultyError) throw facultyError;
 
             const { data, error } = await supabase
-                .rpc('get_faculty_dashboard_stats', { p_faculty_id: faculty.faculty_id });
+                .rpc('get_faculty_dashboard_stats_fs', { p_faculty_id: faculty.faculty_id });
 
             if (error) throw error;
             return data;
@@ -40,7 +40,7 @@ export const FacultyDashboardService = {
             if (!user) throw new Error('User not authenticated');
 
             const { data: faculty, error: facultyError } = await supabase
-                .from('faculty')
+                .from('faculty_fs')
                 .select('faculty_id')
                 .eq('user_id', user.id)
                 .single();
@@ -48,7 +48,7 @@ export const FacultyDashboardService = {
             if (facultyError) throw facultyError;
 
             const { data, error } = await supabase
-                .rpc('get_faculty_courses_status', { p_faculty_id: faculty.faculty_id });
+                .rpc('get_faculty_courses_status_fs', { p_faculty_id: faculty.faculty_id });
 
             if (error) throw error;
             return data || [];
@@ -68,7 +68,7 @@ export const FacultyDashboardService = {
             if (!user) throw new Error('User not authenticated');
 
             const { data: faculty, error: facultyError } = await supabase
-                .from('faculty')
+                .from('faculty_fs')
                 .select('faculty_id')
                 .eq('user_id', user.id)
                 .single();
@@ -76,7 +76,7 @@ export const FacultyDashboardService = {
             if (facultyError) throw facultyError;
 
             const { data, error } = await supabase
-                .rpc('get_faculty_recent_activity', { p_faculty_id: faculty.faculty_id });
+                .rpc('get_faculty_recent_activity_fs', { p_faculty_id: faculty.faculty_id });
 
             if (error) throw error;
             return data || [];
@@ -96,7 +96,7 @@ export const FacultyDashboardService = {
 
             // Get faculty_id from user_id
             const { data: faculty } = await supabase
-                .from('faculty')
+                .from('faculty_fs')
                 .select('faculty_id')
                 .eq('user_id', user.id)
                 .single();
@@ -104,7 +104,7 @@ export const FacultyDashboardService = {
             if (!faculty) throw new Error('Faculty profile not found');
 
             const { data, error } = await supabase
-                .from('notifications')
+                .from('notifications_fs')
                 .select('*')
                 .eq('faculty_id', faculty.faculty_id)
                 .order('created_at', { ascending: false })
@@ -124,7 +124,7 @@ export const FacultyDashboardService = {
     async markNotificationRead(notificationId) {
         try {
             const { error } = await supabase
-                .from('notifications')
+                .from('notifications_fs')
                 .update({ is_read: true })
                 .eq('notification_id', notificationId);
 

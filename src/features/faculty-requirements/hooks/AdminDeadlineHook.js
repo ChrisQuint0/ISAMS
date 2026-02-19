@@ -5,11 +5,11 @@ export function useAdminDeadlines() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-  
+
   const [deadlines, setDeadlines] = useState([]);
   const [docTypes, setDocTypes] = useState([]);
   const [stats, setStats] = useState({
-    on_time: 0, late: 0, pending: 0, 
+    on_time: 0, late: 0, pending: 0,
     total_submissions: 0, next_deadline_type: '', days_left: 0
   });
 
@@ -71,7 +71,8 @@ export function useAdminDeadlines() {
       let result;
       if (action === 'EXTEND') result = await deadlineService.extendAll(value);
       if (action === 'GRACE') result = await deadlineService.applyGracePeriod(value);
-      
+      if (action === 'RESET') result = await deadlineService.resetToDefaults(value.semester, value.year);
+
       setSuccess(result.message);
       await fetchData();
     } catch (err) {
