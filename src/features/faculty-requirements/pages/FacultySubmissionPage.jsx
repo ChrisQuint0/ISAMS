@@ -77,17 +77,32 @@ export default function FacultySubmissionPage() {
     }
   }, [formData.course]);
 
+  const getValidationRules = () => {
+    const doc = requiredDocs.find(d => String(d.doc_type_id) === String(formData.documentType));
+    return {
+      maxMB: doc?.max_file_size_mb || 10,
+      allowedExts: doc?.allowed_extensions?.map(e => e.toLowerCase().trim()) || ['.pdf', '.docx', '.xlsx', '.png', '.jpg', '.jpeg']
+    };
+  };
+
   const validateFile = async (file) => {
-    // 1. Size Check (10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      alert("File size exceeds 10MB limit.");
+    if (!formData.documentType) {
+      alert("Please select a document type first.");
+      return;
+    }
+
+    const { maxMB, allowedExts } = getValidationRules();
+
+    // 1. Size Check
+    if (file.size > maxMB * 1024 * 1024) {
+      alert(`File size exceeds ${maxMB}MB limit.`);
       return;
     }
 
     // 2. Extension Check
-    const ext = file.name.split('.').pop().toLowerCase();
-    if (!['pdf', 'docx', 'xlsx', 'png', 'jpg', 'jpeg'].includes(ext)) {
-      alert("Invalid file type. Allowed: PDF, DOCX, XLSX, PNG, JPG");
+    const ext = '.' + file.name.split('.').pop().toLowerCase();
+    if (!allowedExts.includes(ext)) {
+      alert(`Invalid file type. Allowed: ${allowedExts.join(', ')}`);
       return;
     }
 
@@ -97,21 +112,26 @@ export default function FacultySubmissionPage() {
     setOcrResult(null);
 
     // 3. OCR Check (If image)
-    if (['png', 'jpg', 'jpeg'].includes(ext)) {
+    if (['.png', '.jpg', '.jpeg'].includes(ext)) {
       setIsValidating(true);
       const result = await FacultySubmissionService.runOCR(file);
       setOcrResult(result);
       setIsValidating(false);
     } else {
-      // For non-images, just mark as checked
       setOcrResult({ success: true, text: "Format valid (OCR skipped for non-image)", confidence: 100 });
     }
   };
 
-  const handleFileSelect = (e) => {
+  const handleFileSelect = () => {
+    if (!formData.documentType) {
+      alert("Please select a document type first.");
+      return;
+    }
+    const { allowedExts } = getValidationRules();
+
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = ".pdf,.docx,.xlsx,.png,.jpg,.jpeg";
+    input.accept = allowedExts.join(',');
     input.onchange = (event) => {
       const file = event.target.files[0];
       if (file) validateFile(file);

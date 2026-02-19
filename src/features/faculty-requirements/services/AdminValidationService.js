@@ -64,8 +64,8 @@ export const validationService = {
     const { data, error } = await supabase.rpc('process_validation_action_fs', {
       p_submission_id: submissionId,
       p_action: action,
-      p_remarks: remarks,
-      p_admin_id: 1 // TODO: Replace with logged-in user ID
+      p_remarks: remarks
+      // p_admin_id not used by backend yet
     });
 
     if (error) throw error;
