@@ -11,6 +11,17 @@ export function useFacultyAnalytics() {
     const [timeline, setTimeline] = useState([]);
     const [history, setHistory] = useState([]);
     const [courseAnalytics, setCourseAnalytics] = useState([]);
+    const [onTimeStats, setOnTimeStats] = useState({
+        on_time_count: 0,
+        late_count: 0,
+        total_count: 0,
+        on_time_rate: 0
+    });
+
+    // Semester/Year filter state
+    const [semester, setSemester] = useState(null);
+    const [academicYear, setAcademicYear] = useState(null);
+
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -18,11 +29,12 @@ export function useFacultyAnalytics() {
         setLoading(true);
         setError(null);
         try {
-            const [overviewData, timelineData, historyData, courseData] = await Promise.all([
+            const [overviewData, timelineData, historyData, courseData, onTimeData] = await Promise.all([
                 FacultyAnalyticsService.getAnalyticsOverview(),
-                FacultyAnalyticsService.getSubmissionTimeline(),
+                FacultyAnalyticsService.getSubmissionTimeline(semester, academicYear),
                 FacultyAnalyticsService.getSubmissionHistory(),
-                FacultyAnalyticsService.getCourseAnalytics()
+                FacultyAnalyticsService.getCourseAnalytics(),
+                FacultyAnalyticsService.getOnTimeStats()
             ]);
 
             setOverview(overviewData || {
@@ -34,23 +46,40 @@ export function useFacultyAnalytics() {
             setTimeline(timelineData || []);
             setHistory(historyData || []);
             setCourseAnalytics(courseData || []);
+            setOnTimeStats(onTimeData || {
+                on_time_count: 0,
+                late_count: 0,
+                total_count: 0,
+                on_time_rate: 0
+            });
         } catch (err) {
             console.error(err);
             setError('Failed to load analytics data.');
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [semester, academicYear]);
 
+    // Re-fetch when filter changes
     useEffect(() => {
         loadAnalytics();
     }, [loadAnalytics]);
+
+    // Update timeline filter — triggers re-fetch via useEffect
+    const setTimelineFilter = useCallback((newSemester, newAcademicYear) => {
+        setSemester(newSemester || null);
+        setAcademicYear(newAcademicYear || null);
+    }, []);
 
     return {
         overview,
         timeline,
         history,
         courseAnalytics,
+        onTimeStats,
+        semester,
+        academicYear,
+        setTimelineFilter,
         loading,
         error,
         refreshAnalytics: loadAnalytics

@@ -73,27 +73,22 @@ export const FacultySubmissionService = {
 
             const gdriveFile = await uploadToGDrive(file, folderId);
 
-            // 3. Insert into Submissions table with GDrive metadata
+            // 3. Insert/Update into Submissions table with Versioning via RPC
             const { data, error: insertError } = await supabase
-                .from('submissions_fs')
-                .insert({
-                    faculty_id: faculty.faculty_id,
-                    course_id: courseId,
-                    doc_type_id: docTypeId,
-                    original_filename: file.name,
-                    standardized_filename: gdriveFile.name,
-                    file_size_bytes: file.size,
-                    mime_type: file.type,
-                    storage_provider: 'GOOGLE_DRIVE',
-                    gdrive_file_id: gdriveFile.id,
-                    gdrive_web_view_link: gdriveFile.webViewLink,
-                    submission_status: 'SUBMITTED',
-                    semester: semester || '2023-2',
-                    academic_year: academicYear || '2023-2024',
-                    submitted_at: new Date().toISOString()
-                })
-                .select()
-                .single();
+                .rpc('upsert_submission_with_versioning_fs', {
+                    p_faculty_id: faculty.faculty_id,
+                    p_course_id: courseId,
+                    p_doc_type_id: docTypeId,
+                    p_original_filename: file.name,
+                    p_standardized_filename: gdriveFile.name,
+                    p_file_size_bytes: file.size,
+                    p_mime_type: file.type,
+                    p_gdrive_file_id: gdriveFile.id,
+                    p_gdrive_web_view_link: gdriveFile.webViewLink,
+                    p_gdrive_download_link: gdriveFile.webViewLink, // Using webLink as download link for now
+                    p_semester: semester || '2023-2',
+                    p_academic_year: academicYear || '2023-2024'
+                });
 
             if (insertError) throw insertError;
             return data;

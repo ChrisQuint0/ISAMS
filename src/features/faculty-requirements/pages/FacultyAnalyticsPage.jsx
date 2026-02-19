@@ -1,11 +1,15 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useFacultyAnalytics } from "../hooks/FacultyAnalyticsHook";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, Clock, CheckCircle, AlertTriangle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+
+const SEMESTERS = ['1st Semester', '2nd Semester', 'Midyear'];
+const ACADEMIC_YEARS = ['2024-2025', '2025-2026', '2026-2027'];
 
 export default function FacultyAnalyticsPage() {
   const navigate = useNavigate();
-  const { overview, timeline, history, courseAnalytics, loading, error } = useFacultyAnalytics();
+  const { overview, timeline, history, courseAnalytics, onTimeStats, semester, academicYear, setTimelineFilter, loading, error } = useFacultyAnalytics();
 
   if (loading) {
     return (
@@ -83,9 +87,29 @@ export default function FacultyAnalyticsPage() {
           </div>
         </div>
 
-        {/* Submission Timeline Card */}
+        {/* Submission Timeline Card — with Semester/Year toggle */}
         <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md p-6">
-          <h3 className="font-semibold mb-4 text-slate-100">Submission Timeline</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-slate-100">Submission Timeline</h3>
+            <div className="flex gap-2">
+              <select
+                className="bg-slate-800 border border-slate-700 text-slate-300 text-xs rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                value={semester || ''}
+                onChange={e => setTimelineFilter(e.target.value || null, academicYear)}
+              >
+                <option value="">All Semesters</option>
+                {SEMESTERS.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <select
+                className="bg-slate-800 border border-slate-700 text-slate-300 text-xs rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                value={academicYear || ''}
+                onChange={e => setTimelineFilter(semester, e.target.value || null)}
+              >
+                <option value="">All Years</option>
+                {ACADEMIC_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+          </div>
           <div className="space-y-4 max-h-[250px] overflow-y-auto pr-2">
             {timeline.map((item, index) => (
               <div key={index}>
@@ -107,16 +131,64 @@ export default function FacultyAnalyticsPage() {
               </div>
             ))}
             {timeline.length === 0 && (
-              <p className="text-slate-500 text-center py-4">No timeline data available.</p>
+              <p className="text-slate-500 text-center py-4">No timeline data available for this filter.</p>
             )}
           </div>
         </div>
 
-        {/* Performance Comparison Card */}
+        {/* On-Time vs Late + Performance Card */}
         <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md p-6">
-          <h3 className="font-semibold mb-4 text-slate-100">Performance Comparison</h3>
-          <div className="space-y-4">
-            {/* Your Progress */}
+          <h3 className="font-semibold mb-4 text-slate-100">On-Time vs Late Submissions</h3>
+
+          {/* Stacked Bar */}
+          <div className="mb-4">
+            <div className="flex h-6 rounded-full overflow-hidden bg-slate-700">
+              {onTimeStats.total_count > 0 && (
+                <>
+                  <div
+                    className="bg-emerald-500 transition-all duration-500"
+                    style={{ width: `${onTimeStats.on_time_rate}%` }}
+                    title={`On Time: ${onTimeStats.on_time_count}`}
+                  ></div>
+                  <div
+                    className="bg-amber-500 transition-all duration-500"
+                    style={{ width: `${100 - onTimeStats.on_time_rate}%` }}
+                    title={`Late: ${onTimeStats.late_count}`}
+                  ></div>
+                </>
+              )}
+            </div>
+            <div className="flex justify-between mt-2 text-xs text-slate-400">
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+                On Time: {onTimeStats.on_time_count}
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>
+                Late: {onTimeStats.late_count}
+              </span>
+            </div>
+          </div>
+
+          {/* Stats Row */}
+          <div className="grid grid-cols-3 gap-3 mb-6">
+            <div className="bg-slate-800/50 rounded-lg p-3 text-center">
+              <p className="text-2xl font-bold text-emerald-400">{onTimeStats.on_time_rate}%</p>
+              <p className="text-xs text-slate-400 mt-1">On-Time Rate</p>
+            </div>
+            <div className="bg-slate-800/50 rounded-lg p-3 text-center">
+              <p className="text-2xl font-bold text-blue-400">{onTimeStats.total_count}</p>
+              <p className="text-xs text-slate-400 mt-1">Total Submitted</p>
+            </div>
+            <div className="bg-slate-800/50 rounded-lg p-3 text-center">
+              <p className="text-2xl font-bold text-amber-400">{onTimeStats.late_count}</p>
+              <p className="text-xs text-slate-400 mt-1">Late</p>
+            </div>
+          </div>
+
+          {/* Performance Comparison */}
+          <h4 className="font-semibold mb-3 text-slate-200 text-sm">Performance Comparison</h4>
+          <div className="space-y-3">
             <div>
               <div className="flex justify-between text-sm mb-1">
                 <span className="text-slate-300">Your Progress</span>
@@ -126,8 +198,6 @@ export default function FacultyAnalyticsPage() {
                 <div className="h-full bg-blue-500" style={{ width: `${overview.completion_rate}%` }}></div>
               </div>
             </div>
-
-            {/* Department Average */}
             <div>
               <div className="flex justify-between text-sm mb-1">
                 <span className="text-slate-300">Department Average</span>
@@ -137,22 +207,9 @@ export default function FacultyAnalyticsPage() {
                 <div className="h-full bg-slate-500" style={{ width: `${overview.dept_average}%` }}></div>
               </div>
             </div>
-
-            {/* Target */}
-            <div>
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-slate-300">Target Goal</span>
-                <span className="font-medium text-slate-300">100%</span>
-              </div>
-              <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                <div className="h-full bg-emerald-500 hover:bg-emerald-400 transition-colors" style={{ width: '1000%' }}></div>
-                {/* Intentional visual fix: width 100% looks small locally sometimes, keeping 100% logic */}
-                <div className="h-full bg-emerald-500" style={{ width: '100%' }}></div>
-              </div>
-            </div>
           </div>
 
-          <div className="mt-6 p-3 bg-blue-500/10 border border-blue-500/20 rounded">
+          <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded">
             <p className="text-blue-400 text-sm font-medium">
               {overview.completion_rate >= 100
                 ? "🎉 Congratulations! You have completed all requirements."

@@ -30,11 +30,13 @@ export default function AdminSettingsPage() {
         templates, addTemplate, deleteTemplate,
 
         facultyList, handleAddFaculty, handleToggleFacultyStatus,
-        courseList, handleAddCourse, handleDeleteCourse
+        courseList, handleAddCourse, handleDeleteCourse,
+        systemHealth, holidays, handleAddHoliday, handleDeleteHoliday, restoreSystem
     } = useAdminSettings();
 
     const [testFile, setTestFile] = useState(null);
     const [newReq, setNewReq] = useState({ name: '', folder: '', required: true });
+    const [newHoliday, setNewHoliday] = useState({ date: '', description: '', is_recurring: false });
 
     // Faculty Form State
     const [newFaculty, setNewFaculty] = useState({
@@ -103,6 +105,7 @@ export default function AdminSettingsPage() {
                         <TabItem value="validation" label="Validation Rules" icon={Shield} />
                         <TabItem value="ocr" label="OCR & AI" icon={Cpu} />
                         <TabItem value="templates" label="Templates" icon={LayoutTemplate} />
+                        <TabItem value="scheduling" label="Scheduling" icon={Clock} />
                         <TabItem value="maintenance" label="Maintenance" icon={Database} />
                     </TabsList>
                 </div>
@@ -252,10 +255,10 @@ export default function AdminSettingsPage() {
                                         </div>
 
                                         <div className="space-y-1 pt-2">
-                                            <InfoRow label="Version" value="2.1.0" />
-                                            <InfoRow label="Last Backup" value="Today, 02:00 AM" />
-                                            <InfoRow label="DB Size" value="4.2 GB" />
-                                            <InfoRow label="Users" value="49 Active" />
+                                            <InfoRow label="Version" value={systemHealth?.version || "Loading..."} />
+                                            <InfoRow label="Last Backup" value={systemHealth ? new Date(systemHealth.last_backup).toLocaleDateString() : "-"} />
+                                            <InfoRow label="DB Size" value={systemHealth?.db_size || "Calculated nightly"} />
+                                            <InfoRow label="Users" value={systemHealth?.active_users ? `${systemHealth.active_users} Active` : "-"} />
                                         </div>
 
                                         <div className="pt-4 space-y-2">
@@ -652,6 +655,84 @@ export default function AdminSettingsPage() {
                         </Card>
                     </TabsContent>
 
+                    {/* TAB: SCHEDULING (HOLIDAYS) */}
+                    <TabsContent value="scheduling" className="mt-0">
+                        <Card className="bg-slate-900 border-slate-800 shadow-none">
+                            <CardHeader className="border-b border-slate-800 py-4">
+                                <CardTitle className="text-base text-slate-100 flex items-center gap-2">
+                                    <Clock className="h-4 w-4 text-blue-400" /> Holiday Scheduling
+                                </CardTitle>
+                                <CardDescription className="text-slate-500">Manage holidays to pause automated email reminders</CardDescription>
+                            </CardHeader>
+                            <CardContent className="pt-6 space-y-6">
+                                {/* Add Holiday */}
+                                <div className="p-4 bg-slate-950/50 border border-slate-800 rounded-lg flex flex-col md:flex-row gap-4 items-end">
+                                    <div className="space-y-2">
+                                        <Label className="text-xs font-semibold text-slate-400 uppercase">Date</Label>
+                                        <Input
+                                            type="date"
+                                            value={newHoliday.date}
+                                            onChange={e => setNewHoliday({ ...newHoliday, date: e.target.value })}
+                                            className="bg-slate-900 border-slate-700 text-slate-200"
+                                        />
+                                    </div>
+                                    <div className="flex-1 space-y-2 w-full">
+                                        <Label className="text-xs font-semibold text-slate-400 uppercase">Description</Label>
+                                        <Input
+                                            placeholder="e.g. Christmas Day"
+                                            value={newHoliday.description}
+                                            onChange={e => setNewHoliday({ ...newHoliday, description: e.target.value })}
+                                            className="bg-slate-900 border-slate-700 text-slate-200"
+                                        />
+                                    </div>
+                                    <div className="flex items-center h-10 pb-1">
+                                        <CheckboxItem
+                                            label="Recurring"
+                                            checked={newHoliday.is_recurring}
+                                            onChange={(c) => setNewHoliday({ ...newHoliday, is_recurring: c })}
+                                        />
+                                    </div>
+                                    <Button
+                                        className="bg-blue-600 hover:bg-blue-700 text-white shrink-0"
+                                        onClick={async () => {
+                                            if (newHoliday.date && newHoliday.description) {
+                                                const success = await handleAddHoliday(newHoliday);
+                                                if (success) setNewHoliday({ date: '', description: '', is_recurring: false });
+                                            }
+                                        }}
+                                    >
+                                        <Plus className="h-4 w-4 mr-2" /> Add
+                                    </Button>
+                                </div>
+
+                                {/* List */}
+                                <div className="space-y-2">
+                                    {holidays.length === 0 ? (
+                                        <div className="text-center py-8 text-slate-500">No holidays scheduled.</div>
+                                    ) : (
+                                        holidays.map(h => (
+                                            <div key={h.holiday_id} className="flex items-center justify-between p-3 bg-slate-950/30 border border-slate-800 rounded-lg text-sm">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="font-mono text-emerald-400">{new Date(h.holiday_date).toLocaleDateString()}</div>
+                                                    <div className="font-medium text-slate-200">{h.description}</div>
+                                                    {h.is_recurring && <Badge variant="outline" className="text-[10px] border-blue-900 text-blue-400">Recurring</Badge>}
+                                                </div>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7 text-slate-500 hover:text-red-400 hover:bg-slate-900"
+                                                    onClick={() => handleDeleteHoliday(h.holiday_id)}
+                                                >
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                </Button>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
                     {/* TAB 2: VALIDATION RULES */}
                     <TabsContent value="validation" className="mt-0">
                         <Card className="bg-slate-900 border-slate-800 shadow-none">
@@ -891,6 +972,28 @@ export default function AdminSettingsPage() {
                                     btnText="Purge Archives"
                                     onClick={() => handleDangerAction('PURGE_ARCHIVES')}
                                 />
+                                <div className="pt-4 border-t border-red-900/30">
+                                    <h4 className="font-medium text-slate-300 text-sm mb-2">System Restore</h4>
+                                    <div className="flex items-center gap-4">
+                                        <input
+                                            type="file"
+                                            id="restore-upload"
+                                            className="hidden"
+                                            accept=".json"
+                                            onChange={(e) => restoreSystem(e.target.files[0])}
+                                        />
+                                        <Button
+                                            variant="outline"
+                                            className="bg-slate-950 border-slate-700 text-slate-300 hover:bg-slate-800"
+                                            onClick={() => document.getElementById('restore-upload')?.click()}
+                                        >
+                                            <HardDrive className="mr-2 h-4 w-4 text-emerald-400" /> Upload Backup File
+                                        </Button>
+                                        <p className="text-xs text-slate-500">
+                                            Restoring will overwrite current system data.
+                                        </p>
+                                    </div>
+                                </div>
                             </CardContent>
                         </Card>
                     </TabsContent>

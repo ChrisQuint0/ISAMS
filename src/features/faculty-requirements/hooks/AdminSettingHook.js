@@ -11,6 +11,8 @@ export function useAdminSettings() {
   const [queue, setQueue] = useState([]);
   const [facultyList, setFacultyList] = useState([]);
   const [courseList, setCourseList] = useState([]);
+  const [systemHealth, setSystemHealth] = useState(null);
+  const [holidays, setHolidays] = useState([]);
 
   // Document Requirements State
   const [docRequirements, setDocRequirements] = useState([
@@ -29,31 +31,89 @@ export function useAdminSettings() {
   const [testResult, setTestResult] = useState(null);
 
   // --- Document Requirement Handlers ---
-  const addDocRequirement = (req) => {
-    setDocRequirements(prev => [...prev, { ...req, id: Date.now(), is_active: true }]);
+  const addDocRequirement = async (req) => {
+    setLoading(true);
+    try {
+      await settingsService.upsertDocType({
+        name: req.name,
+        folder: req.folder,
+        is_active: true,
+        required: req.required
+      });
+      await fetchData();
+      setSuccess("Requirement added.");
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError("Failed to add requirement: " + err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const updateDocRequirement = (id, updates) => {
-    setDocRequirements(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+  const updateDocRequirement = async (id, updates) => {
+    // 1. Find the item
+    const item = docRequirements.find(d => d.id === id);
+    if (!item) return;
+
+    // 2. Optimistic Update
+    setDocRequirements(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d));
+
+    // 3. Persist
+    try {
+      await settingsService.upsertDocType({ ...item, ...updates });
+    } catch (err) {
+      setError("Failed to update requirement.");
+      // Revert
+      setDocRequirements(prev => prev.map(d => d.id === id ? item : d));
+    }
   };
 
-  const deleteDocRequirement = (id) => {
-    setDocRequirements(prev => prev.filter(item => item.id !== id));
+  const deleteDocRequirement = async (id) => {
+    if (!window.confirm("Delete this requirement?")) return;
+    setLoading(true);
+    try {
+      await settingsService.deleteDocType(id);
+      setDocRequirements(prev => prev.filter(item => item.id !== id));
+      setSuccess("Requirement deleted.");
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError("Failed to delete: " + err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // --- Template Handlers ---
-  const addTemplate = (file) => {
-    // Mock upload
-    setTemplates(prev => [...prev, {
-      id: Date.now(),
-      name: file.name,
-      size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
-      updated: 'Just now'
-    }]);
+  // --- Template Handlers ---
+  const addTemplate = async (file) => {
+    if (!file) return;
+    setLoading(true);
+    try {
+      // Defaulting category to 'General' as UI input is currently file-only
+      await settingsService.addTemplate(file, 'General', '');
+      await fetchData(); // Refresh list
+      setSuccess("Template uploaded successfully.");
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError("Failed to upload template: " + err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const deleteTemplate = (id) => {
-    setTemplates(prev => prev.filter(item => item.id !== id));
+  const deleteTemplate = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this template?")) return;
+    setLoading(true);
+    try {
+      await settingsService.deleteTemplate(id);
+      setTemplates(prev => prev.filter(item => item.id !== id));
+      setSuccess("Template deleted.");
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError("Failed to delete template: " + err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // --- Faculty Handlers ---
@@ -117,30 +177,66 @@ export function useAdminSettings() {
     }
   };
 
+  // --- Holiday Handlers ---
+  const handleAddHoliday = async (holiday) => {
+    setLoading(true);
+    try {
+      await settingsService.upsertHoliday(holiday);
+      await fetchData(); // Refresh list
+      setSuccess("Holiday saved.");
+      setTimeout(() => setSuccess(null), 3000);
+      return true;
+    } catch (err) {
+      setError("Failed to save holiday: " + err.message);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteHoliday = async (id) => {
+    if (!window.confirm("Delete this holiday?")) return;
+    setLoading(true);
+    try {
+      await settingsService.deleteHoliday(id);
+      setHolidays(prev => prev.filter(h => h.holiday_id !== id));
+      setSuccess("Holiday deleted.");
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError("Failed to delete holiday: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Initial Load
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [allSettings, jobs, docs, temps, faculty] = await Promise.all([
+      const [allSettings, jobs, docs, temps, faculty, courses, health, holidayList] = await Promise.all([
         settingsService.getAllSettings(),
         settingsService.getQueue(),
         settingsService.getDocTypes(),
         settingsService.getTemplates(),
         settingsService.getFaculty(),
-        settingsService.getCourses()
+        settingsService.getCourses(),
+        settingsService.getSystemHealth(),
+        settingsService.getHolidays()
       ]);
       setSettings(allSettings);
       setQueue(jobs);
       setFacultyList(faculty.sort((a, b) => a.last_name.localeCompare(b.last_name)));
       setCourseList(courses || []);
+      setSystemHealth(health);
+      setHolidays(holidayList || []);
 
       // Map DB Document Types to UI shape
       setDocRequirements(docs.map(d => ({
-        id: d.id,
+        id: d.doc_type_id,
         name: d.type_name,
-        folder: d.folder_name || 'General',
+        folder: d.description || 'General',
         is_active: d.is_active,
-        required: d.is_required
+        required: d.required_by_default
       })));
 
       // Map DB Templates to UI shape
@@ -256,6 +352,27 @@ export function useAdminSettings() {
     }
   };
 
+  const restoreSystem = async (file) => {
+    if (!file) return;
+    setProcessing(true);
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const json = JSON.parse(e.target.result);
+        const result = await settingsService.restoreSystem(json);
+        if (result.success) {
+          setSuccess("System restored successfully. Reloading...");
+          setTimeout(() => window.location.reload(), 2000);
+        }
+      } catch (err) {
+        setError("Restore failed: " + err.message);
+      } finally {
+        setProcessing(false);
+      }
+    };
+    reader.readAsText(file);
+  };
+
   return {
     loading, processing, error, success,
     settings, queue, testResult,
@@ -264,6 +381,8 @@ export function useAdminSettings() {
     templates, addTemplate, deleteTemplate,
     facultyList, handleAddFaculty, handleToggleFacultyStatus,
     courseList, handleAddCourse, handleDeleteCourse,
-    runTestOCR, processQueue, runBackup, refresh: fetchData
+    runTestOCR, processQueue, runBackup, restoreSystem,
+    systemHealth, holidays, handleAddHoliday, handleDeleteHoliday,
+    refresh: fetchData
   };
 }

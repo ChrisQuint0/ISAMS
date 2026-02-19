@@ -58,7 +58,13 @@ export default function FacultySettingsPage() {
   }, [profile]);
 
   const handleProfileSave = async () => {
-    await updateProfile(formData.firstName, formData.lastName, formData.consultationHours);
+    await updateProfile(
+      formData.firstName,
+      formData.lastName,
+      formData.consultationHours,
+      formData.department,
+      formData.email
+    );
   };
 
   const handlePreferencesSave = async () => {
@@ -128,9 +134,10 @@ export default function FacultySettingsPage() {
               <label className="block text-sm font-medium text-slate-400 mb-1">Email Address</label>
               <Input
                 value={formData.email}
-                disabled
-                className="bg-slate-800/50 border-slate-700 text-slate-400 cursor-not-allowed"
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="bg-slate-800 border-slate-700 text-slate-100"
               />
+              <p className="text-xs text-yellow-500 mt-1">Note: Changing this email affects notifications but not your login credentials.</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -138,8 +145,8 @@ export default function FacultySettingsPage() {
                 <label className="block text-sm font-medium text-slate-400 mb-1">Department</label>
                 <Input
                   value={formData.department}
-                  disabled
-                  className="bg-slate-800/50 border-slate-700 text-slate-400 cursor-not-allowed"
+                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                  className="bg-slate-800 border-slate-700 text-slate-100"
                 />
               </div>
               <div>

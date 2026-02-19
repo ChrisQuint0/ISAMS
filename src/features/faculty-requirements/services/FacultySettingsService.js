@@ -23,14 +23,16 @@ export const FacultySettingsService = {
     /**
      * Update faculty profile details
      */
-    async updateProfile(facultyId, { firstName, lastName, consultationHours }) {
+    async updateProfile(facultyId, { firstName, lastName, consultationHours, department, email }) {
         try {
             const { error } = await supabase
                 .rpc('update_faculty_profile_fs', {
                     p_faculty_id: facultyId,
                     p_first_name: firstName,
                     p_last_name: lastName,
-                    p_consultation_hours: consultationHours
+                    p_consultation_hours: consultationHours,
+                    p_department: department,
+                    p_email: email
                 });
 
             if (error) throw error;

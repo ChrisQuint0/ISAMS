@@ -33,7 +33,35 @@ export const FacultyAnalyticsService = {
      * Get submission timeline data
      * RPC: get_faculty_submission_timeline
      */
-    async getSubmissionTimeline() {
+    async getSubmissionTimeline(semester = null, academicYear = null) {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            const { data: faculty } = await supabase
+                .from('faculty_fs')
+                .select('faculty_id')
+                .eq('user_id', user.id)
+                .single();
+
+            const params = { p_faculty_id: faculty.faculty_id };
+            if (semester) params.p_semester = semester;
+            if (academicYear) params.p_academic_year = academicYear;
+
+            const { data, error } = await supabase
+                .rpc('get_faculty_submission_timeline_fs', params);
+
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('Error fetching timeline:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get on-time vs late submission statistics
+     * RPC: get_faculty_ontime_stats_fs
+     */
+    async getOnTimeStats() {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             const { data: faculty } = await supabase
@@ -43,12 +71,12 @@ export const FacultyAnalyticsService = {
                 .single();
 
             const { data, error } = await supabase
-                .rpc('get_faculty_submission_timeline_fs', { p_faculty_id: faculty.faculty_id });
+                .rpc('get_faculty_ontime_stats_fs', { p_faculty_id: faculty.faculty_id });
 
             if (error) throw error;
-            return data || [];
+            return data || { on_time_count: 0, late_count: 0, total_count: 0, on_time_rate: 0 };
         } catch (error) {
-            console.error('Error fetching timeline:', error);
+            console.error('Error fetching on-time stats:', error);
             throw error;
         }
     },

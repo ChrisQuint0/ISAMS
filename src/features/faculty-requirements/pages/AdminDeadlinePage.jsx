@@ -125,9 +125,11 @@ export default function AdminDeadlinePage() {
     } else if (action === 'GRACE') {
       setBulkGraceOpen(true);
     } else if (action === 'RESET') {
-      if (window.confirm("Reset all deadlines to default semester schedule?")) {
-        // handleBulkAction('RESET'); 
-        alert("Reset functionality triggered.");
+      if (window.confirm(`Reset all deadlines for ${newDeadline.semester} ${newDeadline.academic_year} to defaults? This will delete custom dates.`)) {
+        handleBulkAction('RESET', {
+          semester: newDeadline.semester,
+          year: newDeadline.academic_year
+        });
       }
     }
   };

@@ -27,12 +27,17 @@ export default function FacultyArchivePage() {
     loading,
     error,
     loadArchivedCourses,
-    loadCourseHistory
+    loadCourseHistory,
+    loadSubmissionVersions,
+    submissionVersions,
+    handleDownloadAll,
+    downloading
   } = useFacultyResources();
 
   const [selectedSemester, setSelectedSemester] = useState("2023-2"); // Default to current
   const [expandedCourse, setExpandedCourse] = useState(null);
   const [expandedDocType, setExpandedDocType] = useState(null);
+  const [expandedSubmission, setExpandedSubmission] = useState(null);
   const [query, setQuery] = useState("");
 
   // Filter courses based on search query
@@ -170,15 +175,18 @@ export default function FacultyArchivePage() {
                   size="sm"
                   variant="outline"
                   className="h-8 bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700"
+                  disabled={downloading}
                   onClick={(e) => {
                     e.stopPropagation();
-                    // Call download service
-                    // For now just alert
-                    alert(`Initiating bulk download for ${course.course_code}... (Service Stub)`);
+                    handleDownloadAll(course.course_id, selectedSemester);
                   }}
                 >
-                  <Download className="h-4 w-4 mr-2" />
-                  Download All
+                  {downloading ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-2" />
+                  )}
+                  {downloading ? 'Zipping...' : 'Download All'}
                 </Button>
                 {expandedCourse === course.course_id ? <ChevronDown className="h-5 w-5 text-slate-500" /> : <ChevronRight className="h-5 w-5 text-slate-500" />}
               </div>
@@ -222,38 +230,95 @@ export default function FacultyArchivePage() {
                             </thead>
                             <tbody>
                               {doc.versions.map((ver, idx) => (
-                                <tr key={ver.submission_id} className="hover:bg-slate-900">
-                                  <td className="py-2 pl-2 text-slate-300">
-                                    <div className="flex items-center gap-2">
-                                      <span className="bg-slate-800 text-slate-400 px-1.5 rounded text-[10px]">v{doc.versions.length - idx}</span>
-                                      <span className="truncate max-w-[150px]">{ver.original_filename}</span>
-                                    </div>
-                                  </td>
-                                  <td className="py-2 text-slate-400">
-                                    <div className="flex items-center gap-1">
-                                      <Clock className="h-3 w-3" />
-                                      {new Date(ver.submitted_at).toLocaleDateString()}
-                                    </div>
-                                  </td>
-                                  <td className="py-2">
-                                    <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${ver.submission_status === 'APPROVED' ? 'bg-green-900/30 text-green-400' :
-                                      ver.submission_status === 'REJECTED' ? 'bg-red-900/30 text-red-400' :
-                                        'bg-blue-900/30 text-blue-400'
-                                      }`}>
-                                      {ver.submission_status}
-                                    </span>
-                                  </td>
-                                  <td className="py-2 pr-2 text-right">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-6 w-6 p-0 hover:text-blue-400"
-                                      onClick={(e) => { e.stopPropagation(); downloadFile(ver); }}
-                                    >
-                                      <Download className="h-3 w-3" />
-                                    </Button>
-                                  </td>
-                                </tr>
+                                <>
+                                  <tr key={ver.submission_id} className="hover:bg-slate-900 border-b border-slate-800 last:border-0">
+                                    <td className="py-2 pl-2 text-slate-300">
+                                      <div className="flex items-center gap-2">
+                                        <span className="truncate max-w-[150px]">{ver.original_filename}</span>
+                                      </div>
+                                    </td>
+                                    <td className="py-2 text-slate-400">
+                                      <div className="flex items-center gap-1">
+                                        <Clock className="h-3 w-3" />
+                                        {new Date(ver.updated_at || ver.submitted_at).toLocaleDateString()}
+                                      </div>
+                                    </td>
+                                    <td className="py-2">
+                                      <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${ver.submission_status === 'APPROVED' ? 'bg-green-900/30 text-green-400' :
+                                        ver.submission_status === 'REJECTED' ? 'bg-red-900/30 text-red-400' :
+                                          'bg-blue-900/30 text-blue-400'
+                                        }`}>
+                                        {ver.submission_status}
+                                      </span>
+                                    </td>
+                                    <td className="py-2 pr-2 text-right">
+                                      <div className="flex justify-end gap-2">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 px-2 text-slate-400 hover:text-blue-400 text-[10px]"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (expandedSubmission === ver.submission_id) {
+                                              setExpandedSubmission(null);
+                                            } else {
+                                              setExpandedSubmission(ver.submission_id);
+                                              loadSubmissionVersions(ver.submission_id);
+                                            }
+                                          }}
+                                        >
+                                          <History className="h-3 w-3 mr-1" />
+                                          History
+                                          {expandedSubmission === ver.submission_id ? <ChevronDown className="h-3 w-3 ml-1" /> : <ChevronRight className="h-3 w-3 ml-1" />}
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 w-6 p-0 hover:text-blue-400"
+                                          onClick={(e) => { e.stopPropagation(); downloadFile(ver); }}
+                                        >
+                                          <Download className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                  {/* Expanded Version History */}
+                                  {expandedSubmission === ver.submission_id && (
+                                    <tr>
+                                      <td colSpan={4} className="bg-slate-950/50 p-3 pl-8 border-b border-slate-800">
+                                        <div className="text-xs text-slate-500 mb-2 font-semibold uppercase tracking-wider">Previous Versions</div>
+                                        {submissionVersions.length === 0 ? (
+                                          <div className="text-slate-500 italic text-xs">No previous versions registered.</div>
+                                        ) : (
+                                          <ul className="space-y-2">
+                                            {submissionVersions.map((v) => (
+                                              <li key={v.version_id} className="flex justify-between items-center text-xs text-slate-400 bg-slate-900 p-2 rounded border border-slate-800">
+                                                <div className="flex items-center gap-2">
+                                                  <Badge variant="outline" className="text-[10px] h-5 px-1 bg-slate-800 border-slate-700">v{v.version_number}</Badge>
+                                                  <span className="truncate max-w-[200px]">{v.original_filename}</span>
+                                                  <span className="text-slate-600 flex items-center gap-1 mx-2">| <Clock className="h-3 w-3" /> {new Date(v.archived_at).toLocaleString()}</span>
+                                                </div>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className="h-5 w-5 p-0 hover:text-blue-400"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    // Assuming we have a link to download specific version
+                                                    if (v.gdrive_web_view_link) window.open(v.gdrive_web_view_link, '_blank');
+                                                    else alert('Link not available');
+                                                  }}
+                                                >
+                                                  <Download className="h-3 w-3" />
+                                                </Button>
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  )}
+                                </>
                               ))}
                             </tbody>
                           </table>
