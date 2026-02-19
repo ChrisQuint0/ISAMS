@@ -1,13 +1,11 @@
 import React, { useState, useMemo, useCallback } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Search, Download, Monitor, Laptop, X, User, Clock, GraduationCap, CalendarDays, History, LogOut, CheckSquare, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Download, Monitor, Laptop, X, User, Clock, GraduationCap, CalendarDays, History, LogOut, CheckSquare, ChevronLeft, ChevronRight, FileText, FileSpreadsheet } from "lucide-react";
 import { AgGridReact } from 'ag-grid-react';
 import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-community';
 
-// Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
 
-// Uses the AG Grid v33+ Theming API.
 const accessLogTheme = themeBalham.withParams({
     accentColor: '#3b82f6',
     backgroundColor: '#020617',
@@ -24,18 +22,16 @@ export default function AccessLogs() {
     const { labName } = useOutletContext();
     const [gridApi, setGridApi] = useState(null);
 
-    // Date range filter
+    const [exportFormat, setExportFormat] = useState("csv");
+
     const [dateFrom, setDateFrom] = useState("2026-02-16");
     const [dateTo, setDateTo] = useState("2026-02-16");
 
-    // Student detail drawer
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState(null);
 
-    // Bulk selection
     const [selectedRows, setSelectedRows] = useState([]);
 
-    // Anonymized Dummy Data for testing
     const [rowData] = useState([
         { student_no: "2023-0001", student_name: "Juan Dela Cruz", section: "BSIT-3A", pc_number: "PC-01", session_mode: "PC", date: "2026-02-16", time_in: "01:00 PM", time_out: "04:00 PM", status: "Present" },
         { student_no: "2023-0002", student_name: "Maria Santos", section: "BSIT-3A", pc_number: "PC-02", session_mode: "Laptop", date: "2026-02-16", time_in: "01:05 PM", time_out: "---", status: "Present" },
@@ -49,7 +45,6 @@ export default function AccessLogs() {
         { student_no: "2023-0010", student_name: "Sofia Cruz", section: "BSIT-3B", pc_number: "PC-09", session_mode: "PC", date: "2026-02-13", time_in: "08:00 AM", time_out: "11:00 AM", status: "Present" },
     ]);
 
-    // Filter by date range
     const filteredData = useMemo(() => {
         return rowData.filter(r => {
             if (dateFrom && r.date < dateFrom) return false;
@@ -58,7 +53,6 @@ export default function AccessLogs() {
         });
     }, [rowData, dateFrom, dateTo]);
 
-    // Dummy visit history for drawer
     const studentHistory = useMemo(() => {
         if (!selectedStudent) return [];
         return rowData
@@ -77,7 +71,6 @@ export default function AccessLogs() {
     }, [gridApi]);
 
     const handleBulkTimeOut = () => {
-        // Placeholder: in production this would update Supabase
         alert(`Timed out ${selectedRows.length} student(s)`);
         gridApi?.deselectAll();
         setSelectedRows([]);
@@ -85,10 +78,28 @@ export default function AccessLogs() {
 
     const handleBulkExport = () => {
         if (!gridApi) return;
-        gridApi.exportDataAsCsv({
-            onlySelected: true,
-            fileName: `access-logs-${dateFrom}-to-${dateTo}.csv`
-        });
+        if (exportFormat === "csv") {
+            gridApi.exportDataAsCsv({
+                onlySelected: true,
+                fileName: `access-logs-${dateFrom}-to-${dateTo}.csv`
+            });
+            return;
+        }
+
+        const rows = selectedRows || [];
+        const cols = ['student_no','student_name','section','pc_number','session_mode','date','time_in','time_out','status'];
+        const header = ['Student No','Name','Section','PC','Mode','Date','Time In','Time Out','Status'];
+        const tableRows = rows.map(r => `\n<tr>${cols.map(c => `<td>${(r[c] ?? '')}</td>`).join('')}</tr>`).join('');
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>Access Logs</title><style>body{font-family:Arial,Helvetica,sans-serif;color:#0f172a;padding:20px}h2{margin-bottom:10px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:12px}th{background:#f4f4f4}</style></head><body><h2>Access Logs ${dateFrom} — ${dateTo}</h2><table><thead><tr>${header.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${tableRows}</tbody></table></body></html>`;
+        const w = window.open('', '_blank');
+        if (w) {
+            w.document.write(html);
+            w.document.close();
+            w.focus();
+            w.print();
+        } else {
+            alert('Popup blocked. Allow popups to export PDF.');
+        }
     };
 
     const columnDefs = useMemo(() => [
@@ -174,17 +185,13 @@ export default function AccessLogs() {
     return (
         <div className="p-8 space-y-5 bg-[#020617] min-h-screen relative">
 
-            {/* ── Header ── */}
             <div>
                 <h1 className="text-2xl font-bold text-white tracking-tight">{labName} — Access Logs</h1>
                 <p className="text-slate-400 text-sm italic">Audit Trail & Peripheral Accountability</p>
             </div>
 
-            {/* ── Toolbar: Search + Date Range + Bulk Actions + Export ── */}
             <div className="flex items-center justify-between gap-4 flex-wrap">
-                {/* Left: Search + Date Range */}
                 <div className="flex items-center gap-3 flex-wrap">
-                    {/* Search */}
                     <div className="relative max-w-xs flex-1 group/search" style={{ minWidth: 200 }}>
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 z-10" size={14} />
                         <input 
@@ -195,7 +202,6 @@ export default function AccessLogs() {
                         />
                     </div>
 
-                    {/* Date Range */}
                     <div className="flex items-center gap-2 bg-[#0f172a] border border-[#1e293b] rounded-lg px-3 py-1.5 hover:border-slate-600 transition-colors">
                         <CalendarDays size={13} className="text-slate-500 shrink-0" />
                         <input 
@@ -214,7 +220,6 @@ export default function AccessLogs() {
                     </div>
                 </div>
 
-                {/* Right: Bulk Actions + Export */}
                 <div className="flex items-center gap-2">
                     {selectedRows.length > 0 && (
                         <>
@@ -239,18 +244,63 @@ export default function AccessLogs() {
                             </button>
                         </>
                     )}
-                    <button 
-                        onClick={() => gridApi?.exportDataAsCsv({ fileName: `access-logs-${dateFrom}-to-${dateTo}.csv` })}
-                        className="flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 hover:border-blue-500/40 text-blue-400 hover:text-blue-300 text-[10px] font-bold py-2 px-5 rounded-lg uppercase tracking-widest transition-all group/btn relative overflow-hidden shrink-0"
-                    >
-                        <div className="absolute inset-0 bg-gradient-to-br from-white/0 via-white/0 to-white/0 group-hover/btn:from-white/10 group-hover/btn:via-white/0 group-hover/btn:to-white/0 transition-all duration-500 pointer-events-none" />
-                        <div className="absolute inset-0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
-                        <Download size={13} /> Export All
-                    </button>
+                    <div className="flex items-center gap-0">
+                        <div className="flex items-center bg-[#0f172a] border border-[#1e293b] rounded-l-lg p-0.5">
+                            <button
+                                onClick={() => setExportFormat("csv")}
+                                className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-[9px] font-bold uppercase tracking-widest transition-all ${
+                                    exportFormat === "csv" ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30" : "text-slate-500 hover:text-slate-300 border border-transparent"
+                                }`}
+                            >
+                                <FileSpreadsheet size={11} /> CSV
+                            </button>
+                            <button
+                                onClick={() => setExportFormat("pdf")}
+                                className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-[9px] font-bold uppercase tracking-widest transition-all ${
+                                    exportFormat === "pdf" ? "bg-rose-500/15 text-rose-400 border border-rose-500/30" : "text-slate-500 hover:text-slate-300 border border-transparent"
+                                }`}
+                            >
+                                <FileText size={11} /> PDF
+                            </button>
+                        </div>
+                        <button
+                            onClick={() => {
+                                const rows = (selectedRows && selectedRows.length > 0) ? selectedRows : (filteredData || []);
+                                if (exportFormat === "csv") {
+                                    // If using AG Grid and rows are selected, prefer gridApi export (onlySelected)
+                                    if (selectedRows && selectedRows.length > 0) {
+                                        gridApi?.exportDataAsCsv({ onlySelected: true, fileName: `access-logs-${dateFrom}-to-${dateTo}.csv` });
+                                    } else {
+                                        gridApi?.exportDataAsCsv({ fileName: `access-logs-${dateFrom}-to-${dateTo}.csv` });
+                                    }
+                                    return;
+                                }
+
+                                // PDF export for selected or filtered rows
+                                const cols = ['student_no','student_name','section','pc_number','session_mode','date','time_in','time_out','status'];
+                                const header = ['Student No','Name','Section','PC','Mode','Date','Time In','Time Out','Status'];
+                                const tableRows = rows.map(r => `\n<tr>${cols.map(c => `<td>${(r[c] ?? '')}</td>`).join('')}</tr>`).join('');
+                                const html = `<!doctype html><html><head><meta charset="utf-8"><title>Access Logs</title><style>body{font-family:Arial,Helvetica,sans-serif;color:#0f172a;padding:20px}h2{margin-bottom:10px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:12px}th{background:#f4f4f4}</style></head><body><h2>Access Logs ${dateFrom} — ${dateTo}</h2><table><thead><tr>${header.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${tableRows}</tbody></table></body></html>`;
+                                const w = window.open('', '_blank');
+                                if (w) {
+                                    w.document.write(html);
+                                    w.document.close();
+                                    w.focus();
+                                    w.print();
+                                } else {
+                                    alert('Popup blocked. Allow popups to export PDF.');
+                                }
+                            }}
+                            className="flex items-center gap-2 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-r-lg bg-blue-500/10 border border-blue-500/20 border-l-0 hover:border-blue-500/40 text-blue-400 transition-all group/btn relative overflow-hidden"
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-br from-white/0 via-white/0 to-white/0 group-hover/btn:from-white/10 group-hover/btn:via-white/0 group-hover/btn:to-white/0 transition-all duration-500 pointer-events-none" />
+                            <div className="absolute inset-0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
+                            <Download size={13} /> {selectedRows && selectedRows.length > 0 ? 'Export Selected' : `Export .${exportFormat}`}
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            {/* ── Data Grid ── */}
             <div className="h-[calc(100vh-240px)] w-full rounded-xl overflow-hidden border border-[#1e293b] shadow-2xl group relative hover:border-slate-600 transition-colors">
                 <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none z-10" />
                 <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none z-10" />
@@ -272,8 +322,6 @@ export default function AccessLogs() {
                 />
             </div>
 
-            {/* ═══════════════════ STUDENT DETAIL DRAWER ═══════════════════ */}
-            {/* Backdrop */}
             {drawerOpen && (
                 <div 
                     className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity"
@@ -281,13 +329,11 @@ export default function AccessLogs() {
                 />
             )}
 
-            {/* Drawer Panel */}
             <div className={`fixed top-0 right-0 h-full w-full max-w-md bg-[#0f172a] border-l border-[#1e293b] shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${
                 drawerOpen ? "translate-x-0" : "translate-x-full"
             }`}>
                 {selectedStudent && (
                     <div className="flex flex-col h-full">
-                        {/* Drawer Header */}
                         <div className="flex items-center justify-between p-6 border-b border-[#1e293b]">
                             <h3 className="text-xs font-black text-slate-500 uppercase tracking-[0.2em]">Student Details</h3>
                             <button 
@@ -298,10 +344,8 @@ export default function AccessLogs() {
                             </button>
                         </div>
 
-                        {/* Drawer Content */}
                         <div className="flex-1 overflow-y-auto p-6 space-y-6">
                             
-                            {/* Student Profile Card */}
                             <div className="bg-[#020617] border border-[#1e293b] rounded-2xl p-5 space-y-4">
                                 <div className="flex items-center gap-4">
                                     <div className="w-14 h-14 rounded-2xl bg-sky-500/20 flex items-center justify-center shrink-0">
@@ -326,7 +370,6 @@ export default function AccessLogs() {
                                 </div>
                             </div>
 
-                            {/* Current Session */}
                             <div className="space-y-2">
                                 <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
                                     <Clock size={11} className="text-sky-500" /> Current Session
@@ -361,7 +404,6 @@ export default function AccessLogs() {
                                 </div>
                             </div>
 
-                            {/* Visit History */}
                             <div className="space-y-2">
                                 <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
                                     <History size={11} className="text-purple-500" /> Visit History
@@ -399,7 +441,6 @@ export default function AccessLogs() {
                             </div>
                         </div>
 
-                        {/* Drawer Footer */}
                         <div className="p-6 border-t border-[#1e293b] space-y-2">
                             {selectedStudent.time_out === "---" && (
                                 <button className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-slate-900 text-[11px] font-bold py-3 rounded-xl uppercase tracking-widest transition-all group/btn relative overflow-hidden">

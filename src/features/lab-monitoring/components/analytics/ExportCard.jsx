@@ -19,7 +19,6 @@ export default function ExportCard({ title, description, icon }) {
                     </div>
                 </div>
             </div>
-            {/* Format selector + Download */}
             <div className="flex items-center justify-between mt-4 pt-3 border-t border-[#1e293b] relative z-10">
                 <div className="flex items-center bg-[#0f172a] border border-[#1e293b] rounded-lg p-0.5">
                     <button

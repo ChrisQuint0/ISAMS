@@ -6,14 +6,12 @@ export default function PCGridLayout({ stations, selectedPC, onSelectPC, selectM
         <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-8 shadow-2xl relative overflow-hidden group hover:border-slate-600 transition-colors">
             <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none z-10" />
             <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none z-10" />
-            {/* Front of Room Indicator */}
             <div className="w-2/3 max-w-md mx-auto h-4 bg-slate-800 rounded-b-xl mb-12 flex items-center justify-center relative shadow-md">
                 <span className="absolute -bottom-6 text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">
                     Whiteboard / Professor
                 </span>
             </div>
 
-            {/* 8x5 Grid for 40 PCs */}
             <div className="grid grid-cols-5 md:grid-cols-8 gap-4 max-w-5xl mx-auto">
                 {stations.map((station) => {
                     const isChecked = checkedPCs.includes(station.id);
@@ -30,7 +28,6 @@ export default function PCGridLayout({ stations, selectedPC, onSelectPC, selectM
                                 ${selectMode && isChecked ? 'ring-2 ring-purple-500 scale-105 bg-purple-500/15' : ''}
                             `}
                         >
-                            {/* Checkbox overlay in select mode */}
                             {selectMode && (
                                 <div className={`absolute top-1 left-1 w-4 h-4 rounded border flex items-center justify-center transition-all z-20 ${
                                     isChecked
@@ -41,7 +38,6 @@ export default function PCGridLayout({ stations, selectedPC, onSelectPC, selectM
                                 </div>
                             )}
 
-                            {/* Station Icon */}
                             {station.status === 'Laptop' ? (
                                 <Laptop size={24} className={`mb-1 ${station.status === 'Laptop' ? 'text-purple-400' : ''}`} />
                             ) : (
@@ -52,14 +48,12 @@ export default function PCGridLayout({ stations, selectedPC, onSelectPC, selectM
                                 `} />
                             )}
 
-                            {/* Station ID */}
                             <span className={`text-[10px] font-black tracking-widest ${
                                 station.status === 'Maintenance' ? 'text-amber-400' : 'text-slate-300'
                             }`}>
                                 {station.id}
                             </span>
 
-                            {/* Alert Badge overlay */}
                             {station.status === 'Maintenance' && (
                                 <div className="absolute -top-1.5 -right-1.5 bg-amber-500 text-slate-900 p-0.5 rounded-full shadow-lg">
                                     <AlertTriangle size={12} fill="currentColor" />
