@@ -15,7 +15,8 @@ import {
   FileIcon,
   X,
   ScanText,
-  Check
+  Check,
+  Clock
 } from "lucide-react";
 import { useFacultySubmission } from "../hooks/FacultySubmissionHook";
 import { FacultySubmissionService } from "../services/FacultySubmissionService";
@@ -47,6 +48,7 @@ export default function FacultySubmissionPage() {
   });
 
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [isLateSubmission, setIsLateSubmission] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [ocrResult, setOcrResult] = useState(null);
@@ -162,21 +164,23 @@ export default function FacultySubmissionPage() {
       return;
     }
 
-    const success = await submitDocument({
+    const result = await submitDocument({
       file: selectedFile,
       courseId: formData.course,
       docTypeId: formData.documentType
     });
 
-    if (success) {
+    if (result) {
       setUploadSuccess(true);
+      if (result.is_late) setIsLateSubmission(true);
       setTimeout(() => {
         // Reset form after 2 seconds
         setUploadSuccess(false);
+        setIsLateSubmission(false);
         handleReset();
         // Optional: navigate to dashboard
         // navigate('/faculty-requirements/dashboard'); 
-      }, 2000);
+      }, 3000); // Increased timeout to read the message
     }
   };
 
@@ -199,6 +203,7 @@ export default function FacultySubmissionPage() {
       course: ""
     });
     setUploadSuccess(false);
+    setIsLateSubmission(false);
     setOcrResult(null);
     setIsValidating(false);
   };
@@ -225,6 +230,13 @@ export default function FacultySubmissionPage() {
             <Alert className="mb-4 border-green-900/50 bg-green-900/10 text-green-200">
               <CheckCircle className="h-4 w-4 text-green-400" />
               <AlertDescription>Document submitted successfully! Redirecting...</AlertDescription>
+            </Alert>
+          )}
+
+          {isLateSubmission && (
+            <Alert className="mb-4 border-amber-900/50 bg-amber-900/10 text-amber-200">
+              <Clock className="h-4 w-4 text-amber-400" />
+              <AlertDescription>Document submitted successfully, but it was marked as LATE.</AlertDescription>
             </Alert>
           )}
 

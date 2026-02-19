@@ -15,12 +15,30 @@ export const reportService = {
     if (error) throw error;
 
     // Transform Chart Data for Recharts/Chart.js
+    let labels = [];
+    let values = [];
+
+    if (data.chart_data && data.chart_data.length > 0) {
+      if (config.reportType === 'Submission Status') {
+        labels = data.chart_data.map(d => d.submission_status);
+        values = data.chart_data.map(d => d.count);
+      } else if (config.reportType === 'Late Analysis') {
+        labels = data.chart_data.map(d => d.department);
+        values = data.chart_data.map(d => d.count);
+      } else if (config.reportType === 'Clearance') {
+        // Clearance chart returns a single object with cleared/pending counts
+        const chartObj = data.chart_data[0];
+        labels = ['Cleared', 'Pending'];
+        values = [chartObj.cleared, chartObj.pending];
+      }
+    }
+
     const chartData = {
-      labels: data.chart_data?.map(d => d.label) || [],
+      labels: labels,
       datasets: [{
         label: 'Count',
-        data: data.chart_data?.map(d => d.value) || [],
-        backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#3b82f6']
+        data: values,
+        backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6']
       }]
     };
 

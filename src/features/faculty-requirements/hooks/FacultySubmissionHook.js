@@ -43,12 +43,12 @@ export function useFacultySubmission() {
         setIsSubmitting(true);
         setError(null);
         try {
-            await FacultySubmissionService.uploadSubmission({
+            const data = await FacultySubmissionService.uploadSubmission({
                 file,
                 courseId,
                 docTypeId
             });
-            return true;
+            return data;
         } catch (err) {
             console.error(err);
             setError(err.message || 'Submission failed');
