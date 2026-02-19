@@ -6,7 +6,6 @@ import {
     Users,
     Activity,
     Laptop,
-    AlertTriangle,
     Monitor,
     Clock,
     Zap,
