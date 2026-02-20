@@ -40,7 +40,7 @@ import {
 export function AppSidebar() {
   const navigate = useNavigate()
   const location = useLocation()
-  
+
   const [stats, setStats] = useState({
     activeFaculty: 0,
     pendingValidation: 0,
@@ -74,7 +74,7 @@ export function AppSidebar() {
       setStats({
         activeFaculty: dashStats.total_faculty || 0,
         pendingValidation: validStats.pending_count || 0,
-        dashboardAlerts: dashStats.pending_approvals || 0, 
+        dashboardAlerts: dashStats.pending_approvals || 0,
         systemStatus: 'Online'
       })
     } catch (error) {
@@ -99,8 +99,8 @@ export function AppSidebar() {
       <SidebarHeader className="bg-slate-900 border-b border-slate-800">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton 
-              size="lg" 
+            <SidebarMenuButton
+              size="lg"
               className="data-[state=open]:bg-slate-800 data-[state=open]:text-slate-100 hover:bg-slate-800"
             >
               {/* Icon Container */}
@@ -123,7 +123,7 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="bg-slate-900 overflow-x-hidden">
-      <SidebarSeparator className="bg-slate-800 group-data-[collapsible=icon]:hidden" />
+        <SidebarSeparator className="bg-slate-800 group-data-[collapsible=icon]:hidden" />
         <SidebarGroup>
           <SidebarGroupLabel className="text-slate-500 group-data-[collapsible=icon]:hidden">
             Admin Navigation
@@ -132,13 +132,12 @@ export function AppSidebar() {
             <SidebarMenu>
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.path} className="mb-1">
-                  <SidebarMenuButton 
+                  <SidebarMenuButton
                     isActive={isActive(item.path)}
                     onClick={() => navigate(item.path)}
                     tooltip={item.label}
-                    className={`text-slate-300 hover:text-slate-100 hover:bg-slate-800 transition-colors ${
-                      isActive(item.path) ? "bg-slate-800 text-white" : ""
-                    }`}
+                    className={`text-slate-300 hover:!text-slate-300 hover:!bg-slate-800 transition-colors ${isActive(item.path) ? "!bg-slate-800 !text-slate-300" : ""
+                      }`}
                   >
                     <item.icon className={`h-4 w-4 ${isActive(item.path) ? "text-blue-400" : ""}`} />
                     <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
@@ -158,13 +157,14 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton 
+                <SidebarMenuButton
                   isActive={isActive('/settings')}
                   onClick={() => navigate('/settings')}
-                  className="text-slate-400 hover:text-slate-100 hover:bg-slate-800"
+                  className={`text-slate-300 hover:!text-slate-300 hover:!bg-slate-800 transition-colors ${isActive('/settings') ? "!bg-slate-800 !text-slate-300" : ""
+                    }`}
                   tooltip="System Settings"
                 >
-                  <Settings className="h-4 w-4" />
+                  <Settings className={`h-4 w-4 ${isActive('/settings') ? "text-blue-400" : ""}`} />
                   <span className="group-data-[collapsible=icon]:hidden">System Settings</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -183,7 +183,7 @@ export function AppSidebar() {
                   className="w-full justify-start gap-3 hover:bg-slate-800 text-slate-200 group-data-[collapsible=icon]:justify-center"
                 >
                   <div className="flex aspect-square size-8 items-center justify-center rounded-full bg-slate-700 shrink-0">
-                     <User className="size-4 text-slate-100" />
+                    <User className="size-4 text-slate-100" />
                   </div>
                   <div className="flex-1 text-left text-slate-200 text-sm leading-tight group-data-[collapsible=icon]:hidden overflow-hidden min-w-0">
                     <span className="truncate font-medium block">Dean's Office</span>
@@ -201,8 +201,8 @@ export function AppSidebar() {
                   <span>Sync Stats</span>
                 </DropdownMenuItem>
                 <SidebarSeparator className="bg-slate-800" />
-                <DropdownMenuItem 
-                  onClick={() => navigate("/dashboard")} 
+                <DropdownMenuItem
+                  onClick={() => navigate("/dashboard")}
                   className="text-red-400 hover:bg-red-950/30 focus:bg-red-950/30 focus:text-red-400"
                 >
                   <LogOut className="mr-2 h-4 w-4" />

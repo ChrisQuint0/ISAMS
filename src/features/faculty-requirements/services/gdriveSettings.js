@@ -1,3 +1,5 @@
+import { supabase } from '@/lib/supabaseClient';
+
 /**
  * Google Drive Settings Utility for Faculty Submissions
  *
@@ -6,20 +8,32 @@
  */
 
 const STORAGE_KEY = 'fsFolderLink';
-const API_BASE = 'http://localhost:3000';
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000';
 
 /**
  * Get the saved Google Drive folder link from localStorage
  */
-export const getFolderLink = () => {
-    return localStorage.getItem(STORAGE_KEY) || '';
+export const getFolderLink = async () => {
+    try {
+        const { data, error } = await supabase
+            .from('systemsettings_fs')
+            .select('setting_value')
+            .eq('setting_key', 'gdrive_root_folder_id')
+            .single();
+
+        if (error || !data) return '';
+        return data.setting_value;
+    } catch (e) {
+        console.error("Failed to fetch GDrive folder link from DB:", e);
+        return '';
+    }
 };
 
 /**
  * Save the Google Drive folder link to localStorage
  */
 export const setFolderLink = (link) => {
-    localStorage.setItem(STORAGE_KEY, link);
+    console.warn("setFolderLink is deprecated. Use the Admin Settings UI to update the database directly.");
 };
 
 /**

@@ -45,6 +45,7 @@ export default function AdminDashboardPage() {
     stats,
     departmentProgress,
     facultyStatus,
+    settings,
     refresh,
     sendBulkReminders,
     sendIndividualReminder
@@ -172,7 +173,7 @@ export default function AdminDashboardPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-slate-100">Dean's Dashboard</h1>
-          <p className="text-slate-400 text-sm">College-wide overview • Semester 2, AY 2023-2024</p>
+          <p className="text-slate-400 text-sm">College-wide overview • {settings?.semester || 'Loading...'}, AY {settings?.academic_year || '...'}</p>
         </div>
         <div className="flex gap-2 w-full md:w-auto">
           <Button

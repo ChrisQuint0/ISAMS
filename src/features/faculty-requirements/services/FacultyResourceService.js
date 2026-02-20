@@ -59,17 +59,18 @@ export const FacultyResourceService = {
             let query = supabase
                 .from('submissions_fs')
                 .select(`
-          submission_id,
-          standardized_filename,
-          submitted_at,
-          courses_fs (course_code, course_name),
-          documenttypes_fs (type_name)
-        `)
+                    original_filename,
+                    gdrive_download_link,
+                    gdrive_web_view_link,
+                    documenttypes_fs (type_name),
+                    courses_fs!inner (semester, academic_year)
+                `)
                 .eq('faculty_id', faculty.faculty_id)
-                .eq('submission_status', 'ARCHIVED'); // Assuming we have an ARCHIVED status
+                // FIX: Removed the undefined .eq('course_id', courseId) that was causing crashes
+                .eq('submission_status', 'ARCHIVED');
 
-            if (semester) query = query.eq('semester', semester);
-            if (academicYear) query = query.eq('academic_year', academicYear);
+            if (semester) query = query.eq('courses_fs.semester', semester);
+            if (academicYear) query = query.eq('courses_fs.academic_year', academicYear);
 
             const { data, error } = await query;
 
@@ -80,6 +81,7 @@ export const FacultyResourceService = {
             throw error;
         }
     },
+
     async getArchivedCourses(semester) {
         try {
             const { data: { user } } = await supabase.auth.getUser();
@@ -133,9 +135,12 @@ export const FacultyResourceService = {
     /**
      * Download all documents for a course (ZIP)
      */
+    /**
+     * Download all documents for a course (ZIP) routed through Node backend
+     */
     async downloadAllDocuments(courseId, semester, academicYear) {
         try {
-            // 1. Fetch all submissions for this course + faculty
+            // 1. Fetch all submissions for this course + faculty safely via Supabase
             const { data: { user } } = await supabase.auth.getUser();
             const { data: faculty } = await supabase
                 .from('faculty_fs')
@@ -146,51 +151,55 @@ export const FacultyResourceService = {
             let query = supabase
                 .from('submissions_fs')
                 .select(`
+                    submission_id,
                     original_filename,
                     gdrive_download_link,
                     gdrive_web_view_link,
                     documenttypes_fs (type_name)
                 `)
                 .eq('faculty_id', faculty.faculty_id)
-                .eq('course_id', courseId)
-                .eq('submission_status', 'ARCHIVED'); // Only archived? Or all? Usually archive page implies archived.
+                .eq('course_id', courseId) // FIX: Added missing course filter so it doesn't download everything!
+                .eq('submission_status', 'ARCHIVED');
 
-            if (semester) query = query.eq('semester', semester);
-            if (academicYear) query = query.eq('academic_year', academicYear);
+            if (semester) query = query.eq('courses_fs.semester', semester);
+            if (academicYear) query = query.eq('courses_fs.academic_year', academicYear);
 
             const { data: files, error } = await query;
             if (error) throw error;
             if (!files || files.length === 0) return { success: false, message: "No files found to download." };
 
-            // 2. Init JSZip
-            const zip = new JSZip();
-            const folderName = `Course_Archive_${courseId}_${new Date().toISOString().slice(0, 10)}`;
-            const folder = zip.folder(folderName);
-
-            // 3. Fetch each file and add to ZIP
-            const fetchFile = async (file) => {
-                const fileName = file.original_filename || `doc_${Math.random().toString(36).substr(2, 9)}`;
+            // 2. Map the files into a clean payload for the backend
+            const payloadFiles = files.map(file => {
                 const docType = file.documenttypes_fs?.type_name || 'Uncategorized';
-                // Try to fetch blob. If CORS fails, add a text file with link.
-                try {
-                    // Try fetch via proxy if available, or direct.
-                    // Assuming gdrive_download_link might work or we use a proxy endpoint.
-                    // Since we don't have a specific proxy for download in the snippet, we try direct.
-                    const response = await fetch(file.gdrive_download_link);
-                    if (!response.ok) throw new Error('Network response was not ok');
-                    const blob = await response.blob();
-                    folder.file(`${docType}/${fileName}`, blob);
-                } catch (e) {
-                    console.warn(`Failed to download ${fileName}, adding link file instead.`, e);
-                    folder.file(`${docType}/${fileName}.url.txt`, `File could not be downloaded directly due to browser restrictions.\nDownload link: ${file.gdrive_web_view_link}`);
-                }
-            };
+                const filename = file.original_filename || `document_${file.submission_id}`;
 
-            await Promise.all(files.map(fetchFile));
+                // Extract just the ID from the Drive link
+                const fileIdMatch = file.gdrive_download_link?.match(/id=([^&]+)/);
 
-            // 4. Generate ZIP
-            const content = await zip.generateAsync({ type: "blob" });
-            saveAs(content, `${folderName}.zip`);
+                return {
+                    folder: docType,
+                    filename: filename,
+                    fileId: fileIdMatch ? fileIdMatch[1] : null,
+                    fallbackLink: file.gdrive_web_view_link
+                };
+            });
+
+            // 3. POST the payload to your Node server
+            const response = await fetch('http://localhost:3000/api/faculty/export', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ courseId, files: payloadFiles })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Export failed on server');
+            }
+
+            // 4. Receive the ZIP stream and trigger browser download
+            const blob = await response.blob();
+            const folderName = `Course_Archive_${courseId}_${new Date().toISOString().slice(0, 10)}.zip`;
+            saveAs(blob, folderName);
 
             return { success: true, message: "Download started." };
 

@@ -5,6 +5,7 @@ import { google } from "googleapis";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import fs from "fs";
+import JSZip from "jszip";
 
 // Load environment variables from .env.local
 dotenv.config({ path: "./.env.local" });
@@ -180,6 +181,142 @@ app.get("/api/status", async (req, res) => {
     .single();
 
   res.json({ authenticated: !!data });
+});
+
+// 6. Export Admin Archive as ZIP (using JSZip)
+app.post("/api/archive/export", async (req, res) => {
+  try {
+    const auth = await loadToken();
+    if (!auth) return res.status(401).json({ error: "Not authenticated with Google Drive" });
+
+    const drive = google.drive({ version: "v3", auth });
+    const { semester, academic_year, department } = req.body;
+
+    // 1. Translate 'All' strings back to null for the SQL RPC
+    const p_semester = (semester === 'All Semesters' || semester === 'ALL') ? null : semester;
+    const p_academic_year = (academic_year === 'All Years' || academic_year === 'ALL') ? null : academic_year;
+    const p_department = (department === 'All Departments' || department === 'ALL') ? null : department;
+
+    // 2. Fetch the file links from Supabase
+    const { data: files, error } = await supabase.rpc('get_archive_export_links_fs', {
+      p_semester,
+      p_academic_year,
+      p_department
+    });
+
+    if (error) throw error;
+    if (!files || files.length === 0) {
+      return res.status(404).json({ message: "No files found for this configuration." });
+    }
+
+    // 3. Set up the ZIP streaming response headers
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="Archive.zip"`);
+
+    // 4. Initialize JSZip
+    const zip = new JSZip();
+
+    // 5. Stream each file from Google Drive into the ZIP
+    for (const file of files) {
+      // Extract just the ID from the Supabase link
+      const fileIdMatch = file.download_link?.match(/id=([^&]+)/);
+      const fileId = fileIdMatch ? fileIdMatch[1] : null;
+
+      if (fileId) {
+        try {
+          const driveRes = await drive.files.get(
+            { fileId: fileId, alt: 'media' },
+            { responseType: 'stream' } // Critical: get it as a stream
+          );
+
+          // JSZip accepts the Node stream directly!
+          zip.file(file.filename, driveRes.data);
+        } catch (err) {
+          console.error(`Failed to fetch ${file.filename}:`, err.message);
+          zip.file(`ERROR_${file.filename}.txt`, `Failed to download. Error: ${err.message}`);
+        }
+      } else {
+        zip.file(`ERROR_${file.filename}.txt`, 'Invalid or missing Drive Link');
+      }
+    }
+
+    // 6. Generate the Node stream and pipe it to the response
+    zip.generateNodeStream({ type: 'nodebuffer', streamFiles: true })
+      .pipe(res)
+      .on('finish', () => {
+        console.log("ZIP export successfully streamed to client.");
+      })
+      .on('error', (err) => {
+        console.error("Error streaming zip:", err);
+      });
+
+  } catch (error) {
+    console.error("Archive export error:", error);
+    // Only send an error response if we haven't already started streaming the ZIP headers
+    if (!res.headersSent) {
+      res.status(500).json({ message: error.message || "Server error during export" });
+    }
+  }
+});
+
+// 7. Export Faculty Course Archive as ZIP (using JSZip)
+app.post("/api/faculty/export", async (req, res) => {
+  try {
+    const auth = await loadToken();
+    if (!auth) return res.status(401).json({ error: "Not authenticated with Google Drive" });
+
+    const drive = google.drive({ version: "v3", auth });
+    const { courseId, files } = req.body;
+
+    if (!files || files.length === 0) {
+      return res.status(404).json({ message: "No files provided for export." });
+    }
+
+    // Set up the ZIP streaming response headers
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="Course_${courseId}.zip"`);
+
+    const zip = new JSZip();
+
+    // Stream each file from Google Drive into the ZIP
+    for (const file of files) {
+      // Create a neat subfolder structure inside the ZIP (e.g., "Syllabus/file.pdf")
+      const zipPath = `${file.folder}/${file.filename}`;
+
+      if (file.fileId) {
+        try {
+          const driveRes = await drive.files.get(
+            { fileId: file.fileId, alt: 'media' },
+            { responseType: 'stream' }
+          );
+
+          zip.file(zipPath, driveRes.data);
+        } catch (err) {
+          console.error(`Failed to fetch ${file.filename}:`, err.message);
+          // If it fails, leave a helpful text file behind with the web link
+          zip.file(`${file.folder}/ERROR_${file.filename}.txt`, `Download failed: ${err.message}\nView manually here: ${file.fallbackLink}`);
+        }
+      } else {
+        zip.file(`${file.folder}/ERROR_${file.filename}.txt`, `Invalid Drive Link.\nView manually here: ${file.fallbackLink}`);
+      }
+    }
+
+    // Generate the Node stream and pipe it back to the React frontend
+    zip.generateNodeStream({ type: 'nodebuffer', streamFiles: true })
+      .pipe(res)
+      .on('finish', () => {
+        console.log("Faculty ZIP export successfully streamed.");
+      })
+      .on('error', (err) => {
+        console.error("Error streaming zip:", err);
+      });
+
+  } catch (error) {
+    console.error("Faculty export error:", error);
+    if (!res.headersSent) {
+      res.status(500).json({ message: error.message || "Server error during export" });
+    }
+  }
 });
 
 app.listen(port, () => {

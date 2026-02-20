@@ -18,7 +18,8 @@ export default function FacultySettingsPage() {
   const {
     profile,
     loading,
-    saving,
+    savingProfile,
+    savingPreferences,
     error,
     successMessage,
     updateProfile,
@@ -52,7 +53,7 @@ export default function FacultySettingsPage() {
       });
       setPreferences({
         emailEnabled: profile.email_reminders_enabled ?? true,
-        frequency: profile.reminder_frequency || "Daily"
+        frequency: profile.reminder_frequency || "3_days_before"
       });
     }
   }, [profile]);
@@ -172,10 +173,10 @@ export default function FacultySettingsPage() {
             <div className="pt-4">
               <Button
                 onClick={handleProfileSave}
-                disabled={saving}
+                disabled={savingProfile}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
-                {saving ? (
+                {savingProfile ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...
                   </>
@@ -216,9 +217,9 @@ export default function FacultySettingsPage() {
                   value={preferences.frequency}
                   onChange={(e) => setPreferences({ ...preferences, frequency: e.target.value })}
                 >
-                  <option value="Daily">Daily Summary</option>
-                  <option value="Weekly">Weekly Digest</option>
-                  <option value="Urgent">Only Urgent Deadlines (3 days left)</option>
+                  <option value="daily">Daily Summary</option>
+                  <option value="weekly">Weekly Digest</option>
+                  <option value="3_days_before">Only Urgent Deadlines (3 days left)</option>
                 </select>
               </div>
             )}
@@ -226,11 +227,11 @@ export default function FacultySettingsPage() {
             <div className="pt-4">
               <Button
                 onClick={handlePreferencesSave}
-                disabled={saving}
+                disabled={savingPreferences}
                 variant="outline"
                 className="bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
               >
-                {saving ? (
+                {savingPreferences ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...
                   </>
@@ -243,8 +244,6 @@ export default function FacultySettingsPage() {
             </div>
           </div>
         </div>
-
-
       </div>
     </div>
   );

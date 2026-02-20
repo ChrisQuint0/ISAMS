@@ -21,6 +21,7 @@ export function useAdminValidation() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setError(null); // FIX: Reset error before fetching
     try {
       const [queueData, recentData, statsData] = await Promise.all([
         validationService.getQueue(filters),
@@ -34,6 +35,7 @@ export function useAdminValidation() {
     } catch (err) {
       console.error(err);
       setError("Failed to load validation data.");
+      setTimeout(() => setError(null), 3000);
     } finally {
       setLoading(false);
     }

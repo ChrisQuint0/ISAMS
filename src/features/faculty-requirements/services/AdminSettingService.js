@@ -41,7 +41,11 @@ export const settingsService = {
       val_course_outcomes: settingsMap.val_course_outcomes === 'true',
       val_max_file_size: parseInt(settingsMap.val_max_file_size || '10'),
       val_allowed_extensions: settingsMap.val_allowed_extensions || '.pdf, .docx, .xlsx',
-      val_allowed_extensions: settingsMap.val_allowed_extensions || '.pdf, .docx, .xlsx',
+
+      // FIX: Added missing crucial system keys!
+      gdrive_root_folder_id: settingsMap.gdrive_root_folder_id || '',
+      current_semester: settingsMap.current_semester || '',
+      current_academic_year: settingsMap.current_academic_year || ''
     };
   },
 
@@ -222,7 +226,7 @@ export const settingsService = {
       p_semester: course.semester,
       p_academic_year: course.academic_year,
       p_faculty_id: course.faculty_id || null,
-      p_course_id: course.id || null
+      p_id: course.id || null
     });
     if (error) throw error;
     return data;

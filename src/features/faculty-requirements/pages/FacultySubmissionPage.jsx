@@ -31,7 +31,9 @@ export default function FacultySubmissionPage() {
     isSubmitting,
     error: hookError,
     loadRequiredDocs,
-    submitDocument
+    submitDocument,
+    currentSemester,
+    currentAcademicYear
   } = useFacultySubmission();
 
   // NOTE: If runOCR is not in hook, we can import service directly or add it to hook.
@@ -70,7 +72,7 @@ export default function FacultySubmissionPage() {
 
   useEffect(() => {
     fetchHistory();
-  }, [uploadSuccess]); // Refresh history on successful upload
+  }, []);
 
   // When course changes, load its required documents
   useEffect(() => {
@@ -167,20 +169,23 @@ export default function FacultySubmissionPage() {
     const result = await submitDocument({
       file: selectedFile,
       courseId: formData.course,
-      docTypeId: formData.documentType
+      docTypeId: formData.documentType,
+      semester: currentSemester,
+      academicYear: currentAcademicYear
     });
 
     if (result) {
       setUploadSuccess(true);
       if (result.is_late) setIsLateSubmission(true);
+
+      fetchHistory(); // FIX 2: Manually refresh history exactly ONCE here
+
       setTimeout(() => {
-        // Reset form after 2 seconds
+        // Reset form after 3 seconds
         setUploadSuccess(false);
         setIsLateSubmission(false);
         handleReset();
-        // Optional: navigate to dashboard
-        // navigate('/faculty-requirements/dashboard'); 
-      }, 3000); // Increased timeout to read the message
+      }, 3000);
     }
   };
 
@@ -227,16 +232,17 @@ export default function FacultySubmissionPage() {
           )}
 
           {uploadSuccess && (
-            <Alert className="mb-4 border-green-900/50 bg-green-900/10 text-green-200">
-              <CheckCircle className="h-4 w-4 text-green-400" />
-              <AlertDescription>Document submitted successfully! Redirecting...</AlertDescription>
-            </Alert>
-          )}
-
-          {isLateSubmission && (
-            <Alert className="mb-4 border-amber-900/50 bg-amber-900/10 text-amber-200">
-              <Clock className="h-4 w-4 text-amber-400" />
-              <AlertDescription>Document submitted successfully, but it was marked as LATE.</AlertDescription>
+            <Alert className={`mb-4 ${isLateSubmission
+              ? 'border-amber-900/50 bg-amber-900/10 text-amber-200'
+              : 'border-green-900/50 bg-green-900/10 text-green-200'}`}>
+              {isLateSubmission
+                ? <Clock className="h-4 w-4 text-amber-400" />
+                : <CheckCircle className="h-4 w-4 text-green-400" />}
+              <AlertDescription>
+                {isLateSubmission
+                  ? 'Document submitted, but marked as LATE. Redirecting...'
+                  : 'Document submitted successfully! Redirecting...'}
+              </AlertDescription>
             </Alert>
           )}
 
@@ -284,13 +290,12 @@ export default function FacultySubmissionPage() {
                 <div>
                   <h4 className="text-sm font-semibold text-blue-300 mb-1">Guidelines</h4>
                   <p className="text-sm text-blue-200/80">
-                    {requiredDocs.find(d => d.doc_type_id === formData.documentType)?.description || "No specific guidelines provided for this document type."}
+                    {requiredDocs.find(d => String(d.doc_type_id) === String(formData.documentType))?.description || "No specific guidelines provided for this document type."}
                   </p>
                 </div>
               </div>
             )}
 
-            {/* Upload Area */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-slate-200 mb-2">Upload File</label>
               <div
@@ -325,8 +330,12 @@ export default function FacultySubmissionPage() {
                     <p className="text-slate-200 font-medium mb-1">
                       {isDragOver ? "Drop file here!" : "Click to browse or drag file here"}
                     </p>
-                    <p className="text-slate-400 mb-4 text-sm">Supports: PDF, DOCX, XLSX, PNG, JPG (Max: 10MB)</p>
-                    <Button className="bg-blue-600 hover:bg-blue-700 text-white pointer-events-none">
+                    <p className="text-slate-400 mb-4 text-sm">
+                      {formData.documentType
+                        ? `Supports: ${getValidationRules().allowedExts.join(', ').replace(/\./g, '').toUpperCase()} (Max: ${getValidationRules().maxMB}MB)`
+                        : `Select a document type to view supported formats`}
+                    </p>
+                    <Button className="bg-blue-600 hover:bg-blue-700 text-white pointer-events-none" disabled={!formData.documentType}>
                       <FolderOpen className="h-4 w-4 mr-2" />
                       Browse Files
                     </Button>
@@ -457,19 +466,6 @@ export default function FacultySubmissionPage() {
                   </div>
                 ))
               )}
-            </div>
-          </div>
-
-          {/* Help & Support */}
-          <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md p-6">
-            <h3 className="font-semibold text-lg mb-4 text-slate-100">Need Help?</h3>
-            <div className="space-y-3 text-sm">
-              <p className="text-slate-300">Having trouble with your submission? Contact our support team.</p>
-              <div className="space-y-2">
-                <p className="text-slate-400">Email: faculty.support@ccs.edu</p>
-                <p className="text-slate-400">Phone: (02) 123-4567</p>
-                <p className="text-slate-400">Office Hours: 8AM - 5PM</p>
-              </div>
             </div>
           </div>
         </div>

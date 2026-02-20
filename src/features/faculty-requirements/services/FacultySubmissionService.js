@@ -8,8 +8,18 @@ export const FacultySubmissionService = {
      */
     async getRequiredDocs(courseId) {
         try {
+            const { data: { user } } = await supabase.auth.getUser();
+            const { data: faculty } = await supabase
+                .from('faculty_fs')
+                .select('faculty_id')
+                .eq('user_id', user.id)
+                .single();
+
             const { data, error } = await supabase
-                .rpc('get_faculty_required_docs_fs', { p_course_id: courseId });
+                .rpc('get_faculty_required_docs_fs', {
+                    p_course_id: courseId,
+                    p_faculty_id: faculty.faculty_id
+                });
 
             if (error) throw error;
             return data;
@@ -36,10 +46,21 @@ export const FacultySubmissionService = {
 
             if (facultyError) throw facultyError;
 
+            // Get current semester and academic year from system settings
+            const { data: settings } = await supabase
+                .from('systemsettings_fs')
+                .select('setting_key, setting_value')
+                .in('setting_key', ['current_semester', 'current_academic_year']);
+
+            const semester = settings?.find(s => s.setting_key === 'current_semester')?.setting_value;
+            const academicYear = settings?.find(s => s.setting_key === 'current_academic_year')?.setting_value;
+
             const { data, error } = await supabase
                 .from('courses_fs')
                 .select('course_id, course_code, course_name')
-                .eq('faculty_id', faculty.faculty_id);
+                .eq('faculty_id', faculty.faculty_id)
+                .eq('semester', semester)
+                .eq('academic_year', academicYear);
 
             if (error) throw error;
             return data;
@@ -67,7 +88,7 @@ export const FacultySubmissionService = {
             if (!faculty) throw new Error('Faculty profile not found');
 
             // 2. Upload to Google Drive via server.js
-            const folderLink = getFolderLink();
+            const folderLink = await getFolderLink();
             const folderId = getFolderId(folderLink);
             if (!folderId) throw new Error('Google Drive folder not configured. Please set it in Admin Settings.');
 
@@ -85,9 +106,9 @@ export const FacultySubmissionService = {
                     p_mime_type: file.type,
                     p_gdrive_file_id: gdriveFile.id,
                     p_gdrive_web_view_link: gdriveFile.webViewLink,
-                    p_gdrive_download_link: gdriveFile.webViewLink, // Using webLink as download link for now
-                    p_semester: semester || '2023-2',
-                    p_academic_year: academicYear || '2023-2024'
+                    p_gdrive_download_link: gdriveFile.webContentLink || gdriveFile.webViewLink,
+                    p_semester: semester,
+                    p_academic_year: academicYear
                 });
 
             if (insertError) throw insertError;
@@ -147,7 +168,8 @@ export const FacultySubmissionService = {
                     doc_type_id
                 `)
                 .eq('faculty_id', faculty.faculty_id)
-                .order('submitted_at', { ascending: false });
+                .order('submitted_at', { ascending: false })
+                .limit(20);
 
             if (error) throw error;
             return data;

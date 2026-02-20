@@ -19,17 +19,15 @@ export const reportService = {
     let values = [];
 
     if (data.chart_data && data.chart_data.length > 0) {
-      if (config.reportType === 'Submission Status') {
-        labels = data.chart_data.map(d => d.submission_status);
-        values = data.chart_data.map(d => d.count);
-      } else if (config.reportType === 'Late Analysis') {
-        labels = data.chart_data.map(d => d.department);
-        values = data.chart_data.map(d => d.count);
-      } else if (config.reportType === 'Clearance') {
-        // Clearance chart returns a single object with cleared/pending counts
-        const chartObj = data.chart_data[0];
-        labels = ['Cleared', 'Pending'];
-        values = [chartObj.cleared, chartObj.pending];
+      if (config.reportType === 'Submission Status Summary') {
+        labels = data.chart_data.map(d => d.label);
+        values = data.chart_data.map(d => d.value);
+      } else if (config.reportType === 'Late Submission Analysis') {
+        labels = data.chart_data.map(d => d.label);
+        values = data.chart_data.map(d => d.value);
+      } else if (config.reportType === 'Clearance Status Report') {
+        labels = data.chart_data.map(d => d.label);
+        values = data.chart_data.map(d => d.value);
       }
     }
 
@@ -74,5 +72,36 @@ export const reportService = {
     window.URL.revokeObjectURL(url);
 
     return true;
+  },
+
+  /**
+   * Log Report Export to Database
+   */
+  logExport: async (reportName, reportType, semester, academicYear) => {
+    try {
+      await supabase.rpc('log_report_export_fs', {
+        p_report_name: reportName,
+        p_report_type: reportType,
+        p_semester: semester,
+        p_academic_year: academicYear
+      });
+    } catch (err) {
+      console.error("Failed to log export:", err);
+      // Non-blocking error, so we just log it
+    }
+  },
+
+  /**
+   * Get Recent Exports History
+   */
+  getRecentExports: async (limit = 10) => {
+    const { data, error } = await supabase.rpc('get_report_history_fs', {
+      p_limit: limit
+    });
+    if (error) {
+      console.error("Failed to fetch export history:", error);
+      return [];
+    }
+    return data;
   }
 };

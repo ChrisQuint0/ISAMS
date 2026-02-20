@@ -22,57 +22,65 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 
+// Map category names to icons
+const iconMap = {
+  'Spreadsheet': FileSpreadsheet,
+  'Presentation': Presentation,
+  'Archive': Archive,
+};
+
 export default function FacultyTemplateHubPage() {
   const navigate = useNavigate();
-  // Using renamed archives -> archivedDocs to match original variable naming
   const {
     templates,
     archives: archivedDocs,
     loading,
     error,
-    loadTemplates,
     loadArchives,
     faqs,
-    categories
+    categories,
+    handleDownloadAll,
+    options
   } = useFacultyResources();
 
-  const [query, setQuery] = useState("");
+  // Separate states for search and category filter
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedSemester, setSelectedSemester] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
 
   const quickFilters = useMemo(
     () => ["All", ...categories],
     [categories]
   );
 
+  // Filter templates by both search query and active category independently
   const filteredTemplates = useMemo(() => {
-    if (!query || query === "All") return templates;
-    const lowerQuery = query.toLowerCase();
-    return templates.filter(t =>
-      t.title.toLowerCase().includes(lowerQuery) ||
-      t.description?.toLowerCase().includes(lowerQuery) ||
-      t.category?.toLowerCase() === lowerQuery
-    );
-  }, [templates, query]);
+    return templates.filter(t => {
+      const matchesCategory = selectedCategory === "All" || t.category === selectedCategory;
+      const matchesSearch = !searchQuery ||
+        t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesCategory && matchesSearch;
+    });
+  }, [templates, searchQuery, selectedCategory]);
 
-  // Load archives on mount
   useEffect(() => {
-    // Ideally we would get current semester info here, but hardcoding based on existing patterns for now
-    loadArchives('1', '2023-2024');
-  }, []);
+    if (options?.semesters?.length > 0 && !selectedSemester) {
+      setSelectedSemester(options.semesters[0]);
+    }
+    if (options?.academic_years?.length > 0 && !selectedYear) {
+      setSelectedYear(options.academic_years[0]);
+    }
+  }, [options]);
 
-  const handleDownloadTemplate = (title) => {
-    console.log("Download", title);
-    // Implementation would go here
-  };
-
-  const handlePreview = (title) => {
-    console.log("Preview", title);
-    // Implementation would go here
-  };
-
-  const handleClone = () => {
-    console.log("Clone");
-    // Implementation would go here
-  };
+  // Load archives on mount and when filters change
+  useEffect(() => {
+    // Only fetch if the semester and year have successfully populated
+    if (selectedSemester && selectedYear) {
+      loadArchives(selectedSemester, selectedYear);
+    }
+  }, [selectedSemester, selectedYear, loadArchives]);
 
   return (
     <div className="container mx-auto p-6 space-y-8">
@@ -90,8 +98,8 @@ export default function FacultyTemplateHubPage() {
             <Input
               placeholder="Search templates..."
               className="pl-9 bg-slate-900/50 border-slate-700 text-slate-200"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
         </div>
@@ -102,12 +110,12 @@ export default function FacultyTemplateHubPage() {
         {quickFilters.map((f) => (
           <Button
             key={f}
-            variant={(query === f || (f === "All" && query === "")) ? "default" : "outline"}
-            className={`whitespace-nowrap ${query === f || (f === "All" && query === "")
+            variant={selectedCategory === f ? "default" : "outline"}
+            className={`whitespace-nowrap ${selectedCategory === f
               ? "bg-blue-600 hover:bg-blue-700"
               : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
               }`}
-            onClick={() => setQuery(f === "All" ? "" : f)}
+            onClick={() => setSelectedCategory(f)}
           >
             {f}
           </Button>
@@ -124,7 +132,9 @@ export default function FacultyTemplateHubPage() {
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-semibold text-slate-100">Official Templates</h3>
               <span className="text-sm text-slate-400">
-                Last updated: June 1, 2024
+                {templates.length > 0
+                  ? `Last updated: ${new Date(Math.max(...templates.map(t => new Date(t.created_at || t.updated_at || Date.now()).getTime()))).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}`
+                  : 'Last updated: N/A'}
               </span>
             </div>
 
@@ -136,14 +146,14 @@ export default function FacultyTemplateHubPage() {
                 </div>
               ) : (
                 filteredTemplates.map((t) => {
-                  const Icon = t.icon || FileText; // Default icon if not mapped
+                  const Icon = iconMap[t.category] || FileText;
                   return (
                     <div
                       key={t.template_id}
                       className="border border-slate-700 rounded-lg p-4 hover:bg-slate-800/40 transition-colors"
                     >
                       <div className="flex items-start mb-3">
-                        <Icon className={`h-8 w-8 mr-3 text-blue-400`} />
+                        <Icon className="h-8 w-8 mr-3 text-blue-400 flex-shrink-0" />
                         <div>
                           <h4 className="font-medium text-slate-100">{t.title}</h4>
                           <p className="text-sm text-slate-400 line-clamp-2">{t.description}</p>
@@ -151,8 +161,9 @@ export default function FacultyTemplateHubPage() {
                       </div>
 
                       <div className="flex justify-between text-sm text-slate-500">
-                        <span className="bg-slate-800 px-2 py-0.5 rounded text-xs border border-slate-700">{t.category || 'General'}</span>
-                        {/* <span>{t.size}</span> */}{/* Size not always available in DB yet */}
+                        <span className="bg-slate-800 px-2 py-0.5 rounded text-xs border border-slate-700">
+                          {t.category || 'General'}
+                        </span>
                       </div>
 
                       <Button
@@ -160,8 +171,8 @@ export default function FacultyTemplateHubPage() {
                         className="w-full mt-3 bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700"
                         onClick={() => {
                           if (t.file_url) window.open(t.file_url, '_blank');
-                          else handleDownloadTemplate(t.title);
                         }}
+                        disabled={!t.file_url}
                       >
                         <Download className="h-4 w-4 mr-2" />
                         Download
@@ -178,139 +189,69 @@ export default function FacultyTemplateHubPage() {
             <h3 className="font-semibold mb-4 text-slate-100">
               Clone from Previous Semester
             </h3>
+            <p className="text-slate-400 mb-4">
+              Select a previous document to clone and edit for the current semester:
+            </p>
 
-            <div className="mb-4">
-              <p className="text-slate-400 mb-3">
-                Select a previous document to clone and edit for the current semester:
+            {/* Placeholder — clone feature not yet implemented */}
+            <div className="border border-slate-700 rounded-lg p-6 mb-4 bg-slate-950/30 text-center">
+              <Copy className="h-10 w-10 mx-auto mb-3 text-slate-600" />
+              <p className="text-slate-400 font-medium">Clone feature coming soon.</p>
+              <p className="text-xs text-slate-500 mt-1">
+                Select a document type and semester to preview available documents.
               </p>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-200 mb-1">
-                    Document Type
-                  </label>
-                  <select className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option>Course Syllabus</option>
-                    <option>Exam Questionnaire</option>
-                    <option>Course Portfolio</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-200 mb-1">
-                    From Semester
-                  </label>
-                  <select className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option>Semester 1, AY 2023-2024</option>
-                    <option>Semester 2, AY 2022-2023</option>
-                    <option>Semester 1, AY 2022-2023</option>
-                    <option>Semester 2, AY 2021-2022</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <div className="border border-slate-700 rounded-lg p-4 mb-4">
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <h4 className="font-medium text-slate-100">CCS 101 Course Syllabus</h4>
-                  <p className="text-sm text-slate-400">
-                    From Semester 1, AY 2023-2024
-                  </p>
-                </div>
-                <Button
-                  variant="outline"
-                  className="bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700"
-                  onClick={() => handlePreview("CCS 101 Course Syllabus")}
-                >
-                  <Eye className="h-4 w-4 mr-2" />
-                  Preview
-                </Button>
-              </div>
-              <div className="text-sm text-slate-400">
-                <p className="mb-1">Last modified: December 15, 2023</p>
-                <p>
-                  Contains: Course description, outcomes, grading system, weekly schedule
-                </p>
-              </div>
             </div>
 
             <Button
-              onClick={handleClone}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+              disabled
+              className="w-full bg-slate-700 text-slate-500 cursor-not-allowed"
             >
               <Copy className="h-4 w-4 mr-2" />
               Clone Document for Current Semester
             </Button>
           </div>
 
-          {/* Submission Guidelines Section */}
-          <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md p-6">
-            <h3 className="font-semibold mb-4 text-slate-100 flex items-center gap-2">
-              <FileType2 className="h-5 w-5 text-indigo-400" />
-              Submission Guidelines
-            </h3>
-            <div className="space-y-4 text-sm text-slate-400">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-slate-950/50 p-3 rounded border border-slate-800">
-                  <h4 className="font-medium text-slate-200 mb-2">File Naming Convention</h4>
-                  <p>Please use the following format:</p>
-                  <code className="block bg-slate-900 p-2 rounded mt-1 text-xs font-mono text-green-400">
-                    [CourseCode]_[DocType]_[LastName]_[Semester].pdf
-                  </code>
-                  <p className="mt-1 text-xs">Example: CCS101_Syllabus_Doe_2023-2.pdf</p>
-                </div>
-                <div className="bg-slate-950/50 p-3 rounded border border-slate-800">
-                  <h4 className="font-medium text-slate-200 mb-2">Accepted Formats</h4>
-                  <ul className="list-disc list-inside space-y-1">
-                    <li>PDF (Preferred)</li>
-                    <li>DOCX / XLSX (for editable templates)</li>
-                    <li>PNG / JPG (for evidence)</li>
-                  </ul>
-                </div>
-              </div>
-              <p className="text-xs bg-blue-900/20 text-blue-400 p-3 rounded border border-blue-900/50">
-                <strong>Note:</strong> All submissions are automatically checked for basic formatting requirements. Please ensure your documents are complete before uploading.
-              </p>
-            </div>
-          </div>
+
         </div>
 
-        {/* Right Column (1/3 width) - Archived Documents */}
+        {/* Right Column (1/3 width) */}
         <div>
+          {/* Archived Documents */}
           <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md p-6 sticky top-6">
             <h3 className="font-semibold mb-4 text-slate-100">Your Archived Documents</h3>
             <div className="space-y-3">
               {archivedDocs && archivedDocs.length > 0 ? (
-                archivedDocs.map((d) => {
-                  const Icon = d.icon || FileText;
-                  return (
-                    <div
-                      key={d.id}
-                      className="flex items-center justify-between p-3 bg-slate-800/50 rounded"
-                    >
-                      <div className="flex items-center">
-                        <Icon className={`h-5 w-5 ${d.iconClass || 'text-slate-400'} mr-3`} />
-                        <div>
-                          <p className="font-medium text-slate-100">{d.title}</p>
-                          <p className="text-sm text-slate-400">{d.subtitle || d.date}</p>
-                        </div>
+                archivedDocs.map((d) => (
+                  <div
+                    key={d.submission_id}
+                    className="flex items-center justify-between p-3 bg-slate-800/50 rounded"
+                  >
+                    <div className="flex items-center">
+                      <FileText className="h-5 w-5 text-slate-400 mr-3 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium text-slate-100 text-sm">
+                          {d.documenttypes_fs?.type_name || d.standardized_filename}
+                        </p>
+                        <p className="text-xs text-slate-400">
+                          {d.courses_fs?.course_code} · {new Date(d.submitted_at).toLocaleDateString()}
+                        </p>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700"
-                        onClick={() => handlePreview(d.title)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
                     </div>
-                  );
-                })
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700 flex-shrink-0"
+                      onClick={() => d.gdrive_web_view_link && window.open(d.gdrive_web_view_link, '_blank')}
+                      disabled={!d.gdrive_web_view_link}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))
               ) : (
                 <div className="text-center py-4 text-slate-500">
                   <Archive className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No archives found</p>
+                  <p className="text-sm">No archives found</p>
                 </div>
               )}
             </div>
@@ -333,7 +274,11 @@ export default function FacultyTemplateHubPage() {
                 <div className="text-center py-4 text-slate-500 text-sm">No FAQs available.</div>
               ) : (
                 faqs.map((faq) => (
-                  <AccordionItem key={faq.faq_id} value={`item-${faq.faq_id}`} className="border-slate-800">
+                  <AccordionItem
+                    key={faq.faq_id}
+                    value={`item-${faq.faq_id}`}
+                    className="border-slate-800"
+                  >
                     <AccordionTrigger className="text-slate-200 hover:text-slate-100 text-left">
                       {faq.question}
                     </AccordionTrigger>
