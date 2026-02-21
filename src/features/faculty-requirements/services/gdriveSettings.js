@@ -132,3 +132,27 @@ export const listGDriveFiles = async (folderId) => {
     }
     return res.json();
 };
+
+/**
+ * Clone an existing file in Google Drive to a new folder.
+ * @param {string} fileId - The Google Drive ID of the file to copy
+ * @param {string} targetFolderId - The folder ID where the copy should be placed
+ * @param {string} [newFileName] - Optional new name for the copied file
+ * @returns {Promise<{ id: string, name: string, webViewLink: string, webContentLink: string }>}
+ */
+export const cloneGDriveFile = async (fileId, targetFolderId, newFileName) => {
+    const res = await fetch(`${API_BASE}/api/files/clone`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fileId, targetFolderId, newFileName }),
+    });
+
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Clone failed' }));
+        throw new Error(err.error || 'Google Drive clone failed');
+    }
+
+    return res.json();
+};

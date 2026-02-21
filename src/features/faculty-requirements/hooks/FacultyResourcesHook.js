@@ -12,6 +12,7 @@ export function useFacultyResources() {
     const [history, setHistory] = useState([]); // List of archived submissions for selected course
     const [submissionVersions, setSubmissionVersions] = useState([]); // History of a specific submission
     const [downloading, setDownloading] = useState(false);
+    const [cloning, setCloning] = useState(false);
     const [faqs, setFaqs] = useState([]);
     const [categories, setCategories] = useState([]);
     // Dynamic Options
@@ -145,6 +146,43 @@ export function useFacultyResources() {
         }
     };
 
+    const handleClone = async (selectedSubmissionIds, targetCourseId, targetSemester, targetAcademicYear) => {
+        try {
+            setCloning(true);
+            let successCount = 0;
+            let failCount = 0;
+
+            for (const oldSubId of selectedSubmissionIds) {
+                try {
+                    await FacultyResourceService.cloneDocument(
+                        oldSubId,
+                        targetCourseId,
+                        targetSemester,
+                        targetAcademicYear
+                    );
+                    successCount++;
+                } catch (err) {
+                    console.error(`Failed to clone ${oldSubId}:`, err);
+                    failCount++;
+                }
+            }
+
+            if (failCount > 0) {
+                setError(`Cloned ${successCount} documents. Failed to clone ${failCount} documents.`);
+                setTimeout(() => setError(null), 5000);
+            }
+
+            return { successCount, failCount };
+        } catch (err) {
+            console.error('Error during bulk clone process:', err);
+            setError('Failed to initiate cloning process');
+            setTimeout(() => setError(null), 3000);
+            return { successCount: 0, failCount: selectedSubmissionIds.length };
+        } finally {
+            setCloning(false);
+        }
+    };
+
     return {
         templates,
         archives,
@@ -163,8 +201,10 @@ export function useFacultyResources() {
         submissionVersions,
         selectedCourse,
         downloading,
+        cloning,
         faqs,
         categories,
         options, // Export options
+        handleClone
     };
 }
