@@ -38,8 +38,8 @@ export function ResetPasswordDialog({ open, onOpenChange, user, onSubmit }) {
             <DialogContent className="sm:max-w-[400px] bg-slate-900 text-slate-100 border-slate-800">
                 <DialogHeader>
                     <div className="flex items-center gap-3">
-                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
-                            <KeyRound className="w-5 h-5 text-indigo-400" />
+                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+                            <KeyRound className="w-5 h-5 text-blue-400" />
                         </div>
                         <div>
                             <DialogTitle className="text-xl font-semibold">
@@ -91,7 +91,7 @@ export function ResetPasswordDialog({ open, onOpenChange, user, onSubmit }) {
                         <Button
                             type="submit"
                             disabled={!isValid}
-                            className="bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40"
+                            className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-40"
                         >
                             Reset Password
                         </Button>

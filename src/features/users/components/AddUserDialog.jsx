@@ -237,7 +237,7 @@ export function AddUserDialog({ open, onOpenChange, onSubmit }) {
                         <Button
                             type="submit"
                             disabled={!isValid}
-                            className="bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40"
+                            className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-40"
                         >
                             Create User
                         </Button>

@@ -398,7 +398,7 @@ export default function UsersPage() {
                         </div>
                         <Button
                             onClick={() => setAddUserOpen(true)}
-                            className="bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
+                            className="bg-blue-600 hover:bg-blue-700 text-white transition-colors"
                         >
                             <UserRoundPlus className="h-4 w-4 mr-2" />
                             Add User
