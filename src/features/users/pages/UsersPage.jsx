@@ -34,7 +34,10 @@ const customTheme = themeBalham.withParams({
 const MOCK_USERS = [
     {
         id: "1",
+        first_name: "Alice",
+        last_name: "Santos",
         email: "alice@ccs.edu",
+        status: "active",
         thesis: true,
         thesis_role: "admin",
         facsub: true,
@@ -47,7 +50,10 @@ const MOCK_USERS = [
     },
     {
         id: "2",
+        first_name: "Bob",
+        last_name: "Reyes",
         email: "bob@ccs.edu",
+        status: "active",
         thesis: true,
         thesis_role: "student",
         facsub: false,
@@ -60,7 +66,10 @@ const MOCK_USERS = [
     },
     {
         id: "3",
+        first_name: "Carol",
+        last_name: "Lim",
         email: "carol@ccs.edu",
+        status: "inactive",
         thesis: false,
         thesis_role: null,
         facsub: true,
@@ -73,7 +82,10 @@ const MOCK_USERS = [
     },
     {
         id: "4",
+        first_name: "Dave",
+        last_name: "Cruz",
         email: "dave@ccs.edu",
+        status: "inactive",
         thesis: false,
         thesis_role: null,
         facsub: false,
@@ -85,6 +97,14 @@ const MOCK_USERS = [
         created_at: "2026-02-01T14:00:00Z",
     },
 ];
+
+// ─── Role options per module (used by both AddUserDialog and column editors) ──
+const MODULE_ROLES = {
+    thesis: ["—", "admin", "student"],
+    facsub: ["—", "admin", "faculty"],
+    labman: ["—", "admin", "faculty"],
+    studvio: ["—", "admin"],
+};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const MODULE_FILTER_OPTIONS = [
@@ -101,16 +121,49 @@ const ROLE_BADGE_STYLES = {
     student: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30",
 };
 
+function filterUsers(users, module) {
+    if (module === "all") return users;
+    return users.filter((u) => u[module] === true);
+}
+
 // ─── Cell Renderers ───────────────────────────────────────────────────────────
-function RoleCellRenderer({ value }) {
-    if (!value) {
-        return <span className="text-slate-600 text-xs select-none">—</span>;
-    }
-    const style = ROLE_BADGE_STYLES[value] ?? "bg-slate-700 text-slate-300 border border-slate-600";
+function StatusCellRenderer({ value }) {
+    const isActive = value === "active";
     return (
         <div className="flex items-center justify-center h-full">
             <span
-                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${style}`}
+                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${isActive
+                        ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                        : "bg-slate-500/15 text-slate-400 border-slate-500/30"
+                    }`}
+            >
+                <span
+                    className={`mr-1.5 w-1.5 h-1.5 rounded-full ${isActive ? "bg-emerald-400" : "bg-slate-500"
+                        }`}
+                />
+                {isActive ? "Active" : "Inactive"}
+            </span>
+        </div>
+    );
+}
+
+// Value is the role string, or "—" / null for no access
+function RoleCellRenderer({ value }) {
+    const isEmpty = !value || value === "—";
+    if (isEmpty) {
+        return (
+            <div className="flex items-center justify-center h-full">
+                <span className="text-slate-600 text-xs select-none">—</span>
+            </div>
+        );
+    }
+    const style =
+        ROLE_BADGE_STYLES[value] ??
+        "bg-slate-700 text-slate-300 border border-slate-600";
+    return (
+        <div className="flex items-center justify-center h-full">
+            <span
+                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize border ${style}`}
             >
                 {value}
             </span>
@@ -119,26 +172,46 @@ function RoleCellRenderer({ value }) {
 }
 
 function DateCellRenderer({ value }) {
-    if (!value) return <span className="text-slate-600">—</span>;
+    if (!value)
+        return (
+            <div className="flex items-center justify-center h-full">
+                <span className="text-slate-600">—</span>
+            </div>
+        );
     return (
-        <span className="text-slate-400 text-xs tabular-nums">
-            {new Date(value).toLocaleDateString("en-PH", {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-            })}
-        </span>
+        <div className="flex items-center justify-center h-full">
+            <span className="text-slate-400 text-xs tabular-nums">
+                {new Date(value).toLocaleDateString("en-PH", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                })}
+            </span>
+        </div>
     );
 }
 
-// Returns the role value for a module column, or null if no access
-function moduleValueGetter(activeField, roleField) {
-    return (params) => (params.data[activeField] ? params.data[roleField] : null);
-}
+// ─── Column builders ──────────────────────────────────────────────────────────
 
-function filterUsers(users, module) {
-    if (module === "all") return users;
-    return users.filter((u) => u[module] === true);
+/** Module column: valueGetter returns role string or "—"; valueSetter writes back both fields */
+function makeModuleColDef(headerName, activeField, roleField, roleOptions) {
+    return {
+        headerName,
+        valueGetter: (p) => (p.data[activeField] ? p.data[roleField] : "—"),
+        valueSetter: (p) => {
+            const noAccess = p.newValue === "—";
+            p.data[activeField] = !noAccess;
+            p.data[roleField] = noAccess ? null : p.newValue;
+            return true;
+        },
+        cellRenderer: RoleCellRenderer,
+        editable: true,
+        cellEditor: "agSelectCellEditor",
+        cellEditorParams: { values: roleOptions },
+        flex: 1,
+        filter: true,
+        cellStyle: { display: "flex", alignItems: "center", justifyContent: "center" },
+    };
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -146,8 +219,13 @@ export default function UsersPage() {
     const navigate = useNavigate();
     const [moduleFilter, setModuleFilter] = useState("all");
     const [addUserOpen, setAddUserOpen] = useState(false);
+    const [rowData, setRowData] = useState(filterUsers(MOCK_USERS, "all"));
 
-    const rowData = filterUsers(MOCK_USERS, moduleFilter);
+    // Re-filter when dropdown changes
+    const displayed = useMemo(
+        () => filterUsers(rowData, moduleFilter),
+        [rowData, moduleFilter]
+    );
 
     const handleAddUser = (formData) => {
         // TODO: wire to Supabase in the next pass
@@ -163,48 +241,79 @@ export default function UsersPage() {
                 sortable: false,
                 filter: false,
                 resizable: false,
-                cellStyle: { color: "#64748b", fontVariantNumeric: "tabular-nums" },
+                cellStyle: {
+                    color: "#64748b",
+                    fontVariantNumeric: "tabular-nums",
+                    display: "flex",
+                    alignItems: "center",
+                },
+            },
+            {
+                field: "status",
+                headerName: "Status",
+                cellRenderer: StatusCellRenderer,
+                editable: true,
+                cellEditor: "agSelectCellEditor",
+                cellEditorParams: { values: ["active", "inactive"] },
+                width: 130,
+                filter: true,
+                cellStyle: { display: "flex", alignItems: "center", justifyContent: "center" },
+            },
+            {
+                field: "first_name",
+                headerName: "First Name",
+                flex: 1,
+                editable: true,
+                filter: true,
+                cellStyle: { color: "#f1f5f9", fontWeight: 500 },
+            },
+            {
+                field: "last_name",
+                headerName: "Last Name",
+                flex: 1,
+                editable: true,
+                filter: true,
+                cellStyle: { color: "#f1f5f9", fontWeight: 500 },
             },
             {
                 field: "email",
                 headerName: "Email",
                 flex: 2,
-                cellStyle: { color: "#f1f5f9", fontWeight: 500 },
+                editable: true,
+                filter: true,
+                cellStyle: { color: "#cbd5e1" },
             },
-            {
-                headerName: "Thesis Archiving",
-                valueGetter: moduleValueGetter("thesis", "thesis_role"),
-                cellRenderer: RoleCellRenderer,
-                flex: 1,
-                filter: false,
-            },
-            {
-                headerName: "Fac. Requirements",
-                valueGetter: moduleValueGetter("facsub", "facsub_role"),
-                cellRenderer: RoleCellRenderer,
-                flex: 1,
-                filter: false,
-            },
-            {
-                headerName: "Lab Monitoring",
-                valueGetter: moduleValueGetter("labman", "labman_role"),
-                cellRenderer: RoleCellRenderer,
-                flex: 1,
-                filter: false,
-            },
-            {
-                headerName: "Student Violations",
-                valueGetter: moduleValueGetter("studvio", "studvio_role"),
-                cellRenderer: RoleCellRenderer,
-                flex: 1,
-                filter: false,
-            },
+            makeModuleColDef(
+                "Thesis Archiving",
+                "thesis",
+                "thesis_role",
+                MODULE_ROLES.thesis
+            ),
+            makeModuleColDef(
+                "Fac. Requirements",
+                "facsub",
+                "facsub_role",
+                MODULE_ROLES.facsub
+            ),
+            makeModuleColDef(
+                "Lab Monitoring",
+                "labman",
+                "labman_role",
+                MODULE_ROLES.labman
+            ),
+            makeModuleColDef(
+                "Student Violations",
+                "studvio",
+                "studvio_role",
+                MODULE_ROLES.studvio
+            ),
             {
                 field: "created_at",
                 headerName: "Joined",
                 cellRenderer: DateCellRenderer,
                 width: 140,
-                filter: false,
+                filter: true,
+                cellStyle: { display: "flex", alignItems: "center", justifyContent: "center" },
             },
         ],
         []
@@ -213,7 +322,6 @@ export default function UsersPage() {
     const defaultColDef = useMemo(
         () => ({
             sortable: true,
-            filter: true,
             resizable: true,
         }),
         []
@@ -276,7 +384,7 @@ export default function UsersPage() {
                         </SelectContent>
                     </Select>
                     <span className="ml-auto text-xs text-slate-500">
-                        {rowData.length} user{rowData.length !== 1 ? "s" : ""}
+                        {displayed.length} user{displayed.length !== 1 ? "s" : ""}
                     </span>
                 </div>
 
@@ -288,10 +396,11 @@ export default function UsersPage() {
                     <div style={{ height: "100%", width: "100%" }}>
                         <AgGridReact
                             theme={customTheme}
-                            rowData={rowData}
+                            rowData={displayed}
                             columnDefs={columnDefs}
                             defaultColDef={defaultColDef}
                             animateRows={true}
+                            stopEditingWhenCellsLoseFocus={true}
                         />
                     </div>
                 </div>
