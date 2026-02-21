@@ -111,11 +111,10 @@ export const FacultySubmissionService = {
                     p_standardized_filename: gdriveFile.name,
                     p_file_size_bytes: file.size,
                     p_mime_type: file.type,
+                    p_file_checksum: null,
                     p_gdrive_file_id: gdriveFile.id,
                     p_gdrive_web_view_link: gdriveFile.webViewLink,
-                    p_gdrive_download_link: gdriveFile.webContentLink || gdriveFile.webViewLink,
-                    p_semester: semester,
-                    p_academic_year: academicYear
+                    p_gdrive_download_link: gdriveFile.webContentLink || gdriveFile.webViewLink
                 });
 
             if (insertError) throw insertError;

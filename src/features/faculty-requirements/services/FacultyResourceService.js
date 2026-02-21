@@ -310,11 +310,10 @@ export const FacultyResourceService = {
                     p_standardized_filename: clonedDriveFile.name,
                     p_file_size_bytes: oldSubmission.file_size_bytes,
                     p_mime_type: oldSubmission.mime_type,
+                    p_file_checksum: null,
                     p_gdrive_file_id: clonedDriveFile.id,
                     p_gdrive_web_view_link: clonedDriveFile.webViewLink,
-                    p_gdrive_download_link: clonedDriveFile.webContentLink || clonedDriveFile.webViewLink,
-                    p_semester: newSemester,
-                    p_academic_year: newAcademicYear
+                    p_gdrive_download_link: clonedDriveFile.webContentLink || clonedDriveFile.webViewLink
                 });
 
             if (insertError) throw insertError;
