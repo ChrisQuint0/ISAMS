@@ -10,7 +10,7 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     // Check active sessions and sets the user
-    authService.getSession().then(({ session }) => {
+    authService.getSession().then((session) => {
       setUser(session?.user ?? null);
       setLoading(false);
     });
