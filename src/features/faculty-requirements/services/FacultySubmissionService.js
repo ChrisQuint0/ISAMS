@@ -78,21 +78,28 @@ export const FacultySubmissionService = {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('User not authenticated');
 
-            // 1. Get faculty ID
+            // 1. Get faculty profile
             const { data: faculty } = await supabase
                 .from('faculty_fs')
-                .select('faculty_id')
+                .select('*')
                 .eq('user_id', user.id)
                 .single();
 
             if (!faculty) throw new Error('Faculty profile not found');
 
+            const facultyName = `${faculty.first_name || ''} ${faculty.last_name || ''}`.trim();
+
             // 2. Upload to Google Drive via server.js
             const folderLink = await getFolderLink();
-            const folderId = getFolderId(folderLink);
-            if (!folderId) throw new Error('Google Drive folder not configured. Please set it in Admin Settings.');
+            const rootFolderId = getFolderId(folderLink);
+            if (!rootFolderId) throw new Error('Google Drive folder not configured. Please set it in Admin Settings.');
 
-            const gdriveFile = await uploadToGDrive(file, folderId);
+            // 2.a Generate or retrieve the deeply nested folder
+            const { ensureFolderStructure, uploadToGDrive } = await import('./gdriveSettings');
+            const targetFolderId = await ensureFolderStructure(rootFolderId, facultyName, semester);
+
+            // 2.b Upload strictly to the specific target folder generated
+            const gdriveFile = await uploadToGDrive(file, targetFolderId);
 
             // 3. Insert/Update into Submissions table with Versioning via RPC
             const { data, error: insertError } = await supabase

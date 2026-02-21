@@ -69,10 +69,35 @@ export const checkGDriveAuth = async () => {
 };
 
 /**
+ * Ensure the Google Drive nested folder structure exists for a submission.
+ * @param {string} rootFolderId - The admin-configured root folder
+ * @param {string} facultyName - Faculty name for the first nested folder
+ * @param {string} termName - Semester/Term name for the second nested folder
+ * @returns {Promise<string>} The resolved target folder ID
+ */
+export const ensureFolderStructure = async (rootFolderId, facultyName, termName) => {
+    const res = await fetch(`${API_BASE}/api/folders/ensure`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ rootFolderId, facultyName, termName }),
+    });
+
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to ensure folder structure' }));
+        throw new Error(err.error || 'Failed to ensure Google Drive folder structure');
+    }
+
+    const data = await res.json();
+    return data.targetFolderId;
+};
+
+/**
  * Upload a file to Google Drive via the server.js backend.
  * @param {File} file - The file to upload
  * @param {string} folderId - The Google Drive folder ID to upload into
- * @returns {Promise<{ id: string, name: string, webViewLink: string }>}
+ * @returns {Promise<{ id: string, name: string, webViewLink: string, webContentLink: string }>}
  */
 export const uploadToGDrive = async (file, folderId) => {
     const formData = new FormData();
@@ -91,7 +116,7 @@ export const uploadToGDrive = async (file, folderId) => {
         throw new Error(err.error || 'Google Drive upload failed');
     }
 
-    return res.json(); // { id, name, webViewLink }
+    return res.json(); // { id, name, webViewLink, webContentLink }
 };
 
 /**

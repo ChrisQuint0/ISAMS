@@ -172,6 +172,37 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
   }
 });
 
+// 4.5 Ensure Folder Structure Endpoint
+app.post("/api/folders/ensure", async (req, res) => {
+  try {
+    const auth = await loadToken();
+    if (!auth) return res.status(401).json({ error: "Not authenticated" });
+
+    const drive = google.drive({ version: "v3", auth });
+
+    const rootFolderId = req.body.rootFolderId || GOOGLE_DRIVE_FOLDER_ID;
+    const facultyName = req.body.facultyName;
+    const termName = req.body.termName;
+
+    let targetFolderId = rootFolderId;
+
+    // Dynamically create or resolve the Faculty Name folder
+    if (facultyName) {
+      targetFolderId = await getOrCreateFolder(drive, facultyName, targetFolderId);
+    }
+
+    // Dynamically create or resolve the Semester/Term folder
+    if (termName) {
+      targetFolderId = await getOrCreateFolder(drive, termName, targetFolderId);
+    }
+
+    res.json({ targetFolderId });
+  } catch (error) {
+    console.error("Error ensuring folder structure:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 5. Check Auth Status
 app.get("/api/status", async (req, res) => {
   const { data } = await supabase
