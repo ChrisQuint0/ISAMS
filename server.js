@@ -203,6 +203,42 @@ app.post("/api/folders/ensure", async (req, res) => {
   }
 });
 
+// 4.6 Clone File Endpoint
+app.post("/api/files/clone", async (req, res) => {
+  try {
+    const auth = await loadToken();
+    if (!auth) return res.status(401).json({ error: "Not authenticated" });
+
+    const drive = google.drive({ version: "v3", auth });
+
+    const { fileId, targetFolderId, newFileName } = req.body;
+
+    if (!fileId || !targetFolderId) {
+      return res.status(400).json({ error: "fileId and targetFolderId are required" });
+    }
+
+    const fileMetadata = {
+      parents: [targetFolderId],
+    };
+
+    if (newFileName) {
+      fileMetadata.name = newFileName;
+    }
+
+    // Use Drive API to copy the file on Google's servers
+    const file = await drive.files.copy({
+      fileId: fileId,
+      resource: fileMetadata,
+      fields: "id, name, webViewLink, webContentLink",
+    });
+
+    res.json(file.data);
+  } catch (error) {
+    console.error("Error cloning file:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 5. Check Auth Status
 app.get("/api/status", async (req, res) => {
   const { data } = await supabase

@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabaseClient";
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
+import { getFolderLink, getFolderId, ensureFolderStructure, cloneGDriveFile } from './gdriveSettings';
 
 export const FacultyResourceService = {
     /**
@@ -252,6 +253,75 @@ export const FacultyResourceService = {
             return data ? data.map(c => c.category) : []; // Return array of strings
         } catch (error) {
             console.error('Error fetching template categories:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Clones an old submission into the current semester
+     */
+    async cloneDocument(oldSubmissionId, newCourseId, newSemester, newAcademicYear) {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error('User not authenticated');
+
+            // 1. Get faculty profile
+            const { data: faculty } = await supabase
+                .from('faculty_fs')
+                .select('*')
+                .eq('user_id', user.id)
+                .single();
+
+            if (!faculty) throw new Error('Faculty profile not found');
+            const facultyName = `${faculty.first_name || ''} ${faculty.last_name || ''}`.trim();
+
+            // 2. Fetch the old submission record to get the Drive ID and doc type
+            const { data: oldSubmission, error: fetchErr } = await supabase
+                .from('submissions_fs')
+                .select('doc_type_id, original_filename, standardized_filename, file_size_bytes, mime_type, gdrive_download_link, gdrive_web_view_link')
+                .eq('submission_id', oldSubmissionId)
+                .single();
+
+            if (fetchErr || !oldSubmission) throw new Error('Failed to fetch original document metadata');
+
+            // Extract the original fileId from the link
+            const fileIdMatch = oldSubmission.gdrive_download_link?.match(/id=([^&]+)/);
+            if (!fileIdMatch) throw new Error('Original document missing Google Drive link');
+            const oldFileId = fileIdMatch[1];
+
+            // 3. Resolve the target nested folder for the *current* semester
+            const folderLink = await getFolderLink();
+            const rootFolderId = getFolderId(folderLink);
+            if (!rootFolderId) throw new Error('Google Drive folder not configured. Please set it in Admin Settings.');
+
+            const targetFolderId = await ensureFolderStructure(rootFolderId, facultyName, newSemester);
+
+            // 4. Duplicate the file via Google Drive API
+            const newFileName = oldSubmission.standardized_filename; // Keep standard naming
+            const clonedDriveFile = await cloneGDriveFile(oldFileId, targetFolderId, newFileName);
+
+            // 5. Insert new row into DB linked to the new course and the cloned file
+            const { data: insertData, error: insertError } = await supabase
+                .rpc('upsert_submission_with_versioning_fs', {
+                    p_faculty_id: faculty.faculty_id,
+                    p_course_id: newCourseId,
+                    p_doc_type_id: oldSubmission.doc_type_id, // CRITICAL: This links it to the deadline system
+                    p_original_filename: oldSubmission.original_filename,
+                    p_standardized_filename: clonedDriveFile.name,
+                    p_file_size_bytes: oldSubmission.file_size_bytes,
+                    p_mime_type: oldSubmission.mime_type,
+                    p_gdrive_file_id: clonedDriveFile.id,
+                    p_gdrive_web_view_link: clonedDriveFile.webViewLink,
+                    p_gdrive_download_link: clonedDriveFile.webContentLink || clonedDriveFile.webViewLink,
+                    p_semester: newSemester,
+                    p_academic_year: newAcademicYear
+                });
+
+            if (insertError) throw insertError;
+            return insertData;
+
+        } catch (error) {
+            console.error('Error cloning document:', error);
             throw error;
         }
     }

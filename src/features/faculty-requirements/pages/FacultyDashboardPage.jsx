@@ -1,5 +1,11 @@
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { AgGridReact } from 'ag-grid-react';
+import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-community';
+
+// Register AG Grid modules
+ModuleRegistry.registerModules([AllCommunityModule]);
 import {
   FileText,
   BarChart3,
@@ -17,9 +23,73 @@ import {
 import { useFacultyDashboard } from "../hooks/FacultyDashboardHook";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
+// Custom theme using AG Grid v33+ Theming API with Balham theme
+const customTheme = themeBalham.withParams({
+  accentColor: '#3b82f6',
+  backgroundColor: '#020617',
+  foregroundColor: '#e2e8f0',
+  borderColor: '#1e293b',
+  headerBackgroundColor: '#0f172a',
+  headerTextColor: '#94a3b8',
+  oddRowBackgroundColor: '#020617',
+  rowHeight: 48,
+  headerHeight: 40,
+});
 export default function FacultyDashboardPage() {
   const navigate = useNavigate();
   const { stats, settings, courses, recentActivity, loading, error } = useFacultyDashboard();
+
+  const recentActivityColDefs = useMemo(() => [
+    {
+      field: "date",
+      headerName: "Date & Time",
+      valueGetter: (p) => p.data.submitted_at || p.data.date,
+      cellRenderer: (p) => p.value ? new Date(p.value).toLocaleString() : '-',
+      flex: 1.5,
+      cellClass: "font-medium text-slate-300 text-xs"
+    },
+    {
+      field: "course_code",
+      headerName: "Course",
+      flex: 1,
+      cellClass: "text-slate-300 text-xs font-mono"
+    },
+    {
+      field: "doc_type",
+      headerName: "Document",
+      flex: 2,
+      cellClass: "text-slate-300 text-xs"
+    },
+    {
+      field: "status",
+      headerName: "Status",
+      width: 140,
+      cellRenderer: (p) => {
+        const isApproved = p.value === 'APPROVED';
+        const isRejected = p.value === 'REJECTED';
+        const isRevision = p.value === 'REVISION_REQUESTED';
+        const bg = isApproved ? 'bg-green-500/10 text-green-400 border-green-500/20' :
+          (isRejected || isRevision) ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+            'bg-blue-500/10 text-blue-400 border-blue-500/20';
+        return (
+          <span className={`px-2 py-1 text-[10px] font-bold rounded border uppercase tracking-wider ${bg}`}>
+            {p.value}
+          </span>
+        )
+      }
+    },
+    {
+      headerName: "Actions",
+      width: 100,
+      cellRenderer: (p) => (
+        <div className="flex gap-1 items-center h-full">
+          <Button size="icon" variant="ghost" className="h-7 w-7 text-slate-400 hover:text-slate-300 hover:bg-slate-800">
+            <Eye className="h-4 w-4" />
+          </Button>
+        </div>
+      )
+    }
+  ], []);
 
   if (loading) {
     return (
@@ -275,51 +345,22 @@ export default function FacultyDashboardPage() {
       </div>
 
       {/* Recent Activity Table */}
-      <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md p-6">
-        <h3 className="font-semibold text-lg mb-4 text-slate-100">Recent Activity</h3>
-        <div className="overflow-x-auto">
-          <table className="min-w-full">
-            <thead>
-              <tr className="border-b border-slate-700">
-                <th className="text-left py-3 px-4 font-medium text-slate-100">Date & Time</th>
-                <th className="text-left py-3 px-4 font-medium text-slate-100">Course</th>
-                <th className="text-left py-3 px-4 font-medium text-slate-100">Document</th>
-                <th className="text-left py-3 px-4 font-medium text-slate-100">Status</th>
-                <th className="text-left py-3 px-4 font-medium text-slate-100">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-700">
-              {recentActivity.map((activity) => (
-                <tr key={activity.submission_id}>
-                  <td className="py-3 px-4 text-slate-300">{new Date(activity.submitted_at || activity.date).toLocaleString()}</td>
-                  <td className="py-3 px-4 text-slate-300">{activity.course_code}</td>
-                  <td className="py-3 px-4 text-slate-300">{activity.doc_type}</td>
-                  <td className="py-3 px-4">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded ${activity.status === 'APPROVED' ? 'bg-green-500/10 text-green-400' :
-                      activity.status === 'REJECTED' ? 'bg-red-500/10 text-red-400' :
-                        'bg-blue-500/10 text-blue-400'
-                      }`}>
-                      {activity.status}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <Button size="sm" variant="outline" className="text-sm bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700">
-                      <Eye className="h-4 w-4 mr-1" />View
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-
-              {recentActivity.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-400 bg-slate-900/30">
-                    <Clock className="h-8 w-8 mx-auto mb-3 text-slate-600" />
-                    <p className="text-sm">No recent activity found. Your submissions will appear here.</p>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md flex flex-col flex-1 min-h-[400px]">
+        <div className="p-6 border-b border-slate-800 shrink-0 bg-slate-950/30">
+          <h3 className="font-semibold text-lg text-slate-100 mb-0">Recent Activity</h3>
+        </div>
+        <div className="flex-1 relative p-0">
+          <div className="absolute inset-0">
+            <AgGridReact
+              theme={customTheme}
+              rowData={recentActivity}
+              columnDefs={recentActivityColDefs}
+              pagination={true}
+              paginationPageSize={10}
+              suppressCellFocus={true}
+              overlayNoRowsTemplate={`<div class="text-slate-400 text-sm py-8"><Clock class="h-8 w-8 mx-auto mb-3 text-slate-600" /><p>No recent activity found. Your submissions will appear here.</p></div>`}
+            />
+          </div>
         </div>
       </div>
     </div>
