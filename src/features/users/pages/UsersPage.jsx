@@ -9,6 +9,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { ArrowLeft, UserRoundPlus } from "lucide-react";
+import { AddUserDialog } from "@/features/users/components/AddUserDialog";
 import { AgGridReact } from "ag-grid-react";
 import { ModuleRegistry, AllCommunityModule, themeBalham } from "ag-grid-community";
 
@@ -144,8 +145,14 @@ function filterUsers(users, module) {
 export default function UsersPage() {
     const navigate = useNavigate();
     const [moduleFilter, setModuleFilter] = useState("all");
+    const [addUserOpen, setAddUserOpen] = useState(false);
 
     const rowData = filterUsers(MOCK_USERS, moduleFilter);
+
+    const handleAddUser = (formData) => {
+        // TODO: wire to Supabase in the next pass
+        console.log("New user payload:", formData);
+    };
 
     const columnDefs = useMemo(
         () => [
@@ -237,9 +244,7 @@ export default function UsersPage() {
                             </div>
                         </div>
                         <Button
-                            onClick={() => {
-                                /* AddUserDialog will go here */
-                            }}
+                            onClick={() => setAddUserOpen(true)}
                             className="bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
                         >
                             <UserRoundPlus className="h-4 w-4 mr-2" />
@@ -301,6 +306,12 @@ export default function UsersPage() {
                     </p>
                 </div>
             </footer>
+
+            <AddUserDialog
+                open={addUserOpen}
+                onOpenChange={setAddUserOpen}
+                onSubmit={handleAddUser}
+            />
         </div>
     );
 }
