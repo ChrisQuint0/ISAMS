@@ -25,7 +25,6 @@ import Success from "@/features/lab-monitoring/pages/Success";
 
 import { AdminAppRoutes } from "./faculty-requirements/AdminAppRoutes"; // Import the admin routes for faculty requirements
 import { FacultyAppRoutes } from "./faculty-requirements/FacultyAppRoutes"; // Import the faculty routes
-import RoleSelectionPage from "@/features/faculty-requirements/pages/RoleSelectionPage";
 import { LaboratoryRoutes } from "./laboratory-management/LaboratoryRoutes";
 import { ThesisArchivingRoutes } from "./thesis-archiving/ThesisArchivingRoutes";
 import { StudViolationAppRoutes } from "./student-violation/StudViolationAppRoutes";
@@ -46,6 +45,19 @@ function PublicRoute({ children }) {
     return <Navigate to="/dashboard" replace />;
   }
   return children;
+}
+
+function FacultyRequirementsRouter() {
+  const { user } = useAuth();
+
+  if (user?.email === "admin@isams.edu") {
+    return <Navigate to="/admin-dashboard" replace />;
+  } else if (user?.email === "faculty@isams.edu") {
+    return <Navigate to="/faculty-requirements/dashboard" replace />;
+  }
+
+  // Fallback if email doesn't strictly match either
+  return <Navigate to="/admin-dashboard" replace />;
 }
 
 export function AppRoutes() {
@@ -80,7 +92,7 @@ export function AppRoutes() {
           path="/faculty-requirements"
           element={
             <ProtectedRoute>
-              <RoleSelectionPage />
+              <FacultyRequirementsRouter />
             </ProtectedRoute>
           }
         />
