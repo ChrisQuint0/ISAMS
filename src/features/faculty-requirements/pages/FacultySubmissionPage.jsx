@@ -15,7 +15,8 @@ import {
   FileIcon,
   X,
   ScanText,
-  Check
+  Check,
+  Clock
 } from "lucide-react";
 import { useFacultySubmission } from "../hooks/FacultySubmissionHook";
 import { FacultySubmissionService } from "../services/FacultySubmissionService";
@@ -30,7 +31,9 @@ export default function FacultySubmissionPage() {
     isSubmitting,
     error: hookError,
     loadRequiredDocs,
-    submitDocument
+    submitDocument,
+    currentSemester,
+    currentAcademicYear
   } = useFacultySubmission();
 
   // NOTE: If runOCR is not in hook, we can import service directly or add it to hook.
@@ -47,6 +50,7 @@ export default function FacultySubmissionPage() {
   });
 
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [isLateSubmission, setIsLateSubmission] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [ocrResult, setOcrResult] = useState(null);
@@ -68,7 +72,7 @@ export default function FacultySubmissionPage() {
 
   useEffect(() => {
     fetchHistory();
-  }, [uploadSuccess]); // Refresh history on successful upload
+  }, []);
 
   // When course changes, load its required documents
   useEffect(() => {
@@ -77,17 +81,32 @@ export default function FacultySubmissionPage() {
     }
   }, [formData.course]);
 
+  const getValidationRules = () => {
+    const doc = requiredDocs.find(d => String(d.doc_type_id) === String(formData.documentType));
+    return {
+      maxMB: doc?.max_file_size_mb || 10,
+      allowedExts: doc?.allowed_extensions?.map(e => e.toLowerCase().trim()) || ['.pdf', '.docx', '.xlsx', '.png', '.jpg', '.jpeg']
+    };
+  };
+
   const validateFile = async (file) => {
-    // 1. Size Check (10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      alert("File size exceeds 10MB limit.");
+    if (!formData.documentType) {
+      alert("Please select a document type first.");
+      return;
+    }
+
+    const { maxMB, allowedExts } = getValidationRules();
+
+    // 1. Size Check
+    if (file.size > maxMB * 1024 * 1024) {
+      alert(`File size exceeds ${maxMB}MB limit.`);
       return;
     }
 
     // 2. Extension Check
-    const ext = file.name.split('.').pop().toLowerCase();
-    if (!['pdf', 'docx', 'xlsx', 'png', 'jpg', 'jpeg'].includes(ext)) {
-      alert("Invalid file type. Allowed: PDF, DOCX, XLSX, PNG, JPG");
+    const ext = '.' + file.name.split('.').pop().toLowerCase();
+    if (!allowedExts.includes(ext)) {
+      alert(`Invalid file type. Allowed: ${allowedExts.join(', ')}`);
       return;
     }
 
@@ -97,21 +116,26 @@ export default function FacultySubmissionPage() {
     setOcrResult(null);
 
     // 3. OCR Check (If image)
-    if (['png', 'jpg', 'jpeg'].includes(ext)) {
+    if (['.png', '.jpg', '.jpeg'].includes(ext)) {
       setIsValidating(true);
       const result = await FacultySubmissionService.runOCR(file);
       setOcrResult(result);
       setIsValidating(false);
     } else {
-      // For non-images, just mark as checked
       setOcrResult({ success: true, text: "Format valid (OCR skipped for non-image)", confidence: 100 });
     }
   };
 
-  const handleFileSelect = (e) => {
+  const handleFileSelect = () => {
+    if (!formData.documentType) {
+      alert("Please select a document type first.");
+      return;
+    }
+    const { allowedExts } = getValidationRules();
+
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = ".pdf,.docx,.xlsx,.png,.jpg,.jpeg";
+    input.accept = allowedExts.join(',');
     input.onchange = (event) => {
       const file = event.target.files[0];
       if (file) validateFile(file);
@@ -142,21 +166,26 @@ export default function FacultySubmissionPage() {
       return;
     }
 
-    const success = await submitDocument({
+    const result = await submitDocument({
       file: selectedFile,
       courseId: formData.course,
-      docTypeId: formData.documentType
+      docTypeId: formData.documentType,
+      semester: currentSemester,
+      academicYear: currentAcademicYear
     });
 
-    if (success) {
+    if (result) {
       setUploadSuccess(true);
+      if (result.is_late) setIsLateSubmission(true);
+
+      fetchHistory(); // FIX 2: Manually refresh history exactly ONCE here
+
       setTimeout(() => {
-        // Reset form after 2 seconds
+        // Reset form after 3 seconds
         setUploadSuccess(false);
+        setIsLateSubmission(false);
         handleReset();
-        // Optional: navigate to dashboard
-        // navigate('/faculty-requirements/dashboard'); 
-      }, 2000);
+      }, 3000);
     }
   };
 
@@ -179,6 +208,7 @@ export default function FacultySubmissionPage() {
       course: ""
     });
     setUploadSuccess(false);
+    setIsLateSubmission(false);
     setOcrResult(null);
     setIsValidating(false);
   };
@@ -202,9 +232,17 @@ export default function FacultySubmissionPage() {
           )}
 
           {uploadSuccess && (
-            <Alert className="mb-4 border-green-900/50 bg-green-900/10 text-green-200">
-              <CheckCircle className="h-4 w-4 text-green-400" />
-              <AlertDescription>Document submitted successfully! Redirecting...</AlertDescription>
+            <Alert className={`mb-4 ${isLateSubmission
+              ? 'border-amber-900/50 bg-amber-900/10 text-amber-200'
+              : 'border-green-900/50 bg-green-900/10 text-green-200'}`}>
+              {isLateSubmission
+                ? <Clock className="h-4 w-4 text-amber-400" />
+                : <CheckCircle className="h-4 w-4 text-green-400" />}
+              <AlertDescription>
+                {isLateSubmission
+                  ? 'Document submitted, but marked as LATE. Redirecting...'
+                  : 'Document submitted successfully! Redirecting...'}
+              </AlertDescription>
             </Alert>
           )}
 
@@ -252,13 +290,12 @@ export default function FacultySubmissionPage() {
                 <div>
                   <h4 className="text-sm font-semibold text-blue-300 mb-1">Guidelines</h4>
                   <p className="text-sm text-blue-200/80">
-                    {requiredDocs.find(d => d.doc_type_id === formData.documentType)?.description || "No specific guidelines provided for this document type."}
+                    {requiredDocs.find(d => String(d.doc_type_id) === String(formData.documentType))?.description || "No specific guidelines provided for this document type."}
                   </p>
                 </div>
               </div>
             )}
 
-            {/* Upload Area */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-slate-200 mb-2">Upload File</label>
               <div
@@ -293,8 +330,12 @@ export default function FacultySubmissionPage() {
                     <p className="text-slate-200 font-medium mb-1">
                       {isDragOver ? "Drop file here!" : "Click to browse or drag file here"}
                     </p>
-                    <p className="text-slate-400 mb-4 text-sm">Supports: PDF, DOCX, XLSX, PNG, JPG (Max: 10MB)</p>
-                    <Button className="bg-blue-600 hover:bg-blue-700 text-white pointer-events-none">
+                    <p className="text-slate-400 mb-4 text-sm">
+                      {formData.documentType
+                        ? `Supports: ${getValidationRules().allowedExts.join(', ').replace(/\./g, '').toUpperCase()} (Max: ${getValidationRules().maxMB}MB)`
+                        : `Select a document type to view supported formats`}
+                    </p>
+                    <Button className="bg-blue-600 hover:bg-blue-700 text-white pointer-events-none" disabled={!formData.documentType}>
                       <FolderOpen className="h-4 w-4 mr-2" />
                       Browse Files
                     </Button>
@@ -425,19 +466,6 @@ export default function FacultySubmissionPage() {
                   </div>
                 ))
               )}
-            </div>
-          </div>
-
-          {/* Help & Support */}
-          <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md p-6">
-            <h3 className="font-semibold text-lg mb-4 text-slate-100">Need Help?</h3>
-            <div className="space-y-3 text-sm">
-              <p className="text-slate-300">Having trouble with your submission? Contact our support team.</p>
-              <div className="space-y-2">
-                <p className="text-slate-400">Email: faculty.support@ccs.edu</p>
-                <p className="text-slate-400">Phone: (02) 123-4567</p>
-                <p className="text-slate-400">Office Hours: 8AM - 5PM</p>
-              </div>
             </div>
           </div>
         </div>

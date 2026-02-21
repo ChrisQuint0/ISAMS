@@ -7,8 +7,8 @@ export const validationService = {
   getQueue: async (filters) => {
     // Determine status filter
     let statusFilter = null;
-    if (filters.status === 'PENDING') statusFilter = 'PENDING';
-    else if (filters.status === 'FAILED') statusFilter = 'FAILED';
+    if (filters.status === 'SUBMITTED') statusFilter = 'SUBMITTED';
+    else if (filters.status === 'VALIDATED') statusFilter = 'VALIDATED';
 
     const { data, error } = await supabase.rpc('get_validation_queue_fs', {
       p_status: statusFilter,
@@ -64,8 +64,8 @@ export const validationService = {
     const { data, error } = await supabase.rpc('process_validation_action_fs', {
       p_submission_id: submissionId,
       p_action: action,
-      p_remarks: remarks,
-      p_admin_id: 1 // TODO: Replace with logged-in user ID
+      p_remarks: remarks
+      // p_admin_id not used by backend yet
     });
 
     if (error) throw error;

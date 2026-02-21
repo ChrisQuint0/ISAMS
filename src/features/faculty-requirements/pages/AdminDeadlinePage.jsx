@@ -35,7 +35,7 @@ const customTheme = themeQuartz.withParams({
 
 export default function AdminDeadlinePage() {
   const {
-    loading, error, success, deadlines, docTypes, stats,
+    loading, error, success, deadlines, docTypes, stats, settings,
     refresh, saveDeadline, deleteDeadline, handleBulkAction
   } = useAdminDeadlines();
 
@@ -49,13 +49,24 @@ export default function AdminDeadlinePage() {
 
   function initialFormState() {
     return {
-      semester: '2nd Sem',
-      academic_year: '2023-2024',
+      semester: settings?.semester || '',
+      academic_year: settings?.academic_year || '',
       doc_type_id: '',
       deadline_date: new Date().toISOString().split('T')[0],
       grace_period_days: 0
     };
   }
+
+  // Update form defaults when settings load
+  useEffect(() => {
+    if (settings && !newDeadline.doc_type_id) {
+      setNewDeadline(prev => ({
+        ...prev,
+        semester: settings.semester,
+        academic_year: settings.academic_year
+      }));
+    }
+  }, [settings]);
 
 
   // --- Calculations ---
@@ -77,7 +88,31 @@ export default function AdminDeadlinePage() {
   };
 
   // --- Handlers ---
+  const validateAcademicYear = (ay) => {
+    if (!ay || !ay.includes('-')) return false;
+    const startYear = parseInt(ay.split('-')[0]);
+    if (isNaN(startYear)) return false;
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth(); // 0-11
+
+    // AY starts in June (Month 5)
+    // If Month >= 5 (June), Current AY Start is currentYear (e.g., June 2025 -> 2025-2026)
+    // If Month < 5 (Jan-May), Current AY Start is currentYear - 1 (e.g., Feb 2026 -> 2025-2026)
+    const currentAyStart = currentMonth >= 5 ? currentYear : currentYear - 1;
+
+    // Allow Current AY and Future AYs
+    // Strictly greater than or equal to current AY start
+    return startYear >= currentAyStart;
+  };
+
   const handleCreateSubmit = async () => {
+    if (!validateAcademicYear(newDeadline.academic_year)) {
+      alert("Invalid Academic Year. You cannot set deadlines for past academic years.");
+      return;
+    }
+
     const success = await saveDeadline({
       ...newDeadline,
       doc_type_id: parseInt(newDeadline.doc_type_id),
@@ -91,6 +126,11 @@ export default function AdminDeadlinePage() {
 
   const handleEditSubmit = async () => {
     if (!editingDeadline) return;
+
+    if (!validateAcademicYear(editingDeadline.academic_year)) {
+      alert("Invalid Academic Year. You cannot set deadlines for past academic years.");
+      return;
+    }
 
     const success = await saveDeadline({
       ...editingDeadline,
@@ -285,7 +325,7 @@ export default function AdminDeadlinePage() {
               </div>
             </CardHeader>
             <CardContent className="pt-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-slate-400 uppercase">Document Type</Label>
                   <Select
@@ -303,6 +343,34 @@ export default function AdminDeadlinePage() {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-400 uppercase">Semester</Label>
+                  <Select
+                    value={newDeadline.semester}
+                    onValueChange={(v) => setNewDeadline({ ...newDeadline, semester: v })}
+                  >
+                    <SelectTrigger className="bg-slate-950/50 border-slate-700 text-slate-200 focus:ring-blue-500/20">
+                      <SelectValue placeholder="Select semester..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
+                      <SelectItem value="1st Semester">1st Semester</SelectItem>
+                      <SelectItem value="2nd Semester">2nd Semester</SelectItem>
+                      <SelectItem value="Summer">Summer</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-400 uppercase">Academic Year</Label>
+                  <Input
+                    type="text"
+                    value={newDeadline.academic_year}
+                    onChange={(e) => setNewDeadline({ ...newDeadline, academic_year: e.target.value })}
+                    placeholder="e.g. 2023-2024"
+                    className="bg-slate-950/50 border-slate-700 text-slate-200 focus:border-blue-500"
+                  />
                 </div>
 
                 <div className="space-y-1.5">
@@ -457,6 +525,33 @@ export default function AdminDeadlinePage() {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-400 uppercase">Semester</Label>
+                  <Select
+                    value={editingDeadline.semester}
+                    onValueChange={(v) => setEditingDeadline({ ...editingDeadline, semester: v })}
+                  >
+                    <SelectTrigger className="bg-slate-800 border-slate-700 text-slate-200">
+                      <SelectValue placeholder="Select semester..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
+                      <SelectItem value="1st Semester">1st Semester</SelectItem>
+                      <SelectItem value="2nd Semester">2nd Semester</SelectItem>
+                      <SelectItem value="Summer">Summer</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-400 uppercase">Academic Year</Label>
+                  <Input
+                    type="text"
+                    value={editingDeadline.academic_year}
+                    onChange={(e) => setEditingDeadline({ ...editingDeadline, academic_year: e.target.value })}
+                    className="bg-slate-800 border-slate-700 text-slate-200"
+                  />
+                </div>
+
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-slate-400 uppercase">Due Date</Label>
                   <Input

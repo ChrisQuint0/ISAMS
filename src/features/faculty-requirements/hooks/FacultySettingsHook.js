@@ -4,7 +4,8 @@ import { FacultySettingsService } from '../services/FacultySettingsService';
 export function useFacultySettings() {
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
+    const [savingProfile, setSavingProfile] = useState(false);
+    const [savingPreferences, setSavingPreferences] = useState(false);
     const [error, setError] = useState(null);
     const [successMessage, setSuccessMessage] = useState(null);
 
@@ -20,35 +21,40 @@ export function useFacultySettings() {
         } catch (err) {
             console.error(err);
             setError('Failed to load profile');
+            setTimeout(() => setError(null), 3000); // FIX: Clear sticky error
         } finally {
             setLoading(false);
         }
     };
 
-    const updateProfile = async (firstName, lastName, consultationHours) => {
+    const updateProfile = async (firstName, lastName, consultationHours, department, email) => {
         if (!profile) return;
-        setSaving(true);
+        setSavingProfile(true);
         setError(null);
         setSuccessMessage(null);
         try {
-            await FacultySettingsService.updateProfile(profile.faculty_id, { firstName, lastName, consultationHours });
+            await FacultySettingsService.updateProfile(profile.faculty_id, { firstName, lastName, consultationHours, department, email });
             setProfile(prev => ({
                 ...prev,
                 first_name: firstName,
                 last_name: lastName,
-                consultation_hours: consultationHours
+                consultation_hours: consultationHours,
+                department: department,
+                email: email
             }));
             setSuccessMessage('Profile updated successfully.');
+            setTimeout(() => setSuccessMessage(null), 4000);
         } catch (err) {
             setError('Failed to update profile.');
+            setTimeout(() => setError(null), 3000); // FIX: Clear sticky error
         } finally {
-            setSaving(false);
+            setSavingProfile(false);
         }
     };
 
     const updatePreferences = async (emailEnabled, frequency) => {
         if (!profile) return;
-        setSaving(true);
+        setSavingPreferences(true);
         setError(null);
         setSuccessMessage(null);
         try {
@@ -59,17 +65,20 @@ export function useFacultySettings() {
                 reminder_frequency: frequency
             }));
             setSuccessMessage('Preferences saved.');
+            setTimeout(() => setSuccessMessage(null), 4000);
         } catch (err) {
             setError('Failed to save preferences.');
+            setTimeout(() => setError(null), 3000); // FIX: Clear sticky error
         } finally {
-            setSaving(false);
+            setSavingPreferences(false);
         }
     };
 
     return {
         profile,
         loading,
-        saving,
+        savingProfile,       // ← was saving
+        savingPreferences,   // ← new
         error,
         successMessage,
         refreshProfile: loadProfile,

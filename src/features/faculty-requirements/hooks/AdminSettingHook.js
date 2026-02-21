@@ -15,18 +15,9 @@ export function useAdminSettings() {
   const [holidays, setHolidays] = useState([]);
 
   // Document Requirements State
-  const [docRequirements, setDocRequirements] = useState([
-    { id: 1, name: 'Syllabus', folder: 'Syllabi_2024', is_active: true, required: true },
-    { id: 2, name: 'Class Record', folder: 'Grades_2024', is_active: true, required: true },
-    { id: 3, name: 'Exam Material', folder: 'Exams_2024', is_active: true, required: false }
-  ]);
-
+  const [docRequirements, setDocRequirements] = useState([]);
   // Templates State
-  const [templates, setTemplates] = useState([
-    { id: 1, name: 'Syllabus Template v2.docx', size: '2.4 MB', updated: '2 days ago' },
-    { id: 2, name: 'Grading Sheet 2024.xlsx', size: '1.1 MB', updated: '1 week ago' }
-  ]);
-
+  const [templates, setTemplates] = useState([]);
   // Test State
   const [testResult, setTestResult] = useState(null);
 
@@ -45,6 +36,7 @@ export function useAdminSettings() {
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError("Failed to add requirement: " + err.message);
+      setTimeout(() => setError(null), 3000);
     } finally {
       setLoading(false);
     }
@@ -63,6 +55,7 @@ export function useAdminSettings() {
       await settingsService.upsertDocType({ ...item, ...updates });
     } catch (err) {
       setError("Failed to update requirement.");
+      setTimeout(() => setError(null), 3000);
       // Revert
       setDocRequirements(prev => prev.map(d => d.id === id ? item : d));
     }
@@ -78,12 +71,12 @@ export function useAdminSettings() {
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError("Failed to delete: " + err.message);
+      setTimeout(() => setError(null), 3000);
     } finally {
       setLoading(false);
     }
   };
 
-  // --- Template Handlers ---
   // --- Template Handlers ---
   const addTemplate = async (file) => {
     if (!file) return;
@@ -96,6 +89,7 @@ export function useAdminSettings() {
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError("Failed to upload template: " + err.message);
+      setTimeout(() => setError(null), 3000);
     } finally {
       setLoading(false);
     }
@@ -111,6 +105,7 @@ export function useAdminSettings() {
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError("Failed to delete template: " + err.message);
+      setTimeout(() => setError(null), 3000);
     } finally {
       setLoading(false);
     }
@@ -127,6 +122,7 @@ export function useAdminSettings() {
       return true;
     } catch (err) {
       setError("Failed to add faculty: " + err.message);
+      setTimeout(() => setError(null), 3000);
       return false;
     } finally {
       setLoading(false);
@@ -140,6 +136,7 @@ export function useAdminSettings() {
       await settingsService.updateFacultyStatus(id, !currentStatus);
     } catch (err) {
       setError("Failed to update status.");
+      setTimeout(() => setError(null), 3000);
       // Revert
       setFacultyList(prev => prev.map(f => f.faculty_id === id ? { ...f, is_active: currentStatus } : f));
     }
@@ -156,6 +153,7 @@ export function useAdminSettings() {
       return true;
     } catch (err) {
       setError("Failed to save course: " + err.message);
+      setTimeout(() => setError(null), 3000);
       return false;
     } finally {
       setLoading(false);
@@ -172,6 +170,7 @@ export function useAdminSettings() {
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError("Failed to delete course: " + err.message);
+      setTimeout(() => setError(null), 3000);
     } finally {
       setLoading(false);
     }
@@ -188,6 +187,7 @@ export function useAdminSettings() {
       return true;
     } catch (err) {
       setError("Failed to save holiday: " + err.message);
+      setTimeout(() => setError(null), 3000);
       return false;
     } finally {
       setLoading(false);
@@ -204,6 +204,7 @@ export function useAdminSettings() {
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError("Failed to delete holiday: " + err.message);
+      setTimeout(() => setError(null), 3000);
     } finally {
       setLoading(false);
     }
@@ -241,15 +242,16 @@ export function useAdminSettings() {
 
       // Map DB Templates to UI shape
       setTemplates(temps.map(t => ({
-        id: t.id,
-        name: t.name,
-        size: t.file_size || 'Unknown',
+        id: t.template_id,
+        name: t.title,
+        size: t.file_size_bytes ? `${(t.file_size_bytes / 1024 / 1024).toFixed(1)} MB` : 'Unknown',
         updated: new Date(t.created_at).toLocaleDateString()
       })));
 
     } catch (err) {
       console.error(err);
       setError("Failed to load settings.");
+      setTimeout(() => setError(null), 3000);
     } finally {
       setLoading(false);
     }
@@ -267,6 +269,7 @@ export function useAdminSettings() {
       await settingsService.saveSetting(key, value);
     } catch (err) {
       setError("Failed to save setting.");
+      setTimeout(() => setError(null), 3000);
       fetchData(); // Revert on error
     }
   };
@@ -287,6 +290,7 @@ export function useAdminSettings() {
       await fetchData(); // Refresh to be sure
     } catch (err) {
       setError("Failed to save settings group.");
+      setTimeout(() => setError(null), 3000);
     } finally {
       setLoading(false);
     }
@@ -300,6 +304,7 @@ export function useAdminSettings() {
       setTestResult(result);
     } catch (err) {
       setError("Test failed: " + err.message);
+      setTimeout(() => setError(null), 3000);
     } finally {
       setProcessing(false);
     }
@@ -332,6 +337,7 @@ export function useAdminSettings() {
       fetchData(); // Refresh queue
     } catch (err) {
       setError("Queue processing interrupted.");
+      setTimeout(() => setError(null), 3000);
     } finally {
       setProcessing(false);
     }
@@ -347,6 +353,7 @@ export function useAdminSettings() {
       }
     } catch (err) {
       setError("Backup failed: " + err.message);
+      setTimeout(() => setError(null), 3000);
     } finally {
       setProcessing(false);
     }
@@ -366,6 +373,7 @@ export function useAdminSettings() {
         }
       } catch (err) {
         setError("Restore failed: " + err.message);
+        setTimeout(() => setError(null), 3000);
       } finally {
         setProcessing(false);
       }

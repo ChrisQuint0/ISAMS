@@ -19,7 +19,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function FacultyDashboardPage() {
   const navigate = useNavigate();
-  const { stats, courses, recentActivity, loading, error } = useFacultyDashboard();
+  const { stats, settings, courses, recentActivity, loading, error } = useFacultyDashboard();
 
   if (loading) {
     return (
@@ -45,7 +45,7 @@ export default function FacultyDashboardPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-100 mb-2">To-Do Command Center</h1>
         <p className="text-slate-400">
-          Semester 2, AY 2023-2024 | Deadline: {stats.next_deadline ? new Date(stats.next_deadline).toLocaleDateString() : 'TBA'}
+          {settings?.semester || '...'}, AY {settings?.academic_year || '...'} | Deadline: {stats.next_deadline ? new Date(stats.next_deadline).toLocaleDateString() : 'TBA'}
           {stats.days_remaining > 0 && ` (${stats.days_remaining} days left)`}
         </p>
       </div>
@@ -150,72 +150,125 @@ export default function FacultyDashboardPage() {
       <div>
         <h2 className="text-lg font-semibold mb-4 text-slate-100">Your Courses</h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {courses.map((course) => (
-            <div key={course.course_id} className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md p-5">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="font-bold text-lg text-slate-100">{course.course_code} - {course.course_name}</h3>
-                  <p className="text-slate-400">Requirements Check</p>
-                </div>
-                <div className="text-right">
-                  <div className="px-2 py-1 text-xs font-semibold bg-green-500/10 text-green-400 rounded mb-2">
-                    {course.submitted_count}/{course.total_required} Done
+          {courses.map((course) => {
+            const pct = Math.round((course.submitted_count / course.total_required) * 100) || 0;
+            return (
+              <div key={course.course_id} className="bg-slate-900/50 border border-slate-800 rounded-xl shadow-md p-6">
+                <div className="flex justify-between items-start mb-6 border-b border-slate-800/50 pb-4">
+                  <div>
+                    <h3 className="font-bold text-lg text-slate-100">{course.course_code} - {course.course_name}</h3>
+                    <p className="text-sm text-slate-400">Department: {course.department || 'N/A'}</p>
+                  </div>
+                  <div className="text-right flex flex-col items-end">
+                    <div className={`px-2.5 py-1 text-xs font-bold rounded-md mb-2 ${pct === 100 ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                      pct >= 50 ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+                        'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                      }`}>
+                      {pct}% Complete
+                    </div>
+                    <div className="text-xs text-slate-500 font-medium">
+                      Deadline: {stats.days_remaining} days
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="space-y-3 mb-4">
-                {course.documents && course.documents.map((doc, idx) => (
-                  <div key={idx} className={`flex items-center justify-between p-3 rounded ${doc.status === 'APPROVED' ? 'bg-slate-800/50' :
-                    doc.status === 'REJECTED' || doc.status === 'REVISION_REQUESTED' ? 'bg-red-500/10 border border-red-500/20' :
-                      doc.status === 'SUBMITTED' ? 'bg-blue-500/10 border border-blue-500/20' :
-                        'bg-amber-500/10 border border-amber-500/20'
-                    }`}>
-                    <div className="flex items-center">
-                      <FileText className={`mr-3 h-5 w-5 ${doc.status === 'APPROVED' ? 'text-green-400' : 'text-slate-400'
-                        }`} />
-                      <div>
-                        <p className="font-medium text-slate-100">{doc.doc_type}</p>
-                        <p className="text-sm text-slate-400">{doc.status}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center">
-                      {doc.status === 'PENDING' || doc.status === 'REJECTED' ? (
-                        <Button
-                          size="sm"
-                          onClick={() => navigate("/faculty-requirements/submission")}
-                          className="bg-blue-600 hover:bg-blue-700 text-white text-sm"
-                        >
-                          <Upload className="h-4 w-4 mr-1" />
-                          {doc.status === 'REJECTED' ? 'Resubmit' : 'Submit'}
-                        </Button>
-                      ) : (
+                <div className="space-y-3 mb-6">
+                  {course.documents && course.documents.map((doc, idx) => {
+
+                    // Determine styling based on status
+                    const isApproved = doc.status === 'APPROVED' || doc.status === 'VALIDATED';
+                    const isRejected = doc.status === 'REJECTED' || doc.status === 'REVISION_REQUESTED';
+                    const isSubmitted = doc.status === 'SUBMITTED';
+                    const isPending = !doc.status || doc.status === 'DRAFT';
+
+                    // Determine icon based on doc_type name heuristic
+                    const docName = doc.doc_type.toLowerCase();
+                    let DocIcon = FileText;
+                    let iconColor = "text-slate-400";
+
+                    if (docName.includes('syllabus')) { DocIcon = FileText; iconColor = isApproved ? "text-green-500" : isSubmitted ? "text-blue-500" : "text-green-600/70"; }
+                    else if (docName.includes('grade')) { DocIcon = BarChart3; iconColor = isApproved ? "text-green-500" : isSubmitted ? "text-blue-500" : "text-blue-600/70"; }
+                    else if (docName.includes('presentation') || docName.includes('slide')) { DocIcon = FileSliders; iconColor = isApproved ? "text-green-500" : isSubmitted ? "text-blue-500" : "text-purple-500/70"; }
+                    else if (docName.includes('exam') || docName.includes('question')) { DocIcon = HelpCircle; iconColor = isApproved ? "text-green-500" : isSubmitted ? "text-blue-500" : "text-amber-500/70"; }
+
+                    return (
+                      <div key={idx} className={`flex items-center justify-between p-3.5 rounded-lg border transition-all ${isApproved ? 'bg-slate-800/30 border-slate-700/50 hover:bg-slate-800/60' :
+                        isRejected ? 'bg-red-950/20 border-red-900/40 hover:bg-red-900/30' :
+                          isSubmitted ? 'bg-blue-950/20 border-blue-900/40 hover:bg-blue-900/30' :
+                            'bg-amber-950/10 border-amber-900/30 hover:bg-amber-900/20'
+                        }`}>
                         <div className="flex items-center">
-                          <span className="px-2 py-1 text-xs font-semibold bg-green-500/10 text-green-400 rounded mr-3">
-                            {doc.status}
-                          </span>
-                          <Button size="sm" variant="outline" className="text-sm bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700">
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                          <DocIcon className={`mr-3.5 h-6 w-6 ${iconColor}`} />
+                          <div>
+                            <p className="font-medium text-slate-200 text-sm leading-tight">{doc.doc_type}</p>
+                            <p className="text-xs text-slate-500 mt-0.5">{doc.description || 'Required Document'}</p>
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                        <div className="flex items-center gap-3">
+                          {/* Status Badge */}
+                          <span className={`px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold rounded flex-shrink-0 ${isApproved ? 'bg-green-500/10 text-green-400' :
+                            isRejected ? 'bg-red-500/10 text-red-400' :
+                              isSubmitted ? 'bg-blue-500/10 text-blue-400' :
+                                'bg-amber-500/10 text-amber-400'
+                            }`}>
+                            {doc.status || 'Pending'}
+                          </span>
 
-              <div className="text-center">
-                <Button variant="outline" className="w-full bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700">
-                  <Send className="h-4 w-4 mr-2" />
-                  Submit All at Once
-                </Button>
+                          {/* Action Button */}
+                          {isPending || isRejected ? (
+                            <Button
+                              size="sm"
+                              onClick={() => navigate("/faculty-requirements/submission", { state: { courseId: course.course_id, docTypeId: doc.doc_type_id } })}
+                              className={`h-7 px-3 text-xs shadow-sm bg-blue-600 hover:bg-blue-700 text-white flex-shrink-0`}
+                            >
+                              <Upload className="h-3 w-3 mr-1.5" />
+                              {isRejected ? 'Resubmit' : 'Submit'}
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 text-slate-400 hover:text-white hover:bg-slate-700"
+                              onClick={() => doc.gdrive_web_view_link && window.open(doc.gdrive_web_view_link, '_blank')}
+                              disabled={!doc.gdrive_web_view_link}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {(!course.documents || course.documents.length === 0) && (
+                    <div className="p-4 text-center text-slate-500 text-sm italic">
+                      No document requirements configured for this course.
+                    </div>
+                  )}
+                </div>
+
+                <div className="text-center mt-auto pt-2">
+                  <Button
+                    variant="outline"
+                    className="w-full bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+                    onClick={() => navigate("/faculty-requirements/submission", { state: { courseId: course.course_id } })}
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    Submit All at Once
+                  </Button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {courses.length === 0 && (
-            <div className="col-span-1 lg:col-span-2 text-center py-12 text-slate-400 bg-slate-900/30 rounded-lg border border-slate-800 border-dashed">
-              <p>No courses assigned to you yet.</p>
+            <div className="col-span-1 lg:col-span-2 text-center py-16 bg-slate-900/30 rounded-xl border border-slate-800 border-dashed">
+              <div className="w-16 h-16 bg-slate-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FileText className="h-8 w-8 text-slate-600" />
+              </div>
+              <h3 className="text-lg font-medium text-slate-300 mb-1">No Courses Assigned</h3>
+              <p className="text-sm text-slate-500 max-w-sm mx-auto">
+                You currently don't have any courses assigned for this semester. Check back later or contact the administrator.
+              </p>
             </div>
           )}
         </div>
@@ -238,7 +291,7 @@ export default function FacultyDashboardPage() {
             <tbody className="divide-y divide-slate-700">
               {recentActivity.map((activity) => (
                 <tr key={activity.submission_id}>
-                  <td className="py-3 px-4 text-slate-300">{new Date(activity.date).toLocaleString()}</td>
+                  <td className="py-3 px-4 text-slate-300">{new Date(activity.submitted_at || activity.date).toLocaleString()}</td>
                   <td className="py-3 px-4 text-slate-300">{activity.course_code}</td>
                   <td className="py-3 px-4 text-slate-300">{activity.doc_type}</td>
                   <td className="py-3 px-4">
@@ -259,7 +312,10 @@ export default function FacultyDashboardPage() {
 
               {recentActivity.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-6 text-center text-slate-400">No recent activity found.</td>
+                  <td colSpan={5} className="py-12 text-center text-slate-400 bg-slate-900/30">
+                    <Clock className="h-8 w-8 mx-auto mb-3 text-slate-600" />
+                    <p className="text-sm">No recent activity found. Your submissions will appear here.</p>
+                  </td>
                 </tr>
               )}
             </tbody>

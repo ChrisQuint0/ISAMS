@@ -87,8 +87,16 @@ export const FacultyAnalyticsService = {
      */
     async getSubmissionHistory() {
         try {
+            const { data: { user } } = await supabase.auth.getUser();
+            const { data: faculty } = await supabase
+                .from('faculty_fs')
+                .select('faculty_id')
+                .eq('user_id', user.id)
+                .single();
+
             const { data, error } = await supabase
                 .rpc('get_faculty_submissions_fs', {
+                    p_faculty_id: faculty.faculty_id,
                     p_limit: 50,
                     p_offset: 0
                 });

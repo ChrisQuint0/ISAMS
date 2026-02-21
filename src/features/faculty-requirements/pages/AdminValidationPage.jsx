@@ -63,7 +63,6 @@ export default function AdminValidationPage() {
 
     const result = await approveAll();
     if (!result.success) alert("Error: " + result.message);
-    refresh();
   };
 
   const handlePreview = (url) => {
@@ -253,7 +252,7 @@ export default function AdminValidationPage() {
                               variant="outline"
                               size="sm"
                               className="flex-1 bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
-                              onClick={() => handleActionClick(item, 'REVISION')}
+                              onClick={() => handleActionClick(item, 'REQUEST_REVISION')}
                             >
                               <RotateCcw className="h-3.5 w-3.5 mr-2" /> Request Revision
                             </Button>
@@ -403,10 +402,10 @@ export default function AdminValidationPage() {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label className="text-xs font-semibold text-slate-400 uppercase">
-                {pendingAction === 'REVISION' ? "Reason for Rejection" : "Remarks (Optional)"}
+                {pendingAction === 'REQUEST_REVISION' ? "Reason for Rejection" : "Remarks (Optional)"}
               </Label>
               <Textarea
-                placeholder={pendingAction === 'REVISION' ? "e.g., Wrong file format, missing signature..." : "Add a note..."}
+                placeholder={pendingAction === 'REQUEST_REVISION' ? "e.g., Wrong file format, missing signature..." : "Add a note..."}
                 value={remarks}
                 onChange={e => setRemarks(e.target.value)}
                 className="bg-slate-950 border-slate-700 text-slate-200 placeholder:text-slate-500 min-h-[100px] focus:border-blue-500"

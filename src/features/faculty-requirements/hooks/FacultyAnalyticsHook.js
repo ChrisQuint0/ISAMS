@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { FacultyAnalyticsService } from '../services/FacultyAnalyticsService';
+import { supabase } from '@/lib/supabaseClient';
 
 export function useFacultyAnalytics() {
     const [overview, setOverview] = useState({
@@ -24,6 +25,27 @@ export function useFacultyAnalytics() {
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+
+    // Dynamic Options
+    const [options, setOptions] = useState({ semesters: [], academic_years: [] });
+
+    const loadOptions = useCallback(async () => {
+        try {
+            // Fetch distinct semesters and years from courses_fs (or improved source later)
+            // Using a direct query or rpc if available, but for now direct query is fine as per admin hook pattern
+            const { data } = await supabase
+                .from('courses_fs')
+                .select('semester, academic_year');
+
+            if (data) {
+                const sems = [...new Set(data.map(c => c.semester))].filter(Boolean).sort();
+                const years = [...new Set(data.map(c => c.academic_year))].filter(Boolean).sort().reverse();
+                setOptions({ semesters: sems, academic_years: years });
+            }
+        } catch (err) {
+            console.error('Failed to load filter options:', err);
+        }
+    }, []);
 
     const loadAnalytics = useCallback(async () => {
         setLoading(true);
@@ -55,6 +77,7 @@ export function useFacultyAnalytics() {
         } catch (err) {
             console.error(err);
             setError('Failed to load analytics data.');
+            setTimeout(() => setError(null), 3000);
         } finally {
             setLoading(false);
         }
@@ -63,7 +86,8 @@ export function useFacultyAnalytics() {
     // Re-fetch when filter changes
     useEffect(() => {
         loadAnalytics();
-    }, [loadAnalytics]);
+        loadOptions(); // Call loadOptions here
+    }, [loadAnalytics, loadOptions]); // Added loadOptions to dependencies
 
     // Update timeline filter — triggers re-fetch via useEffect
     const setTimelineFilter = useCallback((newSemester, newAcademicYear) => {
@@ -80,6 +104,7 @@ export function useFacultyAnalytics() {
         semester,
         academicYear,
         setTimelineFilter,
+        options, // Added options to the returned object
         loading,
         error,
         refreshAnalytics: loadAnalytics

@@ -30,11 +30,11 @@ export function useFacultyMonitor() {
     try {
       const data = await facultyMonitorService.getMonitoringData(filters);
 
-      // Frontend Filtering for "Courses" (Since SQL filtering nested JSON is hard)
+      // FIX 1: Frontend Filtering - Removed undefined course_name to prevent crash
       let filteredData = data;
       if (filters.course !== 'All Courses') {
         filteredData = data.filter(f =>
-          f.courses.some(c => c.course_code === filters.course || c.course_name.includes(filters.course))
+          f.courses.some(c => c.course_code === filters.course)
         );
       }
 
@@ -45,7 +45,7 @@ export function useFacultyMonitor() {
     } finally {
       setLoading(false);
     }
-  }, [filters]); // Dependencies
+  }, [filters]);
 
   // Debounce Fetch
   useEffect(() => {
@@ -58,20 +58,25 @@ export function useFacultyMonitor() {
     try {
       await facultyMonitorService.sendReminder(facultyId);
       setSuccess("Reminder sent successfully.");
-      setTimeout(() => setSuccess(null), 3000);
+      // FIX 3: Clear all alerts
+      setTimeout(() => { setSuccess(null); setError(null); }, 3000);
     } catch (err) {
       setError("Failed to send reminder.");
+      setTimeout(() => setError(null), 3000);
     }
   };
 
   const sendBulkReminders = async () => {
     try {
-      const res = await facultyMonitorService.sendBulkReminders(filters.department, filters.status);
+      // FIX 2: Pass the EXACT on-screen list to the service so it doesn't spam hidden users
+      const res = await facultyMonitorService.sendBulkReminders(facultyList);
       setSuccess(res.message);
-      setTimeout(() => setSuccess(null), 3000);
+      // FIX 3: Clear all alerts
+      setTimeout(() => { setSuccess(null); setError(null); }, 3000);
       return res;
     } catch (err) {
-      setError("Failed to send bulk reminders.");
+      setError(err.message || "Failed to send bulk reminders.");
+      setTimeout(() => setError(null), 3000);
     }
   };
 

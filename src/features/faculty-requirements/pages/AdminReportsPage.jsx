@@ -11,19 +11,20 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 
 // Hook
 import { useAdminReports } from '../hooks/AdminReportHook';
 
 export default function AdminReportsPage() {
-  const { loading, error, reportData, generateReport, exportCSV } = useAdminReports();
+  const { loading, error, reportData, settings, recentExports, generateReport, exportCSV } = useAdminReports();
 
   // Form State matching Rust 'ReportRequest' struct
   const [config, setConfig] = useState({
     reportType: 'Submission Status Summary',
     timePeriod: 'Current Semester',
-    semester: '2nd Sem',
-    academicYear: '2023-2024',
+    semester: '', // Default fallback
+    academicYear: '', // Default fallback
     // Checkboxes
     include_faculty_names: true,
     include_department_data: true,
@@ -32,6 +33,17 @@ export default function AdminReportsPage() {
     include_validation_details: false,
     include_status_indicators: true,
   });
+
+  // Update config defaults when settings load
+  React.useEffect(() => {
+    if (settings && settings.semester && settings.academic_year) {
+      setConfig(prev => ({
+        ...prev,
+        semester: settings.semester,
+        academicYear: settings.academic_year
+      }));
+    }
+  }, [settings]);
 
   const handleCheckboxChange = (key) => {
     setConfig(prev => ({ ...prev, [key]: !prev[key] }));
@@ -45,8 +57,8 @@ export default function AdminReportsPage() {
   const handleQuickReport = (type) => {
     const quickConfig = { ...config, reportType: type };
     setConfig(quickConfig);
-    // In a real app, you might auto-trigger generation here
-    // generateReport(quickConfig); 
+    // FIX: Actually trigger the report generation instantly
+    generateReport(quickConfig);
   };
 
   // Filter Data based on Configuration
@@ -95,7 +107,8 @@ export default function AdminReportsPage() {
         ...reportData,
         data_preview: filteredData
       };
-      exportCSV(exportPayload);
+      // Pass config to track the export history
+      exportCSV(exportPayload, config);
     }
   };
 
@@ -125,8 +138,8 @@ export default function AdminReportsPage() {
               </div>
             </CardHeader>
             <CardContent className="pt-4">
-              {/* Selectors */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              {/* Selectors - FIX: Changed to 3 columns and added real database parameters */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-slate-400 uppercase">Report Type</Label>
                   <Select
@@ -145,20 +158,31 @@ export default function AdminReportsPage() {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-400 uppercase">Time Period</Label>
+                  <Label className="text-xs font-semibold text-slate-400 uppercase">Semester</Label>
                   <Select
-                    value={config.timePeriod}
-                    onValueChange={(v) => setConfig({ ...config, timePeriod: v })}
+                    value={config.semester}
+                    onValueChange={(v) => setConfig({ ...config, semester: v })}
                   >
                     <SelectTrigger className="bg-slate-950/50 border-slate-700 text-slate-200 focus:ring-blue-500/20">
-                      <SelectValue placeholder="Select period" />
+                      <SelectValue placeholder="Select semester" />
                     </SelectTrigger>
                     <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
-                      <SelectItem value="Current Semester" className="focus:bg-slate-800">Current Semester</SelectItem>
-                      <SelectItem value="Previous Semester" className="focus:bg-slate-800">Previous Semester</SelectItem>
-                      <SelectItem value="Academic Year 2023-2024" className="focus:bg-slate-800">Academic Year 2023-2024</SelectItem>
+                      <SelectItem value="1st Semester" className="focus:bg-slate-800">1st Semester</SelectItem>
+                      <SelectItem value="2nd Semester" className="focus:bg-slate-800">2nd Semester</SelectItem>
+                      <SelectItem value="Summer" className="focus:bg-slate-800">Summer</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-400 uppercase">Academic Year</Label>
+                  <Input
+                    type="text"
+                    value={config.academicYear}
+                    onChange={(e) => setConfig({ ...config, academicYear: e.target.value })}
+                    className="bg-slate-950/50 border-slate-700 text-slate-200 focus:ring-blue-500/20 h-9"
+                    placeholder="e.g. 2023-2024"
+                  />
                 </div>
               </div>
 
@@ -346,14 +370,27 @@ export default function AdminReportsPage() {
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y divide-slate-800/50">
-                <RecentExportItem name="Submission Summary" date="June 5, 2024" type="CSV" />
-                <RecentExportItem name="Late Faculty Report" date="June 3, 2024" type="PDF" />
-                <RecentExportItem name="Department Comparison" date="June 1, 2024" type="CSV" />
-                <div className="p-3 text-center">
-                  <Button variant="link" className="text-xs text-slate-500 h-auto p-0 hover:text-blue-400">
-                    View All History
-                  </Button>
-                </div>
+                {recentExports && recentExports.length > 0 ? (
+                  recentExports.map((exp, idx) => (
+                    <RecentExportItem
+                      key={idx}
+                      name={exp.report_name}
+                      date={new Date(exp.generated_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      type={exp.report_type}
+                    />
+                  ))
+                ) : (
+                  <div className="p-6 text-center text-slate-500 text-sm">
+                    No export history yet. Generate and export a report to see it here.
+                  </div>
+                )}
+                {recentExports && recentExports.length > 0 && (
+                  <div className="p-3 text-center">
+                    <Button variant="link" className="text-xs text-slate-500 h-auto p-0 hover:text-blue-400">
+                      View All History
+                    </Button>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
