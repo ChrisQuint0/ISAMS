@@ -8,8 +8,9 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, UserRoundPlus } from "lucide-react";
+import { ArrowLeft, UserRoundPlus, KeyRound } from "lucide-react";
 import { AddUserDialog } from "@/features/users/components/AddUserDialog";
+import { ResetPasswordDialog } from "@/features/users/components/ResetPasswordDialog";
 import { AgGridReact } from "ag-grid-react";
 import { ModuleRegistry, AllCommunityModule, themeBalham } from "ag-grid-community";
 
@@ -133,8 +134,8 @@ function StatusCellRenderer({ value }) {
         <div className="flex items-center justify-center h-full">
             <span
                 className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${isActive
-                        ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                        : "bg-slate-500/15 text-slate-400 border-slate-500/30"
+                    ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                    : "bg-slate-500/15 text-slate-400 border-slate-500/30"
                     }`}
             >
                 <span
@@ -191,6 +192,24 @@ function DateCellRenderer({ value }) {
     );
 }
 
+function ActionsCellRenderer(props) {
+    if (!props.data) return null;
+    return (
+        <div className="flex items-center justify-center w-full h-full">
+            <button
+                onClick={(e) => {
+                    e.stopPropagation();
+                    props.context.handleResetPasswordClick(props.data);
+                }}
+                className="p-1.5 rounded-md transition-colors hover:bg-slate-800 text-slate-400 hover:text-indigo-400"
+                title="Reset Password"
+            >
+                <KeyRound className="h-4 w-4" />
+            </button>
+        </div>
+    );
+}
+
 // ─── Column builders ──────────────────────────────────────────────────────────
 
 /** Module column: valueGetter returns role string or "—"; valueSetter writes back both fields */
@@ -219,6 +238,11 @@ export default function UsersPage() {
     const navigate = useNavigate();
     const [moduleFilter, setModuleFilter] = useState("all");
     const [addUserOpen, setAddUserOpen] = useState(false);
+
+    // Password Reset State
+    const [resetUser, setResetUser] = useState(null);
+    const [resetDialogOpen, setResetDialogOpen] = useState(false);
+
     const [rowData, setRowData] = useState(filterUsers(MOCK_USERS, "all"));
 
     // Re-filter when dropdown changes
@@ -231,6 +255,18 @@ export default function UsersPage() {
         // TODO: wire to Supabase in the next pass
         console.log("New user payload:", formData);
     };
+
+    const handleResetPassword = (payload) => {
+        // TODO: wire to Supabase in the next pass
+        console.log("Password reset payload:", payload);
+    };
+
+    const context = useMemo(() => ({
+        handleResetPasswordClick: (user) => {
+            setResetUser(user);
+            setResetDialogOpen(true);
+        }
+    }), []);
 
     const columnDefs = useMemo(
         () => [
@@ -314,6 +350,15 @@ export default function UsersPage() {
                 width: 140,
                 filter: true,
                 cellStyle: { display: "flex", alignItems: "center", justifyContent: "center" },
+            },
+            {
+                headerName: "Actions",
+                cellRenderer: ActionsCellRenderer,
+                width: 100,
+                sortable: false,
+                filter: false,
+                resizable: false,
+                pinned: "right", // Pinned right so actions are always visible
             },
         ],
         []
@@ -399,6 +444,7 @@ export default function UsersPage() {
                             rowData={displayed}
                             columnDefs={columnDefs}
                             defaultColDef={defaultColDef}
+                            context={context}
                             animateRows={true}
                             stopEditingWhenCellsLoseFocus={true}
                         />
@@ -420,6 +466,13 @@ export default function UsersPage() {
                 open={addUserOpen}
                 onOpenChange={setAddUserOpen}
                 onSubmit={handleAddUser}
+            />
+
+            <ResetPasswordDialog
+                open={resetDialogOpen}
+                onOpenChange={setResetDialogOpen}
+                user={resetUser}
+                onSubmit={handleResetPassword}
             />
         </div>
     );
