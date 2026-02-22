@@ -1,9 +1,24 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useFacultyAnalytics } from "../hooks/FacultyAnalyticsHook";
-import { Loader2, AlertCircle, Clock, CheckCircle, AlertTriangle } from "lucide-react";
+import { Loader2, AlertCircle, Clock, CheckCircle, AlertTriangle, Calendar, Filter } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AgGridReact } from 'ag-grid-react';
+import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-community';
 
+ModuleRegistry.registerModules([AllCommunityModule]);
+
+const customTheme = themeBalham.withParams({
+  accentColor: '#3b82f6',
+  backgroundColor: '#020617',
+  foregroundColor: '#e2e8f0',
+  borderColor: '#1e293b',
+  headerBackgroundColor: '#0f172a',
+  headerTextColor: '#94a3b8',
+  oddRowBackgroundColor: '#020617',
+  rowHeight: 48,
+  headerHeight: 40,
+});
 export default function FacultyAnalyticsPage() {
   const navigate = useNavigate();
   // Fetch options from hook in real implementation, for now we will use the hook's options
@@ -26,6 +41,79 @@ export default function FacultyAnalyticsPage() {
   // State for filters
   const [selectedSemester, setSelectedSemester] = useState("");
   const [selectedYear, setSelectedYear] = useState("");
+
+  const courseColDefs = useMemo(() => [
+    { field: "course_code", headerName: "Course Code", width: 140, cellClass: "font-medium text-slate-100" },
+    { field: "course_name", headerName: "Course Name", flex: 2, cellClass: "text-slate-300" },
+    {
+      field: "progress",
+      headerName: "Progress",
+      flex: 1.5,
+      cellRenderer: (p) => {
+        const c = p.data;
+        const percentage = Math.round((c.submitted_count / c.total_required) * 100) || 0;
+        return (
+          <div className="flex items-center gap-3 h-full">
+            <div className="flex-1 bg-slate-700 rounded-full h-2 w-24 overflow-hidden -mt-1">
+              <div
+                className={`h-full ${percentage >= 100 ? 'bg-green-500' : 'bg-blue-500'}`}
+                style={{ width: `${percentage}%` }}
+              ></div>
+            </div>
+            <span className="text-xs text-slate-400 -mt-1">{c.submitted_count}/{c.total_required}</span>
+          </div>
+        );
+      }
+    },
+    {
+      field: "status",
+      headerName: "Status",
+      width: 140,
+      cellRenderer: (p) => {
+        const c = p.data;
+        const pendingCount = Math.max(0, c.total_required - c.submitted_count);
+        if (pendingCount === 0) {
+          return <span className="px-2 py-1 text-[10px] uppercase font-bold bg-green-500/10 text-green-400 rounded">Completed</span>;
+        } else {
+          return <span className="px-2 py-1 text-[10px] uppercase font-bold bg-amber-500/10 text-amber-400 rounded">{pendingCount} Pending</span>;
+        }
+      }
+    }
+  ], []);
+
+  const historyColDefs = useMemo(() => [
+    { field: "doc_type", headerName: "Document", flex: 1.5, cellClass: "font-medium text-slate-100" },
+    {
+      field: "semester_info",
+      headerName: "Semester",
+      width: 140,
+      valueGetter: (p) => `${p.data.semester} ${p.data.academic_year}`,
+      cellClass: "text-slate-300 text-xs"
+    },
+    {
+      field: "updated_at",
+      headerName: "Submission Date",
+      width: 150,
+      cellRenderer: (p) => <span className="text-slate-300 text-xs">{p.value ? new Date(p.value).toLocaleDateString() : '-'}</span>
+    },
+    {
+      field: "status",
+      headerName: "Status",
+      width: 130,
+      cellRenderer: (p) => {
+        const isApproved = p.value === 'APPROVED';
+        const isRejected = p.value === 'REJECTED';
+        const bg = isApproved ? 'bg-green-500/10 text-green-400' : isRejected ? 'bg-red-500/10 text-red-400' : 'bg-amber-500/10 text-amber-400';
+        return <span className={`px-2 py-1 text-[10px] font-bold rounded uppercase ${bg}`}>{p.value}</span>;
+      }
+    },
+    {
+      field: "file_info",
+      headerName: "File Info",
+      flex: 1.5,
+      cellRenderer: (p) => <span className="text-xs text-slate-400 truncate block w-full">{p.data.original_filename} ({(p.data.file_size_bytes / 1024).toFixed(1)} KB)</span>
+    }
+  ], []);
 
   if (loading) {
     return (
@@ -252,109 +340,42 @@ export default function FacultyAnalyticsPage() {
       </div>
 
       {/* Course Completion Breakdown */}
-      <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md p-6">
-        <h3 className="font-semibold text-lg mb-4 text-slate-100">Course Completion Breakdown</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-700">
-                <th className="text-left py-3 px-4 font-medium text-slate-300">Course Code</th>
-                <th className="text-left py-3 px-4 font-medium text-slate-300">Course Name</th>
-                <th className="text-left py-3 px-4 font-medium text-slate-300">Progress</th>
-                <th className="text-left py-3 px-4 font-medium text-slate-300">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {courseAnalytics && courseAnalytics.map((course) => {
-                const percentage = Math.round((course.submitted_count / course.total_required) * 100) || 0;
-                // RPC get_faculty_courses_status returns 'submitted_count' and 'total_required' (hardcoded to 4 currently)
-                // It does NOT return 'pending_count' explicitly in the root object, so we calculate it.
-                const pendingCount = Math.max(0, course.total_required - course.submitted_count);
-
-                return (
-                  <tr key={course.course_id} className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors">
-                    <td className="py-3 px-4 font-medium text-slate-100">{course.course_code}</td>
-                    <td className="py-3 px-4 text-slate-300">{course.course_name}</td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1 bg-slate-700 rounded-full h-2 w-24 overflow-hidden">
-                          <div
-                            className={`h-full ${percentage >= 100 ? 'bg-green-500' : 'bg-blue-500'}`}
-                            style={{ width: `${percentage}%` }}
-                          ></div>
-                        </div>
-                        <span className="text-xs text-slate-400">{course.submitted_count}/{course.total_required}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      {pendingCount === 0 ? (
-                        <span className="px-2 py-1 text-xs font-semibold bg-green-500/10 text-green-400 rounded">
-                          Completed
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 text-xs font-semibold bg-amber-500/10 text-amber-400 rounded">
-                          {pendingCount} Pending
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-              {(!courseAnalytics || courseAnalytics.length === 0) && (
-                <tr>
-                  <td colSpan={4} className="py-6 text-center text-slate-500">No course data available.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md flex flex-col flex-1 min-h-[400px]">
+        <div className="p-6 border-b border-slate-800 shrink-0 bg-slate-950/30">
+          <h3 className="font-semibold text-lg text-slate-100 mb-0">Course Completion Breakdown</h3>
+        </div>
+        <div className="flex-1 relative p-0">
+          <div className="absolute inset-0">
+            <AgGridReact
+              theme={customTheme}
+              rowData={courseAnalytics || []}
+              columnDefs={courseColDefs}
+              pagination={true}
+              paginationPageSize={10}
+              suppressCellFocus={true}
+              overlayNoRowsTemplate={`<div class="text-slate-400 text-sm py-8"><p>No course data available.</p></div>`}
+            />
+          </div>
         </div>
       </div>
 
       {/* Submission History */}
-      <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md p-6">
-        <h3 className="font-semibold text-lg mb-4 text-slate-100">Submission History</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-700">
-                <th className="text-left py-3 px-4 font-medium text-slate-300">Document</th>
-                <th className="text-left py-3 px-4 font-medium text-slate-300">Semester</th>
-                <th className="text-left py-3 px-4 font-medium text-slate-300">Submission Date</th>
-                <th className="text-left py-3 px-4 font-medium text-slate-300">Status</th>
-                <th className="text-left py-3 px-4 font-medium text-slate-300">File Info</th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.map((record) => (
-                <tr key={record.submission_id} className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors">
-                  <td className="py-3 px-4 font-medium text-slate-100">{record.doc_type}</td>
-                  <td className="py-3 px-4 text-slate-300">{record.semester} {record.academic_year}</td>
-                  <td className="py-3 px-4 text-slate-300">
-                    {record.updated_at ? new Date(record.updated_at).toLocaleDateString() : '-'}
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded ${record.status === 'APPROVED' ? 'bg-green-500/10 text-green-400' :
-                      record.status === 'REJECTED' ? 'bg-red-500/10 text-red-400' :
-                        'bg-amber-500/10 text-amber-400'
-                      }`}>
-                      {record.status}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-xs text-slate-500">
-                    {record.original_filename} ({(record.file_size_bytes / 1024).toFixed(1)} KB)
-                  </td>
-                </tr>
-              ))}
-
-              {history.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="py-8 text-center text-slate-500">
-                    No submissions found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md flex flex-col flex-1 min-h-[400px]">
+        <div className="p-6 border-b border-slate-800 shrink-0 bg-slate-950/30">
+          <h3 className="font-semibold text-lg text-slate-100 mb-0">Submission History</h3>
+        </div>
+        <div className="flex-1 relative p-0">
+          <div className="absolute inset-0">
+            <AgGridReact
+              theme={customTheme}
+              rowData={history || []}
+              columnDefs={historyColDefs}
+              pagination={true}
+              paginationPageSize={10}
+              suppressCellFocus={true}
+              overlayNoRowsTemplate={`<div class="text-slate-400 text-sm py-8"><p>No submissions found.</p></div>`}
+            />
+          </div>
         </div>
       </div>
     </div>

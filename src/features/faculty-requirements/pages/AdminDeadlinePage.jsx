@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { AgGridReact } from 'ag-grid-react';
-import { ModuleRegistry, AllCommunityModule, themeQuartz } from 'ag-grid-community';
+import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-community';
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -20,17 +20,17 @@ import { Badge } from "@/components/ui/badge";
 // Hook
 import { useAdminDeadlines } from '../hooks/AdminDeadlineHook';
 
-// Custom theme using AG Grid v33+ Theming API
-const customTheme = themeQuartz.withParams({
+// Custom theme using AG Grid v33+ Theming API with Balham theme (better dark mode support)
+const customTheme = themeBalham.withParams({
   accentColor: '#3b82f6',
-  backgroundColor: '#0f172a',
+  backgroundColor: '#020617',
   foregroundColor: '#e2e8f0',
   borderColor: '#1e293b',
-  headerBackgroundColor: '#1e293b',
+  headerBackgroundColor: '#0f172a',
   headerTextColor: '#94a3b8',
-  oddRowBackgroundColor: '#0f172a',
-  rowHoverColor: '#1e293b',
-  inputFocusBorderColor: '#3b82f6',
+  oddRowBackgroundColor: '#020617',
+  rowHeight: 48,
+  headerHeight: 40,
 });
 
 export default function AdminDeadlinePage() {
