@@ -19,6 +19,7 @@ const GOOGLE_CLIENT_SECRET = process.env.VITE_GOOGLE_CLIENT_SECRET;
 const REDIRECT_URI = "http://localhost:3000/oauth2callback";
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const GOOGLE_DRIVE_FOLDER_ID = process.env.VITE_GOOGLE_DRIVE_FOLDER_ID;
 
 // Middleware
@@ -27,6 +28,9 @@ app.use(express.json());
 
 // Supabase Client
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
 
 // OAuth2 Client
 const oauth2Client = new google.auth.OAuth2(
@@ -39,6 +43,85 @@ const oauth2Client = new google.auth.OAuth2(
 const upload = multer({ dest: "uploads/" });
 
 // --- Routes ---
+
+// 0. Add User (Admin)
+app.post("/api/users", async (req, res) => {
+  const { module, firstName, lastName, email, password, role } = req.body;
+
+  if (!SUPABASE_SERVICE_KEY) {
+    return res.status(500).json({ error: "Server missing SUPABASE_SERVICE_ROLE_KEY" });
+  }
+
+  try {
+    // 1. Create user in auth.users
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        first_name: firstName,
+        last_name: lastName,
+      },
+    });
+
+    if (authError) throw authError;
+
+    const userId = authData.user.id;
+
+    // 2. Prepare user_rbac data
+    const rbacData = {
+      user_id: userId,
+      thesis: module === "thesis",
+      thesis_role: module === "thesis" ? role : null,
+      facsub: module === "facsub",
+      facsub_role: module === "facsub" ? role : null,
+      labman: module === "labman",
+      labman_role: module === "labman" ? role : null,
+      studvio: module === "studvio",
+      studvio_role: module === "studvio" ? role : null,
+      status: "active",
+      superadmin: false,
+    };
+
+    // Because there may be a Supabase Database Trigger automatically creating a default row 
+    // in `user_rbac` on `auth.users` insertion, we first try to Update the existing row.
+    const { data: updatedRows, error: updateError } = await supabaseAdmin
+      .from("user_rbac")
+      .update({
+        thesis: rbacData.thesis,
+        thesis_role: rbacData.thesis_role,
+        facsub: rbacData.facsub,
+        facsub_role: rbacData.facsub_role,
+        labman: rbacData.labman,
+        labman_role: rbacData.labman_role,
+        studvio: rbacData.studvio,
+        studvio_role: rbacData.studvio_role,
+      })
+      .eq("user_id", userId)
+      .select();
+
+    if (updateError) throw updateError;
+
+    // If update affected 0 rows (meaning no trigger exists), we perform a regular insert
+    if (!updatedRows || updatedRows.length === 0) {
+      const { error: insertError } = await supabaseAdmin.from("user_rbac").insert(rbacData);
+      if (insertError) throw insertError;
+    } else if (updatedRows.length > 1) {
+      // If there are multiple roles (like the bug you experienced), clean up duplicates
+      // Keep the first one and delete the rest
+      const [firstRow, ...duplicates] = updatedRows;
+      const duplicateIds = duplicates.map(row => row.id);
+      if (duplicateIds.length > 0) {
+        await supabaseAdmin.from("user_rbac").delete().in("id", duplicateIds);
+      }
+    }
+
+    res.json({ message: "User created successfully", user: authData.user });
+  } catch (error) {
+    console.error("Error creating user:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // 1. Auth URL
 app.get("/api/auth", (req, res) => {

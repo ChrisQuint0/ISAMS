@@ -206,9 +206,26 @@ export default function UsersPage() {
         [rowData, moduleFilter]
     );
 
-    const handleAddUser = (formData) => {
-        // TODO: wire to Supabase in the next pass
-        console.log("New user payload:", formData);
+    const handleAddUser = async (formData) => {
+        try {
+            const res = await fetch("http://localhost:3000/api/users", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(formData),
+            });
+            const result = await res.json();
+
+            if (!res.ok) {
+                alert(`Error creating user: ${result.error || result.message}`);
+                return;
+            }
+
+            // Re-fetch users for the table
+            fetchUsers();
+        } catch (err) {
+            console.error(err);
+            alert("Failed to add user due to a network or server error.");
+        }
     };
 
     const handleResetPassword = (payload) => {

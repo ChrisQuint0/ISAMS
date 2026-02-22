@@ -70,6 +70,7 @@ const EMPTY_FORM = {
 // ─── Component ────────────────────────────────────────────────────────────────
 export function AddUserDialog({ open, onOpenChange, onSubmit }) {
     const [form, setForm] = useState(EMPTY_FORM);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const selectedModule = MODULES.find((m) => m.value === form.module);
 
@@ -93,12 +94,17 @@ export function AddUserDialog({ open, onOpenChange, onSubmit }) {
         form.password.trim() &&
         form.role;
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         if (!isValid) return;
-        onSubmit?.(form);
-        setForm(EMPTY_FORM);
-        onOpenChange(false);
+        setIsSubmitting(true);
+        try {
+            await onSubmit?.(form);
+            setForm(EMPTY_FORM);
+            onOpenChange(false);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const handleCancel = () => {
@@ -236,10 +242,10 @@ export function AddUserDialog({ open, onOpenChange, onSubmit }) {
                         </Button>
                         <Button
                             type="submit"
-                            disabled={!isValid}
+                            disabled={!isValid || isSubmitting}
                             className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-40"
                         >
-                            Create User
+                            {isSubmitting ? "Creating..." : "Create User"}
                         </Button>
                     </div>
                 </form>
