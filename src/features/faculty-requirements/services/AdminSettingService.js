@@ -179,6 +179,12 @@ export const settingsService = {
     });
   },
 
+  getUnassignedSystemFaculty: async () => {
+    const { data, error } = await supabase.rpc('get_unassigned_system_faculty');
+    if (error) throw error;
+    return data || [];
+  },
+
   /**
    * --- Faculty Management ---
    */
@@ -192,10 +198,17 @@ export const settingsService = {
   },
 
   addFaculty: async (facultyData) => {
-    // facultyData: { first_name, last_name, email, department, faculty_id }
+    // facultyData now includes the selected user_id from the dropdown
     const { data, error } = await supabase
       .from('faculty_fs')
-      .insert([facultyData])
+      .insert([{
+        user_id: facultyData.user_id, // THE CRUCIAL LINK
+        faculty_id: facultyData.faculty_id,
+        first_name: facultyData.first_name,
+        last_name: facultyData.last_name,
+        email: facultyData.email,
+        department: facultyData.department
+      }])
       .select();
     if (error) throw error;
     return data[0];

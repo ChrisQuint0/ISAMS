@@ -13,13 +13,10 @@ export function useAdminSettings() {
   const [courseList, setCourseList] = useState([]);
   const [systemHealth, setSystemHealth] = useState(null);
   const [holidays, setHolidays] = useState([]);
-
-  // Document Requirements State
   const [docRequirements, setDocRequirements] = useState([]);
-  // Templates State
   const [templates, setTemplates] = useState([]);
-  // Test State
   const [testResult, setTestResult] = useState(null);
+  const [availableSystemUsers, setAvailableSystemUsers] = useState([]);
 
   // --- Document Requirement Handlers ---
   const addDocRequirement = async (req) => {
@@ -214,23 +211,34 @@ export function useAdminSettings() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [allSettings, jobs, docs, temps, faculty, courses, health, holidayList] = await Promise.all([
-        settingsService.getAllSettings(),
-        settingsService.getQueue(),
-        settingsService.getDocTypes(),
+      // DEBUG: Log each call to see which one fails
+      const settingsPromise = settingsService.getAllSettings().catch(e => { console.error("Failed: settings", e); throw e; });
+      const queuePromise = settingsService.getQueue().catch(e => { console.error("Failed: queue", e); throw e; });
+      const docsPromise = settingsService.getDocTypes().catch(e => { console.error("Failed: docs", e); throw e; });
+      const facultyPromise = settingsService.getFaculty().catch(e => { console.error("Failed: faculty", e); throw e; });
+      const healthPromise = settingsService.getSystemHealth().catch(e => { console.error("Failed: health", e); throw e; });
+
+      const [allSettings, jobs, docs, temps, faculty, courses, health, holidayList, unassigned] = await Promise.all([
+        settingsPromise,
+        queuePromise,
+        docsPromise,
         settingsService.getTemplates(),
-        settingsService.getFaculty(),
+        facultyPromise,
         settingsService.getCourses(),
-        settingsService.getSystemHealth(),
-        settingsService.getHolidays()
+        healthPromise,
+        settingsService.getHolidays(),
+        settingsService.getUnassignedSystemFaculty()
       ]);
+
+      // ... rest of your code ...
+
       setSettings(allSettings);
       setQueue(jobs);
       setFacultyList(faculty.sort((a, b) => a.last_name.localeCompare(b.last_name)));
       setCourseList(courses || []);
       setSystemHealth(health);
       setHolidays(holidayList || []);
-
+      setAvailableSystemUsers(unassigned || []);
       // Map DB Document Types to UI shape
       setDocRequirements(docs.map(d => ({
         id: d.doc_type_id,
@@ -391,6 +399,7 @@ export function useAdminSettings() {
     courseList, handleAddCourse, handleDeleteCourse,
     runTestOCR, processQueue, runBackup, restoreSystem,
     systemHealth, holidays, handleAddHoliday, handleDeleteHoliday,
+    availableSystemUsers,
     refresh: fetchData
   };
 }

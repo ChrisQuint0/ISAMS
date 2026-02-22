@@ -30,6 +30,7 @@ export default function AdminSettingsPage() {
         docRequirements, addDocRequirement, updateDocRequirement, deleteDocRequirement,
         templates, addTemplate, deleteTemplate,
 
+        availableSystemUsers,
         facultyList, handleAddFaculty, handleToggleFacultyStatus,
         courseList, handleAddCourse, handleDeleteCourse,
         systemHealth, holidays, handleAddHoliday, handleDeleteHoliday, restoreSystem
@@ -41,7 +42,7 @@ export default function AdminSettingsPage() {
 
     // Faculty Form State
     const [newFaculty, setNewFaculty] = useState({
-        first_name: '', last_name: '', email: '', department: '', faculty_id: ''
+        first_name: '', last_name: '', email: '', department: '', user_id: '' // faculty_id removed
     });
 
     // Course Form State
@@ -468,8 +469,37 @@ export default function AdminSettingsPage() {
                             <CardContent className="pt-6 space-y-6">
                                 {/* Add Faculty Form */}
                                 <div className="p-4 bg-slate-950/50 border border-slate-800 rounded-lg space-y-4">
-                                    <h3 className="text-sm font-medium text-slate-200">Add New Faculty</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+                                    <h3 className="text-sm font-medium text-slate-200">Configure System Faculty</h3>
+                                    <p className="text-xs text-slate-500 mb-2">Select a user created by the SuperAdmin to configure their module profile.</p>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                                        {/* Dropdown to pick existing system Email */}
+                                        <Select
+                                            value={newFaculty.user_id || undefined}
+                                            onValueChange={(userId) => {
+                                                const selectedUser = availableSystemUsers.find(u => u.id === userId);
+                                                if (selectedUser) {
+                                                    setNewFaculty({
+                                                        ...newFaculty,
+                                                        user_id: selectedUser.id,
+                                                        email: selectedUser.email
+                                                    });
+                                                }
+                                            }}
+                                        >
+                                            <SelectTrigger className="bg-slate-900 border-slate-700 text-slate-200 lg:col-span-2">
+                                                <SelectValue placeholder="Select an ISAMS System Email" />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
+                                                {availableSystemUsers.map(u => (
+                                                    <SelectItem key={u.id} value={u.id}>
+                                                        {u.email}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+
+                                        {/* Let the Dean type the names since the Auth system doesn't have them */}
                                         <Input
                                             placeholder="First Name"
                                             value={newFaculty.first_name}
@@ -480,18 +510,6 @@ export default function AdminSettingsPage() {
                                             placeholder="Last Name"
                                             value={newFaculty.last_name}
                                             onChange={e => setNewFaculty({ ...newFaculty, last_name: e.target.value })}
-                                            className="bg-slate-900 border-slate-700 text-slate-200"
-                                        />
-                                        <Input
-                                            placeholder="Email"
-                                            value={newFaculty.email}
-                                            onChange={e => setNewFaculty({ ...newFaculty, email: e.target.value })}
-                                            className="bg-slate-900 border-slate-700 text-slate-200"
-                                        />
-                                        <Input
-                                            placeholder="Employee ID"
-                                            value={newFaculty.faculty_id}
-                                            onChange={e => setNewFaculty({ ...newFaculty, faculty_id: e.target.value })}
                                             className="bg-slate-900 border-slate-700 text-slate-200"
                                         />
                                         <Select
