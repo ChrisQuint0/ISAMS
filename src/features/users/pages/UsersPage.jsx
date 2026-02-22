@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,6 +13,7 @@ import { AddUserDialog } from "@/features/users/components/AddUserDialog";
 import { ResetPasswordDialog } from "@/features/users/components/ResetPasswordDialog";
 import { AgGridReact } from "ag-grid-react";
 import { ModuleRegistry, AllCommunityModule, themeBalham } from "ag-grid-community";
+import { supabase } from "@/lib/supabaseClient";
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -31,73 +32,7 @@ const customTheme = themeBalham.withParams({
 });
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
-// Replace with Supabase fetch in a later pass.
-const MOCK_USERS = [
-    {
-        id: "1",
-        first_name: "Alice",
-        last_name: "Santos",
-        email: "alice@ccs.edu",
-        status: "active",
-        thesis: true,
-        thesis_role: "admin",
-        facsub: true,
-        facsub_role: "admin",
-        labman: false,
-        labman_role: null,
-        studvio: false,
-        studvio_role: null,
-        created_at: "2026-01-10T08:00:00Z",
-    },
-    {
-        id: "2",
-        first_name: "Bob",
-        last_name: "Reyes",
-        email: "bob@ccs.edu",
-        status: "active",
-        thesis: true,
-        thesis_role: "student",
-        facsub: false,
-        facsub_role: null,
-        labman: true,
-        labman_role: "faculty",
-        studvio: false,
-        studvio_role: null,
-        created_at: "2026-01-15T09:30:00Z",
-    },
-    {
-        id: "3",
-        first_name: "Carol",
-        last_name: "Lim",
-        email: "carol@ccs.edu",
-        status: "inactive",
-        thesis: false,
-        thesis_role: null,
-        facsub: true,
-        facsub_role: "faculty",
-        labman: true,
-        labman_role: "admin",
-        studvio: true,
-        studvio_role: "admin",
-        created_at: "2026-01-20T11:00:00Z",
-    },
-    {
-        id: "4",
-        first_name: "Dave",
-        last_name: "Cruz",
-        email: "dave@ccs.edu",
-        status: "inactive",
-        thesis: false,
-        thesis_role: null,
-        facsub: false,
-        facsub_role: null,
-        labman: false,
-        labman_role: null,
-        studvio: true,
-        studvio_role: "admin",
-        created_at: "2026-02-01T14:00:00Z",
-    },
-];
+
 
 // ─── Role options per module (used by both AddUserDialog and column editors) ──
 const MODULE_ROLES = {
@@ -243,7 +178,27 @@ export default function UsersPage() {
     const [resetUser, setResetUser] = useState(null);
     const [resetDialogOpen, setResetDialogOpen] = useState(false);
 
-    const [rowData, setRowData] = useState(filterUsers(MOCK_USERS, "all"));
+    const [rowData, setRowData] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchUsers = async () => {
+        setLoading(true);
+        const { data, error } = await supabase
+            .from("users_with_roles")
+            .select("*")
+            .order("created_at", { ascending: false });
+
+        if (!error && data) {
+            setRowData(data);
+        } else {
+            console.error("Error fetching users:", error);
+        }
+        setLoading(false);
+    };
+
+    useEffect(() => {
+        fetchUsers();
+    }, []);
 
     // Re-filter when dropdown changes
     const displayed = useMemo(
@@ -251,9 +206,26 @@ export default function UsersPage() {
         [rowData, moduleFilter]
     );
 
-    const handleAddUser = (formData) => {
-        // TODO: wire to Supabase in the next pass
-        console.log("New user payload:", formData);
+    const handleAddUser = async (formData) => {
+        try {
+            const res = await fetch("http://localhost:3000/api/users", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(formData),
+            });
+            const result = await res.json();
+
+            if (!res.ok) {
+                alert(`Error creating user: ${result.error || result.message}`);
+                return;
+            }
+
+            // Re-fetch users for the table
+            fetchUsers();
+        } catch (err) {
+            console.error(err);
+            alert("Failed to add user due to a network or server error.");
+        }
     };
 
     const handleResetPassword = (payload) => {
@@ -447,6 +419,7 @@ export default function UsersPage() {
                             context={context}
                             animateRows={true}
                             stopEditingWhenCellsLoseFocus={true}
+                            loading={loading}
                         />
                     </div>
                 </div>
