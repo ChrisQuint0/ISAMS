@@ -198,18 +198,20 @@ export const settingsService = {
   },
 
   addFaculty: async (facultyData) => {
-    // facultyData now includes the selected user_id from the dropdown
+    // We explicitly destructure to ensure we only send what's needed
+    const { first_name, last_name, email, department, user_id } = facultyData;
+
     const { data, error } = await supabase
       .from('faculty_fs')
       .insert([{
-        user_id: facultyData.user_id, // THE CRUCIAL LINK
-        faculty_id: facultyData.faculty_id,
-        first_name: facultyData.first_name,
-        last_name: facultyData.last_name,
-        email: facultyData.email,
-        department: facultyData.department
+        user_id,
+        first_name,
+        last_name,
+        email,
+        department
       }])
       .select();
+
     if (error) throw error;
     return data[0];
   },
