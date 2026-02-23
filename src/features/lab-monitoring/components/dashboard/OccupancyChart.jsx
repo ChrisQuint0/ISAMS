@@ -30,8 +30,9 @@ const chartConfig = {
 
 export default function OccupancyChart() {
     return (
-        <ChartContainer config={chartConfig} className="w-full h-[220px]">
-            <AreaChart data={hourlyData} margin={{ top: 10, right: 10, left: -20, bottom: 10 }}>
+        /* Reduced h-[220px] to h-[180px] */
+        <ChartContainer config={chartConfig} className="w-full h-[280px]">
+            <AreaChart data={hourlyData} margin={{ top: 5, right: 10, left: -25, bottom: 0 }}>
                 <defs>
                     <linearGradient id="occupancyGrad" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#38bdf8" stopOpacity={0.25} />
