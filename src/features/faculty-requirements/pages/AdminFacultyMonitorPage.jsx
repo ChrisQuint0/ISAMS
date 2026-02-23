@@ -15,9 +15,27 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { AgGridReact } from 'ag-grid-react';
+import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-community';
+
+// Register AG Grid modules
+ModuleRegistry.registerModules([AllCommunityModule]);
 
 // Hook
 import { useFacultyMonitor } from '../hooks/AdminFacultyMonitoringHook';
+
+// Custom theme using AG Grid v33+ Theming API with Balham theme (better dark mode support)
+const customTheme = themeBalham.withParams({
+  accentColor: '#3b82f6',
+  backgroundColor: '#020617',
+  foregroundColor: '#e2e8f0',
+  borderColor: '#1e293b',
+  headerBackgroundColor: '#0f172a',
+  headerTextColor: '#94a3b8',
+  oddRowBackgroundColor: '#020617',
+  rowHeight: 56, // Slightly taller for avatars/progress bars
+  headerHeight: 40,
+});
 
 export default function FacultyMonitorPage() {
   const navigate = useNavigate();
@@ -71,6 +89,109 @@ export default function FacultyMonitorPage() {
       setReminderDialogOpen(false);
     }
   };
+
+  // AG Grid Column Definitions
+  const columnDefs = React.useMemo(() => [
+    {
+      headerName: "Faculty",
+      field: "last_name",
+      flex: 2,
+      minWidth: 200,
+      cellRenderer: (params) => {
+        const f = params.data;
+        if (!f) return null;
+        return (
+          <div className="flex items-center gap-3 h-full">
+            <div className={`w-8 h-8 rounded-lg flex shrink-0 items-center justify-center font-bold text-xs border ${getAvatarColor(f.first_name)}`}>
+              {getInitials(f.first_name, f.last_name)}
+            </div>
+            <div className="flex flex-col justify-center leading-tight">
+              <span className="font-bold text-slate-100 text-sm truncate" title={`${f.first_name} ${f.last_name}`}>
+                {f.first_name} {f.last_name}
+              </span>
+              <span className="text-[10px] text-slate-500 truncate" title={f.department}>{f.department}</span>
+            </div>
+          </div>
+        );
+      }
+    },
+    {
+      headerName: "Status",
+      field: "status",
+      width: 130,
+      cellRenderer: (params) => {
+        if (!params.value) return null;
+        return (
+          <div className="flex items-center h-full">
+            <Badge className={`font-normal ${getStatusColor(params.value)}`}>{params.value}</Badge>
+          </div>
+        );
+      }
+    },
+    {
+      headerName: "Progress",
+      field: "overall_progress",
+      flex: 1.5,
+      minWidth: 150,
+      cellRenderer: (params) => {
+        if (params.value == null) return null;
+        return (
+          <div className="flex flex-col justify-center h-full w-full pr-4 mt-2">
+            <div className="flex justify-between text-[10px] mb-1">
+              <span className="text-slate-400">Completion</span>
+              <span className="font-bold text-slate-200">{params.value}%</span>
+            </div>
+            <Progress value={params.value} className="h-1.5 bg-slate-800" />
+          </div>
+        );
+      }
+    },
+    {
+      headerName: "Pending",
+      field: "pending_submissions",
+      width: 100,
+      cellClass: "text-amber-400 font-mono text-center flex items-center justify-center"
+    },
+    {
+      headerName: "Late",
+      field: "late_submissions",
+      width: 100,
+      cellClass: "text-rose-400 font-mono text-center flex items-center justify-center"
+    },
+    {
+      headerName: "Actions",
+      width: 180,
+      sortable: false,
+      filter: false,
+      pinned: 'right',
+      cellRenderer: (params) => {
+        const f = params.data;
+        if (!f) return null;
+        return (
+          <div className="flex items-center gap-2 h-full">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 bg-transparent text-slate-400 hover:text-white"
+              onClick={() => navigate(`/faculty/${f.faculty_id}`)}
+              title="View Details"
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 bg-transparent text-blue-400 hover:text-blue-300"
+              onClick={() => handleReminderClick(f)}
+              title="Send Reminder"
+            >
+              <Mail className="h-4 w-4" />
+            </Button>
+          </div>
+        );
+      }
+    }
+  ], [navigate]);
 
   // Clear all filters
   const clearFilters = () => {
@@ -243,92 +364,26 @@ export default function FacultyMonitorPage() {
         </CardContent>
       </Card>
 
-      {/* Faculty Grid */}
+      {/* Faculty Data Grid */}
       {facultyList.length === 0 && !loading ? (
-        <div className="flex flex-col items-center justify-center py-12 text-slate-500 border-2 border-dashed border-slate-800 rounded-lg">
+        <div className="flex flex-col items-center justify-center flex-1 text-slate-500 border-2 border-dashed border-slate-800 rounded-lg min-h-[300px]">
           <GraduationCap className="h-12 w-12 mb-4 opacity-50" />
           <p className="text-lg font-medium text-slate-400">No faculty found</p>
           <p className="text-sm">Try adjusting your filters or search terms.</p>
           <Button variant="link" onClick={clearFilters} className="text-blue-400 mt-2">Clear all filters</Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-6">
-          {facultyList.map(f => (
-            <Card key={f.faculty_id} className="bg-slate-900 border-slate-800 hover:border-slate-700 transition-all duration-200 hover:shadow-lg hover:shadow-slate-900/50 flex flex-col">
-              <CardHeader className="p-5 pb-3">
-                <div className="flex justify-between items-start mb-2">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm border ${getAvatarColor(f.first_name)}`}>
-                    {getInitials(f.first_name, f.last_name)}
-                  </div>
-                  <Badge className={`font-normal ${getStatusColor(f.status)}`}>{f.status}</Badge>
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-100 leading-tight truncate" title={`${f.first_name} ${f.last_name}`}>
-                    {f.first_name} {f.last_name}
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-1 truncate" title={f.department}>{f.department}</p>
-                </div>
-              </CardHeader>
-
-              <CardContent className="p-5 pt-0 flex-1">
-                {/* Overall Progress */}
-                <div className="mb-4 bg-slate-950/50 p-3 rounded-lg border border-slate-800/50">
-                  <div className="flex justify-between text-xs mb-2">
-                    <span className="text-slate-400 font-medium">Completion Rate</span>
-                    <span className="font-bold text-slate-200">{f.overall_progress}%</span>
-                  </div>
-                  <Progress
-                    value={f.overall_progress}
-                    className="h-1.5 bg-slate-800"
-                  // Note: Shadcn Progress uses internal classes for bar color, 
-                  // usually accessible via CSS variable or standard tailwind config.
-                  />
-                </div>
-
-                {/* Courses Scroll Area */}
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Assigned Courses</p>
-                  <ScrollArea className="h-32 -mr-3 pr-3">
-                    <div className="space-y-2">
-                      {f.courses.map((c, i) => (
-                        <div key={i} className="flex justify-between items-center bg-slate-800/30 p-2 rounded border border-slate-800/50 hover:bg-slate-800/50 transition-colors">
-                          <div className="min-w-0 flex-1 mr-2">
-                            <p className="text-xs font-medium text-slate-300 truncate" title={c.course_code}>{c.course_code}</p>
-                          </div>
-                          {c.progress >= 100 ? (
-                            <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 h-5 px-1.5 text-[10px] hover:bg-emerald-500/10">Done</Badge>
-                          ) : c.progress <= 0 ? (
-                            <Badge className="bg-slate-800 text-slate-500 border-slate-700 h-5 px-1.5 text-[10px] hover:bg-slate-800">0%</Badge>
-                          ) : (
-                            <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20 h-5 px-1.5 text-[10px] hover:bg-blue-500/10">{c.progress.toFixed(0)}%</Badge>
-                          )}
-                        </div>
-                      ))}
-                      {f.courses.length === 0 && (
-                        <p className="text-xs text-slate-600 italic py-2 text-center">No courses assigned</p>
-                      )}
-                    </div>
-                  </ScrollArea>
-                </div>
-              </CardContent>
-
-              <CardFooter className="p-5 pt-0 gap-2">
-                <Button
-                  variant="outline"
-                  className="flex-1 h-9 bg-transparent border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
-                  onClick={() => navigate(`/faculty/${f.faculty_id}`)}
-                >
-                  <Eye className="h-3.5 w-3.5 mr-2" /> Details
-                </Button>
-                <Button
-                  className="flex-1 h-9 bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-900/10"
-                  onClick={() => handleReminderClick(f)}
-                >
-                  <Mail className="h-3.5 w-3.5 mr-2" /> Remind
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
+        <div className="flex-1 min-h-[400px] border border-slate-800 rounded-xl overflow-hidden shrink-0">
+          <div style={{ height: '100%', width: '100%' }}>
+            <AgGridReact
+              theme={customTheme}
+              rowData={facultyList}
+              columnDefs={columnDefs}
+              animateRows={true}
+              rowSelection="single"
+              suppressRowClickSelection={true}
+            />
+          </div>
         </div>
       )}
 
