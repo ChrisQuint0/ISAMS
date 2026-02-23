@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { ArrowLeft, Monitor, ScanBarcode } from "lucide-react"
+import { Monitor, ScanBarcode } from "lucide-react"
 
 const labNames = {
   "lab-1": "Computer Laboratory 1",
@@ -73,6 +73,22 @@ export default function Kiosk() {
     }
   }, [])
 
+  // Keyboard shortcut (Ctrl + Shift + K) to navigate to lab dashboard
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.ctrlKey && e.shiftKey && e.key === "K") {
+        e.preventDefault()
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((track) => track.stop())
+        }
+        navigate("/lab-dashboard", { state: { labId } })
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [navigate, labId])
+
   const sanitizedId = (value) =>
     value.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 7)
 
@@ -125,13 +141,6 @@ export default function Kiosk() {
     }
   }
 
-  const handleBackClick = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop())
-    }
-    navigate("/lab-dashboard", { state: { labId } })
-  }
-
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col">
       <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-50">
@@ -150,17 +159,7 @@ export default function Kiosk() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-slate-400 hidden md:block">{timestamp}</span>
-              <Button
-                onClick={handleBackClick}
-                variant="outline"
-                className="bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700 hover:text-slate-100 transition-colors"
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
-              </Button>
-            </div>
+            <span className="text-sm text-slate-400 hidden md:block">{timestamp}</span>
           </div>
         </div>
       </header>
