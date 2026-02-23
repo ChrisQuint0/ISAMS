@@ -20,12 +20,13 @@ import { Progress } from "@/components/ui/progress";
 
 // Hook
 import { useAdminSettings } from '../hooks/AdminSettingHook';
+import { settingsService } from '../services/AdminSettingService';
 
 export default function AdminSettingsPage() {
     const {
         loading, processing, error, success,
         settings, queue, testResult,
-        updateSetting, runTestOCR, processQueue, runBackup, refresh,
+        updateSetting, saveGroup, runTestOCR, processQueue, runBackup, refresh,
         docRequirements, addDocRequirement, updateDocRequirement, deleteDocRequirement,
         templates, addTemplate, deleteTemplate,
 
@@ -45,18 +46,66 @@ export default function AdminSettingsPage() {
 
     // Course Form State
     const [newCourse, setNewCourse] = useState({
-        code: '', name: '', department: 'CCS', semester: '1st Semester', academic_year: '2023-2024', faculty_id: ''
+        code: '', name: '', department: 'CCS', semester: '', academic_year: '', faculty_id: ''
     });
 
     // -- State for General Settings --
-    const [deadlineDays, setDeadlineDays] = useState(14);
-    const [graceDays, setGraceDays] = useState(3);
-    const [gdriveFolderLink, setGdriveFolderLink] = useState(() => localStorage.getItem('fsFolderLink') || '');
+    const [deadlineDays, setDeadlineDays] = useState('');
+    const [graceDays, setGraceDays] = useState('');
+    const [gdriveFolderLink, setGdriveFolderLink] = useState('');
 
     // -- UI STATE FOR NON-OCR SETTINGS --
     const [valRules, setValRules] = useState({
-        vision: true, grading: true, consultation: true, outcomes: false
+        vision: false, grading: false, consultation: false, outcomes: false
     });
+    const [fileConstraints, setFileConstraints] = useState({
+        maxSize: '', extensions: ''
+    });
+
+    // Sync state with loaded settings
+    React.useEffect(() => {
+        if (settings && Object.keys(settings).length > 0) {
+            setDeadlineDays(settings.general_default_deadline || '');
+            setGraceDays(settings.general_grace_period || '');
+
+            // FIX: Load GDrive from DB, not local storage
+            setGdriveFolderLink(settings.gdrive_root_folder_id || '');
+
+            // FIX: Load Validation Rules from DB
+            setValRules({
+                vision: settings.val_vision_mission || false,
+                grading: settings.val_grading_system || false,
+                consultation: settings.val_consultation_hours || false,
+                outcomes: settings.val_course_outcomes || false
+            });
+            setFileConstraints({
+                maxSize: settings.val_max_file_size || '',
+                extensions: settings.val_allowed_extensions || ''
+            });
+
+            // Set dynamic defaults for new course
+            setNewCourse(prev => ({
+                ...prev,
+                semester: prev.semester || settings.current_semester || '',
+                academic_year: prev.academic_year || settings.current_academic_year || ''
+            }));
+        }
+    }, [settings]);
+
+    const handleDangerAction = async (action) => {
+        if (action === 'CLEAR_QUEUE') {
+            if (!window.confirm("Auto-approve all pending submissions?")) return;
+            await settingsService.approveAllPending();
+        } else if (action === 'RESET_SEMESTER') {
+            const sem = prompt("Enter semester (e.g. 2nd Semester):");
+            const year = prompt("Enter academic year (e.g. 2023-2024):");
+            if (sem && year) await settingsService.resetSemester(sem, year);
+        } else if (action === 'PURGE_ARCHIVES') {
+            if (!window.confirm("Permanently purge old archives?")) return;
+            await settingsService.purgeArchives(5);
+        }
+        refresh();
+    };
 
     return (
         <div className="space-y-6 flex flex-col h-full">
@@ -187,7 +236,13 @@ export default function AdminSettingsPage() {
                                             >
                                                 Reset
                                             </Button>
-                                            <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                                            <Button
+                                                className="bg-blue-600 hover:bg-blue-700 text-white"
+                                                onClick={() => saveGroup({
+                                                    default_deadline_days: deadlineDays,
+                                                    default_grace_period_days: graceDays
+                                                })}
+                                            >
                                                 <Save className="mr-2 h-4 w-4" /> Save Changes
                                             </Button>
                                         </div>
@@ -225,10 +280,7 @@ export default function AdminSettingsPage() {
                                             <Button
                                                 size="sm"
                                                 className="bg-blue-600 hover:bg-blue-700 text-white"
-                                                onClick={() => {
-                                                    localStorage.setItem('fsFolderLink', gdriveFolderLink);
-                                                    alert('Google Drive folder link saved!');
-                                                }}
+                                                onClick={() => saveGroup({ gdrive_root_folder_id: gdriveFolderLink })}
                                             >
                                                 <Save className="mr-2 h-4 w-4" /> Save Folder Link
                                             </Button>
@@ -246,19 +298,11 @@ export default function AdminSettingsPage() {
                                         </CardTitle>
                                     </CardHeader>
                                     <CardContent className="pt-6 space-y-4">
-                                        <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg flex items-center gap-3">
-                                            <Activity className="h-5 w-5 text-green-400" />
-                                            <div>
-                                                <p className="text-sm font-medium text-green-400">All Systems Operational</p>
-                                                <p className="text-xs text-green-400/70">Uptime: 14 days, 2 hours</p>
-                                            </div>
-                                        </div>
-
                                         <div className="space-y-1 pt-2">
-                                            <InfoRow label="Version" value={systemHealth?.version || "Loading..."} />
-                                            <InfoRow label="Last Backup" value={systemHealth ? new Date(systemHealth.last_backup).toLocaleDateString() : "-"} />
-                                            <InfoRow label="DB Size" value={systemHealth?.db_size || "Calculated nightly"} />
-                                            <InfoRow label="Users" value={systemHealth?.active_users ? `${systemHealth.active_users} Active` : "-"} />
+                                            <InfoRow label="Version" value={systemHealth?.version || "1.0.0"} />
+                                            <InfoRow label="Last Backup" value={systemHealth?.last_backup ? new Date(systemHealth.last_backup).toLocaleString() : "Never"} />
+                                            <InfoRow label="DB Size" value={systemHealth?.db_size || "Unknown"} />
+                                            <InfoRow label="Active Connections" value={systemHealth?.active_connections || 0} />
                                         </div>
 
                                         <div className="pt-4 space-y-2">
@@ -351,7 +395,16 @@ export default function AdminSettingsPage() {
                                                 onClick={async () => {
                                                     if (newCourse.code && newCourse.name) {
                                                         const success = await handleAddCourse(newCourse);
-                                                        if (success) setNewCourse({ code: '', name: '', department: 'CCS', semester: '1st Semester', academic_year: '2023-2024', faculty_id: '' });
+                                                        if (success) {
+                                                            setNewCourse({
+                                                                code: '',
+                                                                name: '',
+                                                                department: 'CCS',
+                                                                semester: settings?.current_semester || '',
+                                                                academic_year: settings?.current_academic_year || '',
+                                                                faculty_id: ''
+                                                            });
+                                                        }
                                                     }
                                                 }}
                                             >
@@ -783,22 +836,35 @@ export default function AdminSettingsPage() {
                                             <Label className="text-xs font-semibold text-slate-400 uppercase">Max File Size (MB)</Label>
                                             <Input
                                                 type="number"
-                                                defaultValue="10"
+                                                value={fileConstraints.maxSize}
+                                                onChange={(e) => setFileConstraints({ ...fileConstraints, maxSize: e.target.value })}
                                                 className="bg-slate-950 border-slate-700 text-slate-200 focus:border-blue-500"
                                             />
                                         </div>
                                         <div className="space-y-2">
                                             <Label className="text-xs font-semibold text-slate-400 uppercase">Allowed Extensions</Label>
                                             <Input
-                                                defaultValue=".pdf, .docx, .xlsx"
+                                                value={fileConstraints.extensions}
+                                                onChange={(e) => setFileConstraints({ ...fileConstraints, extensions: e.target.value })}
                                                 className="bg-slate-950 border-slate-700 text-slate-200 focus:border-blue-500"
+                                                placeholder=".pdf, .docx, .xlsx"
                                             />
                                         </div>
                                     </div>
                                 </div>
 
                                 <div className="pt-4 border-t border-slate-800 flex justify-end">
-                                    <Button className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                                    <Button
+                                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                        onClick={() => saveGroup({
+                                            val_vision_mission: valRules.vision,
+                                            val_grading_system: valRules.grading,
+                                            val_consultation_hours: valRules.consultation,
+                                            val_course_outcomes: valRules.outcomes,
+                                            val_max_file_size: fileConstraints.maxSize,
+                                            val_allowed_extensions: fileConstraints.extensions
+                                        })}
+                                    >
                                         <Save className="mr-2 h-4 w-4" /> Update Rules
                                     </Button>
                                 </div>
@@ -1003,19 +1069,12 @@ export default function AdminSettingsPage() {
     );
 }
 
-// ... helper function to be placed inside the component or outside if it doesn't need state ...
-// But wait, I need access to the service and state. I should insert the handler inside the component.
-// Let's do this in two steps or be careful.
-// actually, I'll insert the handler logic inside the component body in a separate `replace` or just assume I can add it before the return.
-// For now, let's just update the rows, and I will add the function definition in the next step to avoid context issues.
-
-
 // --- Sub-components ---
 
 const TabItem = ({ value, label, icon: Icon }) => (
     <TabsTrigger
         value={value}
-        className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:text-blue-400 text-slate-400 rounded-none px-4 py-3 border-b-2 border-transparent hover:text-slate-200 transition-all"
+        className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:text-blue-400 text-slate-400 rounded-none px-4 py-3 border-b-2 border-transparent hover:text-slate-200 transition-all font-medium text-sm"
     >
         <div className="flex items-center gap-2">
             <Icon className="h-4 w-4" />
@@ -1025,23 +1084,23 @@ const TabItem = ({ value, label, icon: Icon }) => (
 );
 
 const InfoRow = ({ label, value }) => (
-    <div className="flex justify-between text-sm py-2 border-b border-slate-800 last:border-0">
-        <span className="text-slate-400">{label}</span>
-        <span className="font-medium text-slate-200">{value}</span>
+    <div className="flex justify-between items-center text-sm py-3 border-b border-slate-800/50 last:border-0 hover:bg-slate-900/50 px-2 rounded transition-colors bg-transparent">
+        <span className="text-slate-400 font-medium">{label}</span>
+        <span className="font-mono text-slate-200 bg-slate-950/50 px-2 py-0.5 rounded border border-slate-800">{value}</span>
     </div>
 );
 
 const CheckboxItem = ({ label, checked, onChange }) => (
-    <div className="flex items-center space-x-3 p-3 rounded-lg bg-slate-950/30 border border-slate-800/50 hover:border-slate-700 hover:bg-slate-950/50 transition-all cursor-pointer" onClick={() => onChange(!checked)}>
+    <div className="flex items-center space-x-3 p-3 rounded-lg bg-slate-950/30 border border-slate-800/50 hover:border-slate-700 hover:bg-slate-950/50 transition-all cursor-pointer group" onClick={() => onChange(!checked)}>
         <Checkbox
             id={label}
             checked={checked}
             onCheckedChange={onChange}
-            className="border-slate-600 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600 h-4 w-4"
+            className="border-slate-600 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 h-4 w-4 rounded shadow-sm group-hover:border-blue-500/50"
         />
         <label
             htmlFor={label}
-            className="text-sm font-medium leading-none text-slate-300 cursor-pointer select-none"
+            className="text-sm font-medium leading-none text-slate-300 cursor-pointer select-none group-hover:text-slate-200"
         >
             {label}
         </label>
@@ -1049,15 +1108,18 @@ const CheckboxItem = ({ label, checked, onChange }) => (
 );
 
 const DangerRow = ({ title, desc, btnText, onClick }) => (
-    <div className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-red-950/20 border border-red-900/30 rounded-lg gap-4">
+    <div className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-red-950/10 border border-red-900/20 rounded-lg gap-4 hover:border-red-900/40 transition-all">
         <div>
-            <h4 className="font-medium text-red-300 text-sm">{title}</h4>
-            <p className="text-xs text-red-400/60 mt-1">{desc}</p>
+            <h4 className="font-medium text-red-200 text-sm flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-red-500" />
+                {title}
+            </h4>
+            <p className="text-xs text-red-200/50 mt-1 pl-6">{desc}</p>
         </div>
         <Button
-            variant="destructive"
+            variant="ghost"
             onClick={onClick}
-            className="bg-red-600/80 hover:bg-red-600 text-white border border-red-500/50 whitespace-nowrap"
+            className="text-red-400 hover:text-red-300 hover:bg-red-950/30 border border-red-900/30 hover:border-red-500/30 whitespace-nowrap"
             size="sm"
         >
             {btnText}

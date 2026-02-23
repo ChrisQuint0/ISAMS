@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import React from "react";
+import { useState, useEffect, Fragment } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,10 +32,12 @@ export default function FacultyArchivePage() {
     loadSubmissionVersions,
     submissionVersions,
     handleDownloadAll,
-    downloading
+    downloading,
+    options
   } = useFacultyResources();
 
-  const [selectedSemester, setSelectedSemester] = useState("2023-2"); // Default to current
+  const [selectedSemester, setSelectedSemester] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
   const [expandedCourse, setExpandedCourse] = useState(null);
   const [expandedDocType, setExpandedDocType] = useState(null);
   const [expandedSubmission, setExpandedSubmission] = useState(null);
@@ -46,9 +49,21 @@ export default function FacultyArchivePage() {
     course.course_name.toLowerCase().includes(query.toLowerCase())
   );
 
+  // Set default semester and year when options are loaded
   useEffect(() => {
-    loadArchivedCourses(selectedSemester);
-  }, [selectedSemester]);
+    if (options?.semesters?.length > 0 && !selectedSemester) {
+      setSelectedSemester(options.semesters[0]);
+    }
+    if (options?.academic_years?.length > 0 && !selectedYear) {
+      setSelectedYear(options.academic_years[0]);
+    }
+  }, [options]);
+
+  useEffect(() => {
+    if (selectedSemester && selectedYear) {
+      loadArchivedCourses(selectedSemester, selectedYear);
+    }
+  }, [selectedSemester, selectedYear]);
 
   const handleCourseClick = async (courseId) => {
     if (expandedCourse === courseId) {
@@ -115,17 +130,24 @@ export default function FacultyArchivePage() {
             />
           </div>
 
+          {/* Semester Filter */}
           <div className="relative">
             <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500" />
             <select
-              value={selectedSemester}
-              onChange={(e) => setSelectedSemester(e.target.value)}
-              className="pl-9 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none min-w-[180px]"
+              value={`${selectedSemester}||${selectedYear}`}
+              onChange={(e) => {
+                const [sem, yr] = e.target.value.split("||");
+                setSelectedSemester(sem);
+                setSelectedYear(yr);
+              }}
+              className="pl-9 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none min-w-[200px]"
             >
-              <option value="2023-2">2nd Sem, 2023-2024</option>
-              <option value="2023-1">1st Sem, 2023-2024</option>
-              <option value="2022-2">2nd Sem, 2022-2023</option>
-              <option value="2022-1">1st Sem, 2022-2023</option>
+              {options?.academic_years?.map(year => (
+                options?.semesters?.map(sem => (
+                  <option key={`${sem}-${year}`} value={`${sem}||${year}`}>{sem}, {year}</option>
+                ))
+              ))}
+              {(!options?.academic_years?.length) && <option value="">Loading options...</option>}
             </select>
           </div>
         </div>
@@ -178,7 +200,7 @@ export default function FacultyArchivePage() {
                   disabled={downloading}
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleDownloadAll(course.course_id, selectedSemester);
+                    handleDownloadAll(course.course_id, selectedSemester, selectedYear);
                   }}
                 >
                   {downloading ? (
@@ -230,7 +252,7 @@ export default function FacultyArchivePage() {
                             </thead>
                             <tbody>
                               {doc.versions.map((ver, idx) => (
-                                <>
+                                <Fragment key={ver.submission_id}>
                                   <tr key={ver.submission_id} className="hover:bg-slate-900 border-b border-slate-800 last:border-0">
                                     <td className="py-2 pl-2 text-slate-300">
                                       <div className="flex items-center gap-2">
@@ -318,7 +340,7 @@ export default function FacultyArchivePage() {
                                       </td>
                                     </tr>
                                   )}
-                                </>
+                                </Fragment>
                               ))}
                             </tbody>
                           </table>

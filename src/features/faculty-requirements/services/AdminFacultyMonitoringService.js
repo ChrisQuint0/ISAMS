@@ -67,29 +67,36 @@ export const facultyMonitorService = {
   },
 
   /**
-   * Send Bulk Reminders
+   * Send Bulk Reminders (UI-Synced)
    */
-  sendBulkReminders: async (dept, status) => {
-    // 1. Log notifications via RPC
-    const { data, error } = await supabase.rpc('send_bulk_reminders_filter_fs', {
-      p_department: dept === 'All Departments' ? null : dept,
-      p_status: status === 'All Status' ? null : status
-    });
+  sendBulkReminders: async (filteredFacultyList, subject = 'Urgent Reminder', message = 'Please check your pending submissions.') => {
+    if (!filteredFacultyList || filteredFacultyList.length === 0) {
+      throw new Error("No faculty members match the current filters.");
+    }
 
+    // 1. Build an array of notifications matching exactly who is on screen
+    const notifications = filteredFacultyList.map(f => ({
+      faculty_id: f.faculty_id,
+      notification_type: 'DEADLINE_REMINDER',
+      subject: subject,
+      message: message
+    }));
+
+    // 2. Bulk insert them into the database
+    const { error } = await supabase.from('notifications_fs').insert(notifications);
     if (error) throw error;
 
-    // 2. Trigger Bulk Email via Edge Function (Placeholder)
+    // 3. Trigger Bulk Email via Edge Function (Placeholder)
     /*
     await supabase.functions.invoke('send-bulk-emails', {
       body: { 
-        department: dept === 'All Departments' ? null : dept, 
-        status: status === 'All Status' ? null : status,
+        faculty_ids: filteredFacultyList.map(f => f.faculty_id),
         template: 'deadline_reminder'
       }
     });
     */
 
-    return { total_sent: data.count, message: data.message };
+    return { total_sent: notifications.length, message: `Sent ${notifications.length} reminders based on current filters.` };
   },
 
   /**

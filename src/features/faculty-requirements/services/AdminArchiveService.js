@@ -6,16 +6,18 @@ export const archiveService = {
   /**
    * Fetch filtered documents using the SQL function
    */
-  getDocuments: async (filters) => {
+  getDocuments: async (filters, page = 1, pageSize = 100) => {
     const { data, error } = await supabase.rpc('get_archived_documents_fs', {
-      p_semester: filters.semester === 'All Semesters' ? null : filters.semester,
-      p_academic_year: filters.academic_year === 'All Years' ? null : filters.academic_year,
-      p_department: filters.department === 'All Departments' ? null : filters.department,
-      p_doc_type: filters.doc_type === 'All Document Types' ? null : filters.doc_type,
-      p_status: filters.status === 'All Status' ? null : filters.status,
+      // FIX: Send 'ALL' instead of null so the database knows not to use defaults
+      p_semester: filters.semester === 'All Semesters' ? 'ALL' : filters.semester,
+      p_academic_year: filters.academic_year === 'All Years' ? 'ALL' : filters.academic_year,
+      p_department: filters.department === 'All Departments' ? 'ALL' : filters.department,
+      p_doc_type: filters.doc_type === 'All Document Types' ? 'ALL' : filters.doc_type,
+      p_status: filters.status === 'All Status' ? 'ALL' : filters.status,
       p_search_query: filters.search_query || null,
-      p_limit: 100,
-      p_offset: 0
+      // FIX: Pass actual pagination variables
+      p_limit: pageSize,
+      p_offset: (page - 1) * pageSize
     });
 
     if (error) {
@@ -23,7 +25,6 @@ export const archiveService = {
       throw error;
     }
 
-    // Format the size on the client side
     return data.map(doc => ({
       ...doc,
       formatted_size: formatBytes(doc.archive_size_bytes)
@@ -55,8 +56,8 @@ export const archiveService = {
    */
   downloadFile: async (doc) => {
     // If we have a direct web view link from Google, use it
-    if (doc.view_link || doc.download_link) {
-      window.open(doc.download_link || doc.view_link, '_blank');
+    if (doc.gdrive_web_view_link || doc.gdrive_download_link) {
+      window.open(doc.gdrive_download_link || doc.gdrive_web_view_link, '_blank');
       return { success: true, message: 'Opening Google Drive...' };
     }
 
@@ -74,15 +75,23 @@ export const archiveService = {
    * Helper to fetch dropdown options
    */
   getOptions: async () => {
-    const [depts, types] = await Promise.all([
+    const [depts, types, courses] = await Promise.all([
       supabase.from('faculty_fs').select('department').neq('department', null),
-      supabase.from('documenttypes_fs').select('type_name')
+      supabase.from('documenttypes_fs').select('type_name'),
+      supabase.from('courses_fs').select('semester, academic_year')
     ]);
 
     const uniqueDepts = [...new Set(depts.data?.map(d => d.department))];
     const uniqueTypes = types.data?.map(t => t.type_name);
+    const uniqueSemesters = [...new Set(courses.data?.map(c => c.semester))].filter(Boolean);
+    const uniqueYears = [...new Set(courses.data?.map(c => c.academic_year))].filter(Boolean);
 
-    return { departments: uniqueDepts, types: uniqueTypes };
+    return {
+      departments: uniqueDepts,
+      types: uniqueTypes,
+      semesters: uniqueSemesters.length ? uniqueSemesters : [],
+      years: uniqueYears.length ? uniqueYears : []
+    };
   },
 
   /**
@@ -126,13 +135,48 @@ export const archiveService = {
 
       // 3. Generate ZIP
       const content = await zip.generateAsync({ type: "blob" });
-      saveAs(content, `ISAMS_Archive_Export.zip`);
+      const filename = `ISAMS_Archive_${config.semester || 'All'}_${config.department || 'All'}.zip`;
+      saveAs(content, filename);
+
+      // Log to database asynchronously (don't block the user return)
+      archiveService.logExport(filename, config.semester, config.academic_year);
 
       return { success: true, message: `Successfully exported ${processed} files.` };
 
     } catch (err) {
       console.error("ZIP Export Failed:", err);
       return { success: false, message: err.message || "Export failed." };
+    }
+  },
+
+  /**
+   * Fetch Recent Downloads (Export History)
+   */
+  getDownloadHistory: async () => {
+    try {
+      const { data, error } = await supabase.rpc('get_report_history_fs', { p_limit: 5 });
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.error('Error fetching download history:', err);
+      return [];
+    }
+  },
+
+  /**
+   * Log a new Export Action
+   */
+  logExport: async (reportName, semester, year) => {
+    try {
+      const { error } = await supabase.rpc('log_report_export_fs', {
+        p_report_name: reportName,
+        p_report_type: 'ZIP_ARCHIVE_EXPORT',
+        p_semester: semester || 'All',
+        p_academic_year: year || 'All'
+      });
+      if (error) console.error('Failed to log export:', error);
+    } catch (err) {
+      console.error('Failed to log export:', err);
     }
   }
 };

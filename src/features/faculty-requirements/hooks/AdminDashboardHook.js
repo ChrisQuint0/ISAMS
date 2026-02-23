@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { dashboardService } from '../services/AdminDashboardService';
+import { supabase } from '@/lib/supabaseClient';
 
 export function useAdminDashboard() {
   const [loading, setLoading] = useState(true);
@@ -43,19 +44,47 @@ export function useAdminDashboard() {
     }
   }, []);
 
+  // Fetch System Settings (Semester/AY)
+  const [settings, setSettings] = useState({ semester: '', academic_year: '' });
+
+  const loadSettings = async () => {
+    try {
+      const { data } = await supabase
+        .from('systemsettings_fs')
+        .select('setting_key, setting_value')
+        .in('setting_key', ['current_semester', 'current_academic_year']);
+
+      const newSettings = {};
+      data?.forEach(s => {
+        if (s.setting_key === 'current_semester') newSettings.semester = s.setting_value;
+        if (s.setting_key === 'current_academic_year') newSettings.academic_year = s.setting_value;
+      });
+      setSettings(newSettings);
+    } catch (err) {
+      console.error('Failed to load settings', err);
+    }
+  };
+
   // Initial Load
   useEffect(() => {
     fetchData();
+    loadSettings();
   }, [fetchData]);
 
   // Actions
   const sendBulkReminders = async () => {
     try {
-      const msg = await dashboardService.sendBulkReminders();
-      setSuccess(msg);
-      setTimeout(() => setSuccess(null), 3000);
+      const result = await dashboardService.sendBulkReminders();
+      // FIX 1: Extract the message string from the JSON object
+      setSuccess(result.message);
+      setTimeout(() => {
+        setSuccess(null);
+        setError(null);
+      }, 3000);
     } catch (err) {
       setError("Failed to send bulk reminders");
+      // FIX 3: Clear sticky errors
+      setTimeout(() => setError(null), 3000);
     }
   };
 
@@ -63,14 +92,21 @@ export function useAdminDashboard() {
     try {
       const msg = await dashboardService.sendIndividualReminder(faculty.faculty_id, faculty.name);
       setSuccess(msg);
-      // Optimistic update: change status to Reminded
-      setFacultyStatus(prev => prev.map(f => 
-        f.faculty_id === faculty.faculty_id ? { ...f, status: 'Reminded' } : f
-      ));
-      setTimeout(() => setSuccess(null), 3000);
+
+      setTimeout(() => {
+        setSuccess(null);
+        setError(null);
+      }, 3000);
     } catch (err) {
       setError("Failed to send reminder");
+      // FIX 3: Clear sticky errors
+      setTimeout(() => setError(null), 3000);
     }
+  };
+
+  const refresh = () => {
+    fetchData();
+    loadSettings();
   };
 
   return {
@@ -81,7 +117,8 @@ export function useAdminDashboard() {
     departmentProgress,
     facultyStatus,
     trends,
-    refresh: fetchData,
+    settings,
+    refresh,
     sendBulkReminders,
     sendIndividualReminder
   };

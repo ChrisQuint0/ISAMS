@@ -53,8 +53,8 @@ export function FacultySidebar() {
       <SidebarHeader className="bg-slate-900 border-b border-slate-800">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton 
-              size="lg" 
+            <SidebarMenuButton
+              size="lg"
               className="data-[state=open]:bg-slate-800 data-[state=open]:text-slate-100 hover:bg-slate-800"
             >
               {/* Icon Container */}
@@ -86,13 +86,12 @@ export function FacultySidebar() {
             <SidebarMenu>
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.path} className="mb-1">
-                  <SidebarMenuButton 
+                  <SidebarMenuButton
                     isActive={isActive(item.path)}
                     onClick={() => navigate(item.path)}
                     tooltip={item.label}
-                    className={`text-slate-300 hover:text-slate-100 hover:bg-slate-800 transition-colors ${
-                      isActive(item.path) ? "bg-slate-800 text-white" : ""
-                    }`}
+                    className={`text-slate-300 hover:!text-slate-300 hover:!bg-slate-800 transition-colors ${isActive(item.path) ? "!bg-slate-800 !text-slate-300" : ""
+                      }`}
                   >
                     <item.icon className={`h-4 w-4 ${isActive(item.path) ? "text-green-400" : ""}`} />
                     <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
@@ -112,13 +111,14 @@ export function FacultySidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton 
+                <SidebarMenuButton
                   isActive={isActive('/faculty-requirements/settings')}
                   onClick={() => navigate('/faculty-requirements/settings')}
-                  className="text-slate-400 hover:text-slate-100 hover:bg-slate-800"
+                  className={`text-slate-300 hover:!text-slate-300 hover:!bg-slate-800 transition-colors ${isActive('/faculty-requirements/settings') ? "!bg-slate-800 !text-slate-300" : ""
+                    }`}
                   tooltip="Faculty Settings"
                 >
-                  <Settings className="h-4 w-4" />
+                  <Settings className={`h-4 w-4 ${isActive('/faculty-requirements/settings') ? "text-green-400" : ""}`} />
                   <span className="group-data-[collapsible=icon]:hidden">Settings</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -137,7 +137,7 @@ export function FacultySidebar() {
                   className="w-full justify-start gap-3 hover:bg-slate-800 text-slate-200 group-data-[collapsible=icon]:justify-center"
                 >
                   <div className="flex aspect-square size-8 items-center justify-center rounded-full bg-slate-700 shrink-0">
-                     <User className="size-4 text-slate-100" />
+                    <User className="size-4 text-slate-100" />
                   </div>
                   <div className="flex-1 text-left text-slate-200 text-sm leading-tight group-data-[collapsible=icon]:hidden overflow-hidden min-w-0">
                     <span className="truncate font-medium block">Faculty Member</span>
@@ -150,8 +150,8 @@ export function FacultySidebar() {
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="top" className="w-56 bg-slate-900 border-slate-800 text-slate-200">
-                <DropdownMenuItem 
-                  onClick={() => navigate("/dashboard")} 
+                <DropdownMenuItem
+                  onClick={() => navigate("/dashboard")}
                   className="text-red-400 hover:bg-red-950/30 focus:bg-red-950/30 focus:text-red-400"
                 >
                   <LogOut className="mr-2 h-4 w-4" />

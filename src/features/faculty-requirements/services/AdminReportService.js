@@ -15,12 +15,28 @@ export const reportService = {
     if (error) throw error;
 
     // Transform Chart Data for Recharts/Chart.js
+    let labels = [];
+    let values = [];
+
+    if (data.chart_data && data.chart_data.length > 0) {
+      if (config.reportType === 'Submission Status Summary') {
+        labels = data.chart_data.map(d => d.label);
+        values = data.chart_data.map(d => d.value);
+      } else if (config.reportType === 'Late Submission Analysis') {
+        labels = data.chart_data.map(d => d.label);
+        values = data.chart_data.map(d => d.value);
+      } else if (config.reportType === 'Clearance Status Report') {
+        labels = data.chart_data.map(d => d.label);
+        values = data.chart_data.map(d => d.value);
+      }
+    }
+
     const chartData = {
-      labels: data.chart_data?.map(d => d.label) || [],
+      labels: labels,
       datasets: [{
         label: 'Count',
-        data: data.chart_data?.map(d => d.value) || [],
-        backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#3b82f6']
+        data: values,
+        backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6']
       }]
     };
 
@@ -56,5 +72,36 @@ export const reportService = {
     window.URL.revokeObjectURL(url);
 
     return true;
+  },
+
+  /**
+   * Log Report Export to Database
+   */
+  logExport: async (reportName, reportType, semester, academicYear) => {
+    try {
+      await supabase.rpc('log_report_export_fs', {
+        p_report_name: reportName,
+        p_report_type: reportType,
+        p_semester: semester,
+        p_academic_year: academicYear
+      });
+    } catch (err) {
+      console.error("Failed to log export:", err);
+      // Non-blocking error, so we just log it
+    }
+  },
+
+  /**
+   * Get Recent Exports History
+   */
+  getRecentExports: async (limit = 10) => {
+    const { data, error } = await supabase.rpc('get_report_history_fs', {
+      p_limit: limit
+    });
+    if (error) {
+      console.error("Failed to fetch export history:", error);
+      return [];
+    }
+    return data;
   }
 };

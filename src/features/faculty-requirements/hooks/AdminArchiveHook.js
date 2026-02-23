@@ -6,7 +6,8 @@ export function useAdminArchive() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [documents, setDocuments] = useState([]);
-  
+  const [recentDownloads, setRecentDownloads] = useState([]);
+
   // Default Stats
   const [stats, setStats] = useState({
     total_documents: 0,
@@ -29,8 +30,8 @@ export function useAdminArchive() {
   const [options, setOptions] = useState({
     departments: [],
     types: [],
-    semesters: ['2nd Sem', '1st Sem', 'Summer'],
-    years: ['2023-2024', '2022-2023', '2021-2022']
+    semesters: [],
+    years: []
   });
 
   // Initialize
@@ -51,12 +52,14 @@ export function useAdminArchive() {
     setLoading(true);
     setError(null);
     try {
-      const [docs, statistics] = await Promise.all([
+      const [docs, statistics, history] = await Promise.all([
         archiveService.getDocuments(filters),
-        archiveService.getStatistics()
+        archiveService.getStatistics(),
+        archiveService.getDownloadHistory()
       ]);
       setDocuments(docs);
       setStats(statistics);
+      setRecentDownloads(history);
     } catch (err) {
       setError("Failed to load archive data.");
       console.error(err);
@@ -76,13 +79,17 @@ export function useAdminArchive() {
   // Actions
   const handleDownload = async (doc) => {
     try {
-        const result = await archiveService.downloadFile(doc);
-        if (result.success) setSuccess(result.message);
-        else setError(result.message);
-        
-        setTimeout(() => setSuccess(null), 3000);
+      const result = await archiveService.downloadFile(doc);
+      if (result.success) setSuccess(result.message);
+      else setError(result.message);
+
+      setTimeout(() => {
+        setSuccess(null);
+        setError(null); // <-- FIX: Clear the error state too
+      }, 3000);
     } catch (e) {
-        setError("Download failed.");
+      setError("Download failed.");
+      setTimeout(() => setError(null), 3000); // <-- FIX: Clear catch error
     }
   };
 
@@ -92,12 +99,12 @@ export function useAdminArchive() {
 
   const clearFilters = () => {
     setFilters({
-        semester: 'All Semesters',
-        academic_year: 'All Years',
-        department: 'All Departments',
-        doc_type: 'All Document Types',
-        status: 'All Status',
-        search_query: ''
+      semester: 'All Semesters',
+      academic_year: 'All Years',
+      department: 'All Departments',
+      doc_type: 'All Document Types',
+      status: 'All Status',
+      search_query: ''
     });
   };
 
@@ -106,6 +113,7 @@ export function useAdminArchive() {
     error,
     success,
     documents,
+    recentDownloads,
     stats,
     filters,
     options,

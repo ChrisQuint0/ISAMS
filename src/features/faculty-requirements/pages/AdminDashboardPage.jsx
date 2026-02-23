@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AgGridReact } from 'ag-grid-react';
-import { ModuleRegistry, AllCommunityModule, themeQuartz } from 'ag-grid-community';
+import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-community';
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -20,17 +20,17 @@ import { Progress } from "@/components/ui/progress";
 // Custom Hook
 import { useAdminDashboard } from '../hooks/AdminDashboardHook';
 
-// Custom theme using AG Grid v33+ Theming API
-const customTheme = themeQuartz.withParams({
+// Custom theme using AG Grid v33+ Theming API with Balham theme (better dark mode support)
+const customTheme = themeBalham.withParams({
   accentColor: '#3b82f6',
-  backgroundColor: '#0f172a',
+  backgroundColor: '#020617',
   foregroundColor: '#e2e8f0',
   borderColor: '#1e293b',
-  headerBackgroundColor: '#1e293b',
+  headerBackgroundColor: '#0f172a',
   headerTextColor: '#94a3b8',
-  oddRowBackgroundColor: '#0f172a',
-  rowHoverColor: '#1e293b',
-  inputFocusBorderColor: '#3b82f6',
+  oddRowBackgroundColor: '#020617',
+  rowHeight: 48,
+  headerHeight: 40,
 });
 
 export default function AdminDashboardPage() {
@@ -45,6 +45,7 @@ export default function AdminDashboardPage() {
     stats,
     departmentProgress,
     facultyStatus,
+    settings,
     refresh,
     sendBulkReminders,
     sendIndividualReminder
@@ -172,7 +173,7 @@ export default function AdminDashboardPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-slate-100">Dean's Dashboard</h1>
-          <p className="text-slate-400 text-sm">College-wide overview • Semester 2, AY 2023-2024</p>
+          <p className="text-slate-400 text-sm">College-wide overview • {settings?.semester || 'Loading...'}, AY {settings?.academic_year || '...'}</p>
         </div>
         <div className="flex gap-2 w-full md:w-auto">
           <Button

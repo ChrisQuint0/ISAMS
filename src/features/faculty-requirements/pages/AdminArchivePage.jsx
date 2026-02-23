@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { AgGridReact } from 'ag-grid-react';
-import { ModuleRegistry, AllCommunityModule, themeQuartz } from 'ag-grid-community';
+import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-community';
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -21,17 +21,17 @@ import { Badge } from "@/components/ui/badge";
 import { useAdminArchive } from '../hooks/AdminArchiveHook';
 import { archiveService } from '../services/AdminArchiveService';
 
-// Custom theme using AG Grid v33+ Theming API
-const customTheme = themeQuartz.withParams({
+// Custom theme using AG Grid v33+ Theming API with Balham theme (better dark mode support)
+const customTheme = themeBalham.withParams({
   accentColor: '#3b82f6',
-  backgroundColor: '#0f172a',
+  backgroundColor: '#020617',
   foregroundColor: '#e2e8f0',
   borderColor: '#1e293b',
-  headerBackgroundColor: '#1e293b',
+  headerBackgroundColor: '#0f172a',
   headerTextColor: '#94a3b8',
-  oddRowBackgroundColor: '#0f172a',
-  rowHoverColor: '#1e293b',
-  inputFocusBorderColor: '#3b82f6',
+  oddRowBackgroundColor: '#020617',
+  rowHeight: 48,
+  headerHeight: 40,
 });
 
 export default function AdminArchivePage() {
@@ -40,6 +40,7 @@ export default function AdminArchivePage() {
     error,
     success,
     documents,
+    recentDownloads,
     stats,
     filters,
     options,
@@ -51,7 +52,8 @@ export default function AdminArchivePage() {
 
   // State for Bulk Operations (UI Only)
   const [bulkConfig, setBulkConfig] = useState({
-    semester: 'Semester 2, AY 2023-2024',
+    semester: '',
+    academic_year: '',
     department: 'All Departments',
     include_syllabi: true,
     include_grades: true,
@@ -82,7 +84,7 @@ export default function AdminArchivePage() {
   // Grid Columns Configuration
   const colDefs = useMemo(() => [
     {
-      field: "archived_filename",
+      field: "standardized_filename",
       headerName: "File Name",
       flex: 2,
       filter: true,
@@ -125,7 +127,7 @@ export default function AdminArchivePage() {
     },
     {
       field: "archive_date",
-      headerName: "Date",
+      headerName: "Archived On",
       width: 100,
       cellRenderer: (params) => (
         <span className="text-slate-500 text-xs font-mono">
@@ -335,15 +337,24 @@ export default function AdminArchivePage() {
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-slate-400 uppercase">Target Semester</Label>
                   <Select
-                    value={bulkConfig.semester}
-                    onValueChange={(v) => setBulkConfig({ ...bulkConfig, semester: v })}
+                    value={bulkConfig.semester && bulkConfig.academic_year ? `${bulkConfig.semester}||${bulkConfig.academic_year}` : ''}
+                    onValueChange={(v) => {
+                      const [sem, yr] = v.split("||");
+                      setBulkConfig({ ...bulkConfig, semester: sem, academic_year: yr });
+                    }}
                   >
                     <SelectTrigger className="bg-slate-950 border-slate-700 text-slate-200 text-xs">
-                      <SelectValue />
+                      <SelectValue placeholder="Select Semester & Year" />
                     </SelectTrigger>
                     <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
-                      <SelectItem value="Semester 2, AY 2023-2024">Current Semester</SelectItem>
-                      <SelectItem value="Semester 1, AY 2023-2024">Previous Semester</SelectItem>
+                      {options?.years?.map(year => (
+                        options?.semesters?.map(sem => (
+                          <SelectItem key={`${sem}-${year}`} value={`${sem}||${year}`}>
+                            {sem}, {year}
+                          </SelectItem>
+                        ))
+                      ))}
+                      {(!options?.years?.length) && <SelectItem value="loading">Loading options...</SelectItem>}
                     </SelectContent>
                   </Select>
                 </div>
@@ -392,9 +403,19 @@ export default function AdminArchivePage() {
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y divide-slate-800/50">
-                <RecentDownloadItem name="CS Dept Archive" meta="Today • 240 MB" />
-                <RecentDownloadItem name="Syllabus Collection" meta="Yesterday • 180 MB" />
-                <RecentDownloadItem name="IT Faculty Docs" meta="June 1 • 95 MB" />
+                {recentDownloads && recentDownloads.length > 0 ? (
+                  recentDownloads.map((item) => (
+                    <RecentDownloadItem
+                      key={item.history_id}
+                      name={item.report_name}
+                      meta={`${new Date(item.generated_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} • ${item.semester !== 'All' ? item.semester : 'Complete Archive'}`}
+                    />
+                  ))
+                ) : (
+                  <div className="p-6 text-center text-slate-500 text-xs">
+                    No recent exports found.
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

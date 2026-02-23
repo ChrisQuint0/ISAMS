@@ -1,3 +1,5 @@
+import { supabase } from '@/lib/supabaseClient';
+
 /**
  * Google Drive Settings Utility for Faculty Submissions
  *
@@ -6,20 +8,32 @@
  */
 
 const STORAGE_KEY = 'fsFolderLink';
-const API_BASE = 'http://localhost:3000';
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000';
 
 /**
  * Get the saved Google Drive folder link from localStorage
  */
-export const getFolderLink = () => {
-    return localStorage.getItem(STORAGE_KEY) || '';
+export const getFolderLink = async () => {
+    try {
+        const { data, error } = await supabase
+            .from('systemsettings_fs')
+            .select('setting_value')
+            .eq('setting_key', 'gdrive_root_folder_id')
+            .single();
+
+        if (error || !data) return '';
+        return data.setting_value;
+    } catch (e) {
+        console.error("Failed to fetch GDrive folder link from DB:", e);
+        return '';
+    }
 };
 
 /**
  * Save the Google Drive folder link to localStorage
  */
 export const setFolderLink = (link) => {
-    localStorage.setItem(STORAGE_KEY, link);
+    console.warn("setFolderLink is deprecated. Use the Admin Settings UI to update the database directly.");
 };
 
 /**
@@ -55,10 +69,35 @@ export const checkGDriveAuth = async () => {
 };
 
 /**
+ * Ensure the Google Drive nested folder structure exists for a submission.
+ * @param {string} rootFolderId - The admin-configured root folder
+ * @param {string} facultyName - Faculty name for the first nested folder
+ * @param {string} termName - Semester/Term name for the second nested folder
+ * @returns {Promise<string>} The resolved target folder ID
+ */
+export const ensureFolderStructure = async (rootFolderId, facultyName, termName) => {
+    const res = await fetch(`${API_BASE}/api/folders/ensure`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ rootFolderId, facultyName, termName }),
+    });
+
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to ensure folder structure' }));
+        throw new Error(err.error || 'Failed to ensure Google Drive folder structure');
+    }
+
+    const data = await res.json();
+    return data.targetFolderId;
+};
+
+/**
  * Upload a file to Google Drive via the server.js backend.
  * @param {File} file - The file to upload
  * @param {string} folderId - The Google Drive folder ID to upload into
- * @returns {Promise<{ id: string, name: string, webViewLink: string }>}
+ * @returns {Promise<{ id: string, name: string, webViewLink: string, webContentLink: string }>}
  */
 export const uploadToGDrive = async (file, folderId) => {
     const formData = new FormData();
@@ -77,7 +116,7 @@ export const uploadToGDrive = async (file, folderId) => {
         throw new Error(err.error || 'Google Drive upload failed');
     }
 
-    return res.json(); // { id, name, webViewLink }
+    return res.json(); // { id, name, webViewLink, webContentLink }
 };
 
 /**
@@ -91,5 +130,29 @@ export const listGDriveFiles = async (folderId) => {
         const err = await res.json().catch(() => ({ error: 'Failed to list files' }));
         throw new Error(err.error || 'Failed to list Google Drive files');
     }
+    return res.json();
+};
+
+/**
+ * Clone an existing file in Google Drive to a new folder.
+ * @param {string} fileId - The Google Drive ID of the file to copy
+ * @param {string} targetFolderId - The folder ID where the copy should be placed
+ * @param {string} [newFileName] - Optional new name for the copied file
+ * @returns {Promise<{ id: string, name: string, webViewLink: string, webContentLink: string }>}
+ */
+export const cloneGDriveFile = async (fileId, targetFolderId, newFileName) => {
+    const res = await fetch(`${API_BASE}/api/files/clone`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fileId, targetFolderId, newFileName }),
+    });
+
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Clone failed' }));
+        throw new Error(err.error || 'Google Drive clone failed');
+    }
+
     return res.json();
 };

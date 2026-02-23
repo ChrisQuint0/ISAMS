@@ -33,6 +33,7 @@ export const FacultySettingsService = {
                     p_consultation_hours: consultationHours,
                     p_department: department,
                     p_email: email
+
                 });
 
             if (error) throw error;
