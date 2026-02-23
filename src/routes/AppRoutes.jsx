@@ -7,6 +7,7 @@ import {
 } from "react-router-dom"; // Added Outlet
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import LoginPage from "@/features/auth/pages/LoginPage";
+import ReportsUnauthorizedPage from "@/features/auth/pages/ReportsUnauthorizedPage";
 import DashboardPage from "@/features/dashboard/pages/DashboardPage";
 import UsersPage from "@/features/users/pages/UsersPage";
 import ThesisArchivingPage from "@/features/thesis-archiving/pages/ThesisArchivingPage";
@@ -74,6 +75,8 @@ export function AppRoutes() {
             </PublicRoute>
           }
         />
+
+        <Route path="/unauthorized" element={<ReportsUnauthorizedPage />} />
 
         {/* Protected Routes */}
         <Route

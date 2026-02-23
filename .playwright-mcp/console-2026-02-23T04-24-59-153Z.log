@@ -1,0 +1,2 @@
+[    2494ms] The requested module '/src/features/thesis-archiving/components/ProtectedReportsRoute.jsx' does not provide an export named 'ProtectedReportsRoute'
+[    2502ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5174/favicon.ico:0
