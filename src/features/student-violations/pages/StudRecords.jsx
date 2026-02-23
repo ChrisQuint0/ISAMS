@@ -3,14 +3,15 @@ import { AgGridReact } from "ag-grid-react";
 
 import { ModuleRegistry, AllCommunityModule, themeQuartz } from "ag-grid-community";
 
-// Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
 
-
-import { Plus, Search, UserCheck, Users, GraduationCap, ShieldCheck, Filter } from "lucide-react";
+import { Plus, Search, UserCheck, Users, GraduationCap, ShieldCheck, Filter, Edit2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { supabase } from "@/lib/supabaseClient";
+import { AddStudentModal } from "../components/AddStudentModal";
+import { EditStudentModal } from "../components/EditStudentModal";
 
 const GRID_STYLE_OVERRIDES = `
   .ag-theme-quartz-dark {
@@ -43,31 +44,52 @@ const GRID_STYLE_OVERRIDES = `
   }
 `;
 
-
 const StudRecords = () => {
   const [gridApi, setGridApi] = useState(null);
+  const [students, setStudents] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [searchValue, setSearchValue] = useState("");
 
+  const fetchStudents = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('students_sv')
+        .select('*');
+
+      if (error) {
+        console.error("Error fetching students:", error.message);
+      } else if (data) {
+        const formattedData = data.map(student => ({
+          id: student.student_number,
+          name: `${student.first_name} ${student.last_name}`,
+          email: student.email,
+          course: student.course_year_section,
+          guardian: student.guardian_name,
+          guardianContact: student.guardian_contact,
+          status: student.status
+        }));
+        setStudents(formattedData);
+      }
+    } catch (err) {
+      console.error("Unexpected error fetching students:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     const styleEl = document.createElement('style');
     styleEl.innerHTML = GRID_STYLE_OVERRIDES;
     document.head.appendChild(styleEl);
+
+    fetchStudents();
+
     return () => document.head.removeChild(styleEl);
   }, []);
-
-
-  // Your specific student list
-  const rowData = useMemo(() => [
-    { id: "23-00201", name: "Jamil C. Saludo", course: "BSCS", status: "Active" },
-    { id: "23-00202", name: "Marc Angelo A. Soria", course: "BSIT", status: "Active" },
-    { id: "23-00203", name: "Ella Mae C. Leonidas", course: "BSIT", status: "Active" },
-    { id: "23-00204", name: "John Louis E. Baruelo", course: "BSCS", status: "Active" },
-    { id: "23-00205", name: "Apple Ann Danielle S. Selosa", course: "BSIT", status: "Active" },
-    { id: "23-00206", name: "Christopher O. Quinto", course: "BSCS", status: "Probation" },
-    { id: "23-00207", name: "John Kurt O. Fajutagana", course: "BSIT", status: "Active" },
-    { id: "23-00208", name: "Cristiana Mae P. Montipolca", course: "BSCS", status: "Active" },
-    { id: "23-00209", name: "Ruth G. Domino", course: "BSIT", status: "Active" },
-  ], []);
 
 
   const columnDefs = useMemo(() => [
@@ -86,6 +108,13 @@ const StudRecords = () => {
       filter: true // Enabled filtering for names
     },
     {
+      headerName: "Email",
+      field: "email",
+      flex: 2,
+      cellStyle: { color: '#94a3b8' },
+      filter: true
+    },
+    {
       headerName: "Course",
       field: "course",
       flex: 1,
@@ -93,12 +122,28 @@ const StudRecords = () => {
       filter: 'agSetColumnFilter', // Specialized filter for categories
     },
     {
+      headerName: "Guardian",
+      field: "guardian",
+      flex: 1.5,
+      cellStyle: { color: '#94a3b8' },
+      filter: true,
+      valueFormatter: (params) => params.value ? params.value : 'Not provided'
+    },
+    {
+      headerName: "Guardian Contact",
+      field: "guardianContact",
+      flex: 1.5,
+      cellStyle: { color: '#94a3b8' },
+      filter: true,
+      valueFormatter: (params) => params.value ? params.value : 'Not provided'
+    },
+    {
       headerName: "Status",
       field: "status",
       flex: 1,
       filter: true,
       cellRenderer: (params) => {
-        const isActive = params.value === 'Active';
+        const isActive = params.value === 'Enrolled';
         return (
           <div className="flex items-center h-full">
             <span className={`flex items-center text-[12px] font-bold ${isActive ? 'text-emerald-400' : 'text-amber-400'
@@ -106,6 +151,30 @@ const StudRecords = () => {
               <span className={`mr-2 h-1.5 w-1.5 rounded-full ${isActive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
               {params.value}
             </span>
+          </div>
+        );
+      }
+    },
+    {
+      headerName: "Actions",
+      field: "actions",
+      flex: 0.8,
+      sortable: false,
+      filter: false,
+      cellRenderer: (params) => {
+        return (
+          <div className="flex items-center h-full">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 text-blue-400 hover:text-blue-300 hover:bg-blue-900/40"
+              onClick={() => {
+                setSelectedStudent(params.data);
+                setIsEditModalOpen(true);
+              }}
+            >
+              <Edit2 className="h-4 w-4" />
+            </Button>
           </div>
         );
       }
@@ -120,6 +189,10 @@ const StudRecords = () => {
   }), []);
 
 
+  const totalStudents = students.length;
+  const activeStudents = students.filter(s => s.status === 'Enrolled').length;
+  const otherStudents = totalStudents - activeStudents; // Can refine based on what requires attention
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500 text-left">
       <div className="flex justify-between items-center">
@@ -127,16 +200,19 @@ const StudRecords = () => {
           <h1 className="text-3xl font-bold text-white tracking-tight">Student database</h1>
           <p className="text-slate-400">Manage and monitor student enrollment records</p>
         </div>
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 rounded-md font-medium text-sm transition-all shadow-sm active:scale-95">
+        <Button
+          className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 rounded-md font-medium text-sm transition-all shadow-sm active:scale-95"
+          onClick={() => setIsModalOpen(true)}
+        >
           <Plus className="w-4 h-4 mr-2" /> Add student
         </Button>
       </div>
 
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <QuickStat title="Total students" value="1,240" icon={Users} color="text-blue-400" />
-        <QuickStat title="Active enrollment" value="1,192" icon={UserCheck} color="text-emerald-400" />
-        <QuickStat title="On probation" value="48" icon={ShieldCheck} color="text-rose-400" />
+        <QuickStat title="Total students" value={totalStudents.toLocaleString()} icon={Users} color="text-blue-400" />
+        <QuickStat title="Active enrollment" value={activeStudents.toLocaleString()} icon={UserCheck} color="text-emerald-400" />
+        <QuickStat title="Other status" value={otherStudents.toLocaleString()} icon={ShieldCheck} color="text-rose-400" />
       </div>
 
 
@@ -152,7 +228,8 @@ const StudRecords = () => {
               <Input
                 placeholder="Quick search..."
                 className="pl-9 bg-slate-950 border-slate-800 text-slate-200 text-sm h-9 rounded-md focus:ring-1 focus:ring-blue-600"
-                onChange={(e) => gridApi?.setQuickFilter(e.target.value)}
+                value={searchValue}
+                onChange={(e) => setSearchValue(e.target.value)}
               />
             </div>
             {/* Filter Toggle Button for visual consistency */}
@@ -163,25 +240,44 @@ const StudRecords = () => {
         </div>
 
         <div className="ag-theme-quartz-dark w-full" style={{ height: "500px" }}>
-          <AgGridReact
-            theme={themeQuartz}
-            rowData={rowData}
-            columnDefs={columnDefs}
-            defaultColDef={defaultColDef}
-            onGridReady={(params) => setGridApi(params.api)}
-            animateRows={true}
-            rowHeight={48}
-            headerHeight={44}
-            pagination={true}
-            paginationPageSize={10}
-            suppressCellFocus={true}
-          />
+          {isLoading ? (
+            <div className="flex items-center justify-center h-full text-slate-400">
+              Loading student records...
+            </div>
+          ) : (
+            <AgGridReact
+              theme={themeQuartz}
+              rowData={students}
+              columnDefs={columnDefs}
+              defaultColDef={defaultColDef}
+              onGridReady={(params) => setGridApi(params.api)}
+              animateRows={true}
+              rowHeight={48}
+              headerHeight={44}
+              pagination={true}
+              paginationPageSize={10}
+              suppressCellFocus={true}
+              quickFilterText={searchValue}
+            />
+          )}
         </div>
       </Card>
+
+      <AddStudentModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={fetchStudents}
+      />
+
+      <EditStudentModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onSuccess={fetchStudents}
+        studentData={selectedStudent}
+      />
     </div>
   );
 };
-
 
 function QuickStat({ title, value, icon: Icon, color }) {
   return (
@@ -194,6 +290,4 @@ function QuickStat({ title, value, icon: Icon, color }) {
     </div>
   );
 }
-
-
 export default StudRecords;
