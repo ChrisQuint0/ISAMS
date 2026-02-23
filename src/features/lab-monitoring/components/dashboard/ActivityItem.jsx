@@ -3,22 +3,23 @@ import { Clock } from "lucide-react";
 
 export default function ActivityItem({ time, text, detail, alert }) {
     return (
-        <div className="flex gap-4 relative pb-4 group">
-            <div className="flex flex-col items-center">
-                <div className={`w-2 h-2 rounded-full mt-1.5 z-10 ${alert ? "bg-amber-500 shadow-[0_0_5px_rgba(245,158,11,0.5)]" : "bg-sky-500/50 group-hover:bg-sky-400 transition-colors"}`}></div>
-                <div className="w-[1px] h-full bg-[#334155] absolute top-4 group-last:hidden"></div>
+        /* Reduced pb-6 to pb-3, pt-2 to pt-1 */
+        <div className="flex gap-4 relative pb-3 pt-1 group border-b border-slate-700/30 last:border-0 last:pb-0">
+            <div className="flex flex-col items-center shrink-0">
+                <div className={`w-2.5 h-2.5 rounded-full mt-1.5 z-10 ${alert ? "bg-amber-500" : "bg-sky-500"}`}></div>
+                <div className="w-[1px] h-full bg-[#334155] absolute top-5 group-last:hidden"></div>
             </div>
             
-            <div className="space-y-1 pb-2">
-                <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono text-sky-500/70 flex items-center">
-                        <Clock size={10} className="mr-1" />{time}
-                    </span>
-                    <span className={`text-[11px] font-bold tracking-wide ${alert ? "text-amber-500" : "text-slate-200"}`}>
+            <div className="space-y-0.5 flex-1 min-w-0">
+                <div className="flex justify-between items-center">
+                    <span className={`text-[12px] font-black tracking-tight uppercase ${alert ? "text-amber-500" : "text-slate-100"}`}>
                         {text}
                     </span>
+                    <span className="text-[9px] font-mono text-sky-500/80 font-bold">{time}</span>
                 </div>
-                <p className="text-[10px] text-slate-500 uppercase tracking-wider">{detail}</p>
+                <p className="text-[11px] text-slate-400 font-medium leading-tight">
+                    {detail}
+                </p>
             </div>
         </div>
     );
