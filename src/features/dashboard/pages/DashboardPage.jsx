@@ -16,7 +16,7 @@ import labIcon from "@/assets/icons/lab_icon.svg";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, rbac, signOut } = useAuth();
 
   const handleSignOut = async () => {
     try {
@@ -31,8 +31,9 @@ export default function DashboardPage() {
     navigate(href);
   };
 
-  const modules = [
+  const allModules = [
     {
+      id: "thesis",
       title: "Thesis Archiving",
       description:
         "Manage and archive thesis documents with advanced search and categorization",
@@ -44,6 +45,7 @@ export default function DashboardPage() {
       accentLine: "bg-gradient-to-r from-slate-700 via-slate-600 to-slate-700",
     },
     {
+      id: "facsub",
       title: "Faculty Requirement Submission",
       description:
         "Submit, track, and manage faculty requirements and documentation",
@@ -56,6 +58,7 @@ export default function DashboardPage() {
         "bg-gradient-to-r from-blue-800/50 via-blue-700/50 to-blue-800/50",
     },
     {
+      id: "studvio",
       title: "Student Violation Management",
       description:
         "Manage and track student violations effectively",
@@ -68,6 +71,7 @@ export default function DashboardPage() {
         "bg-gradient-to-r from-purple-800/50 via-purple-700/50 to-purple-800/50",
     },
     {
+      id: "labman",
       title: "Laboratory Time Monitoring",
       description: "Monitor and track laboratory usage and time allocation",
       icon: labIcon,
@@ -79,6 +83,10 @@ export default function DashboardPage() {
         "bg-gradient-to-r from-cyan-800/50 via-cyan-700/50 to-cyan-800/50",
     },
   ];
+
+  const modules = allModules.filter(
+    (module) => rbac?.superadmin || rbac?.[module.id]
+  );
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col">
