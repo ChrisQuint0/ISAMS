@@ -197,29 +197,20 @@ export const settingsService = {
     return data;
   },
 
-  addFaculty: async (facultyData) => {
-    // We explicitly destructure to ensure we only send what's needed
-    const { first_name, last_name, email, department, user_id } = facultyData;
-
+  getFacultyById: async (facultyId) => {
     const { data, error } = await supabase
       .from('faculty_fs')
-      .insert([{
-        user_id,
-        first_name,
-        last_name,
-        email,
-        department
-      }])
-      .select();
-
+      .select('*')
+      .eq('faculty_id', facultyId)
+      .maybeSingle();
     if (error) throw error;
-    return data[0];
+    return data;
   },
 
-  updateFacultyStatus: async (facultyId, isActive) => {
+  updateFacultyField: async (facultyId, field, value) => {
     const { error } = await supabase
       .from('faculty_fs')
-      .update({ is_active: isActive })
+      .update({ [field]: value })
       .eq('faculty_id', facultyId);
     if (error) throw error;
   },

@@ -34,13 +34,10 @@ export default function FacultyModuleGuard() {
         checkModuleAccess();
     }, [user]);
 
-    // 1. Show a loading state while querying Supabase
+    // 1. Invisible loading state — no white flash while querying Supabase
     if (loading) {
-        return (
-            <div className="flex items-center justify-center h-screen">
-                <p className="text-lg text-gray-500">Checking module permissions...</p>
-            </div>
-        );
+        return <div className="bg-slate-950 h-screen w-screen"
+            style={{ backgroundColor: "#0f172a" }} />;
     }
 
     // 2. Check if the user has access to the Faculty Submission Module at all

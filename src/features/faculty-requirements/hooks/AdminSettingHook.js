@@ -109,33 +109,27 @@ export function useAdminSettings() {
   };
 
   // --- Faculty Handlers ---
-  const handleAddFaculty = async (facultyData) => {
-    setLoading(true);
-    try {
-      const newFaculty = await settingsService.addFaculty(facultyData);
-      setFacultyList(prev => [...prev, newFaculty]);
-      setSuccess("Faculty added successfully.");
-      setTimeout(() => setSuccess(null), 3000);
-      return true;
-    } catch (err) {
-      setError("Failed to add faculty: " + err.message);
-      setTimeout(() => setError(null), 3000);
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  };
+  const handleUpdateFacultyField = async (facultyId, field, value) => {
+    // 1. Find the original row
+    const original = facultyList.find(f => f.faculty_id === facultyId);
+    if (!original || original[field] === value) return; // Don't save if nothing changed
 
-  const handleToggleFacultyStatus = async (id, currentStatus) => {
-    // Optimistic update
-    setFacultyList(prev => prev.map(f => f.faculty_id === id ? { ...f, is_active: !currentStatus } : f));
+    // 2. Optimistic Update (UI updates instantly)
+    setFacultyList(prev => prev.map(f =>
+      f.faculty_id === facultyId ? { ...f, [field]: value } : f
+    ));
+
+    // 3. Persist to Supabase
     try {
-      await settingsService.updateFacultyStatus(id, !currentStatus);
+      await settingsService.updateFacultyField(facultyId, field, value);
+      // Optional: setSuccess("Saved"); setTimeout(() => setSuccess(null), 1000);
     } catch (err) {
-      setError("Failed to update status.");
+      setError("Failed to update: " + err.message);
       setTimeout(() => setError(null), 3000);
-      // Revert
-      setFacultyList(prev => prev.map(f => f.faculty_id === id ? { ...f, is_active: currentStatus } : f));
+      // Revert if failed
+      setFacultyList(prev => prev.map(f =>
+        f.faculty_id === facultyId ? { ...f, [field]: original[field] } : f
+      ));
     }
   };
 
@@ -395,7 +389,7 @@ export function useAdminSettings() {
     updateSetting, saveGroup,
     docRequirements, addDocRequirement, updateDocRequirement, deleteDocRequirement,
     templates, addTemplate, deleteTemplate,
-    facultyList, handleAddFaculty, handleToggleFacultyStatus,
+    facultyList, handleUpdateFacultyField,
     courseList, handleAddCourse, handleDeleteCourse,
     runTestOCR, processQueue, runBackup, restoreSystem,
     systemHealth, holidays, handleAddHoliday, handleDeleteHoliday,
