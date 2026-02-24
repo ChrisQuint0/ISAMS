@@ -1,23 +1,22 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { AgGridReact } from "ag-grid-react";
 
-
 import { ModuleRegistry, AllCommunityModule, themeQuartz } from "ag-grid-community";
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
-
 
 import {
   ShieldAlert, Search, AlertTriangle,
   CheckCircle2, History, AlertCircle, Filter
 } from "lucide-react";
 
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-
+import { supabase } from "@/lib/supabaseClient";
+import { ManageViolationModal } from "../components/ManageViolationModal";
+import { AddViolationModal } from "../components/AddViolationModal";
 
 // FACULTY THEME: Consistent Slate palette and filter popup styling
 const GRID_STYLE_OVERRIDES = `
@@ -53,7 +52,47 @@ const GRID_STYLE_OVERRIDES = `
 
 const StudViolations = () => {
   const [gridApi, setGridApi] = useState(null);
+  const [violations, setViolations] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isManageModalOpen, setIsManageModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [selectedViolation, setSelectedViolation] = useState(null);
 
+  const fetchViolations = async () => {
+    setIsLoading(true);
+    try {
+      // Assuming foreign keys exist for students_sv and offense_types_sv. 
+      // If the join fails due to no relation, we might need a fallback.
+      const { data, error } = await supabase
+        .from('violations_sv')
+        .select(`
+          *,
+          students_sv (first_name, last_name),
+          offense_types_sv (name)
+        `);
+
+      if (error) {
+        console.error("Error fetching violations:", error.message);
+      } else if (data) {
+        const formattedData = data.map(v => ({
+          ...v,
+          name: v.students_sv ? `${v.students_sv.first_name} ${v.students_sv.last_name}` : v.student_number,
+          section: v.student_course_year_section || (v.students_sv && v.students_sv.course_year_section) || 'N/A',
+          violation: v.offense_types_sv ? v.offense_types_sv.name : `Type ID ${v.offense_type_id}`,
+          status: v.status || "Pending"
+        }));
+        setViolations(formattedData);
+      }
+    } catch (err) {
+      console.error("Unexpected error fetching violations:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchViolations();
+  }, []);
 
   useEffect(() => {
     const styleEl = document.createElement('style');
@@ -63,17 +102,7 @@ const StudViolations = () => {
   }, []);
 
 
-  const rowData = useMemo(() => [
-    { name: "Jamil C. Saludo", section: "BSCS 3-A", violation: "Uniform Policy", status: "Active" },
-    { name: "Marc Angelo A. Soria", section: "BSIT 2-B", violation: "Late Entry", status: "Cleared" },
-    { name: "Ella Mae C. Leonidas", section: "BSIT 2-B", violation: "Academic Dishonesty", status: "Active" },
-    { name: "John Louis E. Baruelo", section: "BSCS 3-A", violation: "No ID Found", status: "Active" },
-    { name: "Apple Ann Danielle S. Selosa", section: "BSIT 2-B", violation: "Uniform Policy", status: "Active" },
-    { name: "Christopher O. Quinto", section: "BSCS 3-A", violation: "Smoking on Campus", status: "Cleared" },
-    { name: "John Kurt O. Fajutagana", section: "BSIT 2-B", violation: "Misconduct", status: "Active" },
-    { name: "Cristiana Mae P. Montipolca", section: "BSCS 3-A", violation: "Uniform Policy", status: "Active" },
-    { name: "Ruth G. Domino", section: "BSIT 2-B", violation: "Late Entry", status: "Cleared" },
-  ], []);
+  // Replaced static rowData with the fetched violations state
 
 
   const columnDefs = useMemo(() => [
@@ -104,11 +133,11 @@ const StudViolations = () => {
       flex: 1,
       filter: true, // Enabled filtering for status
       cellRenderer: (params) => {
-        const isCleared = params.value === 'Cleared';
+        const isResolved = params.value === 'Resolved' || params.value === 'Dismissed';
         return (
           <div className="flex items-center h-full">
-            <span className={`flex items-center text-[12px] font-bold ${isCleared ? 'text-emerald-400' : 'text-rose-400'}`}>
-              <span className={`mr-2 h-1.5 w-1.5 rounded-full ${isCleared ? 'bg-emerald-400' : 'bg-rose-400 animate-pulse'}`} />
+            <span className={`flex items-center text-[12px] font-bold ${isResolved ? 'text-emerald-400' : 'text-amber-400'}`}>
+              <span className={`mr-2 h-1.5 w-1.5 rounded-full ${isResolved ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`} />
               {params.value}
             </span>
           </div>
@@ -120,11 +149,15 @@ const StudViolations = () => {
       field: "action",
       width: 120,
       pinned: 'right',
-      cellRenderer: () => (
+      cellRenderer: (params) => (
         <div className="flex items-center justify-end h-full pr-2">
           <Button
             variant="outline"
             className="h-7 px-4 bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-100 hover:text-slate-900 hover:border-slate-100 rounded-md text-[11px] font-semibold transition-all duration-200"
+            onClick={() => {
+              setSelectedViolation(params.data);
+              setIsManageModalOpen(true);
+            }}
           >
             Manage
           </Button>
@@ -147,16 +180,19 @@ const StudViolations = () => {
           <h1 className="text-3xl font-bold text-white tracking-tight">Violations</h1>
           <p className="text-slate-400">Student compliance monitor and disciplinary records</p>
         </div>
-        <Button className="bg-rose-600 hover:bg-rose-700 text-white h-9 px-4 rounded-md font-medium text-sm transition-all shadow-sm active:scale-95">
+        <Button
+          className="bg-rose-600 hover:bg-rose-700 text-white h-9 px-4 rounded-md font-medium text-sm transition-all shadow-sm active:scale-95"
+          onClick={() => setIsAddModalOpen(true)}
+        >
           <AlertCircle className="w-4 h-4 mr-2" /> Report violation
         </Button>
       </div>
 
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <QuickStat title="Total violations" value="56" icon={ShieldAlert} color="text-slate-400" />
-        <QuickStat title="Active offenses" value="12" icon={AlertTriangle} color="text-rose-500" />
-        <QuickStat title="Cleared records" value="44" icon={CheckCircle2} color="text-emerald-500" />
+        <QuickStat title="Total violations" value={violations.length} icon={ShieldAlert} color="text-slate-400" />
+        <QuickStat title="Active investigations" value={violations.filter(v => v.status === 'Pending' || v.status === 'Under Investigation').length} icon={AlertTriangle} color="text-amber-500" />
+        <QuickStat title="Resolved records" value={violations.filter(v => v.status === 'Resolved' || v.status === 'Dismissed').length} icon={CheckCircle2} color="text-emerald-500" />
       </div>
 
 
@@ -182,21 +218,40 @@ const StudViolations = () => {
         </div>
 
         <div className="ag-theme-quartz-dark w-full" style={{ height: "500px" }}>
-          <AgGridReact
-            theme={themeQuartz}
-            rowData={rowData}
-            columnDefs={columnDefs}
-            defaultColDef={defaultColDef}
-            onGridReady={(params) => setGridApi(params.api)}
-            animateRows={true}
-            rowHeight={48}
-            headerHeight={44}
-            pagination={true}
-            paginationPageSize={10}
-            suppressCellFocus={true}
-          />
+          {isLoading ? (
+            <div className="flex items-center justify-center h-full text-slate-400">
+              Loading violation records...
+            </div>
+          ) : (
+            <AgGridReact
+              theme={themeQuartz}
+              rowData={violations}
+              columnDefs={columnDefs}
+              defaultColDef={defaultColDef}
+              onGridReady={(params) => setGridApi(params.api)}
+              animateRows={true}
+              rowHeight={48}
+              headerHeight={44}
+              pagination={true}
+              paginationPageSize={10}
+              suppressCellFocus={true}
+            />
+          )}
         </div>
       </Card>
+
+      <ManageViolationModal
+        isOpen={isManageModalOpen}
+        onClose={() => setIsManageModalOpen(false)}
+        onSuccess={fetchViolations}
+        violationData={selectedViolation}
+      />
+
+      <AddViolationModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSuccess={fetchViolations}
+      />
     </div>
   );
 };
