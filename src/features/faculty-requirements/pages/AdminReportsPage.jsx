@@ -12,9 +12,27 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { AgGridReact } from 'ag-grid-react';
+import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-community';
 
-// Hook
+// Register AG Grid modules
+ModuleRegistry.registerModules([AllCommunityModule]);
+
+// Custom Hook
 import { useAdminReports } from '../hooks/AdminReportHook';
+
+// Custom theme using AG Grid v33+ Theming API with Balham theme (better dark mode support)
+const customTheme = themeBalham.withParams({
+  accentColor: '#3b82f6',
+  backgroundColor: '#020617',
+  foregroundColor: '#e2e8f0',
+  borderColor: '#1e293b',
+  headerBackgroundColor: '#0f172a',
+  headerTextColor: '#94a3b8',
+  oddRowBackgroundColor: '#020617',
+  rowHeight: 48,
+  headerHeight: 40,
+});
 
 export default function AdminReportsPage() {
   const { loading, error, reportData, settings, recentExports, generateReport, exportCSV } = useAdminReports();
@@ -95,9 +113,31 @@ export default function AdminReportsPage() {
         if (row.progress_percentage) newRow['Progress'] = row.progress_percentage;
       }
 
-      return newRow;
     });
   }, [reportData, config]);
+
+  // Dynamic Column Definitions for AG Grid
+  const columnDefs = React.useMemo(() => {
+    if (!filteredData || filteredData.length === 0) return [];
+
+    // Generate columns based on the keys of the first row
+    return Object.keys(filteredData[0]).map(key => ({
+      field: key,
+      headerName: key,
+      flex: 1,
+      minWidth: 150,
+      filter: true,
+      sortable: true,
+      resizable: true,
+      cellStyle: {
+        display: 'flex',
+        alignItems: 'center',
+        color: '#cbd5e1',
+        fontFamily: 'monospace',
+        fontSize: '0.75rem'
+      }
+    }));
+  }, [filteredData]);
 
   const handleExport = () => {
     if (filteredData) {
@@ -279,29 +319,17 @@ export default function AdminReportsPage() {
                   )}
 
                   {/* Data Table */}
-                  <div className="flex-1 overflow-auto p-0">
-                    <table className="w-full text-sm text-left border-collapse">
-                      <thead className="bg-slate-950 text-slate-400 font-semibold sticky top-0 z-10 shadow-sm shadow-slate-950">
-                        <tr>
-                          {filteredData[0] && Object.keys(filteredData[0]).map(h => (
-                            <th key={h} className="px-4 py-3 border-b border-slate-800 whitespace-nowrap text-xs uppercase tracking-wider bg-slate-950">
-                              {h}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-800/50">
-                        {filteredData.map((row, i) => (
-                          <tr key={i} className="hover:bg-slate-800/40 transition-colors">
-                            {Object.values(row).map((val, j) => (
-                              <td key={j} className="px-4 py-2.5 text-slate-300 whitespace-nowrap font-mono text-xs">
-                                {val}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="flex-1 overflow-hidden p-0 h-[400px]">
+                    <div style={{ height: '100%', width: '100%' }}>
+                      <AgGridReact
+                        theme={customTheme}
+                        rowData={filteredData}
+                        columnDefs={columnDefs}
+                        animateRows={true}
+                        rowSelection="multiple"
+                        suppressRowClickSelection={true}
+                      />
+                    </div>
                   </div>
                 </div>
               ) : (

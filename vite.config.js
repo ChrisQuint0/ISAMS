@@ -13,7 +13,7 @@ export default defineConfig({
   clearScreen: false,
   server: {
     port: 5173,
-    strictPort: true,
+    strictPort: false,
     proxy: {
       "/api": {
         target: "http://localhost:3000",
