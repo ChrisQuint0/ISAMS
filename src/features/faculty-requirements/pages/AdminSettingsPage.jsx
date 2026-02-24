@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
     Save, Database, Terminal, Trash2, RefreshCw, Eye, Settings,
     Cpu, CheckCircle, AlertCircle, Play, Shield, FileText,
@@ -18,9 +18,29 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 
+// AG Grid
+import { AgGridReact } from 'ag-grid-react';
+import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-community';
+
 // Hook
 import { useAdminSettings } from '../hooks/AdminSettingHook';
 import { settingsService } from '../services/AdminSettingService';
+
+ModuleRegistry.registerModules([AllCommunityModule]);
+
+// Custom dark Balham theme (standard across ISAMS)
+const customTheme = themeBalham.withParams({
+    accentColor: '#3b82f6',
+    backgroundColor: '#020617',
+    foregroundColor: '#e2e8f0',
+    borderColor: '#1e293b',
+    headerBackgroundColor: '#0f172a',
+    headerTextColor: '#94a3b8',
+    oddRowBackgroundColor: '#020617',
+    rowHeight: 48,
+    headerHeight: 40,
+});
+
 
 export default function AdminSettingsPage() {
     const {
@@ -30,19 +50,93 @@ export default function AdminSettingsPage() {
         docRequirements, addDocRequirement, updateDocRequirement, deleteDocRequirement,
         templates, addTemplate, deleteTemplate,
 
-        facultyList, handleAddFaculty, handleToggleFacultyStatus,
+        // 1. FIXED: Removed old faculty functions and availableSystemUsers. Added handleUpdateFacultyField.
+        facultyList, handleUpdateFacultyField,
+
         courseList, handleAddCourse, handleDeleteCourse,
         systemHealth, holidays, handleAddHoliday, handleDeleteHoliday, restoreSystem
     } = useAdminSettings();
 
+    // AG Grid: column definitions for Faculty tab
+    const facultyColumnDefs = useMemo(() => [
+        {
+            field: 'emp_id',
+            headerName: 'Emp ID',
+            flex: 1,
+            editable: true,
+            singleClickEdit: false,
+            cellStyle: (params) => ({
+                fontFamily: 'monospace',
+                color: params.value ? '#34d399' : '#475569',
+                fontStyle: params.value ? 'normal' : 'italic',
+            }),
+            valueFormatter: (params) => params.value || 'Double-click to set',
+        },
+        {
+            field: 'first_name',
+            headerName: 'First Name',
+            flex: 1,
+            editable: false,
+        },
+        {
+            field: 'last_name',
+            headerName: 'Last Name',
+            flex: 1,
+            editable: false,
+        },
+        {
+            field: 'email',
+            headerName: 'Email',
+            flex: 2,
+            editable: false,
+            cellStyle: { color: '#94a3b8' },
+        },
+        {
+            field: 'employment_type',
+            headerName: 'Employment Type',
+            flex: 1,
+            editable: true,
+            singleClickEdit: false,
+            cellEditor: 'agSelectCellEditor',
+            cellEditorParams: { values: ['Full Time', 'Part Time'] },
+            valueFormatter: (params) => params.value || 'Double-click to set',
+            cellStyle: (params) => ({
+                color: params.value ? '#e2e8f0' : '#475569',
+                fontStyle: params.value ? 'normal' : 'italic',
+            }),
+        },
+        {
+            field: 'is_active',
+            headerName: 'Status',
+            flex: 1,
+            editable: true,
+            singleClickEdit: false,
+            cellEditor: 'agSelectCellEditor',
+            cellEditorParams: { values: ['Active', 'Inactive'] },
+            valueGetter: (params) => params.data.is_active ? 'Active' : 'Inactive',
+            valueSetter: (params) => {
+                params.data.is_active = params.newValue === 'Active';
+                return true;
+            },
+            cellStyle: (params) => ({
+                color: params.value === 'Active' ? '#34d399' : '#64748b',
+                fontWeight: '500',
+            }),
+        },
+    ], []);
+
+    // AG Grid: cell value change handler for Faculty tab
+    const handleFacultyCellValueChanged = (event) => {
+        const { data, colDef, newValue } = event;
+        const field = colDef.field;
+        // is_active is already a boolean on data due to valueSetter
+        const value = field === 'is_active' ? data.is_active : newValue;
+        handleUpdateFacultyField(data.faculty_id, field, value);
+    };
+
     const [testFile, setTestFile] = useState(null);
     const [newReq, setNewReq] = useState({ name: '', folder: '', required: true });
     const [newHoliday, setNewHoliday] = useState({ date: '', description: '', is_recurring: false });
-
-    // Faculty Form State
-    const [newFaculty, setNewFaculty] = useState({
-        first_name: '', last_name: '', email: '', department: '', faculty_id: ''
-    });
 
     // Course Form State
     const [newCourse, setNewCourse] = useState({
@@ -463,91 +557,27 @@ export default function AdminSettingsPage() {
                                 <CardTitle className="text-base text-slate-100 flex items-center gap-2">
                                     <Users className="h-4 w-4 text-blue-400" /> Faculty Management
                                 </CardTitle>
-                                <CardDescription className="text-slate-500">Add new faculty or deactivate accounts</CardDescription>
+                                <CardDescription className="text-slate-500">
+                                    Double-click a cell to edit Emp ID, Employment Type, or Status. First Name, Last Name, and Email are managed by Superadmin.
+                                </CardDescription>
                             </CardHeader>
-                            <CardContent className="pt-6 space-y-6">
-                                {/* Add Faculty Form */}
-                                <div className="p-4 bg-slate-950/50 border border-slate-800 rounded-lg space-y-4">
-                                    <h3 className="text-sm font-medium text-slate-200">Add New Faculty</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
-                                        <Input
-                                            placeholder="First Name"
-                                            value={newFaculty.first_name}
-                                            onChange={e => setNewFaculty({ ...newFaculty, first_name: e.target.value })}
-                                            className="bg-slate-900 border-slate-700 text-slate-200"
-                                        />
-                                        <Input
-                                            placeholder="Last Name"
-                                            value={newFaculty.last_name}
-                                            onChange={e => setNewFaculty({ ...newFaculty, last_name: e.target.value })}
-                                            className="bg-slate-900 border-slate-700 text-slate-200"
-                                        />
-                                        <Input
-                                            placeholder="Email"
-                                            value={newFaculty.email}
-                                            onChange={e => setNewFaculty({ ...newFaculty, email: e.target.value })}
-                                            className="bg-slate-900 border-slate-700 text-slate-200"
-                                        />
-                                        <Input
-                                            placeholder="Employee ID"
-                                            value={newFaculty.faculty_id}
-                                            onChange={e => setNewFaculty({ ...newFaculty, faculty_id: e.target.value })}
-                                            className="bg-slate-900 border-slate-700 text-slate-200"
-                                        />
-                                        <Select
-                                            value={newFaculty.department}
-                                            onValueChange={v => setNewFaculty({ ...newFaculty, department: v })}
-                                        >
-                                            <SelectTrigger className="bg-slate-900 border-slate-700 text-slate-200">
-                                                <SelectValue placeholder="Department" />
-                                            </SelectTrigger>
-                                            <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
-                                                <SelectItem value="CCS">CCS</SelectItem>
-                                                <SelectItem value="CEAS">CEAS</SelectItem>
-                                                <SelectItem value="CBA">CBA</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="flex justify-end">
-                                        <Button
-                                            size="sm"
-                                            className="bg-blue-600 hover:bg-blue-700 text-white"
-                                            onClick={async () => {
-                                                if (newFaculty.email && newFaculty.first_name) {
-                                                    const success = await handleAddFaculty(newFaculty);
-                                                    if (success) setNewFaculty({ first_name: '', last_name: '', email: '', department: '', faculty_id: '' });
-                                                }
+                            <CardContent className="pt-6">
+                                <div className="border border-slate-800 rounded-md overflow-hidden bg-slate-950" style={{ height: '500px' }}>
+                                    <div style={{ height: '100%', width: '100%' }}>
+                                        <AgGridReact
+                                            theme={customTheme}
+                                            rowData={facultyList}
+                                            columnDefs={facultyColumnDefs}
+                                            defaultColDef={{
+                                                sortable: true,
+                                                filter: true,
+                                                resizable: true,
                                             }}
-                                        >
-                                            <Plus className="h-4 w-4 mr-2" /> Add Faculty
-                                        </Button>
+                                            animateRows={true}
+                                            stopEditingWhenCellsLoseFocus={true}
+                                            onCellValueChanged={handleFacultyCellValueChanged}
+                                        />
                                     </div>
-                                </div>
-
-                                {/* Faculty List */}
-                                <div className="space-y-2">
-                                    <div className="grid grid-cols-12 text-xs font-medium text-slate-500 px-3 pb-2 border-b border-slate-800">
-                                        <div className="col-span-3">Name</div>
-                                        <div className="col-span-3">Email</div>
-                                        <div className="col-span-2">Dept</div>
-                                        <div className="col-span-2">Emp ID</div>
-                                        <div className="col-span-2 text-right">Status</div>
-                                    </div>
-                                    {facultyList.map(f => (
-                                        <div key={f.faculty_id} className="grid grid-cols-12 items-center p-3 text-sm bg-slate-950/30 border border-slate-800 rounded-lg hover:border-slate-700">
-                                            <div className="col-span-3 font-medium text-slate-200">{f.last_name}, {f.first_name}</div>
-                                            <div className="col-span-3 text-slate-400 truncate pr-2">{f.email}</div>
-                                            <div className="col-span-2 text-slate-400">{f.department}</div>
-                                            <div className="col-span-2 text-slate-500 font-mono text-xs">{f.faculty_id || '-'}</div>
-                                            <div className="col-span-2 flex justify-end">
-                                                <Switch
-                                                    checked={f.is_active}
-                                                    onCheckedChange={() => handleToggleFacultyStatus(f.faculty_id, f.is_active)}
-                                                    className="data-[state=checked]:bg-emerald-600"
-                                                />
-                                            </div>
-                                        </div>
-                                    ))}
                                 </div>
                             </CardContent>
                         </Card>
