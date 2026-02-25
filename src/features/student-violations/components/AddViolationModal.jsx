@@ -344,7 +344,7 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
                     </div>
 
                     <div className="col-span-2 flex justify-end gap-3 mt-4 pt-4 border-t border-slate-800">
-                        <Button type="button" variant="ghost" className="text-slate-400 hover:text-white" onClick={() => handleOpenChange(false)}>Cancel</Button>
+                        <Button type="button" variant="ghost" className="text-slate-400 hover:text-white hover:bg-slate-800" onClick={() => handleOpenChange(false)}>Cancel</Button>
                         <Button type="submit" className="bg-rose-600 hover:bg-rose-700 text-white shadow-sm" disabled={isSubmitting || isLoadingData || studentValidationStatus !== 'valid'}>
                             {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                             Report Violation

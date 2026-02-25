@@ -248,12 +248,12 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
                 )}
 
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
-                    <TabsList className="grid w-full grid-cols-2 bg-slate-950 border border-slate-800 p-1">
-                        <TabsTrigger value="single" className="data-[state=active]:bg-slate-800 data-[state=active]:text-white transition-all">Single Entry</TabsTrigger>
-                        <TabsTrigger value="bulk" className="data-[state=active]:bg-slate-800 data-[state=active]:text-white transition-all">Bulk CSV Upload</TabsTrigger>
+                    <TabsList className="grid w-full grid-cols-2 bg-slate-950 border border-slate-800 h-11 p-1 rounded-lg">
+                        <TabsTrigger value="single" className="data-[state=active]:bg-slate-800 data-[state=active]:text-blue-400 text-slate-400 hover:text-slate-200 rounded-md transition-all">Single Entry</TabsTrigger>
+                        <TabsTrigger value="bulk" className="data-[state=active]:bg-slate-800 data-[state=active]:text-blue-400 text-slate-400 hover:text-slate-200 rounded-md transition-all">Bulk Upload</TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="single" className="mt-4 space-y-4">
+                    <TabsContent value="single" className="mt-6 space-y-4">
                         <form onSubmit={submitSingle} className="grid grid-cols-2 gap-4">
                             <div className="col-span-2 space-y-2">
                                 <Label htmlFor="student_number" className="text-slate-300">Student Number *</Label>
@@ -291,7 +291,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
                             </div>
 
                             <div className="col-span-2 flex justify-end gap-3 mt-4 pt-4 border-t border-slate-800">
-                                <Button type="button" variant="ghost" className="text-slate-400 hover:text-white" onClick={() => handleOpenChange(false)}>Cancel</Button>
+                                <Button type="button" variant="ghost" className="text-slate-400 hover:text-white hover:bg-slate-800" onClick={() => handleOpenChange(false)}>Cancel</Button>
                                 <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white" disabled={isSubmitting}>
                                     {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                                     Save Student
@@ -300,7 +300,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
                         </form>
                     </TabsContent>
 
-                    <TabsContent value="bulk" className="mt-4">
+                    <TabsContent value="bulk" className="mt-6">
                         <div className="space-y-4">
                             <div className="border-2 border-dashed border-slate-700 rounded-lg p-8 flex flex-col items-center justify-center bg-slate-950/50 hover:bg-slate-800/50 transition-colors">
                                 <UploadCloud className="w-10 h-10 text-slate-500 mb-4" />
@@ -318,7 +318,17 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
                                 )}
                             </div>
 
-                            <div className="bg-slate-950 p-4 rounded border border-slate-800 flex justify-between items-start gap-4">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={downloadTemplate}
+                                className="w-full bg-slate-900 border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800"
+                            >
+                                <Download className="w-4 h-4 mr-2" />
+                                Download Template
+                            </Button>
+
+                            <div className="bg-slate-950 p-4 rounded border border-slate-800">
                                 <div>
                                     <h4 className="text-sm font-semibold text-slate-300 mb-2">CSV Format Requirements:</h4>
                                     <ul className="text-xs text-slate-400 space-y-1 list-disc list-inside">
@@ -326,19 +336,10 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
                                         <li>Optional headers: <code className="text-slate-500">email</code>, <code className="text-slate-500">guardian_name</code>, <code className="text-slate-500">guardian_contact</code>, <code className="text-slate-500">status</code></li>
                                     </ul>
                                 </div>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={downloadTemplate}
-                                    className="shrink-0 bg-slate-900 border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800"
-                                >
-                                    <Download className="w-4 h-4 mr-2" />
-                                    Download Template
-                                </Button>
                             </div>
 
-                            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-800">
-                                <Button type="button" variant="ghost" className="text-slate-400 hover:text-white" onClick={() => handleOpenChange(false)}>Cancel</Button>
+                            <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+                                <Button type="button" variant="ghost" className="text-slate-400 hover:text-white hover:bg-slate-800" onClick={() => handleOpenChange(false)}>Cancel</Button>
                                 <Button type="button" className="bg-blue-600 hover:bg-blue-700 text-white" disabled={!parsedData || isSubmitting} onClick={submitBulk}>
                                     {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                                     Import Students

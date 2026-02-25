@@ -5,7 +5,7 @@ import { ModuleRegistry, AllCommunityModule, themeQuartz } from "ag-grid-communi
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
-import { Plus, Search, UserCheck, Users, GraduationCap, ShieldCheck, Filter, Edit2 } from "lucide-react";
+import { Plus, Search, UserCheck, Users, GraduationCap, ShieldCheck, Edit2, UserX, Clock, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -41,6 +41,10 @@ const GRID_STYLE_OVERRIDES = `
   .ag-theme-quartz-dark .ag-filter-wrapper {
     background-color: #1e293b !important;
     border: 1px solid #334155 !important;
+  }
+  /* Modal Backdrop Blur */
+  div[data-state="open"].fixed.inset-0.z-50 {
+    backdrop-filter: blur(5px);
   }
 `;
 
@@ -103,7 +107,7 @@ const StudRecords = () => {
     {
       headerName: "Full Name",
       field: "name",
-      flex: 2,
+      flex: 1.5,
       cellStyle: { fontWeight: '600', color: '#f8fafc' },
       filter: true // Enabled filtering for names
     },
@@ -143,12 +147,18 @@ const StudRecords = () => {
       flex: 1,
       filter: true,
       cellRenderer: (params) => {
-        const isActive = params.value === 'Enrolled';
+        const statusColors = {
+          'Enrolled': { text: 'text-emerald-400', dot: 'bg-emerald-400 animate-pulse' },
+          'Graduated': { text: 'text-indigo-400', dot: 'bg-indigo-400' },
+          'LOA': { text: 'text-amber-400', dot: 'bg-amber-400' },
+          'Dropped': { text: 'text-orange-400', dot: 'bg-orange-400' },
+          'Expelled': { text: 'text-rose-400', dot: 'bg-rose-400' }
+        };
+        const style = statusColors[params.value] || { text: 'text-slate-400', dot: 'bg-slate-400' };
         return (
           <div className="flex items-center h-full">
-            <span className={`flex items-center text-[12px] font-bold ${isActive ? 'text-emerald-400' : 'text-amber-400'
-              }`}>
-              <span className={`mr-2 h-1.5 w-1.5 rounded-full ${isActive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+            <span className={`flex items-center text-[12px] font-bold ${style.text}`}>
+              <span className={`mr-2 h-1.5 w-1.5 rounded-full ${style.dot}`} />
               {params.value}
             </span>
           </div>
@@ -191,7 +201,10 @@ const StudRecords = () => {
 
   const totalStudents = students.length;
   const activeStudents = students.filter(s => s.status === 'Enrolled').length;
-  const otherStudents = totalStudents - activeStudents; // Can refine based on what requires attention
+  const graduatedStudents = students.filter(s => s.status === 'Graduated').length;
+  const loaStudents = students.filter(s => s.status === 'LOA').length;
+  const droppedStudents = students.filter(s => s.status === 'Dropped').length;
+  const expelledStudents = students.filter(s => s.status === 'Expelled').length;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 text-left">
@@ -209,17 +222,19 @@ const StudRecords = () => {
       </div>
 
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <QuickStat title="Total students" value={totalStudents.toLocaleString()} icon={Users} color="text-blue-400" />
         <QuickStat title="Active enrollment" value={activeStudents.toLocaleString()} icon={UserCheck} color="text-emerald-400" />
-        <QuickStat title="Other status" value={otherStudents.toLocaleString()} icon={ShieldCheck} color="text-rose-400" />
+        <QuickStat title="Graduated" value={graduatedStudents.toLocaleString()} icon={GraduationCap} color="text-indigo-400" />
+        <QuickStat title="On Leave (LOA)" value={loaStudents.toLocaleString()} icon={Clock} color="text-amber-400" />
+        <QuickStat title="Dropped" value={droppedStudents.toLocaleString()} icon={UserX} color="text-orange-400" />
+        <QuickStat title="Expelled" value={expelledStudents.toLocaleString()} icon={Ban} color="text-rose-400" />
       </div>
 
 
       <Card className="bg-slate-900 border-slate-800 flex flex-col rounded-lg overflow-hidden shadow-sm">
         <div className="p-4 border-b border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-800/20">
           <div className="flex items-center gap-2">
-            <GraduationCap className="h-4 w-4 text-slate-400" />
             <h3 className="text-sm font-semibold text-slate-200">Enrollment registry</h3>
           </div>
           <div className="flex items-center gap-3 w-full md:w-auto">
@@ -232,10 +247,6 @@ const StudRecords = () => {
                 onChange={(e) => setSearchValue(e.target.value)}
               />
             </div>
-            {/* Filter Toggle Button for visual consistency */}
-            <Button variant="outline" className="h-9 px-3 bg-slate-800 border-slate-700 text-slate-400 hover:text-white">
-              <Filter className="h-4 w-4" />
-            </Button>
           </div>
         </div>
 
@@ -280,13 +291,25 @@ const StudRecords = () => {
 };
 
 function QuickStat({ title, value, icon: Icon, color }) {
+  const getGradient = (c) => {
+    if (c.includes("blue")) return "from-blue-600/50 via-blue-500/50 to-blue-600/50";
+    if (c.includes("emerald")) return "from-emerald-600/50 via-emerald-500/50 to-emerald-600/50";
+    if (c.includes("indigo")) return "from-indigo-600/50 via-indigo-500/50 to-indigo-600/50";
+    if (c.includes("amber")) return "from-amber-600/50 via-amber-500/50 to-amber-600/50";
+    if (c.includes("orange")) return "from-orange-600/50 via-orange-500/50 to-orange-600/50";
+    if (c.includes("rose")) return "from-rose-600/50 via-rose-500/50 to-rose-600/50";
+    return "from-slate-600/50 via-slate-500/50 to-slate-600/50";
+  };
+
   return (
-    <div className="bg-slate-900 border border-slate-800 p-4 rounded-lg flex items-center gap-4 transition-colors hover:border-slate-700">
-      <div className={`p-2 rounded-md bg-slate-800/50 border border-slate-700 ${color}`}><Icon size={20} /></div>
-      <div>
+    <div className="group relative overflow-hidden bg-slate-900 border border-slate-800 p-4 rounded-lg flex items-center gap-4 transition-all duration-300 hover:border-slate-700 hover:shadow-lg hover:shadow-slate-900/20">
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none" />
+      <div className={`relative p-2 rounded-md bg-slate-800/50 border border-slate-700 ${color}`}><Icon size={20} /></div>
+      <div className="relative">
         <p className="text-xs font-medium text-slate-500 leading-none">{title}</p>
         <p className="text-lg font-bold text-white mt-1 leading-none">{value}</p>
       </div>
+      <div className={`absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r ${getGradient(color)} scale-x-0 group-hover:scale-x-100 transition-transform duration-500`} />
     </div>
   );
 }
