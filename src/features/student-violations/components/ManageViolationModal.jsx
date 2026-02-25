@@ -145,7 +145,7 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
                     </div>
 
                     <div className="flex justify-end gap-3">
-                        <Button type="button" variant="ghost" className="text-slate-400 hover:text-white" onClick={() => handleOpenChange(false)}>Close</Button>
+                        <Button type="button" variant="ghost" className="text-slate-400 hover:text-white hover:bg-slate-800" onClick={() => handleOpenChange(false)}>Close</Button>
                         <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white" disabled={isSubmitting || status === violationData.status}>
                             {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                             Save Changes
