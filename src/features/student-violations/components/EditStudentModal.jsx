@@ -174,7 +174,7 @@ export function EditStudentModal({ isOpen, onClose, onSuccess, studentData }) {
 
 
                     <div className="col-span-2 flex justify-end gap-3 mt-4 pt-4 border-t border-slate-800">
-                        <Button type="button" variant="ghost" className="text-slate-400 hover:text-white" onClick={() => handleOpenChange(false)}>Cancel</Button>
+                        <Button type="button" variant="ghost" className="text-slate-400 hover:text-white hover:bg-slate-800" onClick={() => handleOpenChange(false)}>Cancel</Button>
                         <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white" disabled={isSubmitting}>
                             {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                             Save Changes

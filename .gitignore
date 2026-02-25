@@ -27,6 +27,11 @@ Thumbs.db
 gemini.md
 .aiexclude
 
+<<<<<<< faculty-submission-role-selection
+# Notes
+notes.md
+=======
 # Database Schema
 final_database_schema.sql
 student_violation_schema.sql
+>>>>>>> main
