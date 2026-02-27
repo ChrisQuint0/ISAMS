@@ -285,9 +285,45 @@ export default function UsersPage() {
         }
     };
 
-    const handleResetPassword = (payload) => {
-        // TODO: wire to Supabase in the next pass
-        console.log("Password reset payload:", payload);
+    const handleResetPassword = async (payload) => {
+        try {
+            const res = await fetch(`http://localhost:3000/api/users/${payload.id}/reset-password`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ password: payload.password }),
+            });
+
+            const result = await res.json();
+
+            if (!res.ok) {
+                throw new Error(result.error || "Failed to reset password.");
+            }
+
+            addToast({
+                title: "Password Reset",
+                description: "The user's password has been successfully updated.",
+                variant: "default",
+            });
+
+        } catch (error) {
+            // This error often happens if the server returns an HTML error page (e.g., 404 Not Found)
+            // instead of a JSON response, which causes `res.json()` to fail.
+            if (error instanceof SyntaxError) {
+                console.error("JSON Parsing Error. The server likely returned a non-JSON response (e.g., HTML 404 page). Please ensure the backend server is running and has been restarted to activate the new endpoints.");
+                addToast({
+                    title: "Server Communication Error",
+                    description: "Received an invalid response. Was the server restarted?",
+                    variant: "destructive",
+                });
+            } else {
+                console.error("Failed to reset password:", error);
+                addToast({
+                    title: "Reset Failed",
+                    description: error.message || "Could not reset the password. Please try again.",
+                    variant: "destructive",
+                });
+            }
+        }
     };
 
     const context = useMemo(() => ({

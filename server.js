@@ -180,6 +180,34 @@ app.patch("/api/users/:id", async (req, res) => {
   }
 });
 
+// 0.2. Reset User Password (Admin)
+app.post("/api/users/:id/reset-password", async (req, res) => {
+  const { id: userId } = req.params;
+  const { password } = req.body;
+
+  if (!SUPABASE_SERVICE_KEY) {
+    return res.status(500).json({ error: "Server missing SUPABASE_SERVICE_ROLE_KEY" });
+  }
+
+  if (!password) {
+    return res.status(400).json({ error: "Password is required" });
+  }
+
+  try {
+    const { data, error } = await supabaseAdmin.auth.admin.updateUserById(
+      userId,
+      { password: password }
+    );
+
+    if (error) throw error;
+
+    res.json({ message: "Password updated successfully", user: data.user });
+  } catch (error) {
+    console.error("Error resetting password:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 1. Auth URL
 app.get("/api/auth", (req, res) => {
   const scopes = [
