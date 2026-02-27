@@ -9,7 +9,8 @@ import {
     LogOut,
     LayoutDashboard,
     Archive,
-    BarChart3
+    BarChart3,
+    History
 } from "lucide-react";
 import {
     Sidebar,
@@ -64,6 +65,11 @@ export function ThesisArchivingSidebar() {
             path: "/thesis-archiving/insights/reports",
             label: "Reports and Analytics",
             icon: BarChart3,
+        },
+        {
+            path: "/thesis-archiving/insights/audit-trail",
+            label: "Audit Trail",
+            icon: History,
         },
     ];
 
