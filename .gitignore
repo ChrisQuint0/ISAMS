@@ -33,3 +33,6 @@ notes.md
 
 # OCR File
 eng.traineddata
+
+#DB
+schema.sql
