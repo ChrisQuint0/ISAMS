@@ -514,6 +514,10 @@ export function useAdminSettings() {
   };
 
   const runTestOCR = async (file, docTypeId) => {
+    if (!settings.ocr_enabled) {
+      setTestResult({ success: false, text: "Cant validate the file, Master Switch is Off", error: "Cant validate the file, Master Switch is Off" });
+      return;
+    }
     setProcessing(true);
     setTestResult(null);
     try {
