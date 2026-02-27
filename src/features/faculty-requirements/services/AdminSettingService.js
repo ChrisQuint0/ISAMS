@@ -395,12 +395,13 @@ export const settingsService = {
     return data || [];
   },
 
-  upsertMasterCourse: async (courseCode, courseName, semester, id = null) => {
+  upsertMasterCourse: async (courseCode, courseName, semester, id = null, isActive = null) => {
     const { data, error } = await supabase.rpc('upsert_master_course_fs', {
       p_course_code: courseCode,
       p_course_name: courseName,
       p_semester: semester,
       p_id: id || null,
+      p_is_active: isActive
     });
     if (error) throw error;
     if (data?.error) throw new Error(data.error);
@@ -455,6 +456,12 @@ export const settingsService = {
 
     // Return the raw data to the caller so they can bundle it into a ZIP
     return { success: true, data: data };
+  },
+
+  getSchemaDump: async () => {
+    const { data, error } = await supabase.rpc('get_schema_dump_fs');
+    if (error) throw error;
+    return data;
   },
 
   restoreSystem: async (jsonData) => {

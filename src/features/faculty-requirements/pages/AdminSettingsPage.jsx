@@ -109,11 +109,11 @@ export default function AdminSettingsPage() {
     const {
         loading, processing, error, success, setError, setSuccess,
         settings, testResult, clearTestResult,
-        updateSetting, saveGroup, runTestOCR, runBackup, refresh,
+        updateSetting, saveGroup, runTestOCR, runBackup, getSchemaDump, refresh,
         docRequirements, addDocRequirement, updateDocRequirement, deleteDocRequirement,
         templates, addTemplate, deleteTemplate, archiveTemplate, updateTemplateCoordinates,
         facultyList, handleUpdateFacultyField,
-        masterCourseList, handleAddMasterCourse, handleDeleteMasterCourse,
+        masterCourseList, handleAddMasterCourse, handleDeleteMasterCourse, handleUpdateMasterCourseField,
         courseList, handleAddCourse, handleDeleteCourse,
         systemHealth, holidays, handleAddHoliday, handleBulkAddHolidays, handleDeleteHoliday, restoreSystem,
         fetchDocTypeRules, saveDocTypeRules
@@ -175,7 +175,6 @@ export default function AdminSettingsPage() {
         !holidayDescriptionDuplicate &&
         holidayOccupiedDates.length === 0;
     const [pendingDeleteId, setPendingDeleteId] = useState(null);
-    const [pendingCatalogDeleteId, setPendingCatalogDeleteId] = useState(null);
 
     // Danger Modal State
     const [isDangerModalOpen, setIsDangerModalOpen] = useState(false);
@@ -398,11 +397,46 @@ export default function AdminSettingsPage() {
     ], []);
 
 
+    // AG Grid: column definitions for Course Catalog
+    const catalogColumnDefs = useMemo(() => [
+        { field: 'course_code', headerName: 'Code', width: 110, cellStyle: { fontFamily: 'monospace', color: '#34d399', fontWeight: 600 } },
+        { field: 'course_name', headerName: 'Course Name', flex: 2, cellStyle: { color: '#e2e8f0' } },
+        {
+            field: 'semester', headerName: 'Semester', width: 130,
+            cellStyle: { color: '#94a3b8', fontSize: '12px' },
+            valueFormatter: p => p.value || '—'
+        },
+        {
+            field: 'is_active',
+            headerName: 'Status',
+            width: 120,
+            editable: true,
+            cellEditor: 'agSelectCellEditor',
+            cellEditorParams: { values: ['Active', 'Inactive'] },
+            valueGetter: (params) => params.data.is_active ? 'Active' : 'Inactive',
+            valueSetter: (params) => {
+                params.data.is_active = params.newValue === 'Active';
+                return true;
+            },
+            cellStyle: (params) => ({
+                color: params.value === 'Active' ? '#34d399' : '#64748b',
+                fontWeight: '500',
+            }),
+        },
+    ], []);
+
     const handleFacultyCellValueChanged = (event) => {
         const { data, colDef, newValue, oldValue } = event;
         const field = colDef.field;
         const value = field === 'is_active' ? data.is_active : newValue;
         handleUpdateFacultyField(data.faculty_id, field, value, oldValue);
+    };
+
+    const handleCatalogCellValueChanged = (event) => {
+        const { data, colDef, newValue, oldValue } = event;
+        const field = colDef.field;
+        const value = field === 'is_active' ? data.is_active : newValue;
+        handleUpdateMasterCourseField(data.id, field, value, oldValue);
     };
 
     // AG Grid: column definitions for Templates tab
@@ -673,10 +707,10 @@ export default function AdminSettingsPage() {
 
 
     // Danger Zone Action Handler
-    const handleDangerAction = async (action) => {
-        let config = { actionType: action, title: '', description: '', confirmationText: '' };
+    const handleDangerAction = (actionType, payload = null) => {
+        const config = { actionType, payload };
 
-        switch (action) {
+        switch (actionType) {
             case 'RESET_SEMESTER':
                 config.title = 'Reset Semester Data';
                 config.description = `WARNING: Are you sure you want to RESET the ${settings.current_semester} of ${settings.current_academic_year}? This will delete all student submissions, but keep the faculty and course lists intact.`;
@@ -686,6 +720,11 @@ export default function AdminSettingsPage() {
                 config.title = 'Purge Old Archives';
                 config.description = `CRITICAL WARNING: This will permanently data older than ${settings.general_archive_retention}. This action CANNOT BE UNDONE.`;
                 config.confirmationText = 'PURGE';
+                break;
+            case 'RESTORE_SYSTEM':
+                config.title = 'Restore System Data';
+                config.description = `CRITICAL WARNING: Restoring will completely OVERWRITE your current database state with the backup file data. This action CANNOT BE UNDONE.`;
+                config.confirmationText = 'RESTORE';
                 break;
             default:
                 return;
@@ -697,13 +736,15 @@ export default function AdminSettingsPage() {
     };
 
     const executeDangerAction = async () => {
-        const { actionType } = dangerModalConfig;
+        const { actionType, payload } = dangerModalConfig;
         let func = null;
 
         if (actionType === 'RESET_SEMESTER') {
             func = () => settingsService.resetSemester(settings.current_semester, settings.current_academic_year);
         } else if (actionType === 'PURGE_ARCHIVES') {
             func = () => settingsService.purgeArchives(parseInt(settings.general_archive_retention) || 5);
+        } else if (actionType === 'RESTORE_SYSTEM') {
+            func = () => restoreSystem(payload); // from useAdminSettings hook
         } else {
             return;
         }
@@ -712,12 +753,18 @@ export default function AdminSettingsPage() {
 
         try {
             await func();
-            setSuccess("Action completed successfully.");
-            setTimeout(() => setSuccess(null), 4000);
-            refresh();
+
+            // System restore handles its own success notification and reload
+            if (actionType !== 'RESTORE_SYSTEM') {
+                setSuccess("Action completed successfully.");
+                setTimeout(() => setSuccess(null), 4000);
+                refresh();
+            }
         } catch (err) {
-            setError("Action failed: " + err.message);
-            setTimeout(() => setError(null), 4000);
+            if (actionType !== 'RESTORE_SYSTEM') {
+                setError("Action failed: " + err.message);
+                setTimeout(() => setError(null), 4000);
+            }
         }
     };
 
@@ -732,21 +779,26 @@ export default function AdminSettingsPage() {
             // Add the state data
             zip.file("data_state.json", JSON.stringify(backupData, null, 2));
 
-            // Use the actual schema text from the user (Placeholder for now)
-            const schemaText = `-- ISAMS Backup Schema Blueprint
--- Use this file to reconstruct tables before importing data_state.json
-
--- Add specific CREATE TABLE/TRIGGER/RPC statements here
-`;
+            // Fetch the exact DDL table structures and functions from the DB via RPC
+            let schemaText;
+            try {
+                schemaText = await getSchemaDump();
+            } catch (err) {
+                console.warn("Failed to fetch accurate schema. Proceeding with backup without it.", err);
+                schemaText = "-- Failed to fetch schema dump at the time of backup.\n";
+            }
             zip.file("schema.sql", schemaText);
 
             // Generate the final zip file
             const blob = await zip.generateAsync({ type: "blob" });
             saveAs(blob, `ISAMS_System_Snapshot_${new Date().toISOString().slice(0, 10)}.zip`);
+            setSuccess("System backup generated and downloaded successfully.");
+            setTimeout(() => setSuccess(null), 4000);
 
         } catch (err) {
             console.error("ZIP Generation Failed:", err);
-            alert("Failed to create ZIP package.");
+            setError("Failed to create ZIP package: " + err.message);
+            setTimeout(() => setError(null), 4000);
         }
     };
 
@@ -1085,37 +1137,9 @@ export default function AdminSettingsPage() {
                                             rowData={masterCourseList}
                                             getRowId={p => String(p.data.id)}
                                             animateRows
-                                            columnDefs={[
-                                                { field: 'course_code', headerName: 'Code', width: 110, cellStyle: { fontFamily: 'monospace', color: '#34d399', fontWeight: 600 } },
-                                                { field: 'course_name', headerName: 'Course Name', flex: 2, cellStyle: { color: '#e2e8f0' } },
-                                                {
-                                                    field: 'semester', headerName: 'Semester', width: 130,
-                                                    cellStyle: { color: '#94a3b8', fontSize: '12px' },
-                                                    valueFormatter: p => p.value || '—'
-                                                },
-                                                {
-                                                    headerName: 'Action', width: 90, sortable: false, filter: false,
-                                                    cellRenderer: p => {
-                                                        const id = p.data.id;
-                                                        if (pendingCatalogDeleteId === id) {
-                                                            return React.createElement('div', { style: { display: 'flex', gap: '8px', alignItems: 'center' } },
-                                                                React.createElement('button', {
-                                                                    style: { background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '12px', fontWeight: '600' },
-                                                                    onClick: () => { setPendingCatalogDeleteId(null); handleDeleteMasterCourse(id); }
-                                                                }, 'Yes'),
-                                                                React.createElement('button', {
-                                                                    style: { background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '12px' },
-                                                                    onClick: () => setPendingCatalogDeleteId(null)
-                                                                }, 'No')
-                                                            );
-                                                        }
-                                                        return React.createElement('button', {
-                                                            style: { background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '12px', fontWeight: '600' },
-                                                            onClick: () => setPendingCatalogDeleteId(id)
-                                                        }, 'Remove');
-                                                    }
-                                                }
-                                            ]}
+                                            columnDefs={catalogColumnDefs}
+                                            onCellValueChanged={handleCatalogCellValueChanged}
+                                            stopEditingWhenCellsLoseFocus={true}
                                             overlayNoRowsTemplate='<span style="color:#475569;font-style:italic">No catalog entries yet. Add a course above.</span>'
                                         />
                                     </div>
@@ -1178,7 +1202,7 @@ export default function AdminSettingsPage() {
                                                                 <p className="text-slate-100 font-semibold text-sm truncate">
                                                                     {group.name}
                                                                     {!group.is_active && (
-                                                                        <span className="ml-2 text-xs text-amber-400 font-normal">(Inactive)</span>
+                                                                        <span className="ml-2 text-xs text-amber-400 font-normal">Inactive</span>
                                                                     )}
                                                                 </p>
                                                                 {group.employment_type && (
@@ -1214,6 +1238,11 @@ export default function AdminSettingsPage() {
                                                                     </span>
                                                                     <span className="flex-1 text-slate-300 text-sm truncate">
                                                                         {asgn.course_name}
+                                                                        {asgn.master_is_active === false && (
+                                                                            <span className="ml-2 text-red-400 font-medium text-[10px] uppercase tracking-tighter bg-red-950/30 border border-red-800/50 rounded px-1 selection:bg-red-500/30">
+                                                                                Inactive
+                                                                            </span>
+                                                                        )}
                                                                     </span>
                                                                     <div className="flex items-center gap-2 shrink-0">
                                                                         <span className="text-xs text-violet-400 font-bold bg-violet-900/30 border border-violet-800/50 rounded px-1.5 py-0.5">
@@ -1288,8 +1317,14 @@ export default function AdminSettingsPage() {
                                                 </SelectTrigger>
                                                 <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
                                                     {masterCourseList.map(c => (
-                                                        <SelectItem key={c.id} value={String(c.id)}>
+                                                        <SelectItem
+                                                            key={c.id}
+                                                            value={String(c.id)}
+                                                            disabled={!c.is_active}
+                                                            className={!c.is_active ? 'opacity-40 cursor-not-allowed' : ''}
+                                                        >
                                                             {c.course_code} – {c.course_name} ({c.semester})
+                                                            {!c.is_active ? ' Inactive' : ''}
                                                         </SelectItem>
                                                     ))}
                                                 </SelectContent>
@@ -1343,10 +1378,9 @@ export default function AdminSettingsPage() {
                                                                 key={f.faculty_id}
                                                                 value={f.faculty_id}
                                                                 disabled={!f.is_active}
-                                                                className={!f.is_active ? 'opacity-40 cursor-not-allowed line-through' : ''}
+                                                                className={!f.is_active ? 'opacity-40 cursor-not-allowed' : ''}
                                                             >
                                                                 {f.first_name} {f.last_name}
-                                                                {!f.is_active ? ' (Inactive)' : ''}
                                                             </SelectItem>
                                                         ))}
                                                     </SelectContent>
@@ -2156,8 +2190,9 @@ export default function AdminSettingsPage() {
                                                 className="hidden"
                                                 accept=".json"
                                                 onChange={(e) => {
-                                                    if (window.confirm("WARNING: Restoring will completely OVERWRITE current data. Proceed?")) {
-                                                        restoreSystem(e.target.files[0]);
+                                                    const file = e.target.files[0];
+                                                    if (file) {
+                                                        handleDangerAction('RESTORE_SYSTEM', file);
                                                     }
                                                     e.target.value = ''; // Reset input to allow re-uploading the same file if needed
                                                 }}

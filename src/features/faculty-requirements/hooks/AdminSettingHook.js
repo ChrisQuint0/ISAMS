@@ -234,6 +234,47 @@ export function useAdminSettings() {
     }
   };
 
+  const handleUpdateMasterCourseField = async (courseId, field, value, oldValue) => {
+    const original = masterCourseList.find(c => c.id === courseId);
+    if (!original) return;
+    if (oldValue === value) return;
+
+    // Optimistic Update for master list
+    setMasterCourseList(prev => prev.map(c =>
+      c.id === courseId ? { ...c, [field]: value } : c
+    ));
+
+    // Real-time synchronization for assignments list (courseList)
+    setCourseList(prev => prev.map(c => {
+      if (c.master_course_id === courseId) {
+        // Map master field names to assignment property names
+        if (field === 'is_active') return { ...c, master_is_active: value };
+        if (field === 'course_name') return { ...c, course_name: value };
+        if (field === 'course_code') return { ...c, course_code: value };
+      }
+      return c;
+    }));
+
+    try {
+      // Use existing upsertMasterCourse RPC but only change what's needed
+      // Note: upsert_master_course_fs(code, name, semester, id, is_active)
+      await settingsService.upsertMasterCourse(
+        field === 'course_code' ? value : original.course_code,
+        field === 'course_name' ? value : original.course_name,
+        field === 'semester' ? value : original.semester,
+        courseId,
+        field === 'is_active' ? value : original.is_active
+      );
+      setSuccess('✓ Saved');
+      setTimeout(() => setSuccess(null), 1500);
+    } catch (err) {
+      setError('Failed to update catalog: ' + err.message);
+      setTimeout(() => setError(null), 4000);
+      const fresh = await settingsService.getMasterCourses();
+      setMasterCourseList(fresh);
+    }
+  };
+
   // --- Course Assignment Handlers ---
   const handleAddCourse = async (courseData) => {
     setLoading(true);
@@ -536,9 +577,9 @@ export function useAdminSettings() {
     fetchDocTypeRules, saveDocTypeRules,
     templates, addTemplate, deleteTemplate, archiveTemplate, updateTemplateCoordinates,
     facultyList, handleUpdateFacultyField,
-    masterCourseList, handleAddMasterCourse, handleDeleteMasterCourse,
+    masterCourseList, handleAddMasterCourse, handleDeleteMasterCourse, handleUpdateMasterCourseField,
     courseList, handleAddCourse, handleDeleteCourse,
-    runTestOCR, runBackup, restoreSystem,
+    runTestOCR, runBackup, getSchemaDump: settingsService.getSchemaDump, restoreSystem,
     systemHealth, holidays, handleAddHoliday, handleBulkAddHolidays, handleDeleteHoliday,
     availableSystemUsers,
     refresh: fetchData
