@@ -6,6 +6,7 @@ import ThesisDetailPage from "@/features/thesis-archiving/pages/ThesisDetailPage
 import SimilarityCheckPage from "@/features/thesis-archiving/pages/SimilarityCheckPage";
 import HTEDocumentArchivePage from "@/features/thesis-archiving/pages/HTEDocumentArchivePage";
 import ReportsAnalyticsPage from "@/features/thesis-archiving/pages/ReportsAnalyticsPage";
+import AuditTrailPage from "@/features/thesis-archiving/pages/AuditTrailPage";
 
 export const ThesisArchivingRoutes = (ProtectedRoute) => (
     <>
@@ -31,6 +32,7 @@ export const ThesisArchivingRoutes = (ProtectedRoute) => (
 
             <Route path="insights">
                 <Route path="reports" element={<ReportsAnalyticsPage />} />
+                <Route path="audit-trail" element={<AuditTrailPage />} />
             </Route>
         </Route>
     </>
