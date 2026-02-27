@@ -1238,11 +1238,6 @@ export default function AdminSettingsPage() {
                                                                     </span>
                                                                     <span className="flex-1 text-slate-300 text-sm truncate">
                                                                         {asgn.course_name}
-                                                                        {asgn.master_is_active === false && (
-                                                                            <span className="ml-2 text-red-400 font-medium text-[10px] uppercase tracking-tighter bg-red-950/30 border border-red-800/50 rounded px-1 selection:bg-red-500/30">
-                                                                                Inactive
-                                                                            </span>
-                                                                        )}
                                                                     </span>
                                                                     <div className="flex items-center gap-2 shrink-0">
                                                                         <span className="text-xs text-violet-400 font-bold bg-violet-900/30 border border-violet-800/50 rounded px-1.5 py-0.5">
@@ -1324,7 +1319,6 @@ export default function AdminSettingsPage() {
                                                             className={!c.is_active ? 'opacity-40 cursor-not-allowed' : ''}
                                                         >
                                                             {c.course_code} – {c.course_name} ({c.semester})
-                                                            {!c.is_active ? ' Inactive' : ''}
                                                         </SelectItem>
                                                     ))}
                                                 </SelectContent>
@@ -1856,7 +1850,7 @@ export default function AdminSettingsPage() {
                                             </CardTitle>
                                         </CardHeader>
                                         <CardContent className="p-2 space-y-1 overflow-auto flex-1">
-                                            {docRequirements.map(doc => (
+                                            {docRequirements.filter(d => d.is_active).map(doc => (
                                                 <button
                                                     key={doc.id}
                                                     onClick={() => setSelectedDocTypeId(doc.id)}
@@ -1868,8 +1862,8 @@ export default function AdminSettingsPage() {
                                                     <span className="truncate pr-2">{doc.name}</span>
                                                 </button>
                                             ))}
-                                            {docRequirements.length === 0 && (
-                                                <div className="p-4 text-xs text-center text-slate-500">No document types found.</div>
+                                            {docRequirements.filter(d => d.is_active).length === 0 && (
+                                                <div className="p-4 text-xs text-center text-slate-500">No active document types found.</div>
                                             )}
                                         </CardContent>
                                     </Card>
@@ -2045,7 +2039,7 @@ export default function AdminSettingsPage() {
                                                         <SelectValue placeholder="Select Document Type" />
                                                     </SelectTrigger>
                                                     <SelectContent className="bg-slate-900 border-slate-700 text-slate-200">
-                                                        {docRequirements.map(doc => (
+                                                        {docRequirements.filter(d => d.is_active).map(doc => (
                                                             <SelectItem key={doc.id} value={doc.id}>{doc.name}</SelectItem>
                                                         ))}
                                                     </SelectContent>
