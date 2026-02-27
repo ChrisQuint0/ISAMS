@@ -29,6 +29,7 @@ import { FacultyRequirementsRoutes } from "./faculty-requirements/FacultyRequire
 import { LaboratoryRoutes } from "./laboratory-management/LaboratoryRoutes";
 import { ThesisArchivingRoutes } from "./thesis-archiving/ThesisArchivingRoutes";
 import { StudViolationAppRoutes } from "./student-violation/StudViolationAppRoutes";
+import { AdminGuard } from "./guards/AdminGuard";
 
 // Protected Route wrapper
 function ProtectedRoute({ children }) {
@@ -79,7 +80,9 @@ export function AppRoutes() {
           path="/users"
           element={
             <ProtectedRoute>
-              <UsersPage />
+              <AdminGuard>
+                <UsersPage />
+              </AdminGuard>
             </ProtectedRoute>
           }
         />
