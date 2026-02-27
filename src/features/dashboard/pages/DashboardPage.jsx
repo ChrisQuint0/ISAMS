@@ -14,6 +14,17 @@ import facReqIcon from "@/assets/icons/fac_req_icon.svg";
 import classlistIcon from "@/assets/icons/classlist_icon.svg";
 import labIcon from "@/assets/icons/lab_icon.svg";
 
+const isAdmin = (rbac) => {
+  if (!rbac) return false;
+  return (
+    rbac.superadmin === true ||
+    rbac.thesis_role === 'admin' ||
+    rbac.facsub_role === 'admin' ||
+    rbac.labman_role === 'admin' ||
+    rbac.studvio_role === 'admin'
+  );
+};
+
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { user, rbac, signOut } = useAuth();
@@ -103,23 +114,25 @@ export default function DashboardPage() {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      onClick={() => navigate("/users")}
-                      variant="outline"
-                      size="icon"
-                      className="bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700 hover:text-slate-100 transition-colors"
-                    >
-                      <UserRoundPlus className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <p>Manage Users</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              {isAdmin(rbac) && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={() => navigate("/users")}
+                        variant="outline"
+                        size="icon"
+                        className="bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700 hover:text-slate-100 transition-colors"
+                      >
+                        <UserRoundPlus className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p>Manage Users</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
               <Button
                 onClick={handleSignOut}
                 variant="outline"

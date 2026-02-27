@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +14,8 @@ import { ResetPasswordDialog } from "@/features/users/components/ResetPasswordDi
 import { AgGridReact } from "ag-grid-react";
 import { ModuleRegistry, AllCommunityModule, themeBalham } from "ag-grid-community";
 import { supabase } from "@/lib/supabaseClient";
+import { useToast } from "@/components/ui/toast/toaster";
+import { updateUser } from "@/features/users/services/usersService";
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -171,6 +173,7 @@ function makeModuleColDef(headerName, activeField, roleField, roleOptions) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function UsersPage() {
     const navigate = useNavigate();
+		const { addToast } = useToast();
     const [moduleFilter, setModuleFilter] = useState("all");
     const [addUserOpen, setAddUserOpen] = useState(false);
 
@@ -179,7 +182,61 @@ export default function UsersPage() {
     const [resetDialogOpen, setResetDialogOpen] = useState(false);
 
     const [rowData, setRowData] = useState([]);
+    const [gridApi, setGridApi] = useState(null);
     const [loading, setLoading] = useState(true);
+
+		const onGridReady = (params) => {
+        setGridApi(params.api);
+    };
+
+    const handleCellValueChanged = useCallback(
+        async (params) => {
+            const { data: updatedRow, colDef, newValue } = params;
+            const field = colDef.field;
+
+            console.log("Cell value changed:", {
+                userId: updatedRow.id,
+                field,
+                newValue,
+                updatedRow,
+            });
+
+            // Prevent API call if value hasn't changed
+            if (params.oldValue === params.newValue) {
+                return;
+            }
+
+            try {
+                const { data, error } = await updateUser(updatedRow.id, updatedRow);
+
+                if (error) {
+                    throw error;
+                }
+
+                // The service function returns the updated row from the `users_with_roles` view
+                // Update the grid data with the fresh data from the server
+                params.node.setData(data);
+
+                addToast({
+                    title: "User Updated",
+                    description: "The user's information has been saved successfully.",
+                    variant: "default",
+                });
+            } catch (error) {
+                console.error("Failed to update user:", error);
+                addToast({
+                    title: "Update Failed",
+                    description: `Could not save changes. ${
+                        error.message || "Please check the console for details."
+                    }`,
+                    variant: "destructive",
+                });
+                // Optional: Revert changes in the grid on failure
+                params.node.setData(params.oldValue);
+            }
+        },
+        [addToast]
+    );
 
     const fetchUsers = async () => {
         setLoading(true);
@@ -228,9 +285,45 @@ export default function UsersPage() {
         }
     };
 
-    const handleResetPassword = (payload) => {
-        // TODO: wire to Supabase in the next pass
-        console.log("Password reset payload:", payload);
+    const handleResetPassword = async (payload) => {
+        try {
+            const res = await fetch(`http://localhost:3000/api/users/${payload.id}/reset-password`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ password: payload.password }),
+            });
+
+            const result = await res.json();
+
+            if (!res.ok) {
+                throw new Error(result.error || "Failed to reset password.");
+            }
+
+            addToast({
+                title: "Password Reset",
+                description: "The user's password has been successfully updated.",
+                variant: "default",
+            });
+
+        } catch (error) {
+            // This error often happens if the server returns an HTML error page (e.g., 404 Not Found)
+            // instead of a JSON response, which causes `res.json()` to fail.
+            if (error instanceof SyntaxError) {
+                console.error("JSON Parsing Error. The server likely returned a non-JSON response (e.g., HTML 404 page). Please ensure the backend server is running and has been restarted to activate the new endpoints.");
+                addToast({
+                    title: "Server Communication Error",
+                    description: "Received an invalid response. Was the server restarted?",
+                    variant: "destructive",
+                });
+            } else {
+                console.error("Failed to reset password:", error);
+                addToast({
+                    title: "Reset Failed",
+                    description: error.message || "Could not reset the password. Please try again.",
+                    variant: "destructive",
+                });
+            }
+        }
     };
 
     const context = useMemo(() => ({
@@ -420,6 +513,8 @@ export default function UsersPage() {
                             animateRows={true}
                             stopEditingWhenCellsLoseFocus={true}
                             loading={loading}
+                            onCellValueChanged={handleCellValueChanged}
+														onGridReady={onGridReady}
                         />
                     </div>
                 </div>
