@@ -20,11 +20,7 @@ export function ToastProvider({ children }) {
 
       setToasts((prev) => [...prev, toast]);
 
-      if (toast.duration > 0) {
-        setTimeout(() => {
-          removeToast(id);
-        }, toast.duration);
-      }
+
 
       return id;
     },
@@ -73,13 +69,27 @@ function Toast({
   title,
   description,
   variant = "default",
+  duration = 5000,
   onOpenChange,
 }) {
   const [open, setOpen] = React.useState(true);
 
+  React.useEffect(() => {
+    if (duration > 0) {
+      const timer = setTimeout(() => {
+        handleOpenChange(false);
+      }, duration);
+      return () => clearTimeout(timer);
+    }
+  }, [duration]);
+
   const handleOpenChange = (newOpen) => {
     setOpen(newOpen);
-    onOpenChange?.(newOpen);
+    if (!newOpen) {
+      setTimeout(() => onOpenChange?.(false), 300);
+    } else {
+      onOpenChange?.(true);
+    }
   };
 
   return (

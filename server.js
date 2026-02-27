@@ -5,6 +5,7 @@ import { google } from "googleapis";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import fs from "fs";
+import Tesseract from "tesseract.js";
 import JSZip from "jszip";
 
 // Load environment variables from .env.local
@@ -40,7 +41,7 @@ const oauth2Client = new google.auth.OAuth2(
 );
 
 // Multer for file uploads
-const upload = multer({ dest: "uploads/" });
+const upload = multer({ storage: multer.memoryStorage() });
 
 // --- Routes ---
 
@@ -255,7 +256,146 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
   }
 });
 
-// 4.5 Ensure Folder Structure Endpoint
+/// 4.1 Local OCR Validation (Split-Load Architecture Fallback)
+app.post("/api/validate-image", upload.array("files"), async (req, res) => {
+  try {
+    const { doc_type_id } = req.body;
+    const files = req.files; // Now correctly handles the array!
+
+    if (!files || files.length === 0) {
+      return res.status(400).json({ error: "No image file provided" });
+    }
+    if (!doc_type_id) {
+      return res.status(400).json({ error: "Missing doc_type_id" });
+    }
+
+    let extractedText = "";
+    let processedFiles = [];
+
+    // 1. Run Tesseract OCR on each file directly from RAM (Buffer)
+    for (const file of files) {
+      processedFiles.push(file.originalname);
+      console.log(`[OCR] Starting local OCR for: ${file.originalname}`);
+
+      try {
+        const { data: { text } } = await Tesseract.recognize(file.buffer, 'eng');
+        extractedText += text + "\n\n";
+      } catch (ocrErr) {
+        console.error("[OCR ERROR] Tesseract failed on", file.originalname, ocrErr);
+        throw new Error(`Tesseract OCR failed: ${ocrErr.message}`);
+      }
+    }
+
+    const normalizedText = extractedText.toLowerCase();
+
+    // 2. Fetch Rules from Supabase
+    const { data: docType, error: docError } = await supabaseAdmin
+      .from('documenttypes_fs')
+      .select('required_keywords, forbidden_keywords, max_file_size_mb')
+      .eq('doc_type_id', doc_type_id)
+      .single();
+
+    if (docError || !docType) throw new Error("Validation rules not found in Supabase");
+
+    const { data: mcSetting } = await supabaseAdmin
+      .from('systemsettings_fs')
+      .select('setting_value')
+      .eq('setting_key', `min_word_count_${doc_type_id}`)
+      .single();
+
+    const minWordCount = mcSetting?.setting_value ? parseInt(mcSetting.setting_value, 10) : 0;
+    const wordCount = extractedText.trim().split(/\s+/).filter(w => w.length > 0).length;
+
+    // 3. Run Validation
+    const missingKeywords = [];
+    const foundForbidden = [];
+
+    if (docType.required_keywords && Array.isArray(docType.required_keywords)) {
+      for (const keyword of docType.required_keywords) {
+        if (!normalizedText.includes(keyword.toLowerCase())) missingKeywords.push(keyword);
+      }
+    }
+
+    if (docType.forbidden_keywords && Array.isArray(docType.forbidden_keywords)) {
+      for (const keyword of docType.forbidden_keywords) {
+        if (normalizedText.includes(keyword.toLowerCase())) foundForbidden.push(keyword);
+      }
+    }
+
+    // 4. Check Word Count
+    let pass = missingKeywords.length === 0 && foundForbidden.length === 0;
+    let error = null;
+
+    if (minWordCount > 0 && wordCount < minWordCount) {
+      pass = false;
+      error = `Validation Failed: Document contains ${wordCount} words, which is below the minimum required word count of ${minWordCount}.`;
+    }
+
+    res.json({
+      pass,
+      error,
+      extractedLength: extractedText.length,
+      wordCount: wordCount,
+      missingKeywords,
+      foundForbidden,
+      analyzedExtension: files.length > 1 ? 'batch_image' : files[0].originalname.substring(files[0].originalname.lastIndexOf('.')),
+      processedFiles
+    });
+
+  } catch (error) {
+    console.error("[OCR] Full fallback error:", error);
+    res.status(500).json({ error: error.message, stack: error.stack });
+  }
+});
+
+// --- Helper: Sanitize folder name for Google Drive ---
+function sanitizeFolderName(name) {
+  if (!name) return 'Untitled';
+  // Strip characters illegal in Drive folder names: / \ : * ? " < > |
+  return name.replace(/[\/\\:*?"<>|]/g, '').replace(/\s+/g, ' ').trim() || 'Untitled';
+}
+
+// --- Helper: Find or Create a folder inside a parent ---
+async function getOrCreateFolder(drive, folderName, parentId) {
+  const safeName = sanitizeFolderName(folderName);
+
+  // 1. Search for an existing folder with this exact name inside the parent
+  const query = `name='${safeName.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`;
+
+  const { data } = await drive.files.list({
+    q: query,
+    fields: 'files(id, name)',
+    pageSize: 1,
+  });
+
+  if (data.files && data.files.length > 0) {
+    // Folder already exists — reuse it
+    return data.files[0].id;
+  }
+
+  // 2. Folder does not exist — create it
+  const createRes = await drive.files.create({
+    resource: {
+      name: safeName,
+      mimeType: 'application/vnd.google-apps.folder',
+      parents: [parentId],
+    },
+    fields: 'id',
+  });
+
+  return createRes.data.id;
+}
+
+// --- Helper: Format course folder name ---
+function formatCourseFolderName(courseCode, section) {
+  const safeCode = sanitizeFolderName(courseCode || 'UNKNOWN');
+  if (!section) return safeCode;
+  const safeSection = sanitizeFolderName(section);
+  return `${safeCode} - ${safeSection}`;
+}
+
+// 4.5 Ensure Deep-Nest Folder Structure Endpoint
+// Hierarchy: Root > Academic Year > Semester > Faculty Name > [CourseCode] - [Section] > Document Type
 app.post("/api/folders/ensure", async (req, res) => {
   try {
     const auth = await loadToken();
@@ -263,19 +403,48 @@ app.post("/api/folders/ensure", async (req, res) => {
 
     const drive = google.drive({ version: "v3", auth });
 
-    const rootFolderId = req.body.rootFolderId || GOOGLE_DRIVE_FOLDER_ID;
-    const facultyName = req.body.facultyName;
-    const termName = req.body.termName;
+    const {
+      rootFolderId: bodyRootId,
+      academicYear,
+      semester,
+      facultyName,
+      courseCode,
+      section,
+      docTypeName,
+      // Legacy compatibility: also accept the old 2-level params
+      termName,
+    } = req.body;
 
-    let targetFolderId = rootFolderId;
+    let targetFolderId = bodyRootId || GOOGLE_DRIVE_FOLDER_ID;
 
-    // Dynamically create or resolve the Faculty Name folder
+    if (!targetFolderId) {
+      return res.status(400).json({ error: "rootFolderId is required" });
+    }
+
+    // --- Deep-nest mode (new 6-level) ---
+    if (academicYear) {
+      targetFolderId = await getOrCreateFolder(drive, academicYear, targetFolderId);
+    }
+
+    if (semester) {
+      targetFolderId = await getOrCreateFolder(drive, semester, targetFolderId);
+    }
+
     if (facultyName) {
       targetFolderId = await getOrCreateFolder(drive, facultyName, targetFolderId);
     }
 
-    // Dynamically create or resolve the Semester/Term folder
-    if (termName) {
+    if (courseCode) {
+      const courseFolderName = formatCourseFolderName(courseCode, section);
+      targetFolderId = await getOrCreateFolder(drive, courseFolderName, targetFolderId);
+    }
+
+    if (docTypeName) {
+      targetFolderId = await getOrCreateFolder(drive, docTypeName, targetFolderId);
+    }
+
+    // --- Legacy fallback (old 2-level: facultyName → termName) ---
+    if (!academicYear && termName) {
       targetFolderId = await getOrCreateFolder(drive, termName, targetFolderId);
     }
 
