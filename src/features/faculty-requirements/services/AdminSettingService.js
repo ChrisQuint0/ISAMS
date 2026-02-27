@@ -71,14 +71,28 @@ export const settingsService = {
       is_active: docType.is_active,
       required_by_default: docType.required
     };
-    if (docType.id) payload.doc_type_id = docType.id;
 
-    const { data, error } = await supabase
-      .from('documenttypes_fs')
-      .upsert(payload)
-      .select();
-    if (error) throw error;
-    return data;
+    if (docType.id) {
+      // It's an UPDATE - Do not include doc_type_id in the payload!
+      const { data, error } = await supabase
+        .from('documenttypes_fs')
+        .update(payload)
+        .eq('doc_type_id', docType.id)
+        .select();
+
+      if (error) throw error;
+      return data;
+
+    } else {
+      // It's an INSERT
+      const { data, error } = await supabase
+        .from('documenttypes_fs')
+        .insert(payload)
+        .select();
+
+      if (error) throw error;
+      return data;
+    }
   },
 
   /**
@@ -90,17 +104,93 @@ export const settingsService = {
   },
 
   /**
+   * Get Validation Rules for a specific Document Type
+   */
+  getDocTypeValidation: async (docTypeId) => {
+    // 1. Get column rules from documenttypes_fs
+    const { data: docType, error: docError } = await supabase
+      .from('documenttypes_fs')
+      .select('required_keywords, forbidden_keywords, allowed_extensions, max_file_size_mb')
+      .eq('doc_type_id', docTypeId)
+      .single();
+
+    if (docError) throw docError;
+
+    // 2. Get min_word_count from systemsettings_fs (workaround since it's missing from doc table)
+    const { data: systemSetting, error: sysError } = await supabase
+      .from('systemsettings_fs')
+      .select('setting_value')
+      .eq('setting_key', `min_word_count_${docTypeId}`)
+      .maybeSingle();
+
+    if (sysError && sysError.code !== 'PGRST116') throw sysError;
+
+    return {
+      required_keywords: docType.required_keywords || [],
+      forbidden_keywords: docType.forbidden_keywords || [],
+      allowed_extensions: docType.allowed_extensions || ['.pdf'],
+      max_file_size_mb: docType.max_file_size_mb || 10,
+      min_word_count: systemSetting?.setting_value ? parseInt(systemSetting.setting_value) : 0,
+    };
+  },
+
+  /**
+   * Update Validation Rules for a specific Document Type
+   */
+  updateDocTypeRules: async (docTypeId, rules) => {
+    // 1. Update columns in documenttypes_fs
+    const { error: docError } = await supabase
+      .from('documenttypes_fs')
+      .update({
+        required_keywords: rules.required_keywords,
+        forbidden_keywords: rules.forbidden_keywords,
+        allowed_extensions: rules.allowed_extensions,
+        max_file_size_mb: rules.max_file_size_mb,
+      })
+      .eq('doc_type_id', docTypeId);
+
+    if (docError) throw docError;
+
+    // 2. Upsert min_word_count to systemsettings_fs via RPC
+    const { error: sysError } = await supabase.rpc('upsert_setting_fs', {
+      p_key: `min_word_count_${docTypeId}`,
+      p_value: String(rules.min_word_count || 0)
+    });
+
+    if (sysError) throw sysError;
+  },
+
+  /**
    * Get Templates
    */
   getTemplates: async () => {
-    const { data, error } = await supabase.from('templates_fs').select('*').order('created_at', { ascending: false });
+    const { data, error } = await supabase
+      .from('templates_fs')
+      .select('*')
+      .order('academic_year', { ascending: false })
+      .order('semester', { ascending: false })
+      .order('created_at', { ascending: false });
     if (error) throw error;
     return data;
   },
 
-  addTemplate: async (file, category, description) => {
-    // 1. Upload
-    const fileName = `templates/${Date.now()}_${file.name}`;
+  addTemplate: async (file, title, description, systemCategory, academicYear, semester) => {
+    // 1. Enforce active rule: archive existing templates in the same category
+    if (systemCategory) {
+      await supabase
+        .from('templates_fs')
+        .update({ is_active_default: false })
+        .eq('system_category', systemCategory)
+        .eq('is_active_default', true); // Only touch currently active ones
+    }
+
+    // 2. Upload to storage
+    // Format GDrive-like path: Root > System Templates > AY > Sem > Category > fileName
+    const safeYear = academicYear ? academicYear.replace(/\s+/g, '') : 'General';
+    const safeSem = semester ? semester.replace(/\s+/g, '') : 'General';
+    const safeCat = systemCategory ? systemCategory : 'General';
+    const fileName = `templates/${safeYear}/${safeSem}/${safeCat}/${Date.now()}_${file.name}`;
+
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('faculty_documents')
       .upload(fileName, file);
@@ -112,17 +202,20 @@ export const settingsService = {
       .from('faculty_documents')
       .getPublicUrl(fileName);
 
-    // 2. Insert
+    // 3. Insert the new active template record
     const { data, error } = await supabase
       .from('templates_fs')
       .insert({
-        title: file.name,
+        title: title || file.name,
         description: description || '',
-        category: category || 'General',
+        system_category: systemCategory,
+        academic_year: academicYear || null,
+        semester: semester || null,
         file_url: publicUrl,
-        file_size_bytes: file.size
+        file_size_bytes: file.size,
+        is_active_default: true // Rule: New template becomes the active default
       })
-      .select()
+      .select('*')
       .single();
 
     if (error) throw error;
@@ -132,6 +225,22 @@ export const settingsService = {
   deleteTemplate: async (templateId) => {
     // Note: We could also delete from storage, but for now just DB record
     const { error } = await supabase.from('templates_fs').delete().eq('template_id', templateId);
+    if (error) throw error;
+  },
+
+  archiveTemplate: async (templateId, isActive) => {
+    const { error } = await supabase
+      .from('templates_fs')
+      .update({ is_active_default: isActive })
+      .eq('template_id', templateId);
+    if (error) throw error;
+  },
+
+  updateTemplateCoordinates: async (templateId, x, y) => {
+    const { error } = await supabase
+      .from('templates_fs')
+      .update({ x_coord: x, y_coord: y })
+      .eq('template_id', templateId);
     if (error) throw error;
   },
 
@@ -149,34 +258,96 @@ export const settingsService = {
   /**
    * OCR Queue & Processing (Existing Logic)
    */
-  getQueue: async () => {
-    const { data, error } = await supabase.rpc('get_pending_ocr_jobs_fs');
-    if (error) throw error;
-    return data;
-  },
 
-  runOCR: async (fileUrlOrBlob, language = 'eng') => {
+  runOCR: async (fileUrlOrBlob, docTypeId) => {
     try {
-      const result = await Tesseract.recognize(fileUrlOrBlob, language);
+      if (!docTypeId) {
+        return { success: false, error: "Please select a Document Type from the left panel to test its validation rules against this file." };
+      }
+
+      if (!Array.isArray(fileUrlOrBlob)) {
+        fileUrlOrBlob = [fileUrlOrBlob]; // Ensure it's an array
+      }
+
+      if (fileUrlOrBlob.length === 0 || !(fileUrlOrBlob[0] instanceof File)) {
+        return { success: false, error: "Test Playground only supports uploading local files for testing." };
+      }
+
+      const formData = new FormData();
+      fileUrlOrBlob.forEach(f => formData.append('files', f)); // Send all files as 'files'
+      formData.append('doc_type_id', docTypeId);
+
+      const startTime = performance.now();
+
+      let { data, error } = await supabase.functions.invoke('document-parser', {
+        body: formData,
+      });
+
+      const endTimeEdge = performance.now();
+
+      if (error) {
+        console.error("Edge Function Invocation Error:", error);
+        return { success: false, error: error.message || "Failed to invoke the parser." };
+      }
+
+      // --- Split-Load Architecture Fallback ---
+      // If the Edge function says it's an image, we call our local server for private OCR
+      if (data && data.needsServerOcr) {
+        console.log("[OCR] Image detected. Falling back to local Express server...");
+        try {
+          const fallbackRes = await fetch("http://localhost:3000/api/validate-image", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!fallbackRes.ok) {
+            const errorBody = await fallbackRes.text();
+            throw new Error(`Server returned ${fallbackRes.status}: ${errorBody}`);
+          }
+
+          const fallbackData = await fallbackRes.json();
+          data = fallbackData;
+          console.log("[OCR] Local fallback successful.");
+        } catch (fallbackError) {
+          console.error("Local Fallback Error Detail:", fallbackError);
+          const detail = fallbackError.message || JSON.stringify(fallbackError);
+          return { success: false, error: `Local OCR validation failed: ${detail}. Please ensure your Express server is running on port 3000.` };
+        }
+      }
+
+      const endTime = performance.now();
+
+      // The Edge function (or local fallback) returns { pass, extractedLength, wordCount, missingKeywords, foundForbidden, analyzedExtension, error? }
+      if (data.error && data.pass === false) {
+        return { success: false, error: data.error };
+      }
+
+      let resultText = `--- Edge Function Analysis ---\nFile Runtime: ${Math.round(endTime - startTime)}ms\nExtracted Length: ${data.extractedLength} chars\nWord Count: ${data.wordCount}\nAnalyzed Extension: ${data.analyzedExtension}\n\n`;
+
+      resultText += `--- Validation Verdict: ${data.pass ? '✅ PASS' : '❌ FAIL'} ---\n`;
+
+      if (data.missingKeywords && data.missingKeywords.length > 0) {
+        resultText += `\nMissing Required Keywords:\n- ${data.missingKeywords.join('\n- ')}`;
+      }
+
+      if (data.foundForbidden && data.foundForbidden.length > 0) {
+        resultText += `\n\nFound Forbidden Keywords:\n- ${data.foundForbidden.join('\n- ')}`;
+      }
+
+      if (data.pass) {
+        resultText += `\n\nNo validation errors found. The document meets the strict requirements.`;
+      }
+
       return {
-        text: result.data.text,
-        confidence: result.data.confidence,
-        success: true
+        text: resultText,
+        confidence: 100, // Edge function extraction doesn't rely on confidence heuristics like vision ML
+        processing_time_ms: Math.round(endTime - startTime),
+        success: data.pass
       };
     } catch (err) {
       console.error("OCR Failed:", err);
-      return { success: false, error: err.message };
+      return { success: false, error: err.message || "Unknown extraction error." };
     }
-  },
-
-  completeJob: async (jobId, submissionId, text, success, errorMsg) => {
-    await supabase.rpc('complete_ocr_job_fs', {
-      p_job_id: jobId,
-      p_submission_id: submissionId,
-      p_text: text || '',
-      p_status: success ? 'COMPLETED' : 'FAILED',
-      p_error: errorMsg
-    });
   },
 
   getUnassignedSystemFaculty: async () => {
@@ -189,12 +360,10 @@ export const settingsService = {
    * --- Faculty Management ---
    */
   getFaculty: async () => {
-    const { data, error } = await supabase
-      .from('faculty_fs')
-      .select('*')
-      .order('last_name');
+    // Use the purpose-built RPC that joins auth.users + user_rbac + faculty_fs
+    const { data, error } = await supabase.rpc('get_faculty_management_fs');
     if (error) throw error;
-    return data;
+    return data || [];
   },
 
   getFacultyById: async (facultyId) => {
@@ -207,16 +376,45 @@ export const settingsService = {
     return data;
   },
 
-  updateFacultyField: async (facultyId, field, value) => {
-    const { error } = await supabase
-      .from('faculty_fs')
-      .update({ [field]: value })
-      .eq('faculty_id', facultyId);
+  // Update faculty editable fields via upsert RPC (identifies by user_id UUID)
+  updateFacultyManagement: async (userId, field, value) => {
+    const payload = { p_user_id: userId };
+    if (field === 'emp_id') payload.p_emp_id = value;
+    if (field === 'employment_type') payload.p_employment_type = value;
+    if (field === 'is_active') payload.p_is_active = value;
+    const { error } = await supabase.rpc('upsert_faculty_management_fs', payload);
     if (error) throw error;
   },
 
   /**
-   * --- Course Management ---
+   * --- Course Catalog (master) ---
+   */
+  getMasterCourses: async () => {
+    const { data, error } = await supabase.rpc('get_master_courses_fs');
+    if (error) throw error;
+    return data || [];
+  },
+
+  upsertMasterCourse: async (courseCode, courseName, semester, id = null) => {
+    const { data, error } = await supabase.rpc('upsert_master_course_fs', {
+      p_course_code: courseCode,
+      p_course_name: courseName,
+      p_semester: semester,
+      p_id: id || null,
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return data;
+  },
+
+  deleteMasterCourse: async (id) => {
+    const { data, error } = await supabase.rpc('delete_master_course_fs', { p_id: id });
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * --- Course Assignments (sections) ---
    */
   getCourses: async () => {
     const { data, error } = await supabase.rpc('get_admin_courses_fs');
@@ -224,15 +422,13 @@ export const settingsService = {
     return data;
   },
 
+  // Add an assignment — now uses master_course_id so semester/code/name are auto-resolved
   upsertCourse: async (course) => {
     const { data, error } = await supabase.rpc('upsert_course_fs', {
-      p_course_code: course.code,
-      p_course_name: course.name,
-      p_department: course.department,
-      p_semester: course.semester,
-      p_academic_year: course.academic_year,
+      p_master_course_id: course.master_course_id,
       p_faculty_id: course.faculty_id || null,
-      p_id: course.id || null
+      p_section: course.section || null,
+      p_id: course.id || null,
     });
     if (error) throw error;
     return data;
@@ -257,11 +453,8 @@ export const settingsService = {
     const { data, error } = await supabase.rpc('backup_system_data_fs');
     if (error) throw error;
 
-    // Create JSON Blob
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    saveAs(blob, `ISAMS_System_Backup_${new Date().toISOString().slice(0, 10)}.json`);
-
-    return { success: true, message: "Backup downloaded successfully." };
+    // Return the raw data to the caller so they can bundle it into a ZIP
+    return { success: true, data: data };
   },
 
   restoreSystem: async (jsonData) => {
@@ -280,18 +473,19 @@ export const settingsService = {
   },
 
   upsertHoliday: async (holiday) => {
-    const { error } = await supabase.rpc('upsert_holiday_fs', {
+    const { data, error } = await supabase.rpc('upsert_holiday_fs', {
       p_date: holiday.date,
       p_description: holiday.description,
-      p_recurring: holiday.is_recurring,
       p_id: holiday.id || null
     });
     if (error) throw error;
+    if (data && data.success === false) throw new Error(data.message || "Failed to upsert holiday.");
   },
 
   deleteHoliday: async (holidayId) => {
-    const { error } = await supabase.rpc('delete_holiday_fs', { p_id: holidayId });
+    const { data, error } = await supabase.rpc('delete_holiday_fs', { p_id: holidayId });
     if (error) throw error;
+    if (data && data.success === false) throw new Error(data.message || "Failed to delete holiday");
   },
 
   /**
@@ -313,15 +507,6 @@ export const settingsService = {
     const { data, error } = await supabase.rpc('purge_old_archives_fs', {
       p_retention_years: yearsToKeep
     });
-    if (error) throw error;
-    return data;
-  },
-
-  /**
-   * DANGER ZONE: Approve All Pending (Clear Queue)
-   */
-  approveAllPending: async () => {
-    const { data, error } = await supabase.rpc('approve_all_submissions_fs');
     if (error) throw error;
     return data;
   }

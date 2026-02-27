@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { settingsService } from '../services/AdminSettingService';
+import { supabase } from '@/lib/supabaseClient';
 
 export function useAdminSettings() {
   const [loading, setLoading] = useState(true);
@@ -8,9 +9,9 @@ export function useAdminSettings() {
   const [success, setSuccess] = useState(null);
 
   const [settings, setSettings] = useState({});
-  const [queue, setQueue] = useState([]);
   const [facultyList, setFacultyList] = useState([]);
   const [courseList, setCourseList] = useState([]);
+  const [masterCourseList, setMasterCourseList] = useState([]);
   const [systemHealth, setSystemHealth] = useState(null);
   const [holidays, setHolidays] = useState([]);
   const [docRequirements, setDocRequirements] = useState([]);
@@ -22,6 +23,17 @@ export function useAdminSettings() {
   const addDocRequirement = async (req) => {
     setLoading(true);
     try {
+      // Enforcement: Check for existing name or folder (case-insensitive)
+      const isDuplicateName = docRequirements.some(d => d.name.toLowerCase().trim() === req.name.toLowerCase().trim());
+      const isDuplicateFolder = docRequirements.some(d => d.folder.toLowerCase().trim() === req.folder.toLowerCase().trim());
+
+      if (isDuplicateName) {
+        throw new Error(`A requirement with the name "${req.name}" already exists.`);
+      }
+      if (isDuplicateFolder) {
+        throw new Error(`The folder name "/${req.folder}" is already in use by another requirement.`);
+      }
+
       await settingsService.upsertDocType({
         name: req.name,
         folder: req.folder,
@@ -59,8 +71,6 @@ export function useAdminSettings() {
   };
 
   const deleteDocRequirement = async (id) => {
-    if (!window.confirm("Delete this requirement?")) return;
-    setLoading(true);
     try {
       await settingsService.deleteDocType(id);
       setDocRequirements(prev => prev.filter(item => item.id !== id));
@@ -74,13 +84,38 @@ export function useAdminSettings() {
     }
   };
 
+  const fetchDocTypeRules = async (docTypeId) => {
+    try {
+      return await settingsService.getDocTypeValidation(docTypeId);
+    } catch (err) {
+      setError("Failed to fetch validation rules.");
+      setTimeout(() => setError(null), 3000);
+      return null;
+    }
+  };
+
+  const saveDocTypeRules = async (docTypeId, rules) => {
+    setLoading(true);
+    try {
+      await settingsService.updateDocTypeRules(docTypeId, rules);
+      setSuccess("Validation rules updated.");
+      setTimeout(() => setSuccess(null), 3000);
+      return true;
+    } catch (err) {
+      setError("Failed to update validation rules.");
+      setTimeout(() => setError(null), 3000);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // --- Template Handlers ---
-  const addTemplate = async (file) => {
+  const addTemplate = async (file, title, description, systemCategory, academicYear, semester) => {
     if (!file) return;
     setLoading(true);
     try {
-      // Defaulting category to 'General' as UI input is currently file-only
-      await settingsService.addTemplate(file, 'General', '');
+      await settingsService.addTemplate(file, title, description, systemCategory, academicYear, semester);
       await fetchData(); // Refresh list
       setSuccess("Template uploaded successfully.");
       setTimeout(() => setSuccess(null), 3000);
@@ -93,11 +128,11 @@ export function useAdminSettings() {
   };
 
   const deleteTemplate = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this template?")) return;
+    if (!window.confirm("Are you sure you want to permanently delete this template?")) return;
     setLoading(true);
     try {
       await settingsService.deleteTemplate(id);
-      setTemplates(prev => prev.filter(item => item.id !== id));
+      await fetchData();
       setSuccess("Template deleted.");
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -108,42 +143,109 @@ export function useAdminSettings() {
     }
   };
 
-  // --- Faculty Handlers ---
-  const handleUpdateFacultyField = async (facultyId, field, value) => {
-    // 1. Find the original row
-    const original = facultyList.find(f => f.faculty_id === facultyId);
-    if (!original || original[field] === value) return; // Don't save if nothing changed
+  const archiveTemplate = async (id, isActive) => {
+    setLoading(true);
+    try {
+      await settingsService.archiveTemplate(id, isActive);
+      await fetchData();
+      setSuccess(`Template ${isActive ? 'restored' : 'archived'}.`);
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError("Failed to archive template: " + err.message);
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    // 2. Optimistic Update (UI updates instantly)
+  const updateTemplateCoordinates = async (id, x, y) => {
+    try {
+      await settingsService.updateTemplateCoordinates(id, x, y);
+      await fetchData();
+      return true;
+    } catch (err) {
+      setError("Failed to save coordinates: " + err.message);
+      setTimeout(() => setError(null), 3000);
+      return false;
+    }
+  };
+
+  const handleUpdateFacultyField = async (facultyId, field, value, oldValue) => {
+    // 1. Find the original row (for user_id lookup only).
+    //    NOTE: Do NOT use original[field] for "nothing changed" guard — AG Grid's valueSetter
+    //    mutates params.data in-place before this runs, making original[field] === value always true.
+    //    We use oldValue from the AG Grid event instead.
+    const original = facultyList.find(f => f.faculty_id === facultyId);
+    if (!original) return;
+    if (oldValue === value) return; // skip if truly no change
+
+    if (!original.user_id) {
+      setError('Cannot update: this faculty record has no linked auth user.');
+      setTimeout(() => setError(null), 4000);
+      return;
+    }
+
+    // 2. Optimistic update: create a NEW object via spread so AG Grid gets a fresh reference.
+    //    This is safe because it doesn't call fetchData() which would overwrite OTHER rows'
+    //    in-progress edits — the root cause of the "value bleeds to next row" race condition.
     setFacultyList(prev => prev.map(f =>
       f.faculty_id === facultyId ? { ...f, [field]: value } : f
     ));
 
-    // 3. Persist to Supabase
+    // 3. Persist via RPC
     try {
-      await settingsService.updateFacultyField(facultyId, field, value);
-      // Optional: setSuccess("Saved"); setTimeout(() => setSuccess(null), 1000);
+      await settingsService.updateFacultyManagement(original.user_id, field, value);
+      setSuccess('✓ Saved');
+      setTimeout(() => setSuccess(null), 1500);
+      // No fetchData() here — avoids overwriting adjacent rows' pending edits
     } catch (err) {
-      setError("Failed to update: " + err.message);
-      setTimeout(() => setError(null), 3000);
-      // Revert if failed
-      setFacultyList(prev => prev.map(f =>
-        f.faculty_id === facultyId ? { ...f, [field]: original[field] } : f
-      ));
+      console.error('updateFacultyManagement failed:', { facultyId, field, value, err });
+      setError('Failed to update: ' + err.message);
+      setTimeout(() => setError(null), 4000);
+      await fetchData(); // Refetch only on error to revert the optimistic update
     }
   };
 
-  // --- Course Handlers ---
+  // --- Course Catalog Handlers ---
+  const handleAddMasterCourse = async (code, name, semester) => {
+    try {
+      await settingsService.upsertMasterCourse(code, name, semester);
+      const fresh = await settingsService.getMasterCourses();
+      setMasterCourseList(fresh);
+      setSuccess('Course added to catalog.');
+      setTimeout(() => setSuccess(null), 3000);
+      return true;
+    } catch (err) {
+      setError('Failed to add catalog course: ' + err.message);
+      setTimeout(() => setError(null), 3000);
+      return false;
+    }
+  };
+
+  const handleDeleteMasterCourse = async (id) => {
+    try {
+      await settingsService.deleteMasterCourse(id);
+      setMasterCourseList(prev => prev.filter(c => c.id !== id));
+      setSuccess('Catalog entry removed.');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError('Failed to remove catalog entry: ' + err.message);
+      setTimeout(() => setError(null), 3000);
+    }
+  };
+
+  // --- Course Assignment Handlers ---
   const handleAddCourse = async (courseData) => {
     setLoading(true);
     try {
       await settingsService.upsertCourse(courseData);
-      setSuccess("Course saved successfully.");
+      setSuccess('Section assignment saved.');
       setTimeout(() => setSuccess(null), 3000);
-      fetchData(); // Refresh list to get new ID/Data
+      const fresh = await settingsService.getCourses();
+      setCourseList(fresh || []);
       return true;
     } catch (err) {
-      setError("Failed to save course: " + err.message);
+      setError('Failed to save assignment: ' + err.message);
       setTimeout(() => setError(null), 3000);
       return false;
     } finally {
@@ -152,15 +254,14 @@ export function useAdminSettings() {
   };
 
   const handleDeleteCourse = async (courseId) => {
-    if (!window.confirm("Are you sure you want to delete this course?")) return;
     setLoading(true);
     try {
       await settingsService.deleteCourse(courseId);
       setCourseList(prev => prev.filter(c => c.course_id !== courseId));
-      setSuccess("Course deleted.");
+      setSuccess('Assignment removed.');
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      setError("Failed to delete course: " + err.message);
+      setError('Failed to delete assignment: ' + err.message);
       setTimeout(() => setError(null), 3000);
     } finally {
       setLoading(false);
@@ -185,8 +286,63 @@ export function useAdminSettings() {
     }
   };
 
+  const handleBulkAddHolidays = async (startDate, endDate, description) => {
+    setLoading(true);
+    try {
+      const start = new Date(startDate);
+      const end = endDate ? new Date(endDate) : new Date(startDate);
+
+      if (end < start) {
+        throw new Error("End date cannot be before start date.");
+      }
+
+      // Check for occupied dates
+      const occupiedDates = [];
+      let checkDate = new Date(start);
+      while (checkDate <= end) {
+        const formatted = checkDate.toLocaleDateString('en-CA');
+        if (holidays.some(h => (h.holiday_date || h.date) === formatted)) {
+          occupiedDates.push(formatted);
+        }
+        checkDate.setDate(checkDate.getDate() + 1);
+      }
+
+      if (occupiedDates.length > 0) {
+        throw new Error(`Occupied: ${occupiedDates.join(', ')}`);
+      }
+
+      const promises = [];
+      let currentDate = new Date(start);
+
+      while (currentDate <= end) {
+        // Format as YYYY-MM-DD local time to avoid timezone drift
+        const formattedDate = currentDate.toLocaleDateString('en-CA');
+
+        promises.push(
+          settingsService.upsertHoliday({
+            date: formattedDate,
+            description: description,
+            id: null
+          })
+        );
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+
+      await Promise.all(promises);
+      await fetchData(); // Refresh list only once after all inserts
+      setSuccess(`Successfully scheduled ${promises.length} holiday day(s).`);
+      setTimeout(() => setSuccess(null), 3000);
+      return true;
+    } catch (err) {
+      setError(err.message.includes("Occupied:") ? err.message : "Failed to save holidays: " + err.message);
+      setTimeout(() => setError(null), 4000);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleDeleteHoliday = async (id) => {
-    if (!window.confirm("Delete this holiday?")) return;
     setLoading(true);
     try {
       await settingsService.deleteHoliday(id);
@@ -207,18 +363,17 @@ export function useAdminSettings() {
     try {
       // DEBUG: Log each call to see which one fails
       const settingsPromise = settingsService.getAllSettings().catch(e => { console.error("Failed: settings", e); throw e; });
-      const queuePromise = settingsService.getQueue().catch(e => { console.error("Failed: queue", e); throw e; });
       const docsPromise = settingsService.getDocTypes().catch(e => { console.error("Failed: docs", e); throw e; });
       const facultyPromise = settingsService.getFaculty().catch(e => { console.error("Failed: faculty", e); throw e; });
       const healthPromise = settingsService.getSystemHealth().catch(e => { console.error("Failed: health", e); throw e; });
 
-      const [allSettings, jobs, docs, temps, faculty, courses, health, holidayList, unassigned] = await Promise.all([
+      const [allSettings, docs, temps, faculty, courses, masterCourses, health, holidayList, unassigned] = await Promise.all([
         settingsPromise,
-        queuePromise,
         docsPromise,
         settingsService.getTemplates(),
         facultyPromise,
         settingsService.getCourses(),
+        settingsService.getMasterCourses(),
         healthPromise,
         settingsService.getHolidays(),
         settingsService.getUnassignedSystemFaculty()
@@ -227,9 +382,9 @@ export function useAdminSettings() {
       // ... rest of your code ...
 
       setSettings(allSettings);
-      setQueue(jobs);
-      setFacultyList(faculty.sort((a, b) => a.last_name.localeCompare(b.last_name)));
+      setFacultyList(faculty.sort((a, b) => (a.last_name ?? '').localeCompare(b.last_name ?? '')));
       setCourseList(courses || []);
+      setMasterCourseList(masterCourses || []);
       setSystemHealth(health);
       setHolidays(holidayList || []);
       setAvailableSystemUsers(unassigned || []);
@@ -246,8 +401,15 @@ export function useAdminSettings() {
       setTemplates(temps.map(t => ({
         id: t.template_id,
         name: t.title,
+        category: t.system_category || 'General',
+        academicYear: t.academic_year || 'N/A',
+        semester: t.semester || 'N/A',
+        isActive: t.is_active_default,
         size: t.file_size_bytes ? `${(t.file_size_bytes / 1024 / 1024).toFixed(1)} MB` : 'Unknown',
-        updated: new Date(t.created_at).toLocaleDateString()
+        updated: new Date(t.created_at).toLocaleDateString(),
+        x_coord: t.x_coord,
+        y_coord: t.y_coord,
+        file_url: t.file_url // For NameCalibratorModal rendering
       })));
 
     } catch (err) {
@@ -261,6 +423,18 @@ export function useAdminSettings() {
 
   useEffect(() => {
     fetchData();
+  }, [fetchData]);
+
+  // Realtime: auto-refresh faculty list when user_rbac changes (e.g. permission granted in Global Dashboard)
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-faculty-rbac-watch')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_rbac' }, () => {
+        fetchData();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [fetchData]);
 
   // Update a single setting immediately (for Switches/Toggles)
@@ -298,11 +472,11 @@ export function useAdminSettings() {
     }
   };
 
-  const runTestOCR = async (file) => {
+  const runTestOCR = async (file, docTypeId) => {
     setProcessing(true);
     setTestResult(null);
     try {
-      const result = await settingsService.runOCR(file, settings.ocr_language);
+      const result = await settingsService.runOCR(file, docTypeId);
       setTestResult(result);
     } catch (err) {
       setError("Test failed: " + err.message);
@@ -312,50 +486,20 @@ export function useAdminSettings() {
     }
   };
 
-  const processQueue = async () => {
-    setProcessing(true);
-    let processedCount = 0;
-
-    try {
-      for (const job of queue) {
-        if (!job.file_url) {
-          // Handle missing URL gracefully
-          await settingsService.completeJob(job.job_id, job.submission_id, null, false, "No download link");
-          continue;
-        }
-
-        const result = await settingsService.runOCR(job.file_url, settings.ocr_language);
-
-        await settingsService.completeJob(
-          job.job_id,
-          job.submission_id,
-          result.text,
-          result.success,
-          result.error
-        );
-        processedCount++;
-      }
-      setSuccess(`Processed ${processedCount} jobs.`);
-      fetchData(); // Refresh queue
-    } catch (err) {
-      setError("Queue processing interrupted.");
-      setTimeout(() => setError(null), 3000);
-    } finally {
-      setProcessing(false);
-    }
-  };
 
   const runBackup = async () => {
     setProcessing(true);
     try {
       const result = await settingsService.runBackup();
       if (result.success) {
-        setSuccess(result.message);
+        setSuccess("State data compiled securely.");
         setTimeout(() => setSuccess(null), 3000);
+        return result.data;
       }
     } catch (err) {
-      setError("Backup failed: " + err.message);
+      setError("Failed to compile database records: " + err.message);
       setTimeout(() => setError(null), 3000);
+      return null;
     } finally {
       setProcessing(false);
     }
@@ -384,15 +528,18 @@ export function useAdminSettings() {
   };
 
   return {
-    loading, processing, error, success,
-    settings, queue, testResult,
+    loading, processing, error, success, setError, setSuccess,
+    settings, testResult,
+    clearTestResult: () => setTestResult(null),
     updateSetting, saveGroup,
     docRequirements, addDocRequirement, updateDocRequirement, deleteDocRequirement,
-    templates, addTemplate, deleteTemplate,
+    fetchDocTypeRules, saveDocTypeRules,
+    templates, addTemplate, deleteTemplate, archiveTemplate, updateTemplateCoordinates,
     facultyList, handleUpdateFacultyField,
+    masterCourseList, handleAddMasterCourse, handleDeleteMasterCourse,
     courseList, handleAddCourse, handleDeleteCourse,
-    runTestOCR, processQueue, runBackup, restoreSystem,
-    systemHealth, holidays, handleAddHoliday, handleDeleteHoliday,
+    runTestOCR, runBackup, restoreSystem,
+    systemHealth, holidays, handleAddHoliday, handleBulkAddHolidays, handleDeleteHoliday,
     availableSystemUsers,
     refresh: fetchData
   };

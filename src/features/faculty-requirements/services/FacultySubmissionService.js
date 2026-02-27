@@ -89,19 +89,52 @@ export const FacultySubmissionService = {
 
             const facultyName = `${faculty.first_name || ''} ${faculty.last_name || ''}`.trim();
 
-            // 2. Upload to Google Drive via server.js
+            // 2. Get course details (code + section) for folder naming
+            const { data: course } = await supabase
+                .from('courses_fs')
+                .select('course_code, section')
+                .eq('course_id', courseId)
+                .single();
+
+            // 3. Get document type name for the deepest folder
+            const { data: docType } = await supabase
+                .from('documenttypes_fs')
+                .select('type_name')
+                .eq('doc_type_id', docTypeId)
+                .single();
+
+            // 4. Resolve the current AY and semester from system settings (use passed-in or fetch)
+            let currentAY = academicYear;
+            let currentSemester = semester;
+            if (!currentAY || !currentSemester) {
+                const { data: settings } = await supabase
+                    .from('systemsettings_fs')
+                    .select('setting_key, setting_value')
+                    .in('setting_key', ['current_semester', 'current_academic_year']);
+                if (!currentSemester) currentSemester = settings?.find(s => s.setting_key === 'current_semester')?.setting_value;
+                if (!currentAY) currentAY = settings?.find(s => s.setting_key === 'current_academic_year')?.setting_value;
+            }
+
+            // 5. Upload to Google Drive via server.js
             const folderLink = await getFolderLink();
             const rootFolderId = getFolderId(folderLink);
             if (!rootFolderId) throw new Error('Google Drive folder not configured. Please set it in Admin Settings.');
 
-            // 2.a Generate or retrieve the deeply nested folder
+            // 5.a Ensure the deep-nest folder structure (6 levels)
             const { ensureFolderStructure, uploadToGDrive } = await import('./gdriveSettings');
-            const targetFolderId = await ensureFolderStructure(rootFolderId, facultyName, semester);
+            const targetFolderId = await ensureFolderStructure(rootFolderId, {
+                academicYear: currentAY,
+                semester: currentSemester,
+                facultyName,
+                courseCode: course?.course_code,
+                section: course?.section,
+                docTypeName: docType?.type_name,
+            });
 
-            // 2.b Upload strictly to the specific target folder generated
+            // 5.b Upload the file into the deepest folder
             const gdriveFile = await uploadToGDrive(file, targetFolderId);
 
-            // 3. Insert/Update into Submissions table with Versioning via RPC
+            // 6. Insert/Update into Submissions table with Versioning via RPC
             const { data, error: insertError } = await supabase
                 .rpc('upsert_submission_with_versioning_fs', {
                     p_faculty_id: faculty.faculty_id,

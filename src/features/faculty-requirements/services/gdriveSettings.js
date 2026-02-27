@@ -69,19 +69,44 @@ export const checkGDriveAuth = async () => {
 };
 
 /**
- * Ensure the Google Drive nested folder structure exists for a submission.
+ * Ensure the Google Drive deep-nest folder structure exists for a submission.
+ *
+ * Hierarchy: Root > Academic Year > Semester > Faculty Name > [CourseCode] - [Section] > Document Type
+ *
  * @param {string} rootFolderId - The admin-configured root folder
- * @param {string} facultyName - Faculty name for the first nested folder
- * @param {string} termName - Semester/Term name for the second nested folder
- * @returns {Promise<string>} The resolved target folder ID
+ * @param {Object} meta - Metadata for the folder chain
+ * @param {string} [meta.academicYear] - e.g. "A.Y. 2025-2026"
+ * @param {string} [meta.semester]     - e.g. "2nd Semester"
+ * @param {string} [meta.facultyName]  - e.g. "Jane Doe"
+ * @param {string} [meta.courseCode]    - e.g. "IT101"
+ * @param {string} [meta.section]      - e.g. "A"
+ * @param {string} [meta.docTypeName]  - e.g. "Syllabus"
+ * @returns {Promise<string>} The resolved deepest target folder ID
  */
-export const ensureFolderStructure = async (rootFolderId, facultyName, termName) => {
+export const ensureFolderStructure = async (rootFolderId, meta = {}) => {
+    // Support legacy 2-arg (rootFolderId, facultyName, termName) calls
+    if (typeof meta === 'string') {
+        const facultyName = meta;
+        const termName = arguments[2];
+        meta = { facultyName, termName };
+    }
+
     const res = await fetch(`${API_BASE}/api/folders/ensure`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ rootFolderId, facultyName, termName }),
+        body: JSON.stringify({
+            rootFolderId,
+            academicYear: meta.academicYear,
+            semester: meta.semester,
+            facultyName: meta.facultyName,
+            courseCode: meta.courseCode,
+            section: meta.section,
+            docTypeName: meta.docTypeName,
+            // Legacy field
+            termName: meta.termName,
+        }),
     });
 
     if (!res.ok) {

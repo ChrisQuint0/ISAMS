@@ -60,9 +60,10 @@ export function AppSidebar() {
         if (data?.first_name) {
           setAdminName(`${data.first_name} ${data.last_name}`.trim())
         } else {
-          // Fallback to auth metadata
+          // Fallback to auth metadata — build full name
           const meta = session.user.user_metadata
-          const name = meta?.full_name || meta?.name || meta?.first_name
+          const name = meta?.full_name || meta?.name ||
+            (meta?.first_name ? `${meta.first_name} ${meta.last_name || ''}`.trim() : null)
           if (name) setAdminName(name)
         }
       } catch (err) {
