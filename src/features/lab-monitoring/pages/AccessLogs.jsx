@@ -267,7 +267,6 @@ export default function AccessLogs() {
                             onClick={() => {
                                 const rows = (selectedRows && selectedRows.length > 0) ? selectedRows : (filteredData || []);
                                 if (exportFormat === "csv") {
-                                    // If using AG Grid and rows are selected, prefer gridApi export (onlySelected)
                                     if (selectedRows && selectedRows.length > 0) {
                                         gridApi?.exportDataAsCsv({ onlySelected: true, fileName: `access-logs-${dateFrom}-to-${dateTo}.csv` });
                                     } else {
@@ -276,7 +275,6 @@ export default function AccessLogs() {
                                     return;
                                 }
 
-                                // PDF export for selected or filtered rows
                                 const cols = ['student_no','student_name','section','pc_number','session_mode','date','time_in','time_out','status'];
                                 const header = ['Student No','Name','Section','PC','Mode','Date','Time In','Time Out','Status'];
                                 const tableRows = rows.map(r => `\n<tr>${cols.map(c => `<td>${(r[c] ?? '')}</td>`).join('')}</tr>`).join('');
