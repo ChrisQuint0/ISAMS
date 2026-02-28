@@ -181,3 +181,24 @@ export const cloneGDriveFile = async (fileId, targetFolderId, newFileName) => {
 
     return res.json();
 };
+/**
+ * Delete a file from Google Drive via the server.js backend.
+ * @param {string} fileId - The Google Drive ID of the file to delete
+ * @returns {Promise<{ message: string }>}
+ */
+export const deleteGDriveFile = async (fileId) => {
+    const res = await fetch(`${API_BASE}/api/files/delete`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fileId }),
+    });
+
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Delete failed' }));
+        throw new Error(err.error || 'Google Drive delete failed');
+    }
+
+    return res.json();
+};

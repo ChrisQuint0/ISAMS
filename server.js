@@ -566,6 +566,32 @@ app.post("/api/files/move", async (req, res) => {
   }
 });
 
+// 4.8 Delete File (For cleanup on rejection)
+app.post("/api/files/delete", async (req, res) => {
+  const { fileId } = req.body;
+
+  if (!fileId) {
+    return res.status(400).json({ error: "Missing fileId" });
+  }
+
+  try {
+    const auth = await loadToken();
+    if (!auth) return res.status(401).json({ error: "Not authenticated" });
+
+    const drive = google.drive({ version: "v3", auth });
+
+    // Permanently delete the file
+    await drive.files.delete({
+      fileId: fileId,
+    });
+
+    res.json({ message: "File deleted successfully from GDrive" });
+  } catch (error) {
+    console.error("Error deleting file:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 5. Check Auth Status
 app.get("/api/status", async (req, res) => {
   const { data } = await supabase

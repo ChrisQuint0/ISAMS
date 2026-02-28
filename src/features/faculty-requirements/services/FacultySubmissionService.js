@@ -153,8 +153,20 @@ export const FacultySubmissionService = {
                 });
             }
 
-            // 5.b Upload the file
-            const gdriveFile = await uploadToGDrive(file, targetFolderId);
+            // 5.b Standardize Filename: {CourseCode}_{LastName}_{FirstName}_{DocType}.{extension}
+            const cleanLastName = (faculty.last_name || '').replace(/\s+/g, '_');
+            const cleanFirstName = (faculty.first_name || '').replace(/\s+/g, '_');
+            const cleanDocType = (docType?.type_name || 'Document').replace(/\s+/g, '_');
+            const extension = file.name.substring(file.name.lastIndexOf('.'));
+            const standardizedName = `${course?.course_code || 'COURSE'}_${cleanLastName}_${cleanFirstName}_${cleanDocType}${extension}`;
+
+            console.log(`[FacultySubmissionService] Renaming file to: ${standardizedName}`);
+
+            // Re-create the file object with the new name
+            const renamedFile = new File([file], standardizedName, { type: file.type });
+
+            // 5.c Upload the file
+            const gdriveFile = await uploadToGDrive(renamedFile, targetFolderId);
 
             // 6. Insert/Update into Submissions table with Versioning via RPC
             const { data, error: insertError } = await supabase

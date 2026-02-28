@@ -116,6 +116,17 @@ export const validationService = {
       }
     }
 
+    if (action === 'REJECT' && submission.is_staged && submission.gdrive_file_id) {
+      console.log("[ValidationService] Deleting rejected staged file from GDrive...");
+      try {
+        const { deleteGDriveFile } = await import('./gdriveSettings');
+        await deleteGDriveFile(submission.gdrive_file_id);
+      } catch (err) {
+        console.error("[ValidationService] Delete error (non-blocking):", err);
+        // We don't block DB update if delete fails (user might have deleted it already)
+      }
+    }
+
     const { data, error } = await supabase.rpc('process_validation_action_fs', {
       p_submission_id: submissionId,
       p_action: action,

@@ -318,6 +318,11 @@ export default function AdminValidationPage() {
               <StatItem label="Pending Review" value={stats.pending_count} color="text-amber-400" />
               <StatItem label="Auto-Approved" value={stats.auto_approved_count} color="text-emerald-400" />
               <StatItem label="Rejected / Revised" value={stats.rejected_count} color="text-rose-400" />
+
+              <div className="pt-2 border-t border-slate-800 space-y-4">
+                <StatItem label="Staging Sandbox" value={stats.sandbox_count} color="text-fuchsia-400" />
+                <StatItem label="Official Vault" value={stats.vault_count} color="text-emerald-500" />
+              </div>
             </CardContent>
           </Card>
 
