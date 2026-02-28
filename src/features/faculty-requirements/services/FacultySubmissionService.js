@@ -104,34 +104,56 @@ export const FacultySubmissionService = {
                 .single();
 
             // 4. Resolve the current AY and semester from system settings (use passed-in or fetch)
+            // 4.a Get ocr_enabled and staging_folder_id while we are at it
             let currentAY = academicYear;
             let currentSemester = semester;
-            if (!currentAY || !currentSemester) {
-                const { data: settings } = await supabase
-                    .from('systemsettings_fs')
-                    .select('setting_key, setting_value')
-                    .in('setting_key', ['current_semester', 'current_academic_year']);
-                if (!currentSemester) currentSemester = settings?.find(s => s.setting_key === 'current_semester')?.setting_value;
-                if (!currentAY) currentAY = settings?.find(s => s.setting_key === 'current_academic_year')?.setting_value;
-            }
+            let ocrEnabled = true;
+            let stagingFolderId = '';
 
-            // 5. Upload to Google Drive via server.js
+            const { data: settings } = await supabase
+                .from('systemsettings_fs')
+                .select('setting_key, setting_value')
+                .in('setting_key', ['current_semester', 'current_academic_year', 'ocr_enabled', 'gdrive_staging_folder_id']);
+
+            if (!currentSemester) currentSemester = settings?.find(s => s.setting_key === 'current_semester')?.setting_value;
+            if (!currentAY) currentAY = settings?.find(s => s.setting_key === 'current_academic_year')?.setting_value;
+            ocrEnabled = settings?.find(s => s.setting_key === 'ocr_enabled')?.setting_value !== 'false';
+            stagingFolderId = settings?.find(s => s.setting_key === 'gdrive_staging_folder_id')?.setting_value;
+
+            // 5. Upload to Google Drive
             const folderLink = await getFolderLink();
             const rootFolderId = getFolderId(folderLink);
             if (!rootFolderId) throw new Error('Google Drive folder not configured. Please set it in Admin Settings.');
 
-            // 5.a Ensure the deep-nest folder structure (6 levels)
-            const { ensureFolderStructure, uploadToGDrive } = await import('./gdriveSettings');
-            const targetFolderId = await ensureFolderStructure(rootFolderId, {
-                academicYear: currentAY,
-                semester: currentSemester,
-                facultyName,
-                courseCode: course?.course_code,
-                section: course?.section,
-                docTypeName: docType?.type_name,
-            });
+            let targetFolderId = '';
+            let isStaged = false;
 
-            // 5.b Upload the file into the deepest folder
+            if (!ocrEnabled && stagingFolderId) {
+                // anti-clutter: route to staging
+                targetFolderId = stagingFolderId;
+                isStaged = true;
+
+                // Hierarchical staging: Root > Staging > AY
+                if (currentAY) {
+                    const { ensureFolderStructure } = await import('./gdriveSettings');
+                    targetFolderId = await ensureFolderStructure(stagingFolderId, {
+                        academicYear: `Pending_Submissions_${currentAY.replace(/[^a-zA-Z0-9]/g, '_')}`
+                    });
+                }
+            } else {
+                // Normal path: Root > AY > Sem > Faculty > Course > DocType
+                const { ensureFolderStructure } = await import('./gdriveSettings');
+                targetFolderId = await ensureFolderStructure(rootFolderId, {
+                    academicYear: currentAY,
+                    semester: currentSemester,
+                    facultyName,
+                    courseCode: course?.course_code,
+                    section: course?.section,
+                    docTypeName: docType?.type_name,
+                });
+            }
+
+            // 5.b Upload the file
             const gdriveFile = await uploadToGDrive(file, targetFolderId);
 
             // 6. Insert/Update into Submissions table with Versioning via RPC
@@ -147,7 +169,8 @@ export const FacultySubmissionService = {
                     p_file_checksum: null,
                     p_gdrive_file_id: gdriveFile.id,
                     p_gdrive_web_view_link: gdriveFile.webViewLink,
-                    p_gdrive_download_link: gdriveFile.webContentLink || gdriveFile.webViewLink
+                    p_gdrive_download_link: gdriveFile.webContentLink || gdriveFile.webViewLink,
+                    p_is_staged: isStaged // Pass the staging flag
                 });
 
             if (insertError) throw insertError;

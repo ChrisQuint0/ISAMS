@@ -3,7 +3,7 @@ import {
     Save, Database, Terminal, Trash2, RefreshCw, Eye, Settings,
     Cpu, CheckCircle, AlertCircle, Play, Shield, FileText,
     Clock, Archive, AlertTriangle, HardDrive, Server, Activity,
-    Wifi, WifiOff,
+    Wifi, WifiOff, Globe,
     ChevronUp, ChevronDown, Plus, Folder, File as FileIcon, LayoutTemplate, Users, BookOpen, X
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -625,7 +625,7 @@ export default function AdminSettingsPage() {
     // -- State for General Settings --
     const [deadlineDays, setDeadlineDays] = useState('');
     const [graceDays, setGraceDays] = useState('');
-    const [gdriveFolderLink, setGdriveFolderLink] = useState('');
+    const [mainGdriveLink, setMainGdriveLink] = useState('');
     const [autoReminders, setAutoReminders] = useState('3days');
     const [archiveRetention, setArchiveRetention] = useState('5years');
 
@@ -699,9 +699,9 @@ export default function AdminSettingsPage() {
             setArchiveRetention(settings.general_archive_retention || '5years');
 
             // GDrive: stored as folder ID in DB — reconstruct display URL only if it's a raw ID
-            const folderId = settings.gdrive_root_folder_id || '';
-            const isRawId = folderId && !folderId.includes('/');
-            setGdriveFolderLink(isRawId ? `https://drive.google.com/drive/folders/${folderId}` : folderId);
+            const mainId = settings.gdrive_main_folder_id || '';
+            const isRawMainId = mainId && !mainId.includes('/');
+            setMainGdriveLink(isRawMainId ? `https://drive.google.com/drive/folders/${mainId}` : mainId);
         }
     }, [settings]);
 
@@ -806,7 +806,9 @@ export default function AdminSettingsPage() {
                                 <div className="lg:col-span-2 space-y-6">
                                     <Card className="bg-slate-900 border-slate-800 shadow-none">
                                         <CardHeader className="border-b border-slate-800 py-4">
-                                            <CardTitle className="text-base text-slate-100">Global Defaults</CardTitle>
+                                            <CardTitle className="text-base text-slate-100 flex items-center gap-2">
+                                                <Globe className="h-4 w-4 text-slate-400" /> Global Defaults
+                                            </CardTitle>
                                             <CardDescription className="text-slate-500">Set default behaviors for new semesters</CardDescription>
                                         </CardHeader>
                                         <CardContent className="pt-6 space-y-6">
@@ -887,41 +889,104 @@ export default function AdminSettingsPage() {
                                     <Card className="bg-slate-900 border-slate-800 shadow-none">
                                         <CardHeader className="border-b border-slate-800 py-4">
                                             <CardTitle className="text-base text-slate-100 flex items-center gap-2">
-                                                <HardDrive className="h-4 w-4 text-slate-400" /> Google Drive Integration
+                                                <HardDrive className="h-4 w-4 text-slate-400" /> Unified GDrive Management
                                             </CardTitle>
-                                            <CardDescription className="text-slate-500">Set the root folder where faculty submissions will be uploaded</CardDescription>
+                                            <CardDescription className="text-slate-500">Provide one parent folder; we'll handle the sub-folders automatically.</CardDescription>
                                         </CardHeader>
-                                        <CardContent className="pt-6 space-y-4">
-                                            <div className="space-y-2">
-                                                <Label className="text-xs font-semibold text-slate-400 uppercase">Google Drive Folder Link</Label>
-                                                <Input
-                                                    id="gdrive-folder-link"
-                                                    placeholder="https://drive.google.com/drive/folders/..."
-                                                    value={gdriveFolderLink}
-                                                    onChange={(e) => setGdriveFolderLink(e.target.value)}
-                                                    className="bg-slate-950 border-slate-700 text-slate-200 focus:border-blue-500"
-                                                />
-                                                {gdriveFolderLink && (
-                                                    <p className="text-xs text-slate-500">
-                                                        Folder ID: {(() => {
-                                                            const match = gdriveFolderLink.match(/folders\/([a-zA-Z0-9_-]+)/);
-                                                            return match ? <span className="text-emerald-400 font-mono">{match[1]}</span> : <span className="text-red-400">Invalid link</span>;
-                                                        })()}
-                                                    </p>
+                                        <CardContent className="pt-6 space-y-6">
+                                            <div className="space-y-4">
+                                                <div className="space-y-2">
+                                                    <Label className="text-xs font-semibold text-slate-400 uppercase flex items-center gap-2">
+                                                        Main ISAMS GDrive Folder Link
+                                                        {settings.gdrive_main_folder_id && (
+                                                            <Badge variant="outline" className="text-[10px] h-4 bg-emerald-500/10 text-emerald-400 border-emerald-500/20 py-0">Connected</Badge>
+                                                        )}
+                                                    </Label>
+                                                    <Input
+                                                        id="main-gdrive-link"
+                                                        placeholder="https://drive.google.com/drive/folders/..."
+                                                        value={mainGdriveLink}
+                                                        onChange={(e) => setMainGdriveLink(e.target.value)}
+                                                        className="bg-slate-950 border-slate-700 text-slate-200 focus:border-blue-500 h-10"
+                                                    />
+                                                </div>
+
+                                                {(mainGdriveLink || settings.gdrive_root_folder_id) && (
+                                                    <div className="bg-slate-950/50 rounded-lg p-3 border border-slate-800/50 space-y-2">
+                                                        <div className="flex justify-between items-center text-xs">
+                                                            <span className="text-slate-500 italic">Target Infrastructure:</span>
+                                                            <span className="text-blue-400 font-mono text-[10px]">
+                                                                {(() => {
+                                                                    const match = mainGdriveLink.match(/folders\/([a-zA-Z0-9_-]+)/);
+                                                                    return match ? match[1] : (settings.gdrive_main_folder_id || 'Not Set');
+                                                                })()}
+                                                            </span>
+                                                        </div>
+
+                                                        {settings.gdrive_root_folder_id && (
+                                                            <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-800">
+                                                                <div className="space-y-1">
+                                                                    <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Official Vault</p>
+                                                                    <p className="text-[11px] text-emerald-400 font-mono truncate">{settings.gdrive_root_folder_id}</p>
+                                                                </div>
+                                                                <div className="space-y-1">
+                                                                    <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Staging Sandbox</p>
+                                                                    <p className="text-[11px] text-fuchsia-400 font-mono truncate">{settings.gdrive_staging_folder_id}</p>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 )}
                                             </div>
-                                            <div className="flex justify-end">
+
+                                            <div className="flex items-center justify-between gap-4 pt-2">
                                                 <Button
                                                     size="sm"
-                                                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                                                    onClick={() => {
-                                                        // Extract folder ID from URL, or save as-is if already an ID
-                                                        const match = gdriveFolderLink.match(/folders\/([a-zA-Z0-9_-]+)/);
-                                                        const folderId = match ? match[1] : gdriveFolderLink.trim();
-                                                        saveGroup({ gdrive_root_folder_id: folderId });
+                                                    variant="ghost"
+                                                    className="text-slate-400 hover:text-blue-400 hover:bg-blue-400/10 transition-colors"
+                                                    onClick={() => window.open('/api/auth', '_blank')}
+                                                >
+                                                    <RefreshCw className="mr-2 h-3 w-3" /> Refresh Auth
+                                                </Button>
+
+                                                <Button
+                                                    size="sm"
+                                                    className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-900/20 px-6 transition-all active:scale-95"
+                                                    disabled={processing}
+                                                    onClick={async () => {
+                                                        const match = mainGdriveLink.match(/folders\/([a-zA-Z0-9_-]+)/);
+                                                        const mainId = match ? match[1] : mainGdriveLink.trim();
+
+                                                        if (!mainId) {
+                                                            alert("Please provide a valid Google Drive folder ID or link.");
+                                                            return;
+                                                        }
+
+                                                        try {
+                                                            setSuccess("Initializing folders...");
+                                                            const response = await fetch('/api/folders/init-isams', {
+                                                                method: 'POST',
+                                                                headers: { 'Content-Type': 'application/json' },
+                                                                body: JSON.stringify({ mainFolderId: mainId })
+                                                            });
+                                                            const data = await response.json();
+
+                                                            if (!response.ok) throw new Error(data.error);
+
+                                                            await saveGroup({
+                                                                gdrive_main_folder_id: mainId,
+                                                                gdrive_root_folder_id: data.vaultId,
+                                                                gdrive_staging_folder_id: data.sandboxId
+                                                            });
+
+                                                            setSuccess("GDrive Structure Initialized & Saved!");
+                                                        } catch (err) {
+                                                            setError("Setup failed: " + err.message);
+                                                        }
                                                     }}
                                                 >
-                                                    <Save className="mr-2 h-4 w-4" /> Save Folder Link
+                                                    {processing ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                                    Initialize & Save Config
                                                 </Button>
                                             </div>
                                         </CardContent>

@@ -46,7 +46,7 @@ export default function AdminValidationPage() {
   const confirmAction = async () => {
     if (!selectedItem || !pendingAction) return;
     setSubmitting(true);
-    const result = await processAction(selectedItem.submission_id, pendingAction, remarks);
+    const result = await processAction(selectedItem, pendingAction, remarks);
     setSubmitting(false);
 
     if (result.success) {
@@ -145,12 +145,17 @@ export default function AdminValidationPage() {
                           <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
                             <div>
                               <div className="flex items-center gap-2 mb-1.5">
-                                {item.validation_status === 'FAILED' ? (
-                                  <Badge className="bg-rose-500/10 text-rose-400 border-rose-500/20 hover:bg-rose-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase">
-                                    Validation Failed
+                                {item.is_staged && (
+                                  <Badge className="bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase">
+                                    <Scale className="h-3 w-3 mr-1" /> Sandbox
+                                  </Badge>
+                                )}
+                                {item.submission_status === 'VALIDATED' ? (
+                                  <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase">
+                                    Validated
                                   </Badge>
                                 ) : (
-                                  <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase">
+                                  <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase">
                                     Manual Review
                                   </Badge>
                                 )}

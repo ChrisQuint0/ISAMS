@@ -43,7 +43,9 @@ export const settingsService = {
       val_allowed_extensions: settingsMap.val_allowed_extensions || '.pdf, .docx, .xlsx',
 
       // FIX: Added missing crucial system keys!
+      gdrive_main_folder_id: settingsMap.gdrive_main_folder_id || '',
       gdrive_root_folder_id: settingsMap.gdrive_root_folder_id || '',
+      gdrive_staging_folder_id: settingsMap.gdrive_staging_folder_id || '',
       current_semester: settingsMap.current_semester || '',
       current_academic_year: settingsMap.current_academic_year || ''
     };

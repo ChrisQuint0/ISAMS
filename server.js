@@ -374,16 +374,20 @@ async function getOrCreateFolder(drive, folderName, parentId) {
   }
 
   // 2. Folder does not exist — create it
-  const createRes = await drive.files.create({
-    resource: {
-      name: safeName,
-      mimeType: 'application/vnd.google-apps.folder',
-      parents: [parentId],
-    },
-    fields: 'id',
-  });
-
-  return createRes.data.id;
+  try {
+    const createRes = await drive.files.create({
+      resource: {
+        name: safeName,
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: [parentId],
+      },
+      fields: 'id',
+    });
+    return createRes.data.id;
+  } catch (err) {
+    console.error(`[GDrive] Failed to create folder "${safeName}" in parent "${parentId}":`, err.message);
+    throw err;
+  }
 }
 
 // --- Helper: Format course folder name ---
@@ -443,15 +447,49 @@ app.post("/api/folders/ensure", async (req, res) => {
       targetFolderId = await getOrCreateFolder(drive, docTypeName, targetFolderId);
     }
 
-    // --- Legacy fallback (old 2-level: facultyName → termName) ---
     if (!academicYear && termName) {
       targetFolderId = await getOrCreateFolder(drive, termName, targetFolderId);
     }
 
-    res.json({ targetFolderId });
-  } catch (error) {
-    console.error("Error ensuring folder structure:", error);
-    res.status(500).json({ error: error.message });
+    res.json({ folderId: targetFolderId });
+  } catch (err) {
+    console.error("Error ensuring folders:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Ensures "Official_Vault" and "Sandbox_Staging" exist inside a main folder
+app.post("/api/folders/init-isams", async (req, res) => {
+  try {
+    const auth = await loadToken();
+    if (!auth) return res.status(401).json({ error: "Not authenticated" });
+
+    const drive = google.drive({ version: "v3", auth });
+    const { mainFolderId } = req.body;
+
+    if (!mainFolderId) {
+      return res.status(400).json({ error: "mainFolderId is required" });
+    }
+
+    // 1. Ensure Vault exists
+    const vaultId = await getOrCreateFolder(drive, "Vault", mainFolderId);
+
+    // 2. Ensure Sandbox exists
+    const sandboxId = await getOrCreateFolder(drive, "Sandbox", mainFolderId);
+
+    res.json({
+      success: true,
+      vaultId,
+      sandboxId,
+      mainFolderId
+    });
+  } catch (err) {
+    console.error("Error initializing ISAMS folders:", err);
+    // Provide more specific error info to frontend
+    res.status(500).json({
+      error: err.message,
+      detail: err.response?.data?.error || "Check GDrive permissions"
+    });
   }
 });
 
@@ -487,6 +525,43 @@ app.post("/api/files/clone", async (req, res) => {
     res.json(file.data);
   } catch (error) {
     console.error("Error cloning file:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 4.7 Move File (For Staging -> Vault)
+app.post("/api/files/move", async (req, res) => {
+  const { fileId, targetFolderId } = req.body;
+
+  if (!fileId || !targetFolderId) {
+    return res.status(400).json({ error: "Missing fileId or targetFolderId" });
+  }
+
+  try {
+    const auth = await loadToken();
+    if (!auth) return res.status(401).json({ error: "Not authenticated" });
+
+    const drive = google.drive({ version: "v3", auth });
+
+    // 1. Get current parents
+    const file = await drive.files.get({
+      fileId: fileId,
+      fields: "parents",
+    });
+
+    const previousParents = (file.data.parents || []).join(",");
+
+    // 2. Move file: add the new parent and remove all old ones
+    const result = await drive.files.update({
+      fileId: fileId,
+      addParents: targetFolderId,
+      removeParents: previousParents,
+      fields: "id, parents",
+    });
+
+    res.json({ message: "File moved successfully", data: result.data });
+  } catch (error) {
+    console.error("Error moving file:", error);
     res.status(500).json({ error: error.message });
   }
 });
