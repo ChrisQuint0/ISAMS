@@ -3,7 +3,7 @@ import {
     Save, Database, Terminal, Trash2, RefreshCw, Eye, Settings,
     Cpu, CheckCircle, AlertCircle, Play, Shield, FileText,
     Clock, Archive, AlertTriangle, HardDrive, Server, Activity,
-    Wifi, WifiOff, Globe,
+    Wifi, WifiOff, Globe, Lock, Unlock,
     ChevronUp, ChevronDown, Plus, Folder, File as FileIcon, LayoutTemplate, Users, BookOpen, X
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -628,6 +628,7 @@ export default function AdminSettingsPage() {
     const [mainGdriveLink, setMainGdriveLink] = useState('');
     const [autoReminders, setAutoReminders] = useState('3days');
     const [archiveRetention, setArchiveRetention] = useState('5years');
+    const [isGdriveUnlocked, setIsGdriveUnlocked] = useState(false);
 
     // -- UI STATE FOR NON-OCR SETTINGS --
     // (Removed global valRules, now per Document Type)
@@ -889,7 +890,7 @@ export default function AdminSettingsPage() {
                                     <Card className="bg-slate-900 border-slate-800 shadow-none">
                                         <CardHeader className="border-b border-slate-800 py-4">
                                             <CardTitle className="text-base text-slate-100 flex items-center gap-2">
-                                                <HardDrive className="h-4 w-4 text-slate-400" /> Unified GDrive Management
+                                                <HardDrive className="h-4 w-4 text-slate-400" /> GDrive Management
                                             </CardTitle>
                                             <CardDescription className="text-slate-500">Provide one parent folder; we'll handle the sub-folders automatically.</CardDescription>
                                         </CardHeader>
@@ -907,7 +908,9 @@ export default function AdminSettingsPage() {
                                                         placeholder="https://drive.google.com/drive/folders/..."
                                                         value={mainGdriveLink}
                                                         onChange={(e) => setMainGdriveLink(e.target.value)}
-                                                        className="bg-slate-950 border-slate-700 text-slate-200 focus:border-blue-500 h-10"
+                                                        disabled={!!settings.gdrive_main_folder_id && !isGdriveUnlocked}
+                                                        className={`bg-slate-950 border-slate-700 text-slate-200 focus:border-blue-500 h-10 ${!!settings.gdrive_main_folder_id && !isGdriveUnlocked ? 'opacity-50 cursor-not-allowed' : ''
+                                                            }`}
                                                     />
                                                 </div>
 
@@ -940,19 +943,39 @@ export default function AdminSettingsPage() {
                                             </div>
 
                                             <div className="flex items-center justify-between gap-4 pt-2">
-                                                <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    className="text-slate-400 hover:text-blue-400 hover:bg-blue-400/10 transition-colors"
-                                                    onClick={() => window.open('/api/auth', '_blank')}
-                                                >
-                                                    <RefreshCw className="mr-2 h-3 w-3" /> Refresh Auth
-                                                </Button>
+                                                <div className="flex items-center gap-2">
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        className="text-slate-400 hover:text-blue-400 hover:bg-blue-400/10 transition-colors"
+                                                        onClick={() => window.open('/api/auth', '_blank')}
+                                                    >
+                                                        <RefreshCw className="mr-2 h-3 w-3" /> Refresh Auth
+                                                    </Button>
+
+                                                    {settings.gdrive_main_folder_id && (
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            className={`transition-colors text-[11px] h-8 ${isGdriveUnlocked
+                                                                ? "text-amber-400 hover:text-amber-400 hover:bg-amber-400/10"
+                                                                : "text-slate-400 hover:text-emerald-400 hover:bg-emerald-400/10"
+                                                                }`}
+                                                            onClick={() => setIsGdriveUnlocked(!isGdriveUnlocked)}
+                                                        >
+                                                            {isGdriveUnlocked ? <Lock className="mr-2 h-3 w-3" /> : <Unlock className="mr-2 h-3 w-3" />}
+                                                            {isGdriveUnlocked ? "Lock Settings" : "Change Folder"}
+                                                        </Button>
+                                                    )}
+                                                </div>
 
                                                 <Button
                                                     size="sm"
-                                                    className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-900/20 px-6 transition-all active:scale-95"
-                                                    disabled={processing}
+                                                    className={`${settings.gdrive_root_folder_id && !isGdriveUnlocked
+                                                        ? "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700"
+                                                        : "bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-900/20"
+                                                        } px-6 transition-all active:scale-95`}
+                                                    disabled={processing || (!!settings.gdrive_root_folder_id && !isGdriveUnlocked)}
                                                     onClick={async () => {
                                                         const match = mainGdriveLink.match(/folders\/([a-zA-Z0-9_-]+)/);
                                                         const mainId = match ? match[1] : mainGdriveLink.trim();
@@ -980,13 +1003,18 @@ export default function AdminSettingsPage() {
                                                             });
 
                                                             setSuccess("GDrive Structure Initialized & Saved!");
+                                                            setIsGdriveUnlocked(false); // Relock after successful save
                                                         } catch (err) {
                                                             setError("Setup failed: " + err.message);
                                                         }
                                                     }}
                                                 >
-                                                    {processing ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                                                    Initialize & Save Config
+                                                    {processing ? (
+                                                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        settings.gdrive_root_folder_id && !isGdriveUnlocked ? <Lock className="mr-2 h-4 w-4" /> : <Save className="mr-2 h-4 w-4" />
+                                                    )}
+                                                    {settings.gdrive_root_folder_id && !isGdriveUnlocked ? "Config Locked" : "Initialize & Save Config"}
                                                 </Button>
                                             </div>
                                         </CardContent>
