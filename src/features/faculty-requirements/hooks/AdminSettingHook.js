@@ -532,45 +532,6 @@ export function useAdminSettings() {
   };
 
 
-  const runBackup = async () => {
-    setProcessing(true);
-    try {
-      const result = await settingsService.runBackup();
-      if (result.success) {
-        setSuccess("State data compiled securely.");
-        setTimeout(() => setSuccess(null), 3000);
-        return result.data;
-      }
-    } catch (err) {
-      setError("Failed to compile database records: " + err.message);
-      setTimeout(() => setError(null), 3000);
-      return null;
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const restoreSystem = async (file) => {
-    if (!file) return;
-    setProcessing(true);
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const json = JSON.parse(e.target.result);
-        const result = await settingsService.restoreSystem(json);
-        if (result.success) {
-          setSuccess("System restored successfully. Reloading...");
-          setTimeout(() => window.location.reload(), 2000);
-        }
-      } catch (err) {
-        setError("Restore failed: " + err.message);
-        setTimeout(() => setError(null), 3000);
-      } finally {
-        setProcessing(false);
-      }
-    };
-    reader.readAsText(file);
-  };
 
   return {
     loading, processing, error, success, setError, setSuccess,
@@ -583,7 +544,7 @@ export function useAdminSettings() {
     facultyList, handleUpdateFacultyField,
     masterCourseList, handleAddMasterCourse, handleDeleteMasterCourse, handleUpdateMasterCourseField,
     courseList, handleAddCourse, handleDeleteCourse,
-    runTestOCR, runBackup, getSchemaDump: settingsService.getSchemaDump, restoreSystem,
+    runTestOCR,
     systemHealth, holidays, handleAddHoliday, handleBulkAddHolidays, handleDeleteHoliday,
     availableSystemUsers,
     refresh: fetchData

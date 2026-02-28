@@ -109,13 +109,13 @@ export default function AdminSettingsPage() {
     const {
         loading, processing, error, success, setError, setSuccess,
         settings, testResult, clearTestResult,
-        updateSetting, saveGroup, runTestOCR, runBackup, getSchemaDump, refresh,
+        updateSetting, saveGroup, runTestOCR, refresh,
         docRequirements, addDocRequirement, updateDocRequirement, deleteDocRequirement,
         templates, addTemplate, deleteTemplate, archiveTemplate, updateTemplateCoordinates,
         facultyList, handleUpdateFacultyField,
         masterCourseList, handleAddMasterCourse, handleDeleteMasterCourse, handleUpdateMasterCourseField,
         courseList, handleAddCourse, handleDeleteCourse,
-        systemHealth, holidays, handleAddHoliday, handleBulkAddHolidays, handleDeleteHoliday, restoreSystem,
+        systemHealth, holidays, handleAddHoliday, handleBulkAddHolidays, handleDeleteHoliday,
         fetchDocTypeRules, saveDocTypeRules
     } = useAdminSettings();
 
@@ -713,18 +713,13 @@ export default function AdminSettingsPage() {
         switch (actionType) {
             case 'RESET_SEMESTER':
                 config.title = 'Reset Semester Data';
-                config.description = `WARNING: Are you sure you want to RESET the ${settings.current_semester} of ${settings.current_academic_year}? This will delete all student submissions, but keep the faculty and course lists intact.`;
+                config.description = `WARNING: Are you sure you want to RESET the ${settings.current_semester} of ${settings.current_academic_year}? This will delete all faculty submissions, but keep the faculty and course lists intact.`;
                 config.confirmationText = 'RESET';
                 break;
             case 'PURGE_ARCHIVES':
                 config.title = 'Purge Old Archives';
                 config.description = `CRITICAL WARNING: This will permanently data older than ${settings.general_archive_retention}. This action CANNOT BE UNDONE.`;
                 config.confirmationText = 'PURGE';
-                break;
-            case 'RESTORE_SYSTEM':
-                config.title = 'Restore System Data';
-                config.description = `CRITICAL WARNING: Restoring will completely OVERWRITE your current database state with the backup file data. This action CANNOT BE UNDONE.`;
-                config.confirmationText = 'RESTORE';
                 break;
             default:
                 return;
@@ -743,8 +738,6 @@ export default function AdminSettingsPage() {
             func = () => settingsService.resetSemester(settings.current_semester, settings.current_academic_year);
         } else if (actionType === 'PURGE_ARCHIVES') {
             func = () => settingsService.purgeArchives(parseInt(settings.general_archive_retention) || 5);
-        } else if (actionType === 'RESTORE_SYSTEM') {
-            func = () => restoreSystem(payload); // from useAdminSettings hook
         } else {
             return;
         }
@@ -754,53 +747,15 @@ export default function AdminSettingsPage() {
         try {
             await func();
 
-            // System restore handles its own success notification and reload
-            if (actionType !== 'RESTORE_SYSTEM') {
-                setSuccess("Action completed successfully.");
-                setTimeout(() => setSuccess(null), 4000);
-                refresh();
-            }
-        } catch (err) {
-            if (actionType !== 'RESTORE_SYSTEM') {
-                setError("Action failed: " + err.message);
-                setTimeout(() => setError(null), 4000);
-            }
-        }
-    };
-
-    // System Backup Export Handler
-    const handleExportZip = async () => {
-        try {
-            const backupData = await runBackup();
-            if (!backupData) return; // Error already handled in hook
-
-            const zip = new JSZip();
-
-            // Add the state data
-            zip.file("data_state.json", JSON.stringify(backupData, null, 2));
-
-            // Fetch the exact DDL table structures and functions from the DB via RPC
-            let schemaText;
-            try {
-                schemaText = await getSchemaDump();
-            } catch (err) {
-                console.warn("Failed to fetch accurate schema. Proceeding with backup without it.", err);
-                schemaText = "-- Failed to fetch schema dump at the time of backup.\n";
-            }
-            zip.file("schema.sql", schemaText);
-
-            // Generate the final zip file
-            const blob = await zip.generateAsync({ type: "blob" });
-            saveAs(blob, `ISAMS_System_Snapshot_${new Date().toISOString().slice(0, 10)}.zip`);
-            setSuccess("System backup generated and downloaded successfully.");
+            setSuccess("Action completed successfully.");
             setTimeout(() => setSuccess(null), 4000);
-
+            refresh();
         } catch (err) {
-            console.error("ZIP Generation Failed:", err);
-            setError("Failed to create ZIP package: " + err.message);
+            setError("Action failed: " + err.message);
             setTimeout(() => setError(null), 4000);
         }
     };
+
 
     return (
         <ToastProvider>
@@ -2141,28 +2096,6 @@ export default function AdminSettingsPage() {
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent className="pt-6 space-y-4">
-                                    <div className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-orange-950/10 border border-orange-900/40 rounded-lg gap-4">
-                                        <div>
-                                            <h4 className="font-medium text-orange-200 text-sm flex items-center gap-2">
-                                                <HardDrive className="h-4 w-4 text-orange-400" />
-                                                Generate Full System Snapshot
-                                            </h4>
-                                            <p className="text-xs text-orange-200/60 mt-1 pl-6">
-                                                Exports a ZIP containing the SQL Schema (Blueprint) and JSON State Data (Content) for complete system migration.
-                                            </p>
-                                        </div>
-                                        <Button
-                                            variant="outline"
-                                            onClick={handleExportZip}
-                                            disabled={processing}
-                                            className="bg-slate-950 border-orange-800 text-orange-300 hover:bg-orange-900 hover:text-orange-200 whitespace-nowrap"
-                                            size="sm"
-                                        >
-                                            {processing ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Archive className="mr-2 h-4 w-4" />}
-                                            Export Backup ZIP
-                                        </Button>
-                                    </div>
-
                                     <DangerRow
                                         title="Reset Semester Data"
                                         desc="Clear all submissions for the current semester. Does not delete archives."
@@ -2175,36 +2108,6 @@ export default function AdminSettingsPage() {
                                         btnText="Purge Archives"
                                         onClick={() => handleDangerAction('PURGE_ARCHIVES')}
                                     />
-                                    <div className="pt-4 border-t border-red-900/30">
-                                        <h4 className="font-medium text-slate-300 text-sm mb-2">System Restore</h4>
-                                        <div className="flex items-center gap-4">
-                                            <input
-                                                type="file"
-                                                id="restore-upload"
-                                                className="hidden"
-                                                accept=".json"
-                                                onChange={(e) => {
-                                                    const file = e.target.files[0];
-                                                    if (file) {
-                                                        handleDangerAction('RESTORE_SYSTEM', file);
-                                                    }
-                                                    e.target.value = ''; // Reset input to allow re-uploading the same file if needed
-                                                }}
-                                            />
-                                            <Button
-                                                variant="outline"
-                                                className="bg-slate-950 border-slate-700 text-slate-300 hover:bg-slate-800"
-                                                onClick={() => document.getElementById('restore-upload')?.click()}
-                                                disabled={processing}
-                                            >
-                                                {processing ? <RefreshCw className="mr-2 h-4 w-4 animate-spin text-emerald-400" /> : <HardDrive className="mr-2 h-4 w-4 text-emerald-400" />}
-                                                Upload Backup File
-                                            </Button>
-                                            <p className="text-xs text-slate-500">
-                                                Restoring will overwrite current system data.
-                                            </p>
-                                        </div>
-                                    </div>
                                 </CardContent>
                             </Card>
                         </TabsContent >

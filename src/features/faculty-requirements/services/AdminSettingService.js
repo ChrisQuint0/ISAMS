@@ -450,25 +450,6 @@ export const settingsService = {
     return data;
   },
 
-  runBackup: async () => {
-    const { data, error } = await supabase.rpc('backup_system_data_fs');
-    if (error) throw error;
-
-    // Return the raw data to the caller so they can bundle it into a ZIP
-    return { success: true, data: data };
-  },
-
-  getSchemaDump: async () => {
-    const { data, error } = await supabase.rpc('get_schema_dump_fs');
-    if (error) throw error;
-    return data;
-  },
-
-  restoreSystem: async (jsonData) => {
-    const { data, error } = await supabase.rpc('restore_system_data_fs', { p_data: jsonData });
-    if (error) throw error;
-    return { success: true, message: data };
-  },
 
   /**
    * Holiday Management
