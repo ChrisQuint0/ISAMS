@@ -43,7 +43,9 @@ export const settingsService = {
       val_allowed_extensions: settingsMap.val_allowed_extensions || '.pdf, .docx, .xlsx',
 
       // FIX: Added missing crucial system keys!
+      gdrive_main_folder_id: settingsMap.gdrive_main_folder_id || '',
       gdrive_root_folder_id: settingsMap.gdrive_root_folder_id || '',
+      gdrive_staging_folder_id: settingsMap.gdrive_staging_folder_id || '',
       current_semester: settingsMap.current_semester || '',
       current_academic_year: settingsMap.current_academic_year || ''
     };
@@ -395,12 +397,13 @@ export const settingsService = {
     return data || [];
   },
 
-  upsertMasterCourse: async (courseCode, courseName, semester, id = null) => {
+  upsertMasterCourse: async (courseCode, courseName, semester, id = null, isActive = null) => {
     const { data, error } = await supabase.rpc('upsert_master_course_fs', {
       p_course_code: courseCode,
       p_course_name: courseName,
       p_semester: semester,
       p_id: id || null,
+      p_is_active: isActive
     });
     if (error) throw error;
     if (data?.error) throw new Error(data.error);
@@ -449,19 +452,6 @@ export const settingsService = {
     return data;
   },
 
-  runBackup: async () => {
-    const { data, error } = await supabase.rpc('backup_system_data_fs');
-    if (error) throw error;
-
-    // Return the raw data to the caller so they can bundle it into a ZIP
-    return { success: true, data: data };
-  },
-
-  restoreSystem: async (jsonData) => {
-    const { data, error } = await supabase.rpc('restore_system_data_fs', { p_data: jsonData });
-    if (error) throw error;
-    return { success: true, message: data };
-  },
 
   /**
    * Holiday Management

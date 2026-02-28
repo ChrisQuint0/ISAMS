@@ -225,10 +225,11 @@ export default function FacultyDashboardPage() {
             return (
               <div key={course.course_id} className="bg-slate-900/50 border border-slate-800 rounded-xl shadow-md p-6">
                 <div className="flex justify-between items-start mb-6 border-b border-slate-800/50 pb-4">
-                  <div>
-                    <h3 className="font-bold text-lg text-slate-100">{course.course_code} - {course.course_name}</h3>
-                    <p className="text-sm text-slate-400">Department: {course.department || 'N/A'}</p>
-                  </div>
+                  <h3 className="font-bold text-lg text-slate-100">
+                    {course.course_code} - {course.course_name}
+                    {course.master_is_active === false && <span className="text-red-400 ml-2">(inactive)</span>}
+                  </h3>
+                  <p className="text-sm text-slate-400">Department: {course.department || 'N/A'}</p>
                   <div className="text-right flex flex-col items-end">
                     <div className={`px-2.5 py-1 text-xs font-bold rounded-md mb-2 ${pct === 100 ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
                       pct >= 50 ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :

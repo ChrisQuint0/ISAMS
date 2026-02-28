@@ -59,13 +59,78 @@ export const validationService = {
 
   /**
    * Process Action (Approve/Reject)
+   * If approving a staged file, move it to the official vault first.
    */
-  processAction: async (submissionId, action, remarks) => {
+  processAction: async (submission, action, remarks) => {
+    const submissionId = submission.submission_id || submission.id;
+
+    if (action === 'APPROVE' && submission.is_staged) {
+      console.log("[ValidationService] Moving staged file to vault...");
+      try {
+        // 1. Get Root Folder ID
+        const { data: setting } = await supabase
+          .from('systemsettings_fs')
+          .select('setting_value')
+          .eq('setting_key', 'gdrive_root_folder_id')
+          .single();
+
+        const rootFolderId = setting?.setting_value;
+        if (!rootFolderId) throw new Error("Root Folder ID not configured in settings.");
+
+        // 2. Ensure Target Folder Structure
+        const { ensureFolderStructure } = await import('./gdriveSettings');
+        const targetFolderId = await ensureFolderStructure(rootFolderId, {
+          academicYear: submission.academic_year,
+          semester: submission.semester,
+          facultyName: submission.faculty_name,
+          courseCode: submission.course_code,
+          section: submission.section,
+          docTypeName: submission.type_name,
+        });
+
+        // 3. Move File in GDrive
+        const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000';
+        const moveRes = await fetch(`${API_BASE}/api/files/move`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileId: submission.gdrive_file_id,
+            targetFolderId: targetFolderId
+          })
+        });
+
+        if (!moveRes.ok) {
+          const moveErr = await moveRes.json().catch(() => ({ error: "GDrive move failed" }));
+          throw new Error(moveErr.error || "Failed to move file in Google Drive");
+        }
+
+        // 4. Update DB to mark as no longer staged
+        await supabase
+          .from('submissions_fs')
+          .update({ is_staged: false })
+          .eq('submission_id', submissionId);
+
+      } catch (err) {
+        console.error("[ValidationService] Move error:", err);
+        throw new Error(`File move failed: ${err.message}. Data integrity prioritized; approval halted.`);
+      }
+    }
+
+    if (action === 'REJECT' && submission.is_staged && submission.gdrive_file_id) {
+      console.log("[ValidationService] Deleting rejected staged file from GDrive...");
+      try {
+        const { deleteGDriveFile } = await import('./gdriveSettings');
+        await deleteGDriveFile(submission.gdrive_file_id);
+      } catch (err) {
+        console.error("[ValidationService] Delete error (non-blocking):", err);
+        // We don't block DB update if delete fails (user might have deleted it already)
+      }
+    }
+
     const { data, error } = await supabase.rpc('process_validation_action_fs', {
       p_submission_id: submissionId,
       p_action: action,
       p_remarks: remarks
-      // p_admin_id not used by backend yet
     });
 
     if (error) throw error;

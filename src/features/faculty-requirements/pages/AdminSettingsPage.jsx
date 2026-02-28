@@ -3,7 +3,7 @@ import {
     Save, Database, Terminal, Trash2, RefreshCw, Eye, Settings,
     Cpu, CheckCircle, AlertCircle, Play, Shield, FileText,
     Clock, Archive, AlertTriangle, HardDrive, Server, Activity,
-    Wifi, WifiOff,
+    Wifi, WifiOff, Globe, Lock, Unlock,
     ChevronUp, ChevronDown, Plus, Folder, File as FileIcon, LayoutTemplate, Users, BookOpen, X
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -109,13 +109,13 @@ export default function AdminSettingsPage() {
     const {
         loading, processing, error, success, setError, setSuccess,
         settings, testResult, clearTestResult,
-        updateSetting, saveGroup, runTestOCR, runBackup, refresh,
+        updateSetting, saveGroup, runTestOCR, refresh,
         docRequirements, addDocRequirement, updateDocRequirement, deleteDocRequirement,
         templates, addTemplate, deleteTemplate, archiveTemplate, updateTemplateCoordinates,
         facultyList, handleUpdateFacultyField,
-        masterCourseList, handleAddMasterCourse, handleDeleteMasterCourse,
+        masterCourseList, handleAddMasterCourse, handleDeleteMasterCourse, handleUpdateMasterCourseField,
         courseList, handleAddCourse, handleDeleteCourse,
-        systemHealth, holidays, handleAddHoliday, handleBulkAddHolidays, handleDeleteHoliday, restoreSystem,
+        systemHealth, holidays, handleAddHoliday, handleBulkAddHolidays, handleDeleteHoliday,
         fetchDocTypeRules, saveDocTypeRules
     } = useAdminSettings();
 
@@ -175,7 +175,6 @@ export default function AdminSettingsPage() {
         !holidayDescriptionDuplicate &&
         holidayOccupiedDates.length === 0;
     const [pendingDeleteId, setPendingDeleteId] = useState(null);
-    const [pendingCatalogDeleteId, setPendingCatalogDeleteId] = useState(null);
 
     // Danger Modal State
     const [isDangerModalOpen, setIsDangerModalOpen] = useState(false);
@@ -398,11 +397,46 @@ export default function AdminSettingsPage() {
     ], []);
 
 
+    // AG Grid: column definitions for Course Catalog
+    const catalogColumnDefs = useMemo(() => [
+        { field: 'course_code', headerName: 'Code', width: 110, cellStyle: { fontFamily: 'monospace', color: '#34d399', fontWeight: 600 } },
+        { field: 'course_name', headerName: 'Course Name', flex: 2, cellStyle: { color: '#e2e8f0' } },
+        {
+            field: 'semester', headerName: 'Semester', width: 130,
+            cellStyle: { color: '#94a3b8', fontSize: '12px' },
+            valueFormatter: p => p.value || '—'
+        },
+        {
+            field: 'is_active',
+            headerName: 'Status',
+            width: 120,
+            editable: true,
+            cellEditor: 'agSelectCellEditor',
+            cellEditorParams: { values: ['Active', 'Inactive'] },
+            valueGetter: (params) => params.data.is_active ? 'Active' : 'Inactive',
+            valueSetter: (params) => {
+                params.data.is_active = params.newValue === 'Active';
+                return true;
+            },
+            cellStyle: (params) => ({
+                color: params.value === 'Active' ? '#34d399' : '#64748b',
+                fontWeight: '500',
+            }),
+        },
+    ], []);
+
     const handleFacultyCellValueChanged = (event) => {
         const { data, colDef, newValue, oldValue } = event;
         const field = colDef.field;
         const value = field === 'is_active' ? data.is_active : newValue;
         handleUpdateFacultyField(data.faculty_id, field, value, oldValue);
+    };
+
+    const handleCatalogCellValueChanged = (event) => {
+        const { data, colDef, newValue, oldValue } = event;
+        const field = colDef.field;
+        const value = field === 'is_active' ? data.is_active : newValue;
+        handleUpdateMasterCourseField(data.id, field, value, oldValue);
     };
 
     // AG Grid: column definitions for Templates tab
@@ -591,9 +625,10 @@ export default function AdminSettingsPage() {
     // -- State for General Settings --
     const [deadlineDays, setDeadlineDays] = useState('');
     const [graceDays, setGraceDays] = useState('');
-    const [gdriveFolderLink, setGdriveFolderLink] = useState('');
+    const [mainGdriveLink, setMainGdriveLink] = useState('');
     const [autoReminders, setAutoReminders] = useState('3days');
     const [archiveRetention, setArchiveRetention] = useState('5years');
+    const [isGdriveUnlocked, setIsGdriveUnlocked] = useState(false);
 
     // -- UI STATE FOR NON-OCR SETTINGS --
     // (Removed global valRules, now per Document Type)
@@ -665,21 +700,21 @@ export default function AdminSettingsPage() {
             setArchiveRetention(settings.general_archive_retention || '5years');
 
             // GDrive: stored as folder ID in DB — reconstruct display URL only if it's a raw ID
-            const folderId = settings.gdrive_root_folder_id || '';
-            const isRawId = folderId && !folderId.includes('/');
-            setGdriveFolderLink(isRawId ? `https://drive.google.com/drive/folders/${folderId}` : folderId);
+            const mainId = settings.gdrive_main_folder_id || '';
+            const isRawMainId = mainId && !mainId.includes('/');
+            setMainGdriveLink(isRawMainId ? `https://drive.google.com/drive/folders/${mainId}` : mainId);
         }
     }, [settings]);
 
 
     // Danger Zone Action Handler
-    const handleDangerAction = async (action) => {
-        let config = { actionType: action, title: '', description: '', confirmationText: '' };
+    const handleDangerAction = (actionType, payload = null) => {
+        const config = { actionType, payload };
 
-        switch (action) {
+        switch (actionType) {
             case 'RESET_SEMESTER':
                 config.title = 'Reset Semester Data';
-                config.description = `WARNING: Are you sure you want to RESET the ${settings.current_semester} of ${settings.current_academic_year}? This will delete all student submissions, but keep the faculty and course lists intact.`;
+                config.description = `WARNING: Are you sure you want to RESET the ${settings.current_semester} of ${settings.current_academic_year}? This will delete all faculty submissions, but keep the faculty and course lists intact.`;
                 config.confirmationText = 'RESET';
                 break;
             case 'PURGE_ARCHIVES':
@@ -697,7 +732,7 @@ export default function AdminSettingsPage() {
     };
 
     const executeDangerAction = async () => {
-        const { actionType } = dangerModalConfig;
+        const { actionType, payload } = dangerModalConfig;
         let func = null;
 
         if (actionType === 'RESET_SEMESTER') {
@@ -712,6 +747,7 @@ export default function AdminSettingsPage() {
 
         try {
             await func();
+
             setSuccess("Action completed successfully.");
             setTimeout(() => setSuccess(null), 4000);
             refresh();
@@ -721,34 +757,6 @@ export default function AdminSettingsPage() {
         }
     };
 
-    // System Backup Export Handler
-    const handleExportZip = async () => {
-        try {
-            const backupData = await runBackup();
-            if (!backupData) return; // Error already handled in hook
-
-            const zip = new JSZip();
-
-            // Add the state data
-            zip.file("data_state.json", JSON.stringify(backupData, null, 2));
-
-            // Use the actual schema text from the user (Placeholder for now)
-            const schemaText = `-- ISAMS Backup Schema Blueprint
--- Use this file to reconstruct tables before importing data_state.json
-
--- Add specific CREATE TABLE/TRIGGER/RPC statements here
-`;
-            zip.file("schema.sql", schemaText);
-
-            // Generate the final zip file
-            const blob = await zip.generateAsync({ type: "blob" });
-            saveAs(blob, `ISAMS_System_Snapshot_${new Date().toISOString().slice(0, 10)}.zip`);
-
-        } catch (err) {
-            console.error("ZIP Generation Failed:", err);
-            alert("Failed to create ZIP package.");
-        }
-    };
 
     return (
         <ToastProvider>
@@ -799,7 +807,9 @@ export default function AdminSettingsPage() {
                                 <div className="lg:col-span-2 space-y-6">
                                     <Card className="bg-slate-900 border-slate-800 shadow-none">
                                         <CardHeader className="border-b border-slate-800 py-4">
-                                            <CardTitle className="text-base text-slate-100">Global Defaults</CardTitle>
+                                            <CardTitle className="text-base text-slate-100 flex items-center gap-2">
+                                                <Globe className="h-4 w-4 text-slate-400" /> Global Defaults
+                                            </CardTitle>
                                             <CardDescription className="text-slate-500">Set default behaviors for new semesters</CardDescription>
                                         </CardHeader>
                                         <CardContent className="pt-6 space-y-6">
@@ -880,41 +890,131 @@ export default function AdminSettingsPage() {
                                     <Card className="bg-slate-900 border-slate-800 shadow-none">
                                         <CardHeader className="border-b border-slate-800 py-4">
                                             <CardTitle className="text-base text-slate-100 flex items-center gap-2">
-                                                <HardDrive className="h-4 w-4 text-slate-400" /> Google Drive Integration
+                                                <HardDrive className="h-4 w-4 text-slate-400" /> GDrive Management
                                             </CardTitle>
-                                            <CardDescription className="text-slate-500">Set the root folder where faculty submissions will be uploaded</CardDescription>
+                                            <CardDescription className="text-slate-500">Provide one parent folder; we'll handle the sub-folders automatically.</CardDescription>
                                         </CardHeader>
-                                        <CardContent className="pt-6 space-y-4">
-                                            <div className="space-y-2">
-                                                <Label className="text-xs font-semibold text-slate-400 uppercase">Google Drive Folder Link</Label>
-                                                <Input
-                                                    id="gdrive-folder-link"
-                                                    placeholder="https://drive.google.com/drive/folders/..."
-                                                    value={gdriveFolderLink}
-                                                    onChange={(e) => setGdriveFolderLink(e.target.value)}
-                                                    className="bg-slate-950 border-slate-700 text-slate-200 focus:border-blue-500"
-                                                />
-                                                {gdriveFolderLink && (
-                                                    <p className="text-xs text-slate-500">
-                                                        Folder ID: {(() => {
-                                                            const match = gdriveFolderLink.match(/folders\/([a-zA-Z0-9_-]+)/);
-                                                            return match ? <span className="text-emerald-400 font-mono">{match[1]}</span> : <span className="text-red-400">Invalid link</span>;
-                                                        })()}
-                                                    </p>
+                                        <CardContent className="pt-6 space-y-6">
+                                            <div className="space-y-4">
+                                                <div className="space-y-2">
+                                                    <Label className="text-xs font-semibold text-slate-400 uppercase flex items-center gap-2">
+                                                        Main ISAMS GDrive Folder Link
+                                                        {settings.gdrive_main_folder_id && (
+                                                            <Badge variant="outline" className="text-[10px] h-4 bg-emerald-500/10 text-emerald-400 border-emerald-500/20 py-0">Connected</Badge>
+                                                        )}
+                                                    </Label>
+                                                    <Input
+                                                        id="main-gdrive-link"
+                                                        placeholder="https://drive.google.com/drive/folders/..."
+                                                        value={mainGdriveLink}
+                                                        onChange={(e) => setMainGdriveLink(e.target.value)}
+                                                        disabled={!!settings.gdrive_main_folder_id && !isGdriveUnlocked}
+                                                        className={`bg-slate-950 border-slate-700 text-slate-200 focus:border-blue-500 h-10 ${!!settings.gdrive_main_folder_id && !isGdriveUnlocked ? 'opacity-50 cursor-not-allowed' : ''
+                                                            }`}
+                                                    />
+                                                </div>
+
+                                                {(mainGdriveLink || settings.gdrive_root_folder_id) && (
+                                                    <div className="bg-slate-950/50 rounded-lg p-3 border border-slate-800/50 space-y-2">
+                                                        <div className="flex justify-between items-center text-xs">
+                                                            <span className="text-slate-500 italic">Target Infrastructure:</span>
+                                                            <span className="text-blue-400 font-mono text-[10px]">
+                                                                {(() => {
+                                                                    const match = mainGdriveLink.match(/folders\/([a-zA-Z0-9_-]+)/);
+                                                                    return match ? match[1] : (settings.gdrive_main_folder_id || 'Not Set');
+                                                                })()}
+                                                            </span>
+                                                        </div>
+
+                                                        {settings.gdrive_root_folder_id && (
+                                                            <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-800">
+                                                                <div className="space-y-1">
+                                                                    <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Official Vault</p>
+                                                                    <p className="text-[11px] text-emerald-400 font-mono truncate">{settings.gdrive_root_folder_id}</p>
+                                                                </div>
+                                                                <div className="space-y-1">
+                                                                    <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Staging Sandbox</p>
+                                                                    <p className="text-[11px] text-fuchsia-400 font-mono truncate">{settings.gdrive_staging_folder_id}</p>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 )}
                                             </div>
-                                            <div className="flex justify-end">
+
+                                            <div className="flex items-center justify-between gap-4 pt-2">
+                                                <div className="flex items-center gap-2">
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        className="text-slate-400 hover:text-blue-400 hover:bg-blue-400/10 transition-colors"
+                                                        onClick={() => window.open('/api/auth', '_blank')}
+                                                    >
+                                                        <RefreshCw className="mr-2 h-3 w-3" /> Refresh Auth
+                                                    </Button>
+
+                                                    {settings.gdrive_main_folder_id && (
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            className={`transition-colors text-[11px] h-8 ${isGdriveUnlocked
+                                                                ? "text-amber-400 hover:text-amber-400 hover:bg-amber-400/10"
+                                                                : "text-slate-400 hover:text-emerald-400 hover:bg-emerald-400/10"
+                                                                }`}
+                                                            onClick={() => setIsGdriveUnlocked(!isGdriveUnlocked)}
+                                                        >
+                                                            {isGdriveUnlocked ? <Lock className="mr-2 h-3 w-3" /> : <Unlock className="mr-2 h-3 w-3" />}
+                                                            {isGdriveUnlocked ? "Lock Settings" : "Change Folder"}
+                                                        </Button>
+                                                    )}
+                                                </div>
+
                                                 <Button
                                                     size="sm"
-                                                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                                                    onClick={() => {
-                                                        // Extract folder ID from URL, or save as-is if already an ID
-                                                        const match = gdriveFolderLink.match(/folders\/([a-zA-Z0-9_-]+)/);
-                                                        const folderId = match ? match[1] : gdriveFolderLink.trim();
-                                                        saveGroup({ gdrive_root_folder_id: folderId });
+                                                    className={`${settings.gdrive_root_folder_id && !isGdriveUnlocked
+                                                        ? "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700"
+                                                        : "bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-900/20"
+                                                        } px-6 transition-all active:scale-95`}
+                                                    disabled={processing || (!!settings.gdrive_root_folder_id && !isGdriveUnlocked)}
+                                                    onClick={async () => {
+                                                        const match = mainGdriveLink.match(/folders\/([a-zA-Z0-9_-]+)/);
+                                                        const mainId = match ? match[1] : mainGdriveLink.trim();
+
+                                                        if (!mainId) {
+                                                            alert("Please provide a valid Google Drive folder ID or link.");
+                                                            return;
+                                                        }
+
+                                                        try {
+                                                            setSuccess("Initializing folders...");
+                                                            const response = await fetch('/api/folders/init-isams', {
+                                                                method: 'POST',
+                                                                headers: { 'Content-Type': 'application/json' },
+                                                                body: JSON.stringify({ mainFolderId: mainId })
+                                                            });
+                                                            const data = await response.json();
+
+                                                            if (!response.ok) throw new Error(data.error);
+
+                                                            await saveGroup({
+                                                                gdrive_main_folder_id: mainId,
+                                                                gdrive_root_folder_id: data.vaultId,
+                                                                gdrive_staging_folder_id: data.sandboxId
+                                                            });
+
+                                                            setSuccess("GDrive Structure Initialized & Saved!");
+                                                            setIsGdriveUnlocked(false); // Relock after successful save
+                                                        } catch (err) {
+                                                            setError("Setup failed: " + err.message);
+                                                        }
                                                     }}
                                                 >
-                                                    <Save className="mr-2 h-4 w-4" /> Save Folder Link
+                                                    {processing ? (
+                                                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        settings.gdrive_root_folder_id && !isGdriveUnlocked ? <Lock className="mr-2 h-4 w-4" /> : <Save className="mr-2 h-4 w-4" />
+                                                    )}
+                                                    {settings.gdrive_root_folder_id && !isGdriveUnlocked ? "Config Locked" : "Initialize & Save Config"}
                                                 </Button>
                                             </div>
                                         </CardContent>
@@ -1085,37 +1185,9 @@ export default function AdminSettingsPage() {
                                             rowData={masterCourseList}
                                             getRowId={p => String(p.data.id)}
                                             animateRows
-                                            columnDefs={[
-                                                { field: 'course_code', headerName: 'Code', width: 110, cellStyle: { fontFamily: 'monospace', color: '#34d399', fontWeight: 600 } },
-                                                { field: 'course_name', headerName: 'Course Name', flex: 2, cellStyle: { color: '#e2e8f0' } },
-                                                {
-                                                    field: 'semester', headerName: 'Semester', width: 130,
-                                                    cellStyle: { color: '#94a3b8', fontSize: '12px' },
-                                                    valueFormatter: p => p.value || '—'
-                                                },
-                                                {
-                                                    headerName: 'Action', width: 90, sortable: false, filter: false,
-                                                    cellRenderer: p => {
-                                                        const id = p.data.id;
-                                                        if (pendingCatalogDeleteId === id) {
-                                                            return React.createElement('div', { style: { display: 'flex', gap: '8px', alignItems: 'center' } },
-                                                                React.createElement('button', {
-                                                                    style: { background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '12px', fontWeight: '600' },
-                                                                    onClick: () => { setPendingCatalogDeleteId(null); handleDeleteMasterCourse(id); }
-                                                                }, 'Yes'),
-                                                                React.createElement('button', {
-                                                                    style: { background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '12px' },
-                                                                    onClick: () => setPendingCatalogDeleteId(null)
-                                                                }, 'No')
-                                                            );
-                                                        }
-                                                        return React.createElement('button', {
-                                                            style: { background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '12px', fontWeight: '600' },
-                                                            onClick: () => setPendingCatalogDeleteId(id)
-                                                        }, 'Remove');
-                                                    }
-                                                }
-                                            ]}
+                                            columnDefs={catalogColumnDefs}
+                                            onCellValueChanged={handleCatalogCellValueChanged}
+                                            stopEditingWhenCellsLoseFocus={true}
                                             overlayNoRowsTemplate='<span style="color:#475569;font-style:italic">No catalog entries yet. Add a course above.</span>'
                                         />
                                     </div>
@@ -1178,7 +1250,7 @@ export default function AdminSettingsPage() {
                                                                 <p className="text-slate-100 font-semibold text-sm truncate">
                                                                     {group.name}
                                                                     {!group.is_active && (
-                                                                        <span className="ml-2 text-xs text-amber-400 font-normal">(Inactive)</span>
+                                                                        <span className="ml-2 text-xs text-amber-400 font-normal">Inactive</span>
                                                                     )}
                                                                 </p>
                                                                 {group.employment_type && (
@@ -1288,7 +1360,12 @@ export default function AdminSettingsPage() {
                                                 </SelectTrigger>
                                                 <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
                                                     {masterCourseList.map(c => (
-                                                        <SelectItem key={c.id} value={String(c.id)}>
+                                                        <SelectItem
+                                                            key={c.id}
+                                                            value={String(c.id)}
+                                                            disabled={!c.is_active}
+                                                            className={!c.is_active ? 'opacity-40 cursor-not-allowed' : ''}
+                                                        >
                                                             {c.course_code} – {c.course_name} ({c.semester})
                                                         </SelectItem>
                                                     ))}
@@ -1343,10 +1420,9 @@ export default function AdminSettingsPage() {
                                                                 key={f.faculty_id}
                                                                 value={f.faculty_id}
                                                                 disabled={!f.is_active}
-                                                                className={!f.is_active ? 'opacity-40 cursor-not-allowed line-through' : ''}
+                                                                className={!f.is_active ? 'opacity-40 cursor-not-allowed' : ''}
                                                             >
                                                                 {f.first_name} {f.last_name}
-                                                                {!f.is_active ? ' (Inactive)' : ''}
                                                             </SelectItem>
                                                         ))}
                                                     </SelectContent>
@@ -1822,7 +1898,7 @@ export default function AdminSettingsPage() {
                                             </CardTitle>
                                         </CardHeader>
                                         <CardContent className="p-2 space-y-1 overflow-auto flex-1">
-                                            {docRequirements.map(doc => (
+                                            {docRequirements.filter(d => d.is_active).map(doc => (
                                                 <button
                                                     key={doc.id}
                                                     onClick={() => setSelectedDocTypeId(doc.id)}
@@ -1834,8 +1910,8 @@ export default function AdminSettingsPage() {
                                                     <span className="truncate pr-2">{doc.name}</span>
                                                 </button>
                                             ))}
-                                            {docRequirements.length === 0 && (
-                                                <div className="p-4 text-xs text-center text-slate-500">No document types found.</div>
+                                            {docRequirements.filter(d => d.is_active).length === 0 && (
+                                                <div className="p-4 text-xs text-center text-slate-500">No active document types found.</div>
                                             )}
                                         </CardContent>
                                     </Card>
@@ -2011,7 +2087,7 @@ export default function AdminSettingsPage() {
                                                         <SelectValue placeholder="Select Document Type" />
                                                     </SelectTrigger>
                                                     <SelectContent className="bg-slate-900 border-slate-700 text-slate-200">
-                                                        {docRequirements.map(doc => (
+                                                        {docRequirements.filter(d => d.is_active).map(doc => (
                                                             <SelectItem key={doc.id} value={doc.id}>{doc.name}</SelectItem>
                                                         ))}
                                                     </SelectContent>
@@ -2113,28 +2189,6 @@ export default function AdminSettingsPage() {
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent className="pt-6 space-y-4">
-                                    <div className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-orange-950/10 border border-orange-900/40 rounded-lg gap-4">
-                                        <div>
-                                            <h4 className="font-medium text-orange-200 text-sm flex items-center gap-2">
-                                                <HardDrive className="h-4 w-4 text-orange-400" />
-                                                Generate Full System Snapshot
-                                            </h4>
-                                            <p className="text-xs text-orange-200/60 mt-1 pl-6">
-                                                Exports a ZIP containing the SQL Schema (Blueprint) and JSON State Data (Content) for complete system migration.
-                                            </p>
-                                        </div>
-                                        <Button
-                                            variant="outline"
-                                            onClick={handleExportZip}
-                                            disabled={processing}
-                                            className="bg-slate-950 border-orange-800 text-orange-300 hover:bg-orange-900 hover:text-orange-200 whitespace-nowrap"
-                                            size="sm"
-                                        >
-                                            {processing ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Archive className="mr-2 h-4 w-4" />}
-                                            Export Backup ZIP
-                                        </Button>
-                                    </div>
-
                                     <DangerRow
                                         title="Reset Semester Data"
                                         desc="Clear all submissions for the current semester. Does not delete archives."
@@ -2147,35 +2201,6 @@ export default function AdminSettingsPage() {
                                         btnText="Purge Archives"
                                         onClick={() => handleDangerAction('PURGE_ARCHIVES')}
                                     />
-                                    <div className="pt-4 border-t border-red-900/30">
-                                        <h4 className="font-medium text-slate-300 text-sm mb-2">System Restore</h4>
-                                        <div className="flex items-center gap-4">
-                                            <input
-                                                type="file"
-                                                id="restore-upload"
-                                                className="hidden"
-                                                accept=".json"
-                                                onChange={(e) => {
-                                                    if (window.confirm("WARNING: Restoring will completely OVERWRITE current data. Proceed?")) {
-                                                        restoreSystem(e.target.files[0]);
-                                                    }
-                                                    e.target.value = ''; // Reset input to allow re-uploading the same file if needed
-                                                }}
-                                            />
-                                            <Button
-                                                variant="outline"
-                                                className="bg-slate-950 border-slate-700 text-slate-300 hover:bg-slate-800"
-                                                onClick={() => document.getElementById('restore-upload')?.click()}
-                                                disabled={processing}
-                                            >
-                                                {processing ? <RefreshCw className="mr-2 h-4 w-4 animate-spin text-emerald-400" /> : <HardDrive className="mr-2 h-4 w-4 text-emerald-400" />}
-                                                Upload Backup File
-                                            </Button>
-                                            <p className="text-xs text-slate-500">
-                                                Restoring will overwrite current system data.
-                                            </p>
-                                        </div>
-                                    </div>
                                 </CardContent>
                             </Card>
                         </TabsContent >

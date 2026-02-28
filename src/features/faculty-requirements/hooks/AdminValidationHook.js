@@ -45,9 +45,9 @@ export function useAdminValidation() {
     fetchData();
   }, [fetchData]);
 
-  const processAction = async (submissionId, action, remarks) => {
+  const processAction = async (submission, action, remarks) => {
     try {
-      const msg = await validationService.processAction(submissionId, action, remarks);
+      const msg = await validationService.processAction(submission, action, remarks);
       await fetchData(); // Refresh data immediately
       return { success: true, message: msg };
     } catch (err) {

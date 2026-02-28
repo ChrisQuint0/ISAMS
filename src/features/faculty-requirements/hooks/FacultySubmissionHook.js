@@ -10,17 +10,19 @@ export function useFacultySubmission() {
     const [error, setError] = useState(null);
     const [currentSemester, setCurrentSemester] = useState(null);
     const [currentAcademicYear, setCurrentAcademicYear] = useState(null);
+    const [ocrEnabled, setOcrEnabled] = useState(true);
 
     const loadSettings = async () => {
         try {
             const { data } = await supabase
                 .from('systemsettings_fs')
                 .select('setting_key, setting_value')
-                .in('setting_key', ['current_semester', 'current_academic_year']);
+                .in('setting_key', ['current_semester', 'current_academic_year', 'ocr_enabled']);
 
             data?.forEach(s => {
                 if (s.setting_key === 'current_semester') setCurrentSemester(s.setting_value);
                 if (s.setting_key === 'current_academic_year') setCurrentAcademicYear(s.setting_value);
+                if (s.setting_key === 'ocr_enabled') setOcrEnabled(s.setting_value === 'true');
             });
         } catch (err) {
             console.error('Failed to load settings', err);
@@ -91,6 +93,7 @@ export function useFacultySubmission() {
         error,
         currentSemester,
         currentAcademicYear,
+        ocrEnabled,
         loadRequiredDocs,
         submitDocument
     };

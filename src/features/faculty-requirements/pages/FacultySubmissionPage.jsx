@@ -30,10 +30,10 @@ export default function FacultySubmissionPage() {
     loading,
     isSubmitting,
     error: hookError,
-    loadRequiredDocs,
     submitDocument,
     currentSemester,
-    currentAcademicYear
+    currentAcademicYear,
+    ocrEnabled
   } = useFacultySubmission();
 
   // NOTE: If runOCR is not in hook, we can import service directly or add it to hook.
@@ -117,6 +117,10 @@ export default function FacultySubmissionPage() {
 
     // 3. OCR Check (If image)
     if (['.png', '.jpg', '.jpeg'].includes(ext)) {
+      if (!ocrEnabled) {
+        setOcrResult({ success: false, text: "Cant validate the file, Master Switch is Off", confidence: 0 });
+        return;
+      }
       setIsValidating(true);
       const result = await FacultySubmissionService.runOCR(file);
       setOcrResult(result);
@@ -375,7 +379,9 @@ export default function FacultySubmissionPage() {
                         {isValidating ? "Analyzing Content..." : "Content Validation"}
                       </p>
                       <p className="text-slate-400 text-xs">
-                        {isValidating ? "Running OCR..." : ocrResult?.text ? `Confidence: ${Math.round(ocrResult.confidence)}%` : "Check Complete"}
+                        {isValidating ? "Running OCR..." :
+                          ocrResult?.success ? `Confidence: ${Math.round(ocrResult.confidence)}%` :
+                            ocrResult?.text || "Check Complete"}
                       </p>
                     </div>
                   </div>
