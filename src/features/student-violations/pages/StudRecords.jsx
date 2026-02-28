@@ -5,7 +5,7 @@ import { ModuleRegistry, AllCommunityModule, themeQuartz } from "ag-grid-communi
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
-import { Plus, Search, UserCheck, Users, GraduationCap, ShieldCheck, Edit2, UserX, Clock, Ban } from "lucide-react";
+import { Plus, Search, UserCheck, Users, GraduationCap, Edit2, UserX, Clock, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -102,21 +102,24 @@ const StudRecords = () => {
       field: "id",
       flex: 1,
       cellStyle: { fontWeight: '500', color: '#94a3b8' },
-      filter: true // Enabled filtering for IDs
+      filter: true, // Enabled filtering for IDs
+      tooltipField: "id"
     },
     {
       headerName: "Full Name",
       field: "name",
       flex: 1.5,
       cellStyle: { fontWeight: '600', color: '#f8fafc' },
-      filter: true // Enabled filtering for names
+      filter: true, // Enabled filtering for names
+      tooltipField: "name"
     },
     {
       headerName: "Email",
       field: "email",
       flex: 2,
       cellStyle: { color: '#94a3b8' },
-      filter: true
+      filter: true,
+      tooltipField: "email"
     },
     {
       headerName: "Course",
@@ -124,6 +127,7 @@ const StudRecords = () => {
       flex: 1,
       cellStyle: { color: '#94a3b8', fontWeight: '500' },
       filter: 'agSetColumnFilter', // Specialized filter for categories
+      tooltipField: "course"
     },
     {
       headerName: "Guardian",
@@ -231,11 +235,10 @@ const StudRecords = () => {
         <QuickStat title="Expelled" value={expelledStudents.toLocaleString()} icon={Ban} color="text-rose-400" />
       </div>
 
-
       <Card className="bg-slate-900 border-slate-800 flex flex-col rounded-lg overflow-hidden shadow-sm">
-        <div className="p-4 border-b border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-800/20">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-slate-200">Enrollment registry</h3>
+        <div className="px-4 pt-1 pb-0 flex flex-col md:flex-row justify-between items-start gap-4">
+          <div className="flex items-start gap-2">
+            <h3 className="text-base font-semibold text-slate-200">Enrollment registry</h3>
           </div>
           <div className="flex items-center gap-3 w-full md:w-auto">
             <div className="relative w-full md:w-72">
@@ -262,6 +265,7 @@ const StudRecords = () => {
               columnDefs={columnDefs}
               defaultColDef={defaultColDef}
               onGridReady={(params) => setGridApi(params.api)}
+              tooltipShowDelay={0}
               animateRows={true}
               rowHeight={48}
               headerHeight={44}
@@ -313,4 +317,5 @@ function QuickStat({ title, value, icon: Icon, color }) {
     </div>
   );
 }
+
 export default StudRecords;
