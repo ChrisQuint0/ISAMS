@@ -79,22 +79,22 @@ export function FacultySidebar() {
   ]
 
   return (
-    <Sidebar variant="sidebar" collapsible="icon" className="bg-slate-900 border-slate-800">
-      <SidebarHeader className="bg-slate-900 border-b border-slate-800">
+    <Sidebar variant="sidebar" collapsible="icon" className="bg-white border-neutral-200">
+      <SidebarHeader className="bg-white border-b border-neutral-200">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
-              className="data-[state=open]:bg-slate-800 data-[state=open]:text-slate-100 hover:bg-slate-800"
+              className="data-[state=open]:bg-neutral-100 data-[state=open]:text-neutral-900 hover:bg-neutral-100"
             >
               {/* Icon Container */}
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-green-600 text-white shadow-lg shadow-green-900/20">
+              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-gradient-primary text-white shadow-lg shadow-emerald-900/20">
                 <FileText className="size-4" />
               </div>
 
               {/* Text Container */}
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-bold text-slate-100">
+                <span className="truncate font-bold text-neutral-900">
                   Faculty Portal
                 </span>
               </div>
@@ -103,10 +103,10 @@ export function FacultySidebar() {
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent className="bg-slate-900 overflow-x-hidden">
-        <SidebarSeparator className="bg-slate-800 group-data-[collapsible=icon]:hidden" />
+      <SidebarContent className="bg-white overflow-x-hidden">
+        <SidebarSeparator className="bg-neutral-100 group-data-[collapsible=icon]:hidden" />
         <SidebarGroup>
-          <SidebarGroupLabel className="text-slate-500 group-data-[collapsible=icon]:hidden">
+          <SidebarGroupLabel className="text-neutral-500 group-data-[collapsible=icon]:hidden font-semibold uppercase tracking-wider text-[10px]">
             Faculty Navigation
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -117,11 +117,13 @@ export function FacultySidebar() {
                     isActive={isActive(item.path)}
                     onClick={() => navigate(item.path)}
                     tooltip={item.label}
-                    className={`text-slate-300 hover:!text-slate-300 hover:!bg-slate-800 transition-colors ${isActive(item.path) ? "!bg-slate-800 !text-slate-300" : ""
+                    className={`text-neutral-600 hover:text-primary-700 hover:bg-neutral-100 transition-all rounded-md ${isActive(item.path)
+                      ? "!bg-primary-600 !text-white shadow-md shadow-emerald-900/10"
+                      : ""
                       }`}
                   >
-                    <item.icon className={`h-4 w-4 ${isActive(item.path) ? "text-green-400" : ""}`} />
-                    <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    <span className="group-data-[collapsible=icon]:hidden font-medium">{item.label}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -136,12 +138,14 @@ export function FacultySidebar() {
                 <SidebarMenuButton
                   isActive={isActive('/faculty-requirements/settings')}
                   onClick={() => navigate('/faculty-requirements/settings')}
-                  className={`text-slate-300 hover:!text-slate-300 hover:!bg-slate-800 transition-colors ${isActive('/faculty-requirements/settings') ? "!bg-slate-800 !text-slate-300" : ""
+                  className={`text-neutral-600 hover:text-primary-700 hover:bg-neutral-100 transition-all rounded-md ${isActive('/faculty-requirements/settings')
+                    ? "!bg-primary-600 !text-white shadow-md shadow-emerald-900/10"
+                    : ""
                     }`}
                   tooltip="Faculty Settings"
                 >
-                  <Settings className={`h-4 w-4 ${isActive('/faculty-requirements/settings') ? "text-green-400" : ""}`} />
-                  <span className="group-data-[collapsible=icon]:hidden">Settings</span>
+                  <Settings className="h-4 w-4 shrink-0" />
+                  <span className="group-data-[collapsible=icon]:hidden font-medium">Settings</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -149,32 +153,32 @@ export function FacultySidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="bg-slate-900 border-slate-800 p-2">
+      <SidebarFooter className="bg-neutral-50 border-t border-neutral-200 p-2">
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
                   size="lg"
-                  className="w-full justify-start gap-3 hover:bg-slate-800 text-slate-200 group-data-[collapsible=icon]:justify-center"
+                  className="w-full justify-start gap-3 hover:bg-neutral-200 text-neutral-900 group-data-[collapsible=icon]:justify-center"
                 >
-                  <div className="flex aspect-square size-8 items-center justify-center rounded-full bg-green-700 shrink-0">
-                    <User className="size-4 text-slate-100" />
+                  <div className="flex aspect-square size-8 items-center justify-center rounded-full bg-primary-600 shrink-0">
+                    <User className="size-4 text-white" />
                   </div>
-                  <div className="flex-1 text-left text-slate-200 text-sm leading-tight group-data-[collapsible=icon]:hidden overflow-hidden min-w-0">
-                    <span className="truncate font-medium block">{facultyName}</span>
-                    <span className="truncate text-xs text-slate-400">Faculty</span>
+                  <div className="flex-1 text-left text-neutral-900 text-sm leading-tight group-data-[collapsible=icon]:hidden overflow-hidden min-w-0">
+                    <span className="truncate font-bold block">{facultyName}</span>
+                    <span className="truncate text-xs text-neutral-500">Instructor</span>
                   </div>
-                  <ChevronUp className="ml-auto size-4 text-slate-500 group-data-[collapsible=icon]:hidden shrink-0" />
+                  <ChevronUp className="ml-auto size-4 text-neutral-400 group-data-[collapsible=icon]:hidden shrink-0" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
-              <DropdownMenuContent side="top" className="w-56 bg-slate-900 border-slate-800 text-slate-200">
+              <DropdownMenuContent side="top" className="w-56 bg-white border-neutral-200 text-neutral-900 shadow-xl">
                 <DropdownMenuItem
                   onClick={() => navigate("/dashboard")}
-                  className="text-red-400 hover:bg-red-950/30 hover:text-red-300 focus:bg-red-950/30 focus:text-red-300"
+                  className="text-primary-600 hover:bg-neutral-100 cursor-pointer"
                 >
                   <LogOut className="mr-2 h-4 w-4" />
-                  <span>Back to Main Dashboard</span>
+                  <span>Main Dashboard</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

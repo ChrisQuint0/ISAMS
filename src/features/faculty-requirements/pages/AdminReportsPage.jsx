@@ -12,30 +12,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { AgGridReact } from 'ag-grid-react';
-import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-community';
-
-// Register AG Grid modules
-ModuleRegistry.registerModules([AllCommunityModule]);
-
-// Custom Hook
+// Components
+import { DataTable } from "@/components/DataTable";
 import { useAdminReports } from '../hooks/AdminReportHook';
-
-// Custom theme using AG Grid v33+ Theming API with Balham theme (better dark mode support)
-const customTheme = themeBalham.withParams({
-  accentColor: '#3b82f6',
-  backgroundColor: '#020617',
-  foregroundColor: '#e2e8f0',
-  borderColor: '#1e293b',
-  headerBackgroundColor: '#0f172a',
-  headerTextColor: '#94a3b8',
-  oddRowBackgroundColor: '#020617',
-  rowHeight: 48,
-  headerHeight: 40,
-});
 
 export default function AdminReportsPage() {
   const { loading, error, reportData, settings, recentExports, generateReport, exportCSV } = useAdminReports();
+
+  // Consistent options for Select components
+  const options = {
+    academic_years: ['2023-2024', '2024-2025', '2025-2026'],
+    departments: ['CITE', 'CAS', 'CBA', 'COE', 'CON', 'CHS', 'CTE', 'CCJE']
+  };
 
   // Form State matching Rust 'ReportRequest' struct
   const [config, setConfig] = useState({
@@ -116,11 +104,10 @@ export default function AdminReportsPage() {
     });
   }, [reportData, config]);
 
-  // Dynamic Column Definitions for AG Grid
+  // Column Definitions for DataTable
   const columnDefs = React.useMemo(() => {
     if (!filteredData || filteredData.length === 0) return [];
 
-    // Generate columns based on the keys of the first row
     return Object.keys(filteredData[0]).map(key => ({
       field: key,
       headerName: key,
@@ -129,13 +116,6 @@ export default function AdminReportsPage() {
       filter: true,
       sortable: true,
       resizable: true,
-      cellStyle: {
-        display: 'flex',
-        alignItems: 'center',
-        color: '#cbd5e1',
-        fontFamily: 'monospace',
-        fontSize: '0.75rem'
-      }
     }));
   }, [filteredData]);
 
@@ -153,12 +133,14 @@ export default function AdminReportsPage() {
   };
 
   return (
-    <div className="space-y-6 flex flex-col h-full">
+    <div className="space-y-6 flex flex-col h-full bg-neutral-50">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-100">Reports & Analytics</h1>
-          <p className="text-slate-400 text-sm">Generate detailed insights for faculty submissions</p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Reports & Analytics</h1>
+            <p className="text-neutral-500 text-sm font-medium">Generate detailed insights for faculty submissions</p>
+          </div>
         </div>
       </div>
 
@@ -168,67 +150,76 @@ export default function AdminReportsPage() {
         <div className="lg:col-span-2 flex flex-col gap-6 min-h-0">
 
           {/* 1. Generate Report Configuration */}
-          <Card className="bg-slate-900 border-slate-800 shadow-none shrink-0">
-            <CardHeader className="border-b border-slate-800 py-3">
+          <Card className="bg-white border-neutral-200 shadow-sm shrink-0">
+            <CardHeader className="border-b border-neutral-100 py-3 bg-neutral-50/50">
               <div className="flex items-center gap-2">
-                <div className="bg-blue-600/20 p-1.5 rounded text-blue-400">
-                  <Filter className="h-4 w-4" />
-                </div>
-                <CardTitle className="text-base text-slate-100">Report Configuration</CardTitle>
+                <CardTitle className="text-sm font-bold text-neutral-900 uppercase tracking-wider">Report Configuration</CardTitle>
               </div>
             </CardHeader>
             <CardContent className="pt-4">
               {/* Selectors - FIX: Changed to 3 columns and added real database parameters */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-400 uppercase">Report Type</Label>
+                  <Label className="text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest pl-1">Report Type</Label>
                   <Select
                     value={config.reportType}
                     onValueChange={(v) => setConfig({ ...config, reportType: v })}
                   >
-                    <SelectTrigger className="bg-slate-950/50 border-slate-700 text-slate-200 focus:ring-blue-500/20">
+                    <SelectTrigger className="bg-white border-neutral-200 text-neutral-900 focus:ring-primary-500/20 focus:border-primary-500 text-sm">
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
-                      <SelectItem value="Submission Status Summary" className="focus:bg-slate-800">Submission Status Summary</SelectItem>
-                      <SelectItem value="Late Submission Analysis" className="focus:bg-slate-800">Late Submission Analysis</SelectItem>
-                      <SelectItem value="Validation Failure Report" className="focus:bg-slate-800">Validation Failure Report</SelectItem>
-                      <SelectItem value="Clearance Status Report" className="focus:bg-slate-800">Clearance Status Report</SelectItem>
+                    <SelectContent>
+                      <SelectItem value="Submission Status Summary">Submission Status Summary</SelectItem>
+                      <SelectItem value="Late Submission Analysis">Late Submission Analysis</SelectItem>
+                      <SelectItem value="Validation Failure Report">Validation Failure Report</SelectItem>
+                      <SelectItem value="Clearance Status Report">Clearance Status Report</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-400 uppercase">Semester</Label>
+                  <Label className="text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest pl-1">Semester</Label>
                   <Select
                     value={config.semester}
                     onValueChange={(v) => setConfig({ ...config, semester: v })}
                   >
-                    <SelectTrigger className="bg-slate-950/50 border-slate-700 text-slate-200 focus:ring-blue-500/20">
+                    <SelectTrigger className="bg-white border-neutral-200 text-neutral-900 focus:ring-primary-500/20 focus:border-primary-500 text-sm">
                       <SelectValue placeholder="Select semester" />
                     </SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
-                      <SelectItem value="1st Semester" className="focus:bg-slate-800">1st Semester</SelectItem>
-                      <SelectItem value="2nd Semester" className="focus:bg-slate-800">2nd Semester</SelectItem>
-                      <SelectItem value="Summer" className="focus:bg-slate-800">Summer</SelectItem>
+                    <SelectContent>
+                      <SelectItem value="1st Semester">1st Semester</SelectItem>
+                      <SelectItem value="2nd Semester">2nd Semester</SelectItem>
+                      <SelectItem value="Summer">Summer</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-400 uppercase">Academic Year</Label>
-                  <Input
-                    type="text"
+                  <Label className="text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest pl-1">Academic Year</Label>
+                  <Select
                     value={config.academicYear}
-                    onChange={(e) => setConfig({ ...config, academicYear: e.target.value })}
-                    className="bg-slate-950/50 border-slate-700 text-slate-200 focus:ring-blue-500/20 h-9"
-                    placeholder="e.g. 2023-2024"
-                  />
+                    onValueChange={(v) => setConfig({ ...config, academicYear: v })}
+                  >
+                    <SelectTrigger className="bg-white border-neutral-200 text-neutral-900 focus:ring-primary-500/20 focus:border-primary-500 text-sm">
+                      <SelectValue placeholder="Select year" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="All Years">All Academic Years</SelectItem>
+                      {options ? options.academic_years?.map(y => (
+                        <SelectItem key={y} value={y}>{y}</SelectItem>
+                      )) : (
+                        // Fallback if options aren't available in this hook (using a placeholder range)
+                        ['2023-2024', '2024-2025', '2025-2026'].map(y => (
+                          <SelectItem key={y} value={y}>{y}</SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
               {/* Checkboxes */}
-              <div className="mb-6 bg-slate-950/30 p-4 rounded-lg border border-slate-800/50">
-                <Label className="mb-3 block text-xs font-semibold text-slate-400 uppercase">Include Data Columns</Label>
+              <div className="mb-6 bg-neutral-50/50 p-4 rounded-lg border border-neutral-100">
+                <Label className="mb-3 block text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest">Include Data Columns</Label>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-4">
                   <CheckboxItem
                     label="Faculty Names"
@@ -269,12 +260,12 @@ export default function AdminReportsPage() {
                   variant="outline"
                   onClick={handleGenerate}
                   disabled={loading}
-                  className="bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
+                  className="h-9 border-neutral-200 text-neutral-600 hover:bg-white"
                 >
-                  <Eye className="mr-2 h-4 w-4" /> Preview Report
+                  <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Preview Report
                 </Button>
                 <Button
-                  className="bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-900/20"
+                  className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-900/10 font-bold"
                   onClick={handleExport}
                   disabled={!reportData || !filteredData || filteredData.length === 0}
                 >
@@ -285,13 +276,10 @@ export default function AdminReportsPage() {
           </Card>
 
           {/* 2. Preview Card */}
-          <Card className="bg-slate-900 border-slate-800 shadow-none flex-1 flex flex-col min-h-[400px]">
-            <CardHeader className="border-b border-slate-800 py-3 shrink-0 bg-slate-950/30">
+          <Card className="bg-white border-neutral-200 shadow-sm flex-1 flex flex-col min-h-[400px] overflow-hidden">
+            <CardHeader className="border-b border-neutral-100 py-3 bg-neutral-50/50">
               <div className="flex items-center gap-2">
-                <div className="bg-emerald-600/20 p-1.5 rounded text-emerald-400">
-                  <FileText className="h-4 w-4" />
-                </div>
-                <CardTitle className="text-base text-slate-100">Report Preview</CardTitle>
+                <CardTitle className="text-sm font-bold text-neutral-900 uppercase tracking-wider">Report Preview</CardTitle>
               </div>
             </CardHeader>
             <CardContent className="p-0 flex-1 relative flex flex-col">
@@ -308,11 +296,11 @@ export default function AdminReportsPage() {
                 <div className="flex-1 flex flex-col h-full">
                   {/* Summary Stats Row */}
                   {reportData.summary && (
-                    <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-4 bg-slate-900 border-b border-slate-800">
+                    <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-4 bg-white border-b border-neutral-100">
                       {Object.entries(reportData.summary).map(([key, value]) => (
-                        <div key={key} className="bg-slate-950/50 p-3 rounded border border-slate-800">
-                          <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">{key}</p>
-                          <p className="text-lg font-mono font-bold text-slate-200">{value}</p>
+                        <div key={key} className="bg-neutral-50/50 p-3 rounded border border-neutral-100">
+                          <p className="text-[10px] text-neutral-400 uppercase font-bold mb-1">{key}</p>
+                          <p className="text-lg font-bold text-neutral-900">{value}</p>
                         </div>
                       ))}
                     </div>
@@ -321,24 +309,20 @@ export default function AdminReportsPage() {
                   {/* Data Table */}
                   <div className="flex-1 overflow-hidden p-0 h-[400px]">
                     <div style={{ height: '100%', width: '100%' }}>
-                      <AgGridReact
-                        theme={customTheme}
+                      <DataTable
                         rowData={filteredData}
                         columnDefs={columnDefs}
-                        animateRows={true}
-                        rowSelection="multiple"
-                        suppressRowClickSelection={true}
                       />
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center flex-1 text-slate-400 min-h-[300px]">
-                  <div className="h-20 w-20 bg-slate-950/50 rounded-full flex items-center justify-center mb-4 border border-slate-800">
-                    <BarChart3 className="h-10 w-10 text-slate-700" />
+                <div className="flex flex-col items-center justify-center flex-1 text-neutral-400 min-h-[300px] bg-white">
+                  <div className="h-20 w-20 bg-neutral-50 rounded-full flex items-center justify-center mb-4 border border-neutral-100">
+                    <BarChart3 className="h-10 w-10 text-neutral-200" />
                   </div>
-                  <p className="font-medium text-slate-300 text-lg">No report generated</p>
-                  <p className="text-sm text-slate-500 max-w-xs text-center mt-1">
+                  <p className="font-bold text-neutral-900 text-lg">No report generated</p>
+                  <p className="text-sm text-neutral-500 max-w-xs text-center mt-1">
                     Select a report type above and click "Preview Report" to generate data.
                   </p>
                 </div>
@@ -351,50 +335,50 @@ export default function AdminReportsPage() {
         <div className="flex flex-col gap-6">
 
           {/* 3. Quick Reports Widget */}
-          <Card className="bg-slate-900 border-slate-800 shadow-none">
-            <CardHeader className="border-b border-slate-800 py-3">
-              <CardTitle className="text-base text-slate-100">Quick Templates</CardTitle>
+          <Card className="bg-white border-neutral-200 shadow-sm">
+            <CardHeader className="border-b border-neutral-100 py-3 bg-neutral-50/50">
+              <CardTitle className="text-sm font-bold text-neutral-900 uppercase tracking-wider">Quick Templates</CardTitle>
             </CardHeader>
             <CardContent className="pt-4 space-y-3 px-4">
               <QuickReportBtn
                 icon={PieChart}
                 label="Current Status"
                 sub="Snapshot of current semester"
-                color="text-emerald-400"
-                bg="hover:bg-slate-800 border-slate-800"
+                color="text-emerald-600"
+                bg="bg-white hover:bg-neutral-50 border-neutral-200"
                 onClick={() => handleQuickReport('Submission Status Summary')}
               />
               <QuickReportBtn
                 icon={Clock}
                 label="Late Submissions"
                 sub="All overdue documents"
-                color="text-rose-400"
-                bg="hover:bg-slate-800 border-slate-800"
+                color="text-rose-600"
+                bg="bg-white hover:bg-neutral-50 border-neutral-200"
                 onClick={() => handleQuickReport('Late Submission Analysis')}
               />
               <QuickReportBtn
                 icon={CheckCircle}
                 label="Validation Stats"
                 sub="Success/failure rates"
-                color="text-blue-400"
-                bg="hover:bg-slate-800 border-slate-800"
+                color="text-primary-600"
+                bg="bg-white hover:bg-neutral-50 border-neutral-200"
                 onClick={() => handleQuickReport('Validation Failure Report')}
               />
               <QuickReportBtn
                 icon={FileBadge}
                 label="Clearance Report"
                 sub="Faculty clearance status"
-                color="text-purple-400"
-                bg="hover:bg-slate-800 border-slate-800"
+                color="text-purple-600"
+                bg="bg-white hover:bg-neutral-50 border-neutral-200"
                 onClick={() => handleQuickReport('Clearance Status Report')}
               />
             </CardContent>
           </Card>
 
           {/* 4. Recent Exports Widget */}
-          <Card className="bg-slate-900 border-slate-800 shadow-none">
-            <CardHeader className="border-b border-slate-800 py-3">
-              <CardTitle className="text-base text-slate-100">Recent Exports</CardTitle>
+          <Card className="bg-white border-neutral-200 shadow-sm">
+            <CardHeader className="border-b border-neutral-100 py-3 bg-neutral-50/50">
+              <CardTitle className="text-sm font-bold text-neutral-900 uppercase tracking-wider">Recent Exports</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y divide-slate-800/50">
@@ -403,13 +387,13 @@ export default function AdminReportsPage() {
                     <RecentExportItem
                       key={idx}
                       name={exp.report_name}
-                      date={new Date(exp.generated_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      date={new Date(exp.generated_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
                       type={exp.report_type}
                     />
                   ))
                 ) : (
-                  <div className="p-6 text-center text-slate-500 text-sm">
-                    No export history yet. Generate and export a report to see it here.
+                  <div className="p-6 text-center text-neutral-400 text-sm">
+                    No export history yet.
                   </div>
                 )}
                 {recentExports && recentExports.length > 0 && (
@@ -437,11 +421,11 @@ const CheckboxItem = ({ label, checked, onChange }) => (
       id={label}
       checked={checked}
       onCheckedChange={onChange}
-      className="border-slate-600 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 h-4 w-4"
+      className="border-neutral-300 data-[state=checked]:bg-primary-600 data-[state=checked]:border-primary-600 h-4 w-4"
     />
     <label
       htmlFor={label}
-      className="text-sm font-medium leading-none text-slate-300 peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer select-none"
+      className="text-sm font-bold text-neutral-600 cursor-pointer select-none"
     >
       {label}
     </label>
@@ -453,32 +437,32 @@ const QuickReportBtn = ({ icon: Icon, label, sub, color, bg, onClick }) => (
     onClick={onClick}
     className={`flex items-center w-full p-3 rounded-lg border transition-all text-left group ${bg}`}
   >
-    <div className={`mr-3 p-1.5 rounded bg-slate-950/50 group-hover:bg-slate-950 transition-colors`}>
+    <div className={`mr-3 p-1.5 rounded bg-neutral-50 group-hover:bg-white transition-colors border border-transparent group-hover:border-neutral-100 shadow-sm`}>
       <Icon className={`h-4 w-4 ${color}`} />
     </div>
     <div className="flex-1 min-w-0">
-      <p className="font-medium text-sm text-slate-200 truncate">{label}</p>
-      <p className="text-[10px] text-slate-500 truncate">{sub}</p>
+      <p className="font-bold text-sm text-neutral-900 truncate">{label}</p>
+      <p className="text-[10px] text-neutral-400 font-medium truncate">{sub}</p>
     </div>
-    <ArrowRight className="h-3 w-3 text-slate-600 group-hover:text-slate-400 transition-colors" />
+    <ArrowRight className="h-3 w-3 text-neutral-300 group-hover:text-primary-600 transition-colors" />
   </button>
 );
 
 const RecentExportItem = ({ name, date, type }) => (
-  <div className="flex items-center justify-between p-4 hover:bg-slate-800/30 transition-colors group">
+  <div className="flex items-center justify-between p-4 hover:bg-neutral-50 transition-colors group">
     <div className="flex items-center gap-3">
-      <div className={`p-1.5 rounded bg-slate-950 border border-slate-800 ${type === 'PDF' ? 'text-rose-400' : 'text-emerald-400'}`}>
+      <div className={`p-1.5 rounded bg-white border border-neutral-100 shadow-sm ${type === 'PDF' ? 'text-rose-600' : 'text-emerald-600'}`}>
         <File className="h-3.5 w-3.5" />
       </div>
       <div>
-        <p className="font-medium text-sm text-slate-200">{name}</p>
-        <p className="text-[10px] text-slate-500">{date} • {type}</p>
+        <p className="font-bold text-sm text-neutral-900">{name}</p>
+        <p className="text-[10px] text-neutral-400 font-medium">{date} • {type}</p>
       </div>
     </div>
     <Button
       variant="ghost"
       size="icon"
-      className="h-7 w-7 text-slate-500 hover:text-slate-100 hover:bg-slate-800 opacity-0 group-hover:opacity-100 transition-opacity"
+      className="h-7 w-7 text-neutral-400 hover:text-primary-600 hover:bg-white opacity-0 group-hover:opacity-100 transition-all"
     >
       <Download className="h-3.5 w-3.5" />
     </Button>

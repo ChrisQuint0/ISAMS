@@ -1,43 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useNavigate } from 'react-router-dom';
 import {
-  Eye, Mail, Bell, FileText, FileSpreadsheet, Search, Filter,
-  RefreshCw, AlertCircle, Clock, File, CheckCircle, GraduationCap, X
+  Eye, Mail, Bell, FileSpreadsheet, Search,
+  RefreshCw, AlertCircle, CheckCircle, GraduationCap, X,
+  FileText, Download, Filter, Info
 } from 'lucide-react';
+
+// UI Components
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AgGridReact } from 'ag-grid-react';
-import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-community';
-
-// Register AG Grid modules
-ModuleRegistry.registerModules([AllCommunityModule]);
+import { DataTable } from "@/components/DataTable";
 
 // Hook
 import { useFacultyMonitor } from '../hooks/AdminFacultyMonitoringHook';
 
-// Custom theme using AG Grid v33+ Theming API with Balham theme (better dark mode support)
-const customTheme = themeBalham.withParams({
-  accentColor: '#3b82f6',
-  backgroundColor: '#020617',
-  foregroundColor: '#e2e8f0',
-  borderColor: '#1e293b',
-  headerBackgroundColor: '#0f172a',
-  headerTextColor: '#94a3b8',
-  oddRowBackgroundColor: '#020617',
-  rowHeight: 56, // Slightly taller for avatars/progress bars
-  headerHeight: 40,
-});
-
-export default function FacultyMonitorPage() {
+export default function AdminFacultyMonitorPage() {
   const navigate = useNavigate();
   const {
     loading, error, success,
@@ -53,28 +39,13 @@ export default function FacultyMonitorPage() {
     return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase();
   };
 
-  // Helper: Generate consistent color based on name
-  const getAvatarColor = (name) => {
-    const colors = [
-      'bg-blue-500/20 text-blue-400 border-blue-500/30',
-      'bg-amber-500/20 text-amber-400 border-amber-500/30',
-      'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-      'bg-purple-500/20 text-purple-400 border-purple-500/30',
-      'bg-pink-500/20 text-pink-400 border-pink-500/30'
-    ];
-    let hash = 0;
-    if (!name) return colors[0];
-    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    return colors[Math.abs(hash) % colors.length];
-  };
-
-  // Helper: Status Colors
+  // Helper: Status Colors (Institutional Palette)
   const getStatusColor = (status) => {
     switch (status) {
-      case 'On Track': return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20';
-      case 'At Risk': return 'bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20';
-      case 'Delayed': return 'bg-rose-500/10 text-rose-400 border-rose-500/20 hover:bg-rose-500/20';
-      default: return 'bg-slate-800 text-slate-400 border-slate-700';
+      case 'On Track': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+      case 'At Risk': return 'bg-amber-100 text-amber-700 border-amber-200';
+      case 'Delayed': return 'bg-rose-100 text-rose-700 border-rose-200';
+      default: return 'bg-neutral-100 text-neutral-500 border-neutral-200';
     }
   };
 
@@ -90,58 +61,67 @@ export default function FacultyMonitorPage() {
     }
   };
 
-  // AG Grid Column Definitions
-  const columnDefs = React.useMemo(() => [
+  // --- DataTable Column Definitions ---
+  const columnDefs = useMemo(() => [
     {
-      headerName: "Faculty",
+      headerName: "Faculty Information",
       field: "last_name",
       flex: 2,
-      minWidth: 200,
-      cellRenderer: (params) => {
-        const f = params.data;
+      minWidth: 250,
+      cellRenderer: (p) => {
+        const f = p.data;
         if (!f) return null;
         return (
           <div className="flex items-center gap-3 h-full">
-            <div className={`w-8 h-8 rounded-lg flex shrink-0 items-center justify-center font-bold text-xs border ${getAvatarColor(f.first_name)}`}>
+            <div className="w-9 h-9 rounded-lg flex shrink-0 items-center justify-center font-bold text-xs bg-emerald-50 text-emerald-700 border border-emerald-100 shadow-sm">
               {getInitials(f.first_name, f.last_name)}
             </div>
             <div className="flex flex-col justify-center leading-tight">
-              <span className="font-bold text-slate-100 text-sm truncate" title={`${f.first_name} ${f.last_name}`}>
+              <span className="font-bold text-neutral-900 text-sm">
                 {f.first_name} {f.last_name}
               </span>
-              <span className="text-[10px] text-slate-500 truncate" title={f.department}>{f.department}</span>
+              <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">
+                {f.department}
+              </span>
             </div>
           </div>
         );
       }
     },
     {
-      headerName: "Status",
+      headerName: "Submission Status",
       field: "status",
-      width: 130,
-      cellRenderer: (params) => {
-        if (!params.value) return null;
+      width: 150,
+      cellRenderer: (p) => {
+        if (!p.value) return null;
         return (
           <div className="flex items-center h-full">
-            <Badge className={`font-normal ${getStatusColor(params.value)}`}>{params.value}</Badge>
+            <Badge className={`font-bold text-[10px] uppercase tracking-wide px-2 py-0.5 pointer-events-none ${getStatusColor(p.value)} shadow-none`}>
+              {p.value}
+            </Badge>
           </div>
         );
       }
     },
     {
-      headerName: "Progress",
+      headerName: "Overall Completion",
       field: "overall_progress",
       flex: 1.5,
-      minWidth: 150,
-      cellRenderer: (params) => {
-        if (params.value == null) return null;
+      minWidth: 180,
+      cellRenderer: (p) => {
+        if (p.value == null) return null;
+        const score = parseFloat(p.value);
         return (
-          <div className="flex flex-col justify-center h-full w-full pr-4 mt-2">
-            <div className="flex justify-between text-[10px] mb-1">
-              <span className="text-slate-400">Completion</span>
-              <span className="font-bold text-slate-200">{params.value}%</span>
+          <div className="flex flex-col justify-center h-full w-full pr-4">
+            <div className="flex justify-between text-[10px] mb-1.5 font-bold uppercase tracking-widest text-neutral-400">
+              <span>Progress</span>
+              <span className="text-neutral-700">{score}%</span>
             </div>
-            <Progress value={params.value} className="h-1.5 bg-slate-800" />
+            <Progress
+              value={score}
+              className="h-1.5 bg-neutral-100"
+              indicatorClassName={score === 100 ? 'bg-emerald-500' : score > 50 ? 'bg-emerald-600' : 'bg-amber-500'}
+            />
           </div>
         );
       }
@@ -150,40 +130,40 @@ export default function FacultyMonitorPage() {
       headerName: "Pending",
       field: "pending_submissions",
       width: 100,
-      cellClass: "text-amber-400 font-mono text-center flex items-center justify-center"
+      cellClass: "font-mono font-bold text-amber-600 text-center"
     },
     {
-      headerName: "Late",
+      headerName: "Late Items",
       field: "late_submissions",
       width: 100,
-      cellClass: "text-rose-400 font-mono text-center flex items-center justify-center"
+      cellClass: "font-mono font-bold text-rose-600 text-center"
     },
     {
-      headerName: "Actions",
-      width: 180,
+      headerName: "Controls",
+      width: 120,
       sortable: false,
       filter: false,
       pinned: 'right',
-      cellRenderer: (params) => {
-        const f = params.data;
+      cellRenderer: (p) => {
+        const f = p.data;
         if (!f) return null;
         return (
-          <div className="flex items-center gap-2 h-full">
+          <div className="flex items-center gap-1.5 h-full">
             <Button
               variant="ghost"
-              size="sm"
-              className="h-8 px-2 bg-transparent text-slate-400 hover:text-white"
+              size="icon"
+              className="h-8 w-8 text-neutral-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
               onClick={() => navigate(`/faculty/${f.faculty_id}`)}
-              title="View Details"
+              title="View Submissions"
             >
               <Eye className="h-4 w-4" />
             </Button>
             <Button
               variant="ghost"
-              size="sm"
-              className="h-8 px-2 bg-transparent text-blue-400 hover:text-blue-300"
+              size="icon"
+              className="h-8 w-8 text-neutral-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
               onClick={() => handleReminderClick(f)}
-              title="Send Reminder"
+              title="Email Reminder"
             >
               <Mail className="h-4 w-4" />
             </Button>
@@ -193,35 +173,16 @@ export default function FacultyMonitorPage() {
     }
   ], [navigate]);
 
-  // Clear all filters
-  const clearFilters = () => {
-    setFilters({
-      department: "All Departments",
-      status: "All Status",
-      course: "All Courses",
-      search: ""
-    });
-  };
-
-  const hasActiveFilters = filters.department !== "All Departments" ||
-    filters.status !== "All Status" ||
-    filters.course !== "All Courses" ||
-    filters.search !== "";
-
+  // Handle Export PDF
   const handleExportPDF = () => {
     const doc = new jsPDF();
-
-    // Title
     doc.setFontSize(18);
     doc.text('Faculty Monitoring Report', 14, 22);
-
-    // Meta
     doc.setFontSize(11);
     doc.setTextColor(100);
     doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 30);
-    doc.text(`Filter: ${filters.department} | ${filters.status}`, 14, 36);
+    doc.text(`Department: ${filters.department}`, 14, 36);
 
-    // Table Data
     const tableData = facultyList.map(f => [
       `${f.first_name} ${f.last_name}`,
       f.department,
@@ -237,34 +198,43 @@ export default function FacultyMonitorPage() {
       startY: 44,
       theme: 'grid',
       styles: { fontSize: 9 },
-      headStyles: { fillColor: [15, 23, 42] }
+      headStyles: { fillColor: [0, 138, 69] } // PLP Green
     });
 
     doc.save('Faculty_Monitoring_Report.pdf');
   };
 
+  const hasActiveFilters = filters.department !== "All Departments" ||
+    filters.status !== "All Status" ||
+    filters.course !== "All Courses" ||
+    filters.search !== "";
+
   return (
-    <div className="space-y-6 flex flex-col h-full">
-      {/* Header */}
+    <div className="space-y-6 flex flex-col h-full bg-neutral-50">
+
+      {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-100">Faculty Monitoring</h1>
-          <p className="text-slate-400 text-sm">Track and manage faculty submissions across all departments</p>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-emerald-50 rounded-lg border border-emerald-100 shadow-sm">
+            <GraduationCap className="h-6 w-6 text-emerald-600" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Faculty Monitoring</h1>
+            <p className="text-neutral-500 text-sm">Real-time status of requirement submissions across departments</p>
+          </div>
         </div>
-        <div className="flex gap-2 w-full md:w-auto">
+        <div className="flex items-center gap-2">
           <Button
             variant="outline"
-            size="sm"
             onClick={refresh}
             disabled={loading}
-            className="bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
+            className="h-9 border-neutral-200 text-neutral-600 hover:bg-white"
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh Faculty
+            Sync
           </Button>
           <Button
-            className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-900/20"
-            size="sm"
+            className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-900/10 font-bold"
             onClick={() => sendBulkReminders()}
           >
             <Bell className="h-4 w-4 mr-2" /> Bulk Reminders
@@ -273,202 +243,206 @@ export default function FacultyMonitorPage() {
       </div>
 
       {/* Notifications */}
-      <div className="shrink-0">
+      <div className="shrink-0 transition-all">
         {error && (
-          <Alert variant="destructive" className="border-red-900/50 bg-red-900/10 text-red-200">
+          <Alert variant="destructive" className="border-destructive/20 bg-destructive/5 text-destructive shadow-sm animate-in fade-in slide-in-from-top-1">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription className="font-semibold">{error}</AlertDescription>
           </Alert>
         )}
         {success && (
-          <Alert className="border-green-900/50 bg-green-900/10 text-green-200">
-            <CheckCircle className="h-4 w-4 text-green-400" />
-            <AlertDescription>{success}</AlertDescription>
+          <Alert className="border-success/20 bg-success/5 text-success shadow-sm animate-in fade-in slide-in-from-top-1">
+            <CheckCircle className="h-4 w-4 text-success" />
+            <AlertDescription className="font-semibold">{success}</AlertDescription>
           </Alert>
         )}
       </div>
 
-      {/* Filters Card */}
-      <Card className="bg-slate-900 border-slate-800 shadow-none shrink-0">
-        <CardContent className="p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Search - Placed first for better UX */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Search Faculty</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-                <Input
-                  placeholder="Search by name..."
-                  className="pl-9 bg-slate-950/50 border-slate-700 text-slate-200 placeholder:text-slate-500 focus:ring-blue-500/20 focus:border-blue-500/50"
-                  value={filters.search}
-                  onChange={e => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                />
-              </div>
-            </div>
+      {/* Filters & Table Container */}
+      <div className="flex flex-col flex-1 min-h-0 bg-white border border-neutral-200 rounded-xl shadow-sm overflow-hidden">
 
-            {/* Department Filter */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Department</label>
-              <Select value={filters.department} onValueChange={v => setFilters(prev => ({ ...prev, department: v }))}>
-                <SelectTrigger className="bg-slate-950/50 border-slate-700 text-slate-200 focus:ring-blue-500/20">
-                  <SelectValue placeholder="Select department" />
-                </SelectTrigger>
-                <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
-                  <SelectItem value="All Departments" className="focus:bg-slate-300">All Departments</SelectItem>
-                  {options.departments?.map(d => (
-                    <SelectItem key={d} value={d} className="focus:bg-slate-800">{d}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Status Filter */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Status</label>
-              <Select value={filters.status} onValueChange={v => setFilters(prev => ({ ...prev, status: v }))}>
-                <SelectTrigger className="bg-slate-950/50 border-slate-700 text-slate-200 focus:ring-blue-500/20">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
-                  <SelectItem value="All Status" className="focus:bg-slate-300">All Status</SelectItem>
-                  <SelectItem value="On Track" className="focus:bg-slate-300 text-emerald-400">On Track</SelectItem>
-                  <SelectItem value="At Risk" className="focus:bg-slate-300 text-amber-400">At Risk</SelectItem>
-                  <SelectItem value="Delayed" className="focus:bg-slate-300 text-rose-400">Delayed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Course Filter */}
-            <div className="space-y-1.5">
-              <div className="flex justify-between">
-                <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Course</label>
-                {hasActiveFilters && (
-                  <button onClick={clearFilters} className="text-[10px] text-blue-400 hover:text-blue-300 flex items-center">
-                    <X className="h-3 w-3 mr-1" /> Clear
-                  </button>
-                )}
-              </div>
-              <Select value={filters.course} onValueChange={v => setFilters(prev => ({ ...prev, course: v }))}>
-                <SelectTrigger className="bg-slate-950/50 border-slate-700 text-slate-200 focus:ring-blue-500/20">
-                  <SelectValue placeholder="Select course" />
-                </SelectTrigger>
-                <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
-                  <SelectItem value="All Courses" className="focus:bg-slate-300">All Courses</SelectItem>
-                  {options.courses?.map(c => (
-                    <SelectItem key={c} value={c} className="focus:bg-slate-300">{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        {/* Filter Strip */}
+        <div className="p-4 bg-neutral-50/50 border-b border-neutral-100 flex flex-wrap items-end gap-4 shrink-0">
+          <div className="flex-1 min-w-[200px] space-y-1.5">
+            <label className="text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest pl-1">Search Faculty</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-neutral-400" />
+              <Input
+                placeholder="Find by name..."
+                className="pl-9 bg-white border-neutral-200 text-neutral-900 placeholder:text-neutral-400 focus-visible:ring-primary-500 focus-visible:border-primary-500 transition-all font-medium"
+                value={filters.search}
+                onChange={e => setFilters(prev => ({ ...prev, search: e.target.value }))}
+              />
             </div>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Faculty Data Grid */}
-      {facultyList.length === 0 && !loading ? (
-        <div className="flex flex-col items-center justify-center flex-1 text-slate-500 border-2 border-dashed border-slate-800 rounded-lg min-h-[300px]">
-          <GraduationCap className="h-12 w-12 mb-4 opacity-50" />
-          <p className="text-lg font-medium text-slate-400">No faculty found</p>
-          <p className="text-sm">Try adjusting your filters or search terms.</p>
-          <Button variant="link" onClick={clearFilters} className="text-blue-400 mt-2">Clear all filters</Button>
+          <div className="w-[180px] space-y-1.5">
+            <label className="text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest pl-1">Department</label>
+            <Select value={filters.department} onValueChange={v => setFilters(prev => ({ ...prev, department: v }))}>
+              <SelectTrigger className="h-9 bg-white border-neutral-200 text-sm focus:ring-primary-500/20 focus:border-primary-500">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All Departments">All Departments</SelectItem>
+                {options.departments?.map(d => (
+                  <SelectItem key={d} value={d}>{d}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="w-[150px] space-y-1.5">
+            <label className="text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest pl-1">Status</label>
+            <Select value={filters.status} onValueChange={v => setFilters(prev => ({ ...prev, status: v }))}>
+              <SelectTrigger className="h-9 bg-white border-neutral-200 text-sm focus:ring-primary-500/20 focus:border-primary-500">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All Status">All Status</SelectItem>
+                <SelectItem value="On Track">On Track</SelectItem>
+                <SelectItem value="At Risk">At Risk</SelectItem>
+                <SelectItem value="Delayed">Delayed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="w-[180px] space-y-1.5">
+            <label className="text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest pl-1">Academic Year</label>
+            <Select value={filters.academic_year} onValueChange={v => setFilters(prev => ({ ...prev, academic_year: v }))}>
+              <SelectTrigger className="h-9 bg-white border-neutral-200 text-sm focus:ring-primary-500/20 focus:border-primary-500">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All Years">All Academic Years</SelectItem>
+                {/* Dynamically mapped academic years would go here */}
+                {options.academic_years?.map(y => (
+                  <SelectItem key={y} value={y}>{y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setFilters({
+                department: 'All Departments',
+                semester: 'All Semesters',
+                academic_year: 'All Years',
+                status: 'All Status',
+                course: 'All Courses',
+                search: ''
+              })}
+              className="h-9 text-rose-600 hover:text-rose-700 hover:bg-rose-50 font-bold text-xs uppercase tracking-wider"
+            >
+              <X className="h-4 w-4 mr-1.5" /> Reset
+            </Button>
+          )}
         </div>
-      ) : (
-        <div className="flex-1 min-h-[400px] border border-slate-800 rounded-xl overflow-hidden shrink-0">
-          <div style={{ height: '100%', width: '100%' }}>
-            <AgGridReact
-              theme={customTheme}
+
+        {/* The Grid Area */}
+        <div className="flex-1 min-h-0 relative bg-white">
+          {facultyList.length === 0 && !loading ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-neutral-400">
+              <div className="p-4 bg-neutral-50 rounded-full mb-4 border border-neutral-100">
+                <Search className="h-8 w-8 opacity-20" />
+              </div>
+              <p className="font-bold uppercase tracking-widest text-[10px]">No Matching Faculty</p>
+              <p className="text-sm">Try adjusting your filters or search terms</p>
+            </div>
+          ) : (
+            <DataTable
               rowData={facultyList}
               columnDefs={columnDefs}
-              animateRows={true}
-              rowSelection="single"
-              suppressRowClickSelection={true}
+              className="h-full border-0 rounded-none shadow-none"
+              loading={loading}
             />
+          )}
+        </div>
+
+        {/* Footer actions for the table card */}
+        <div className="px-6 py-3 bg-neutral-50/50 border-t border-neutral-100 flex justify-between items-center shrink-0">
+          <div className="flex items-center gap-2 text-xs text-neutral-500 font-medium">
+            <Info className="h-3.5 w-3.5 text-blue-500" />
+            Showing {facultyList.length} faculty entries based on current filters.
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportCSV}
+              className="h-8 bg-white border-neutral-200 text-neutral-600 text-[10px] font-bold uppercase tracking-widest"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5 mr-2 text-emerald-600" />
+              Excel Export
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportPDF}
+              className="h-8 bg-white border-neutral-200 text-neutral-600 text-[10px] font-bold uppercase tracking-widest"
+            >
+              <FileText className="h-3.5 w-3.5 mr-2 text-rose-600" />
+              PDF Report
+            </Button>
           </div>
         </div>
-      )}
-
-      {/* Bottom Export Card (Sticky or at bottom of flow) */}
-      <Card className="bg-slate-900 border-slate-800 shadow-none mt-auto">
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div className="text-center sm:text-left">
-              <h3 className="font-medium text-slate-200">Export Data</h3>
-              <p className="text-xs text-slate-500">Download reports for offline analysis</p>
-            </div>
-            <div className="flex gap-3 w-full sm:w-auto">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={exportCSV}
-                className="flex-1 sm:flex-none bg-slate-950/50 border-slate-700 text-slate-300 hover:bg-slate-800"
-              >
-                <FileSpreadsheet className="h-4 w-4 mr-2 text-emerald-500" />
-                CSV Report
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExportPDF}
-                className="flex-1 sm:flex-none bg-slate-950/50 border-slate-700 text-slate-300 hover:bg-slate-800"
-              >
-                <File className="h-4 w-4 mr-2 text-rose-500" />
-                PDF Summary
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      </div>
 
       {/* Reminder Dialog */}
       <Dialog open={reminderDialogOpen} onOpenChange={setReminderDialogOpen}>
-        <DialogContent className="bg-slate-900 border-slate-800 text-slate-100 sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-slate-100 flex items-center gap-2">
-              <Mail className="h-5 w-5 text-blue-500" /> Send Reminder
+        <DialogContent className="bg-white border-neutral-200 text-neutral-900 sm:max-w-[450px] p-0 overflow-hidden shadow-2xl">
+          <DialogHeader className="p-6 bg-emerald-600 text-white">
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <Mail className="h-5 w-5" /> Protocol Notification
             </DialogTitle>
-            <DialogDescription className="text-slate-400">
-              Notify faculty members about their pending submission deadlines.
+            <DialogDescription className="text-emerald-50/80 font-medium">
+              You are about to send a formal reminder to the faculty member.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="py-4">
-            <div className="bg-slate-950/50 p-4 rounded-lg border border-slate-800">
-              <p className="text-sm text-slate-300 mb-3">
-                You are about to send an email to:
-                <br />
-                <span className="font-bold text-lg text-white block mt-1">{selectedFaculty?.first_name} {selectedFaculty?.last_name}</span>
-              </p>
-
-              <div className="space-y-2 mt-4">
-                <div className="flex justify-between text-sm bg-slate-900 p-2 rounded border border-slate-800">
-                  <span className="text-slate-400">Pending Submissions</span>
-                  <span className="font-mono text-amber-400">{selectedFaculty?.pending_submissions || 0}</span>
-                </div>
-                <div className="flex justify-between text-sm bg-slate-900 p-2 rounded border border-slate-800">
-                  <span className="text-slate-400">Late Items</span>
-                  <span className="font-mono text-rose-400">{selectedFaculty?.late_submissions || 0}</span>
-                </div>
+          <div className="p-6 space-y-6">
+            <div className="flex items-center gap-4 bg-neutral-50 p-4 rounded-xl border border-neutral-100">
+              <div className="w-12 h-12 rounded-lg flex shrink-0 items-center justify-center font-bold text-lg bg-white text-emerald-700 border border-emerald-100 shadow-sm">
+                {getInitials(selectedFaculty?.first_name, selectedFaculty?.last_name)}
+              </div>
+              <div>
+                <p className="text-xs font-extrabold text-neutral-400 uppercase tracking-widest">Target Faculty</p>
+                <p className="text-lg font-bold text-neutral-900">{selectedFaculty?.first_name} {selectedFaculty?.last_name}</p>
+                <p className="text-sm font-medium text-neutral-500">{selectedFaculty?.department}</p>
               </div>
             </div>
 
-            <p className="text-xs text-slate-500 mt-4 italic">
-              * This action will be logged in the system audit trail.
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-amber-50/50 p-3 rounded-lg border border-amber-100">
+                <p className="text-[10px] font-extrabold text-amber-600 uppercase tracking-widest mb-1">Pending</p>
+                <p className="text-2xl font-mono font-black text-amber-700">{selectedFaculty?.pending_submissions || 0}</p>
+              </div>
+              <div className="bg-rose-50/50 p-3 rounded-lg border border-rose-100">
+                <p className="text-[10px] font-extrabold text-rose-600 uppercase tracking-widest mb-1">Late Items</p>
+                <p className="text-2xl font-mono font-black text-rose-700">{selectedFaculty?.late_submissions || 0}</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-neutral-500 leading-relaxed italic">
+              * This notification will be delivered via the institutional email system and recorded in the audit trail.
             </p>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="p-6 bg-neutral-50 border-t border-neutral-100 flex gap-3">
             <Button
               variant="outline"
               onClick={() => setReminderDialogOpen(false)}
-              className="bg-transparent border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
+              className="flex-1 bg-white border-neutral-200 text-neutral-600 font-bold uppercase tracking-widest text-[10px] h-10"
             >
               Cancel
             </Button>
             <Button
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold uppercase tracking-widest text-[10px] h-10 shadow-lg shadow-emerald-900/10"
               onClick={confirmReminder}
             >
-              Send Email
+              Send Notification
             </Button>
           </DialogFooter>
         </DialogContent>
