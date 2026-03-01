@@ -61,18 +61,17 @@ const StudViolations = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedViolation, setSelectedViolation] = useState(null);
   const [activeTab, setActiveTab] = useState("violations");
+  const [searchValue, setSearchValue] = useState("");
 
   const fetchViolations = async () => {
     setIsLoading(true);
     try {
-      // Assuming foreign keys exist for students_sv and offense_types_sv. 
-      // If the join fails due to no relation, we might need a fallback.
       const { data, error } = await supabase
         .from('violations_sv')
         .select(`
           *,
           students_sv (first_name, last_name),
-          offense_types_sv (name)
+          offense_types_sv (name, severity)
         `);
 
       if (error) {
@@ -80,9 +79,10 @@ const StudViolations = () => {
       } else if (data) {
         const formattedData = data.map(v => ({
           ...v,
-          name: v.students_sv ? `${v.students_sv.first_name} ${v.students_sv.last_name}` : v.student_number,
+          student_number: v.student_number,
+          name: v.students_sv ? `${v.students_sv.first_name} ${v.students_sv.last_name}` : 'Unknown',
           section: v.student_course_year_section || (v.students_sv && v.students_sv.course_year_section) || 'N/A',
-          violation: v.offense_types_sv ? v.offense_types_sv.name : `Type ID ${v.offense_type_id}`,
+          violation: v.offense_types_sv ? `${v.offense_types_sv.name}: ${v.offense_types_sv.severity}` : `Type ID ${v.offense_type_id}`,
           status: v.status || "Pending"
         }));
         setViolations(formattedData);
@@ -105,11 +105,15 @@ const StudViolations = () => {
     return () => document.head.removeChild(styleEl);
   }, []);
 
-
-  // Replaced static rowData with the fetched violations state
-
-
   const columnDefs = useMemo(() => [
+    {
+      headerName: "Student ID",
+      field: "student_number",
+      width: 130,
+      filter: true,
+      tooltipField: "student_number",
+      cellStyle: { color: '#94a3b8', fontWeight: '500' }
+    },
     {
       headerName: "Student Name",
       field: "name",
@@ -213,21 +217,19 @@ const StudViolations = () => {
       <div className="flex items-center gap-4 border-b border-slate-800">
         <button
           onClick={() => setActiveTab("violations")}
-          className={`pb-2 text-sm font-medium border-b-2 transition-all ${
-            activeTab === "violations"
-              ? "border-blue-500 text-blue-400"
-              : "border-transparent text-slate-400 hover:text-slate-300"
-          }`}
+          className={`pb-2 text-sm font-medium border-b-2 transition-all ${activeTab === "violations"
+            ? "border-blue-500 text-blue-400"
+            : "border-transparent text-slate-400 hover:text-slate-300"
+            }`}
         >
           Violations
         </button>
         <button
           onClick={() => setActiveTab("sanctions")}
-          className={`pb-2 text-sm font-medium border-b-2 transition-all ${
-            activeTab === "sanctions"
-              ? "border-blue-500 text-blue-400"
-              : "border-transparent text-slate-400 hover:text-slate-300"
-          }`}
+          className={`pb-2 text-sm font-medium border-b-2 transition-all ${activeTab === "sanctions"
+            ? "border-blue-500 text-blue-400"
+            : "border-transparent text-slate-400 hover:text-slate-300"
+            }`}
         >
           Sanctions
         </button>
@@ -236,7 +238,7 @@ const StudViolations = () => {
       <Card className="bg-slate-900 border-slate-800 flex flex-col rounded-lg overflow-hidden shadow-sm">
         <div className="px-3 py-0 flex items-center justify-between bg-slate-900/50">
           <h3 className="text-sm font-bold text-slate-200">
-              {activeTab === "violations" ? "Disciplinary logs" : "Sanction records"}
+            {activeTab === "violations" ? "Disciplinary logs" : "Sanction records"}
           </h3>
           <div className="flex items-center">
             <div className="relative w-36 md:w-64">
@@ -244,7 +246,8 @@ const StudViolations = () => {
               <Input
                 placeholder="Quick search..."
                 className="pl-8 bg-slate-950 border-slate-800 text-slate-200 text-xs h-6 rounded focus:ring-1 focus:ring-blue-600"
-                onChange={(e) => gridApi?.setQuickFilter(e.target.value)}
+                value={searchValue}
+                onChange={(e) => setSearchValue(e.target.value)}
               />
             </div>
           </div>
@@ -269,6 +272,7 @@ const StudViolations = () => {
               pagination={true}
               paginationPageSize={10}
               suppressCellFocus={true}
+              quickFilterText={searchValue}
             />
           )}
         </div>
@@ -314,6 +318,5 @@ function QuickStat({ title, value, icon: Icon, color }) {
     </div>
   );
 }
-
 
 export default StudViolations;

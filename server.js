@@ -7,6 +7,7 @@ import dotenv from "dotenv";
 import fs from "fs";
 import Tesseract from "tesseract.js";
 import JSZip from "jszip";
+import { Readable } from "stream";
 
 // Load environment variables from .env.local
 dotenv.config({ path: "./.env.local" });
@@ -320,7 +321,7 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
     };
     const media = {
       mimeType: req.file.mimetype,
-      body: fs.createReadStream(req.file.path),
+      body: Readable.from(req.file.buffer),
     };
 
     const file = await drive.files.create({
@@ -329,13 +330,9 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
       fields: "id, name, webViewLink",
     });
 
-    // Cleanup temp file
-    fs.unlinkSync(req.file.path);
-
     res.json(file.data);
   } catch (error) {
     console.error("Error uploading file:", error);
-    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     res.status(500).json({ error: error.message });
   }
 });

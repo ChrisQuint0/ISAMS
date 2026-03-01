@@ -3,7 +3,7 @@ import { Route } from "react-router-dom";
 import AdminLayout from "@/features/student-violations/layout/AdminLayout";
 
 // Import your page components
-import StudViolationDashboard from "@/features/student-violations/pages/StudViolationDashboard";
+import StudViolationDashboard from "@/features/student-violations/pages/Dashboard";
 import StudRecords from "@/features/student-violations/pages/StudRecords";
 import StudViolations from "@/features/student-violations/pages/StudViolations";
 import GenerateReport from "@/features/student-violations/pages/GenerateReport";
