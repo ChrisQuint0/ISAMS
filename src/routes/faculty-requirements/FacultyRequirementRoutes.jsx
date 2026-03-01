@@ -10,6 +10,7 @@ import AdminDeadlinePage from "@/features/faculty-requirements/pages/AdminDeadli
 import AdminValidationPage from "@/features/faculty-requirements/pages/AdminValidationPage";
 import AdminReportsPage from "@/features/faculty-requirements/pages/AdminReportsPage";
 import AdminSettingsPage from "@/features/faculty-requirements/pages/AdminSettingsPage";
+import AdminSemesterManagementPage from "@/features/faculty-requirements/pages/AdminSemesterManagementPage";
 
 // --- FACULTY IMPORTS ---
 import FacultyLayout from "@/features/faculty-requirements/layout/FacultyLayout";
@@ -47,6 +48,7 @@ export const FacultyRequirementsRoutes = (ProtectedRoute) => {
                 <Route path="/validation" element={<AdminValidationPage />} />
                 <Route path="/reports" element={<AdminReportsPage />} />
                 <Route path="/settings" element={<AdminSettingsPage />} />
+                <Route path="/semester-management" element={<AdminSemesterManagementPage />} />
                 <Route path="/archive" element={<AdminArchivePage />} />
             </Route>
 

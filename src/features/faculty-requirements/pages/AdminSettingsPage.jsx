@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { DataTable } from "@/components/DataTable";
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription
 } from "@/components/ui/dialog";
@@ -41,7 +42,7 @@ const AdminToastHandler = ({ success, error }) => {
 
     useEffect(() => {
         if (success) {
-            addToast({ title: "Success", description: String(success), variant: "default" });
+            addToast({ title: "Success", description: String(success), variant: "success" });
         }
     }, [success, addToast]);
 
@@ -75,9 +76,9 @@ const CourseFacultyEditor = React.forwardRef(({ value: initialValue, facultyList
             value={val}
             onChange={handleChange}
             style={{
-                background: '#0f172a', border: '1px solid #334155', color: '#e2e8f0',
+                background: '#ffffff', border: '1px solid var(--neutral-200)', color: 'var(--neutral-900)',
                 padding: '6px 10px', borderRadius: '6px', fontSize: '13px',
-                outline: 'none', minWidth: '180px', cursor: 'pointer',
+                outline: 'none', minWidth: '180px', cursor: 'pointer', boxShadow: '0 1px 2px 0 rgb(0 0 0 / 0.05)'
             }}
         >
             <option value="" disabled hidden></option>
@@ -90,20 +91,6 @@ const CourseFacultyEditor = React.forwardRef(({ value: initialValue, facultyList
     );
 });
 CourseFacultyEditor.displayName = 'CourseFacultyEditor';
-
-// Custom dark Balham theme (standard across ISAMS)
-const customTheme = themeBalham.withParams({
-    accentColor: '#3b82f6',
-    backgroundColor: '#020617',
-    foregroundColor: '#e2e8f0',
-    borderColor: '#1e293b',
-    headerBackgroundColor: '#0f172a',
-    headerTextColor: '#94a3b8',
-    oddRowBackgroundColor: '#020617',
-    rowHeight: 48,
-    headerHeight: 40,
-});
-
 
 export default function AdminSettingsPage() {
     const {
@@ -212,36 +199,60 @@ export default function AdminSettingsPage() {
         {
             headerName: 'Date',
             valueGetter: p => new Date(p.data.holiday_date || p.data.date).toLocaleDateString('en-CA'),
-            width: 150
+            width: 150,
+            cellRenderer: (params) => (
+                <span className="font-mono text-neutral-700 font-bold">{params.value}</span>
+            )
         },
         {
             field: 'description',
             headerName: 'Description',
-            flex: 1
+            flex: 1,
+            cellRenderer: (params) => (
+                <span className="font-medium text-neutral-900">{params.value}</span>
+            )
         },
         {
             headerName: 'Actions',
-            width: 100,
+            width: 170, // Increased width to safely hold both buttons without wrapping
             sortable: false,
             filter: false,
             cellRenderer: (params) => {
                 const id = params.data.holiday_id || params.data.id;
                 if (pendingHolidayDeleteId === id) {
-                    return React.createElement('div', { style: { display: 'flex', gap: '8px', alignItems: 'center' } },
-                        React.createElement('button', {
-                            style: { background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '12px', fontWeight: '600' },
-                            onClick: () => { setPendingHolidayDeleteId(null); handleDeleteHoliday(id); }
-                        }, 'Yes'),
-                        React.createElement('button', {
-                            style: { background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '12px' },
-                            onClick: () => setPendingHolidayDeleteId(null)
-                        }, 'No')
+                    return (
+                        // Removed the animation classes so it doesn't bounce on AG Grid remounts
+                        <div className="flex items-center gap-1 mt-1.5">
+                            <Button
+                                size="xs"
+                                variant="destructive"
+                                onClick={() => { setPendingHolidayDeleteId(null); handleDeleteHoliday(id); }}
+                            >
+                                Confirm
+                            </Button>
+                            <Button
+                                size="xs"
+                                variant="ghost"
+                                className="text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100"
+                                onClick={() => setPendingHolidayDeleteId(null)}
+                            >
+                                Cancel
+                            </Button>
+                        </div>
                     );
                 }
-                return React.createElement('button', {
-                    style: { background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '12px', fontWeight: '600' },
-                    onClick: () => setPendingHolidayDeleteId(id)
-                }, 'Remove');
+                return (
+                    <div className="flex items-center mt-1.5">
+                        <Button
+                            size="xs"
+                            variant="ghost"
+                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            onClick={() => setPendingHolidayDeleteId(id)}
+                        >
+                            Remove
+                        </Button>
+                    </div>
+                );
             }
         }
     ], [handleDeleteHoliday, pendingHolidayDeleteId]);
@@ -300,7 +311,6 @@ export default function AdminSettingsPage() {
     };
     const closeAssignModal = () => setAssignModalOpen(false);
 
-    // ── Faculty card grouped view ─────────────────────────────────────────────
     // Group courseList by faculty_id so we can render one card per teacher
     const facultyGroups = useMemo(() => {
         const map = new Map();
@@ -333,30 +343,21 @@ export default function AdminSettingsPage() {
             singleClickEdit: false,
             cellStyle: (params) => ({
                 fontFamily: 'monospace',
-                color: params.value ? '#34d399' : '#475569',
+                color: params.value ? 'var(--primary-600)' : 'var(--neutral-500)',
                 fontStyle: params.value ? 'normal' : 'italic',
+                fontWeight: params.value ? '700' : '400'
             }),
             valueFormatter: (params) => params.value || 'Double-click to set',
             tooltipValueGetter: () => 'Any format accepted — type freely (e.g. 2024-001, EMP-42, T123)',
         },
-        {
-            field: 'first_name',
-            headerName: 'First Name',
-            flex: 1,
-            editable: false,
-        },
-        {
-            field: 'last_name',
-            headerName: 'Last Name',
-            flex: 1,
-            editable: false,
-        },
+        { field: 'first_name', headerName: 'First Name', flex: 1, editable: false },
+        { field: 'last_name', headerName: 'Last Name', flex: 1, editable: false },
         {
             field: 'email',
             headerName: 'Email',
             flex: 2,
             editable: false,
-            cellStyle: { color: '#94a3b8' },
+            cellStyle: { color: 'var(--neutral-500)' },
         },
         {
             field: 'employment_type',
@@ -366,12 +367,12 @@ export default function AdminSettingsPage() {
             singleClickEdit: false,
             cellEditor: 'agSelectCellEditor',
             cellEditorParams: { values: ['Full Time', 'Part Time'] },
-            // Prevent Tab/Enter from navigating to adjacent rows while dropdown is open
             suppressKeyboardEvent: (params) => params.editing && ['Tab', 'Enter', 'ArrowDown', 'ArrowUp'].includes(params.event.key),
             valueFormatter: (params) => params.value || 'Double-click to set',
             cellStyle: (params) => ({
-                color: params.value ? '#e2e8f0' : '#475569',
+                color: params.value ? 'var(--neutral-900)' : 'var(--neutral-500)',
                 fontStyle: params.value ? 'normal' : 'italic',
+                fontWeight: '500'
             }),
         },
         {
@@ -382,29 +383,47 @@ export default function AdminSettingsPage() {
             singleClickEdit: false,
             cellEditor: 'agSelectCellEditor',
             cellEditorParams: { values: ['Active', 'Inactive'] },
-            // Prevent Tab/Enter from navigating to adjacent rows while dropdown is open
             suppressKeyboardEvent: (params) => params.editing && ['Tab', 'Enter', 'ArrowDown', 'ArrowUp'].includes(params.event.key),
             valueGetter: (params) => params.data.is_active ? 'Active' : 'Inactive',
             valueSetter: (params) => {
                 params.data.is_active = params.newValue === 'Active';
                 return true;
             },
-            cellStyle: (params) => ({
-                color: params.value === 'Active' ? '#34d399' : '#64748b',
-                fontWeight: '500',
-            }),
+            cellRenderer: (params) => (
+                <span className={`font-bold text-xs px-2 py-0.5 rounded-full border ${params.value === 'Active'
+                    ? 'bg-success/10 text-success border-success/20'
+                    : 'bg-neutral-100 text-neutral-500 border-neutral-200'
+                    }`}>
+                    {params.value}
+                </span>
+            ),
         },
     ], []);
 
 
     // AG Grid: column definitions for Course Catalog
     const catalogColumnDefs = useMemo(() => [
-        { field: 'course_code', headerName: 'Code', width: 110, cellStyle: { fontFamily: 'monospace', color: '#34d399', fontWeight: 600 } },
-        { field: 'course_name', headerName: 'Course Name', flex: 2, cellStyle: { color: '#e2e8f0' } },
         {
-            field: 'semester', headerName: 'Semester', width: 130,
-            cellStyle: { color: '#94a3b8', fontSize: '12px' },
-            valueFormatter: p => p.value || '—'
+            field: 'course_code',
+            headerName: 'Code',
+            width: 110,
+            cellRenderer: params => (
+                <span className="font-mono text-primary-600 font-bold bg-primary-50/50 px-2 py-0.5">
+                    {params.value}
+                </span>
+            )
+        },
+        {
+            field: 'course_name',
+            headerName: 'Course Name',
+            flex: 2,
+            cellStyle: { fontWeight: 500 }
+        },
+        {
+            field: 'semester',
+            headerName: 'Semester',
+            width: 130,
+            cellRenderer: params => <span className="text-neutral-500 text-xs font-medium">{params.value || '—'}</span>
         },
         {
             field: 'is_active',
@@ -418,10 +437,14 @@ export default function AdminSettingsPage() {
                 params.data.is_active = params.newValue === 'Active';
                 return true;
             },
-            cellStyle: (params) => ({
-                color: params.value === 'Active' ? '#34d399' : '#64748b',
-                fontWeight: '500',
-            }),
+            cellRenderer: (params) => (
+                <span className={`font-bold text-xs px-2 py-0.5 rounded-full border ${params.value === 'Active'
+                    ? 'bg-success/10 text-success border-success/20'
+                    : 'bg-neutral-100 text-neutral-500 border-neutral-200'
+                    }`}>
+                    {params.value}
+                </span>
+            ),
         },
     ], []);
 
@@ -446,33 +469,18 @@ export default function AdminSettingsPage() {
             headerName: 'Template Name',
             flex: 2,
             cellRenderer: (params) => (
-                <span className="font-medium text-emerald-400">{params.value}</span>
+                <span className="font-bold text-primary-600">{params.value}</span>
             )
         },
-        {
-            field: 'category',
-            headerName: 'System Category',
-            flex: 1.5,
-            valueFormatter: params => params.value || 'General'
-        },
-        {
-            field: 'academicYear',
-            headerName: 'Academic Year',
-            flex: 1,
-            valueFormatter: params => params.value || 'N/A'
-        },
-        {
-            field: 'semester',
-            headerName: 'Semester',
-            flex: 1,
-            valueFormatter: params => params.value || 'N/A'
-        },
+        { field: 'category', headerName: 'System Category', flex: 1.5, valueFormatter: params => params.value || 'General' },
+        { field: 'academicYear', headerName: 'Academic Year', flex: 1, valueFormatter: params => params.value || 'N/A' },
+        { field: 'semester', headerName: 'Semester', flex: 1, valueFormatter: params => params.value || 'N/A' },
         {
             field: 'isActive',
             headerName: 'Status',
             flex: 1,
             cellRenderer: (params) => (
-                <span className={`font-medium text-sm ${params.value ? 'text-emerald-400' : 'text-slate-400'}`}>
+                <span className={`font-bold text-xs px-2 py-0.5 rounded-full border ${params.value ? 'bg-success/10 text-success border-success/20' : 'bg-neutral-100 text-neutral-500 border-neutral-200'}`}>
                     {params.value ? 'Active' : 'Archived'}
                 </span>
             )
@@ -483,11 +491,11 @@ export default function AdminSettingsPage() {
             sortable: false,
             filter: false,
             cellRenderer: (params) => (
-                <div className="flex items-center gap-2 mt-3">
+                <div className="flex items-center gap-2 mt-1.5">
                     <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-blue-400 hover:bg-transparent hover:text-blue-400 cursor-pointer"
+                        variant="outline"
+                        size="xs"
+                        className="h-6 text-[10px] text-gold-600 border-gold-500 hover:bg-gold-500 font-bold shadow-none"
                         onClick={() => {
                             setSelectedTemplateForCalibration(params.data);
                             setIsCalibratorOpen(true);
@@ -497,8 +505,8 @@ export default function AdminSettingsPage() {
                     </Button>
                     <Button
                         variant="ghost"
-                        size="sm"
-                        className="h-1 px-2 text-slate-400 hover:bg-transparent hover:text-slate-400 cursor-pointer"
+                        size="xs"
+                        className={`h-6 text-[10px] font-bold ${params.data.isActive ? 'text-neutral-500 hover:text-destructive hover:bg-destructive/10' : 'text-success hover:text-success hover:bg-success/10'}`}
                         onClick={() => archiveTemplate(params.data.id, !params.data.isActive)}
                     >
                         {params.data.isActive ? 'Archive' : 'Restore'}
@@ -514,33 +522,18 @@ export default function AdminSettingsPage() {
             headerName: 'Template Name',
             flex: 2,
             cellRenderer: (params) => (
-                <span className="font-medium text-emerald-400">{params.value}</span>
+                <span className="font-bold text-primary-600">{params.value}</span>
             )
         },
-        {
-            field: 'category',
-            headerName: 'System Category',
-            flex: 1.5,
-            valueFormatter: params => params.value || 'General'
-        },
-        {
-            field: 'academicYear',
-            headerName: 'Academic Year',
-            flex: 1,
-            valueFormatter: params => params.value || 'N/A'
-        },
-        {
-            field: 'semester',
-            headerName: 'Semester',
-            flex: 1,
-            valueFormatter: params => params.value || 'N/A'
-        },
+        { field: 'category', headerName: 'System Category', flex: 1.5, valueFormatter: params => params.value || 'General' },
+        { field: 'academicYear', headerName: 'Academic Year', flex: 1, valueFormatter: params => params.value || 'N/A' },
+        { field: 'semester', headerName: 'Semester', flex: 1, valueFormatter: params => params.value || 'N/A' },
         {
             field: 'isActive',
             headerName: 'Status',
             flex: 1,
             cellRenderer: (params) => (
-                <span className={`font-medium text-sm ${params.value ? 'text-emerald-400' : 'text-slate-400'}`}>
+                <span className={`font-bold text-xs px-2 py-0.5 rounded-full border ${params.value ? 'bg-success/10 text-success border-success/20' : 'bg-neutral-100 text-neutral-500 border-neutral-200'}`}>
                     {params.value ? 'Active' : 'Archived'}
                 </span>
             )
@@ -551,11 +544,11 @@ export default function AdminSettingsPage() {
             sortable: false,
             filter: false,
             cellRenderer: (params) => (
-                <div className="flex items-center gap-2 mt-3">
+                <div className="flex items-center gap-2 mt-1.5">
                     <Button
                         variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-slate-400 hover:bg-transparent hover:text-slate-400 cursor-pointer"
+                        size="xs"
+                        className={`h-6 text-[10px] font-bold ${params.data.isActive ? 'text-neutral-500 hover:text-destructive hover:bg-destructive/10' : 'text-success hover:text-success hover:bg-success/10'}`}
                         onClick={() => archiveTemplate(params.data.id, !params.data.isActive)}
                     >
                         {params.data.isActive ? 'Archive' : 'Restore'}
@@ -763,29 +756,27 @@ export default function AdminSettingsPage() {
             <AdminToastHandler success={success} error={error} />
             <div className="space-y-6 flex flex-col h-full">
                 {/* Header */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0 mb-6">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-100">System Settings</h1>
-                        <p className="text-slate-400 text-sm">Configure automation, validation rules, and system preferences</p>
+                        <h1 className="text-2xl font-bold text-neutral-900">System Settings</h1>
+                        <p className="text-neutral-500 text-sm">Configure automation, validation rules, and system preferences</p>
                     </div>
                     <Button
                         variant="outline"
                         size="sm"
                         onClick={refresh}
                         disabled={loading}
-                        className="bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
+                        className="bg-primary-500 border-primary-500 text-neutral-50 hover:bg-primary-600 hover:text-neutral-50 shadow-sm"
                     >
                         <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                         Reload Settings
                     </Button>
                 </div>
 
-
-
                 {/* TABS ORGANIZATION */}
                 <Tabs defaultValue="general" className="flex-1 flex flex-col min-h-0 space-y-6">
-                    <div className="shrink-0 border-b border-slate-800 pb-0">
-                        <TabsList className="bg-transparent p-0 h-auto space-x-6">
+                    <div className="shrink-0 border-b border-neutral-200 pb-0">
+                        <TabsList className="bg-transparent p-0 h-auto space-x-6 w-full justify-start rounded-none border-none">
                             <TabItem value="general" label="General" icon={Settings} />
                             <TabItem value="courses" label="Courses" icon={BookOpen} />
                             <TabItem value="faculty" label="Faculty" icon={Users} />
@@ -805,50 +796,50 @@ export default function AdminSettingsPage() {
 
                                 {/* Left Col: Preferences */}
                                 <div className="lg:col-span-2 space-y-6">
-                                    <Card className="bg-slate-900 border-slate-800 shadow-none">
-                                        <CardHeader className="border-b border-slate-800 py-4">
-                                            <CardTitle className="text-base text-slate-100 flex items-center gap-2">
-                                                <Globe className="h-4 w-4 text-slate-400" /> Global Defaults
+                                    <Card className="bg-white border-neutral-200 shadow-sm">
+                                        <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
+                                            <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                                <Globe className="h-4 w-4 text-primary-600" /> Global Defaults
                                             </CardTitle>
-                                            <CardDescription className="text-slate-500">Set default behaviors for new semesters</CardDescription>
+                                            <CardDescription className="text-neutral-500">Set default behaviors for new semesters</CardDescription>
                                         </CardHeader>
                                         <CardContent className="pt-6 space-y-6">
-                                            {/* INPUTS - Replicated Style from File Constraints */}
+                                            {/* INPUTS */}
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
                                                 {/* Deadline Input */}
                                                 <div className="space-y-2">
-                                                    <Label className="text-xs font-semibold text-slate-400 uppercase">Default Deadline (Days)</Label>
+                                                    <Label className="text-xs font-semibold text-neutral-500 uppercase">Default Deadline (Days)</Label>
                                                     <div className="relative">
                                                         <Input
                                                             type="number"
                                                             value={deadlineDays}
                                                             onChange={(e) => setDeadlineDays(e.target.value)}
-                                                            className="bg-slate-950 border-slate-700 text-slate-200 focus:border-blue-500 pr-4"// Added padding-right
+                                                            className="bg-white border-neutral-200 text-neutral-900 placeholder:text-neutral-400 focus-visible:ring-primary-500 focus-visible:border-primary-500 transition-all font-medium pr-4"
                                                         />
                                                     </div>
                                                 </div>
 
                                                 {/* Grace Period Input */}
                                                 <div className="space-y-2">
-                                                    <Label className="text-xs font-semibold text-slate-400 uppercase">Grace Period (Days)</Label>
+                                                    <Label className="text-xs font-semibold text-neutral-500 uppercase">Grace Period (Days)</Label>
                                                     <div className="relative">
                                                         <Input
                                                             type="number"
                                                             value={graceDays}
                                                             onChange={(e) => setGraceDays(e.target.value)}
-                                                            className="bg-slate-950 border-slate-700 text-slate-200 focus:border-blue-500 pr-4" // Added padding-right
+                                                            className="bg-white border-neutral-200 text-neutral-900 placeholder:text-neutral-400 focus-visible:ring-primary-500 focus-visible:border-primary-500 transition-all font-medium pr-4"
                                                         />
                                                     </div>
                                                 </div>
 
                                                 <div className="space-y-2">
-                                                    <Label className="text-xs font-semibold text-slate-400 uppercase">Auto-Reminders</Label>
+                                                    <Label className="text-xs font-semibold text-neutral-500 uppercase">Auto-Reminders</Label>
                                                     <Select value={autoReminders} onValueChange={setAutoReminders}>
-                                                        <SelectTrigger className="bg-slate-950 border-slate-700 text-slate-200">
+                                                        <SelectTrigger className="bg-white border-neutral-200 text-neutral-900 shadow-sm focus:ring-primary/20">
                                                             <SelectValue />
                                                         </SelectTrigger>
-                                                        <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
+                                                        <SelectContent className="bg-white border-neutral-200 text-neutral-900">
                                                             <SelectItem value="3days">3 days before deadline</SelectItem>
                                                             <SelectItem value="7days">7 days before deadline</SelectItem>
                                                             <SelectItem value="disabled">Disabled</SelectItem>
@@ -856,12 +847,12 @@ export default function AdminSettingsPage() {
                                                     </Select>
                                                 </div>
                                                 <div className="space-y-2">
-                                                    <Label className="text-xs font-semibold text-slate-400 uppercase">Archive Retention</Label>
+                                                    <Label className="text-xs font-semibold text-neutral-500 uppercase">Archive Retention</Label>
                                                     <Select value={archiveRetention} onValueChange={setArchiveRetention}>
-                                                        <SelectTrigger className="bg-slate-950 border-slate-700 text-slate-200">
+                                                        <SelectTrigger className="bg-white border-neutral-200 text-neutral-900 shadow-sm focus:ring-primary/20">
                                                             <SelectValue />
                                                         </SelectTrigger>
-                                                        <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
+                                                        <SelectContent className="bg-white border-neutral-200 text-neutral-900">
                                                             <SelectItem value="3years">3 Years</SelectItem>
                                                             <SelectItem value="5years">5 Years</SelectItem>
                                                             <SelectItem value="permanent">Permanent</SelectItem>
@@ -870,9 +861,10 @@ export default function AdminSettingsPage() {
                                                 </div>
                                             </div>
 
-                                            <div className="pt-4 border-t border-slate-800 flex justify-end">
+                                            <div className="pt-4 border-t border-neutral-100 flex justify-end">
                                                 <Button
-                                                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                                                    variant="default"
+                                                    className="shadow-sm active:scale-95 transition-all"
                                                     onClick={() => saveGroup({
                                                         general_default_deadline: deadlineDays,
                                                         general_grace_period: graceDays,
@@ -887,20 +879,20 @@ export default function AdminSettingsPage() {
                                     </Card>
 
                                     {/* Google Drive Folder */}
-                                    <Card className="bg-slate-900 border-slate-800 shadow-none">
-                                        <CardHeader className="border-b border-slate-800 py-4">
-                                            <CardTitle className="text-base text-slate-100 flex items-center gap-2">
-                                                <HardDrive className="h-4 w-4 text-slate-400" /> GDrive Management
+                                    <Card className="bg-white border-neutral-200 shadow-sm">
+                                        <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
+                                            <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                                <HardDrive className="h-4 w-4 text-primary-600" /> GDrive Management
                                             </CardTitle>
-                                            <CardDescription className="text-slate-500">Provide one parent folder; we'll handle the sub-folders automatically.</CardDescription>
+                                            <CardDescription className="text-neutral-500">Provide one parent folder; we'll handle the sub-folders automatically.</CardDescription>
                                         </CardHeader>
                                         <CardContent className="pt-6 space-y-6">
                                             <div className="space-y-4">
                                                 <div className="space-y-2">
-                                                    <Label className="text-xs font-semibold text-slate-400 uppercase flex items-center gap-2">
+                                                    <Label className="text-xs font-semibold text-neutral-500 uppercase flex items-center gap-2">
                                                         Main ISAMS GDrive Folder Link
                                                         {settings.gdrive_main_folder_id && (
-                                                            <Badge variant="outline" className="text-[10px] h-4 bg-emerald-500/10 text-emerald-400 border-emerald-500/20 py-0">Connected</Badge>
+                                                            <Badge variant="outline" className="text-[10px] h-4 bg-success/10 text-success border-success/20 py-0">Connected</Badge>
                                                         )}
                                                     </Label>
                                                     <Input
@@ -909,16 +901,15 @@ export default function AdminSettingsPage() {
                                                         value={mainGdriveLink}
                                                         onChange={(e) => setMainGdriveLink(e.target.value)}
                                                         disabled={!!settings.gdrive_main_folder_id && !isGdriveUnlocked}
-                                                        className={`bg-slate-950 border-slate-700 text-slate-200 focus:border-blue-500 h-10 ${!!settings.gdrive_main_folder_id && !isGdriveUnlocked ? 'opacity-50 cursor-not-allowed' : ''
-                                                            }`}
+                                                        className={`bg-white border-neutral-200 text-neutral-900 focus-visible:border-primary focus-visible:ring-primary/20 h-10 shadow-sm ${!!settings.gdrive_main_folder_id && !isGdriveUnlocked ? 'bg-neutral-50 text-neutral-500 cursor-not-allowed' : ''}`}
                                                     />
                                                 </div>
 
                                                 {(mainGdriveLink || settings.gdrive_root_folder_id) && (
-                                                    <div className="bg-slate-950/50 rounded-lg p-3 border border-slate-800/50 space-y-2">
+                                                    <div className="bg-neutral-50 rounded-lg p-3 border border-neutral-200 space-y-2">
                                                         <div className="flex justify-between items-center text-xs">
-                                                            <span className="text-slate-500 italic">Target Infrastructure:</span>
-                                                            <span className="text-blue-400 font-mono text-[10px]">
+                                                            <span className="text-neutral-500 italic">Target Infrastructure:</span>
+                                                            <span className="text-primary font-mono text-[10px] font-bold">
                                                                 {(() => {
                                                                     const match = mainGdriveLink.match(/folders\/([a-zA-Z0-9_-]+)/);
                                                                     return match ? match[1] : (settings.gdrive_main_folder_id || 'Not Set');
@@ -927,14 +918,14 @@ export default function AdminSettingsPage() {
                                                         </div>
 
                                                         {settings.gdrive_root_folder_id && (
-                                                            <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-800">
+                                                            <div className="grid grid-cols-2 gap-4 pt-2 border-t border-neutral-200">
                                                                 <div className="space-y-1">
-                                                                    <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Official Vault</p>
-                                                                    <p className="text-[11px] text-emerald-400 font-mono truncate">{settings.gdrive_root_folder_id}</p>
+                                                                    <p className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Official Vault</p>
+                                                                    <p className="text-[11px] text-success font-mono font-bold truncate">{settings.gdrive_root_folder_id}</p>
                                                                 </div>
                                                                 <div className="space-y-1">
-                                                                    <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Staging Sandbox</p>
-                                                                    <p className="text-[11px] text-fuchsia-400 font-mono truncate">{settings.gdrive_staging_folder_id}</p>
+                                                                    <p className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Staging Sandbox</p>
+                                                                    <p className="text-[11px] text-warning font-mono font-bold truncate">{settings.gdrive_staging_folder_id}</p>
                                                                 </div>
                                                             </div>
                                                         )}
@@ -947,7 +938,7 @@ export default function AdminSettingsPage() {
                                                     <Button
                                                         size="sm"
                                                         variant="ghost"
-                                                        className="text-slate-400 hover:text-blue-400 hover:bg-blue-400/10 transition-colors"
+                                                        className="text-neutral-500 hover:text-primary hover:bg-primary/10 transition-colors"
                                                         onClick={() => window.open('/api/auth', '_blank')}
                                                     >
                                                         <RefreshCw className="mr-2 h-3 w-3" /> Refresh Auth
@@ -958,8 +949,8 @@ export default function AdminSettingsPage() {
                                                             size="sm"
                                                             variant="ghost"
                                                             className={`transition-colors text-[11px] h-8 ${isGdriveUnlocked
-                                                                ? "text-amber-400 hover:text-amber-400 hover:bg-amber-400/10"
-                                                                : "text-slate-400 hover:text-emerald-400 hover:bg-emerald-400/10"
+                                                                ? "text-warning hover:text-warning hover:bg-warning/10"
+                                                                : "text-neutral-500 hover:text-success hover:bg-success/10"
                                                                 }`}
                                                             onClick={() => setIsGdriveUnlocked(!isGdriveUnlocked)}
                                                         >
@@ -971,9 +962,10 @@ export default function AdminSettingsPage() {
 
                                                 <Button
                                                     size="sm"
+                                                    variant={settings.gdrive_root_folder_id && !isGdriveUnlocked ? "outline" : "default"}
                                                     className={`${settings.gdrive_root_folder_id && !isGdriveUnlocked
-                                                        ? "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700"
-                                                        : "bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-900/20"
+                                                        ? "bg-neutral-50 text-neutral-400 cursor-not-allowed border-neutral-200 shadow-none"
+                                                        : "shadow-sm"
                                                         } px-6 transition-all active:scale-95`}
                                                     disabled={processing || (!!settings.gdrive_root_folder_id && !isGdriveUnlocked)}
                                                     onClick={async () => {
@@ -1003,7 +995,7 @@ export default function AdminSettingsPage() {
                                                             });
 
                                                             setSuccess("GDrive Structure Initialized & Saved!");
-                                                            setIsGdriveUnlocked(false); // Relock after successful save
+                                                            setIsGdriveUnlocked(false);
                                                         } catch (err) {
                                                             setError("Setup failed: " + err.message);
                                                         }
@@ -1023,10 +1015,10 @@ export default function AdminSettingsPage() {
 
                                 {/* Right Col: System Info */}
                                 <div className="space-y-6">
-                                    <Card className="bg-slate-900 border-slate-800 shadow-none">
-                                        <CardHeader className="border-b border-slate-800 py-4">
-                                            <CardTitle className="text-base text-slate-100 flex items-center gap-2">
-                                                <Server className="h-4 w-4 text-slate-400" /> System Status
+                                    <Card className="bg-white border-neutral-200 shadow-sm">
+                                        <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
+                                            <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                                <Server className="h-4 w-4 text-primary-600" /> System Status
                                             </CardTitle>
                                         </CardHeader>
                                         <CardContent className="pt-6 space-y-4">
@@ -1035,16 +1027,14 @@ export default function AdminSettingsPage() {
                                             {(() => {
                                                 const isHealthy = !!systemHealth?.db_size;
                                                 return (
-                                                    <div className={`rounded-lg border p-4 space-y-3 transition-all duration-500 ${isHealthy
-                                                        ? 'border-emerald-800/60 bg-emerald-950/30'
-                                                        : 'border-red-800/60 bg-red-950/20'
+                                                    <div className={`rounded-xl border p-4 space-y-3 transition-all duration-500 ${isHealthy
+                                                        ? 'border-success/30 bg-success/5'
+                                                        : 'border-destructive/30 bg-destructive/5'
                                                         }`}>
                                                         <div className="flex items-center justify-between">
-                                                            <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Operational Status</span>
-                                                            <span className={`flex items-center gap-1.5 text-xs font-semibold ${isHealthy ? 'text-emerald-400' : 'text-red-400'
-                                                                }`}>
-                                                                <span className={`inline-block h-2 w-2 rounded-full animate-pulse ${isHealthy ? 'bg-emerald-400' : 'bg-red-400'
-                                                                    }`} />
+                                                            <span className="text-xs font-bold uppercase tracking-widest text-neutral-500">Operational Status</span>
+                                                            <span className={`flex items-center gap-1.5 text-xs font-bold ${isHealthy ? 'text-success' : 'text-destructive'}`}>
+                                                                <span className={`inline-block h-2 w-2 rounded-full animate-pulse ${isHealthy ? 'bg-success' : 'bg-destructive'}`} />
                                                                 {isHealthy ? 'All Systems Go' : 'Degraded'}
                                                             </span>
                                                         </div>
@@ -1052,16 +1042,16 @@ export default function AdminSettingsPage() {
                                                         <div className="space-y-2">
                                                             {/* Database row */}
                                                             <div className="flex items-center justify-between">
-                                                                <div className="flex items-center gap-2 text-sm text-slate-400">
+                                                                <div className="flex items-center gap-2 text-sm text-neutral-600 font-medium">
                                                                     {isHealthy
-                                                                        ? <Wifi className="h-3.5 w-3.5 text-emerald-400" />
-                                                                        : <WifiOff className="h-3.5 w-3.5 text-red-400" />
+                                                                        ? <Wifi className="h-4 w-4 text-success" />
+                                                                        : <WifiOff className="h-4 w-4 text-destructive" />
                                                                     }
                                                                     <span>Database</span>
                                                                 </div>
-                                                                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isHealthy
-                                                                    ? 'bg-emerald-500/15 text-emerald-400'
-                                                                    : 'bg-red-500/15 text-red-400'
+                                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${isHealthy
+                                                                    ? 'bg-success/10 text-success border border-success/20'
+                                                                    : 'bg-destructive/10 text-destructive border border-destructive/20'
                                                                     }`}>
                                                                     {isHealthy ? 'HEALTHY' : 'UNREACHABLE'}
                                                                 </span>
@@ -1069,11 +1059,11 @@ export default function AdminSettingsPage() {
 
                                                             {/* Operational Time row */}
                                                             <div className="flex items-center justify-between">
-                                                                <div className="flex items-center gap-2 text-sm text-slate-400">
-                                                                    <Clock className="h-3.5 w-3.5 text-blue-400" />
+                                                                <div className="flex items-center gap-2 text-sm text-neutral-600 font-medium">
+                                                                    <Clock className="h-4 w-4 text-info" />
                                                                     <span>Operational Time</span>
                                                                 </div>
-                                                                <span className="text-xs font-mono font-semibold text-blue-300">
+                                                                <span className="text-xs font-mono font-bold text-neutral-900">
                                                                     {formatUptime(uptimeSeconds)}
                                                                 </span>
                                                             </div>
@@ -1086,7 +1076,6 @@ export default function AdminSettingsPage() {
                                                 <InfoRow label="Version" value="ISAMS v1.0.0" />
                                                 <InfoRow label="Last Backup" value={systemHealth?.last_backup ? new Date(systemHealth.last_backup).toLocaleString() : "Never"} />
                                                 <InfoRow label="DB Size" value={systemHealth?.db_size || "Unknown"} />
-
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -1094,59 +1083,57 @@ export default function AdminSettingsPage() {
                             </div>
                         </TabsContent>
 
-
-
                         {/* TAB: COURSE MANAGEMENT */}
                         <TabsContent value="courses" className="mt-0 space-y-6">
 
                             {/* ── Card 1: Course Catalog ──────────────────────────────── */}
-                            <Card className="bg-slate-900 border-slate-800 shadow-none">
-                                <CardHeader className="border-b border-slate-800 py-4">
-                                    <CardTitle className="text-base text-slate-100 flex items-center gap-2">
-                                        <BookOpen className="h-4 w-4 text-emerald-400" /> Course Catalog
+                            <Card className="bg-white border-neutral-200 shadow-sm">
+                                <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
+                                    <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                        <BookOpen className="h-4 w-4 text-primary-600" /> Course Catalog
                                     </CardTitle>
-                                    <CardDescription className="text-slate-500">
+                                    <CardDescription className="text-neutral-500">
                                         Master list of courses offered. Add a course here first — sections are assigned below.
                                     </CardDescription>
                                 </CardHeader>
-                                <CardContent className="pt-5 space-y-4">
+                                <CardContent className="pt-6 space-y-6">
                                     {/* Add-to-catalog form */}
-                                    <div className="p-4 bg-slate-950/50 border border-slate-800 rounded-lg">
-                                        <div className="grid grid-cols-12 gap-3 items-end">
+                                    <div className="p-5 bg-neutral-50 border border-neutral-200 rounded-xl">
+                                        <div className="grid grid-cols-12 gap-4 items-end">
                                             {/* Code */}
-                                            <div className="col-span-2 space-y-1">
-                                                <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Code *</label>
+                                            <div className="col-span-2 space-y-1.5">
+                                                <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Code *</label>
                                                 <Input
                                                     placeholder="e.g. IT101"
                                                     value={newCatalog.code}
                                                     onChange={e => setNewCatalog(p => ({ ...p, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') }))}
                                                     maxLength={10}
-                                                    className="bg-slate-900 border-slate-700 text-slate-200 font-mono"
+                                                    className="bg-white border-neutral-200 text-neutral-900 font-mono shadow-sm focus-visible:ring-primary-500 focus-visible:border-primary-500"
                                                 />
                                             </div>
                                             {/* Name */}
-                                            <div className="col-span-5 space-y-1">
-                                                <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Course Name *</label>
+                                            <div className="col-span-5 space-y-1.5">
+                                                <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Course Name *</label>
                                                 <Input
                                                     placeholder="e.g. Networking 1"
                                                     value={newCatalog.name}
                                                     onChange={e => setNewCatalog(p => ({ ...p, name: e.target.value }))}
                                                     disabled={!catalogCodeValid}
-                                                    className="bg-slate-900 border-slate-700 text-slate-200 disabled:opacity-40"
+                                                    className="bg-white border-neutral-200 text-neutral-900 shadow-sm disabled:bg-neutral-100 disabled:text-neutral-400 focus-visible:ring-primary-500 focus-visible:border-primary-500"
                                                 />
                                             </div>
                                             {/* Semester */}
-                                            <div className="col-span-3 space-y-1">
-                                                <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Semester *</label>
+                                            <div className="col-span-3 space-y-1.5">
+                                                <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Semester *</label>
                                                 <Select
                                                     value={newCatalog.semester}
                                                     onValueChange={v => setNewCatalog(p => ({ ...p, semester: v }))}
                                                     disabled={!catalogCodeValid || !catalogNameValid}
                                                 >
-                                                    <SelectTrigger className="w-full bg-slate-900 border-slate-700 text-slate-200 disabled:opacity-40">
+                                                    <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm disabled:bg-neutral-100 focus:ring-primary-500">
                                                         <SelectValue placeholder="Pick semester" />
                                                     </SelectTrigger>
-                                                    <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
+                                                    <SelectContent className="bg-white border-neutral-200 text-neutral-900">
                                                         <SelectItem value="1st Sem">1st Semester</SelectItem>
                                                         <SelectItem value="2nd Sem">2nd Semester</SelectItem>
                                                         <SelectItem value="Summer">Summer</SelectItem>
@@ -1157,7 +1144,7 @@ export default function AdminSettingsPage() {
                                             {/* Add button */}
                                             <div className="col-span-2">
                                                 <Button
-                                                    className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-40"
+                                                    className="w-full"
                                                     disabled={!canAddCatalog}
                                                     onClick={async () => {
                                                         const ok = await handleAddMasterCourse(newCatalog.code, newCatalog.name, newCatalog.semester);
@@ -1171,102 +1158,85 @@ export default function AdminSettingsPage() {
                                     </div>
                                     {/* Inline catalog duplicate warning */}
                                     {catalogCodeTaken && (
-                                        <p className="text-xs text-red-400 font-medium italic flex items-center gap-1.5 mt-2">
-                                            <AlertTriangle className="h-3 w-3" />
-                                            {catalogConflictType} "{catalogConflictType === 'Code' ? newCatalog.code.toUpperCase() : newCatalog.name}" already exists in {existingCatalogEntry?.semester || 'another semester'}.
-                                            Each course must have a unique code and name across all semesters.
-                                        </p>
+                                        <div className="flex items-center gap-2 bg-warning/10 border border-warning/20 text-warning px-3 py-2 rounded-lg text-xs font-medium">
+                                            <AlertTriangle className="h-4 w-4 shrink-0" />
+                                            <p>{catalogConflictType} "{catalogConflictType === 'Code' ? newCatalog.code.toUpperCase() : newCatalog.name}" already exists in {existingCatalogEntry?.semester || 'another semester'}. Each course must be unique.</p>
+                                        </div>
                                     )}
 
-                                    {/* Catalog grid */}
-                                    <div style={{ height: 280 }}>
-                                        <AgGridReact
-                                            theme={customTheme}
-                                            rowData={masterCourseList}
-                                            getRowId={p => String(p.data.id)}
-                                            animateRows
-                                            columnDefs={catalogColumnDefs}
-                                            onCellValueChanged={handleCatalogCellValueChanged}
-                                            stopEditingWhenCellsLoseFocus={true}
-                                            overlayNoRowsTemplate='<span style="color:#475569;font-style:italic">No catalog entries yet. Add a course above.</span>'
-                                        />
-                                    </div>
+                                    {/* Catalog grid (USING THE NEW DATATABLE WRAPPER) */}
+                                    <DataTable
+                                        rowData={masterCourseList}
+                                        columnDefs={catalogColumnDefs}
+                                        getRowId={p => String(p.data.id)}
+                                        onCellValueChanged={handleCatalogCellValueChanged}
+                                        overlayNoRowsTemplate='<span style="color:var(--neutral-500);font-style:italic">No catalog entries yet. Add a course above.</span>'
+                                        height="320px"
+                                    />
                                 </CardContent>
                             </Card>
 
                             {/* ── Card 2: Faculty Course Assignments ───────────────────── */}
-                            <Card className="bg-slate-900 border-slate-800 shadow-none">
-                                <CardHeader className="border-b border-slate-800 py-4">
+                            <Card className="bg-white border-neutral-200 shadow-sm">
+                                <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
                                     <div className="flex items-center justify-between">
                                         <div>
-                                            <CardTitle className="text-base text-slate-100 flex items-center gap-2">
-                                                <Users className="h-4 w-4 text-blue-400" /> Faculty Course Assignments
+                                            <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                                <Users className="h-4 w-4 text-primary-600" /> Faculty Course Assignments
                                             </CardTitle>
-                                            <CardDescription className="text-slate-500 mt-1">
+                                            <CardDescription className="text-neutral-500 mt-1">
                                                 Overview of all faculty course loads. Assign a new section via the button.
                                             </CardDescription>
                                         </div>
-                                        <Button
-                                            className="bg-blue-600 hover:bg-blue-700 text-white shrink-0"
-                                            onClick={openAssignModal}
-                                        >
-                                            <Plus className="h-4 w-4 mr-2" /> Assign Faculty to Course
+                                        <Button onClick={openAssignModal} className="shrink-0">
+                                            <Plus className="h-4 w-4 mr-2" /> Assign Faculty
                                         </Button>
                                     </div>
                                 </CardHeader>
-                                <CardContent className="pt-5">
+                                <CardContent className="pt-6">
                                     {facultyGroups.length === 0 ? (
-                                        <div className="flex flex-col items-center justify-center py-16 text-center">
-                                            <div className="p-4 rounded-full bg-slate-800/60 mb-4">
-                                                <Users className="h-8 w-8 text-slate-600" />
+                                        <div className="flex flex-col items-center justify-center py-16 text-center bg-neutral-50 border border-dashed border-neutral-200 rounded-xl">
+                                            <div className="p-4 rounded-full bg-white border border-neutral-100 shadow-sm mb-4">
+                                                <Users className="h-8 w-8 text-neutral-300" />
                                             </div>
-                                            <p className="text-slate-500 font-medium">No assignments yet</p>
-                                            <p className="text-slate-600 text-sm mt-1">Click "Assign Faculty to Course" to get started.</p>
+                                            <p className="text-neutral-900 font-bold">No assignments yet</p>
+                                            <p className="text-neutral-500 text-sm mt-1">Click "Assign Faculty" to distribute course sections.</p>
                                         </div>
                                     ) : (
-                                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                                             {facultyGroups.map(group => {
                                                 const initials = group.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
-                                                const avatarColors = [
-                                                    'from-blue-600 to-blue-800',
-                                                    'from-violet-600 to-violet-800',
-                                                    'from-emerald-600 to-emerald-800',
-                                                    'from-amber-600 to-amber-800',
-                                                    'from-rose-600 to-rose-800',
-                                                    'from-cyan-600 to-cyan-800',
-                                                ];
-                                                const colorIdx = group.name.charCodeAt(0) % avatarColors.length;
                                                 return (
                                                     <div
                                                         key={group.faculty_id}
-                                                        className="bg-slate-950/60 border border-slate-800 rounded-xl overflow-hidden hover:border-slate-700 transition-colors"
+                                                        className="bg-white border border-neutral-200 rounded-xl overflow-hidden hover:border-primary-400 hover:shadow-md transition-all group"
                                                     >
                                                         {/* Faculty header */}
-                                                        <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-800 bg-slate-900/50">
-                                                            <div className={`flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br ${avatarColors[colorIdx]} flex items-center justify-center text-white text-sm font-bold`}>
+                                                        <div className="flex items-center gap-4 px-5 py-4 border-b border-neutral-100 bg-neutral-50/50">
+                                                            <div className="flex-shrink-0 w-11 h-11 rounded-lg bg-primary-100 flex items-center justify-center text-primary-700 text-sm font-bold border border-primary-200 shadow-sm">
                                                                 {initials}
                                                             </div>
                                                             <div className="flex-1 min-w-0">
-                                                                <p className="text-slate-100 font-semibold text-sm truncate">
+                                                                <p className="text-neutral-900 font-bold text-sm truncate flex items-center gap-2">
                                                                     {group.name}
                                                                     {!group.is_active && (
-                                                                        <span className="ml-2 text-xs text-amber-400 font-normal">Inactive</span>
+                                                                        <Badge variant="outline" className="text-[10px] bg-neutral-100 text-neutral-500 border-neutral-200 px-1.5 py-0 uppercase">Inactive</Badge>
                                                                     )}
                                                                 </p>
                                                                 {group.employment_type && (
-                                                                    <p className="text-xs text-slate-500">{group.employment_type}</p>
+                                                                    <p className="text-xs text-neutral-500 font-medium">{group.employment_type}</p>
                                                                 )}
                                                             </div>
-                                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                            <div className="flex items-center gap-2 shrink-0">
                                                                 {(() => {
-                                                                    const uniqueCourses = new Set(group.assignments.map(a => a.master_course_id || a.course_code)).size;
+                                                                    const uniqueCourses = new Set(group.assignments.map(a => String(a.master_course_id || a.course_code))).size;
                                                                     const totalSections = group.assignments.length;
                                                                     return (
                                                                         <>
-                                                                            <Badge variant="outline" className="border-blue-800/60 text-blue-400 text-[11px] px-2">
+                                                                            <Badge variant="outline" className="border-neutral-200 text-neutral-600 bg-white shadow-sm text-[11px] px-2 py-0 h-5">
                                                                                 {uniqueCourses} {uniqueCourses === 1 ? 'course' : 'courses'}
                                                                             </Badge>
-                                                                            <Badge variant="outline" className="border-violet-800/60 text-violet-400 text-[11px] px-2">
+                                                                            <Badge variant="outline" className="border-primary-200 text-primary-600 bg-primary-50 shadow-sm text-[11px] px-2 py-0 h-5">
                                                                                 {totalSections} {totalSections === 1 ? 'section' : 'sections'}
                                                                             </Badge>
                                                                         </>
@@ -1274,98 +1244,123 @@ export default function AdminSettingsPage() {
                                                                 })()}
                                                             </div>
                                                         </div>
+
                                                         {/* Course rows */}
-                                                        <div className="divide-y divide-slate-800/60">
-                                                            {group.assignments.map(asgn => (
-                                                                <div
-                                                                    key={asgn.course_id}
-                                                                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-800/30 transition-colors group"
-                                                                >
-                                                                    <span className="font-mono text-emerald-400 font-semibold text-xs w-16 shrink-0">
-                                                                        {asgn.course_code}
-                                                                    </span>
-                                                                    <span className="flex-1 text-slate-300 text-sm truncate">
-                                                                        {asgn.course_name}
-                                                                    </span>
-                                                                    <div className="flex items-center gap-2 shrink-0">
-                                                                        <span className="text-xs text-violet-400 font-bold bg-violet-900/30 border border-violet-800/50 rounded px-1.5 py-0.5">
-                                                                            Sec {asgn.section || '—'}
+                                                        <div className="divide-y divide-neutral-100">
+                                                            {group.assignments.map(asgn => {
+                                                                // Cross-reference with master catalog to check if the course is active
+                                                                const masterCourse = masterCourseList.find(
+                                                                    mc => mc.id === asgn.master_course_id || mc.course_code === asgn.course_code
+                                                                );
+                                                                const isCourseActive = masterCourse ? masterCourse.is_active !== false : true;
+
+                                                                return (
+                                                                    <div
+                                                                        key={asgn.course_id}
+                                                                        className="flex items-center gap-4 px-5 py-3 hover:bg-neutral-50 transition-colors group/row"
+                                                                    >
+                                                                        {/* Course Code (Greys out if inactive) */}
+                                                                        <span className={`font-mono text-[11px] w-14 shrink-0 px-2 py-0.5 rounded border ${isCourseActive
+                                                                            ? 'text-primary-600 font-bold bg-primary-50/50 border-primary-100'
+                                                                            : 'text-neutral-500 font-medium bg-neutral-100 border-neutral-200'
+                                                                            }`}>
+                                                                            {asgn.course_code}
                                                                         </span>
-                                                                        <span className="text-xs text-slate-500 hidden sm:block">
-                                                                            {asgn.semester || '—'}
-                                                                        </span>
-                                                                        {pendingDeleteId === asgn.course_id ? (
-                                                                            <div className="flex items-center gap-1">
-                                                                                <button
-                                                                                    onClick={() => { setPendingDeleteId(null); handleDeleteCourse(asgn.course_id); }}
-                                                                                    className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-900/40 text-red-400 hover:bg-red-800/50 transition-colors"
-                                                                                >
-                                                                                    Confirm
-                                                                                </button>
-                                                                                <button
-                                                                                    onClick={() => setPendingDeleteId(null)}
-                                                                                    className="text-[10px] font-medium px-1.5 py-0.5 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
-                                                                                >
-                                                                                    Cancel
-                                                                                </button>
+
+                                                                        {/* Course Name with Inactive Badge */}
+                                                                        <div className="flex-1 flex items-center gap-2 min-w-0">
+                                                                            <span className={`font-medium text-sm truncate ${isCourseActive ? 'text-neutral-900' : 'text-neutral-500 line-through decoration-neutral-300'
+                                                                                }`}>
+                                                                                {asgn.course_name}
+                                                                            </span>
+                                                                            {!isCourseActive && (
+                                                                                <Badge variant="outline" className="text-[9px] bg-neutral-100 text-neutral-500 border-neutral-200 px-1.5 py-0 uppercase shrink-0">
+                                                                                    Inactive
+                                                                                </Badge>
+                                                                            )}
+                                                                        </div>
+
+                                                                        <div className="flex items-center gap-3 shrink-0 ml-auto">
+                                                                            <span className={`text-[11px] font-bold border shadow-sm rounded-md px-2 py-0.5 ${isCourseActive ? 'bg-white text-neutral-700 border-neutral-200' : 'bg-neutral-50 text-neutral-400 border-neutral-100'
+                                                                                }`}>
+                                                                                Sec {asgn.section || '—'}
+                                                                            </span>
+
+                                                                            <span className="text-[11px] text-neutral-500 font-medium w-12 text-right hidden sm:block">
+                                                                                {asgn.semester || '—'}
+                                                                            </span>
+
+                                                                            <div className="flex justify-end min-w-[32px] transition-all duration-200">
+                                                                                {pendingDeleteId === asgn.course_id ? (
+                                                                                    <div className="flex items-center gap-1 animate-in fade-in slide-in-from-right-2 duration-200">
+                                                                                        <Button
+                                                                                            size="xs"
+                                                                                            variant="destructive"
+                                                                                            onClick={() => { setPendingDeleteId(null); handleDeleteCourse(asgn.course_id); }}
+                                                                                        >
+                                                                                            Confirm
+                                                                                        </Button>
+                                                                                        <Button
+                                                                                            size="xs"
+                                                                                            variant="ghost"
+                                                                                            onClick={() => setPendingDeleteId(null)}
+                                                                                            className="text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100"
+                                                                                        >
+                                                                                            Cancel
+                                                                                        </Button>
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    <Button
+                                                                                        size="icon-xs"
+                                                                                        variant="ghost"
+                                                                                        onClick={() => setPendingDeleteId(asgn.course_id)}
+                                                                                        className="text-neutral-400 hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover/row:opacity-100 transition-all"
+                                                                                        title="Remove assignment"
+                                                                                    >
+                                                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                                                    </Button>
+                                                                                )}
                                                                             </div>
-                                                                        ) : (
-                                                                            <button
-                                                                                onClick={() => setPendingDeleteId(asgn.course_id)}
-                                                                                className="p-1 rounded text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
-                                                                                title="Remove assignment"
-                                                                            >
-                                                                                <Trash2 className="h-3.5 w-3.5" />
-                                                                            </button>
-                                                                        )}
+                                                                        </div>
                                                                     </div>
-                                                                </div>
-                                                            ))}
+                                                                );
+                                                            })}
                                                         </div>
                                                     </div>
                                                 );
                                             })}
                                         </div>
-                                    )
-                                    }
+                                    )}
                                 </CardContent>
                             </Card>
 
-                            {/* ── Assign Faculty Modal ──────────────────────────────────── */}
+                            {/* ── Assign Faculty Modal ────*/}
                             <Dialog open={assignModalOpen} onOpenChange={setAssignModalOpen}>
-                                <DialogContent
-                                    className="bg-slate-900 border-slate-700 text-slate-100 max-w-lg"
-                                    showCloseButton={false}
-                                >
+                                <DialogContent className="bg-white border-neutral-200 text-neutral-900 max-w-lg shadow-xl" showCloseButton={false}>
                                     <DialogHeader>
-                                        <DialogTitle className="text-slate-100 flex items-center gap-2">
-                                            <Users className="h-5 w-5 text-blue-400" />
+                                        <DialogTitle className="text-neutral-900 flex items-center gap-2">
+                                            <Users className="h-5 w-5 text-primary-600" />
                                             Assign Faculty to Course
                                         </DialogTitle>
-                                        <DialogDescription className="text-slate-500">
+                                        <DialogDescription className="text-neutral-500">
                                             Select a course from the catalog, pick a section letter, then choose the faculty member.
                                         </DialogDescription>
                                     </DialogHeader>
 
                                     <div className="space-y-4 py-2">
                                         {/* Course picker */}
-                                        <div className="space-y-1">
-                                            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Course *</label>
+                                        <div className="space-y-1.5">
+                                            <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Course *</label>
                                             <Select
                                                 value={String(newAssignment.master_course_id)}
                                                 onValueChange={v => setNewAssignment(p => ({ ...p, master_course_id: v, section: '', faculty_id: '' }))}
                                             >
-                                                <SelectTrigger className="w-full bg-slate-950 border-slate-700 text-slate-200">
+                                                <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm focus:ring-primary-500">
                                                     <SelectValue placeholder="Select a course from catalog…" />
                                                 </SelectTrigger>
-                                                <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
+                                                <SelectContent className="bg-white border-neutral-200 text-neutral-900">
                                                     {masterCourseList.map(c => (
-                                                        <SelectItem
-                                                            key={c.id}
-                                                            value={String(c.id)}
-                                                            disabled={!c.is_active}
-                                                            className={!c.is_active ? 'opacity-40 cursor-not-allowed' : ''}
-                                                        >
+                                                        <SelectItem key={c.id} value={String(c.id)} disabled={!c.is_active} className={!c.is_active ? 'opacity-50' : ''}>
                                                             {c.course_code} – {c.course_name} ({c.semester})
                                                         </SelectItem>
                                                     ))}
@@ -1375,53 +1370,44 @@ export default function AdminSettingsPage() {
 
                                         {/* Auto-filled info row */}
                                         {selectedCatalogEntry && (
-                                            <div className="grid grid-cols-2 gap-3">
+                                            <div className="grid grid-cols-2 gap-4 bg-neutral-50 p-3 rounded-lg border border-neutral-100">
                                                 <div className="space-y-1">
-                                                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Course Name</label>
-                                                    <div className="bg-slate-950/60 border border-slate-700/50 rounded-md px-3 py-2 text-slate-400 text-sm">
-                                                        {selectedCatalogEntry.course_name}
-                                                    </div>
+                                                    <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Course Name</label>
+                                                    <div className="text-neutral-900 text-sm font-medium">{selectedCatalogEntry.course_name}</div>
                                                 </div>
                                                 <div className="space-y-1">
-                                                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Semester</label>
-                                                    <div className="bg-slate-950/60 border border-slate-700/50 rounded-md px-3 py-2 text-slate-400 text-sm font-mono">
-                                                        {selectedCatalogEntry.semester}
-                                                    </div>
+                                                    <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Semester</label>
+                                                    <div className="text-neutral-700 text-sm font-mono">{selectedCatalogEntry.semester}</div>
                                                 </div>
                                             </div>
                                         )}
 
                                         {/* Section + Faculty row */}
-                                        <div className="grid grid-cols-3 gap-3">
-                                            <div className="space-y-1">
-                                                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Section *</label>
+                                        <div className="grid grid-cols-3 gap-4">
+                                            <div className="space-y-1.5">
+                                                <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Section *</label>
                                                 <Input
                                                     placeholder="A"
                                                     value={newAssignment.section}
                                                     onChange={e => setNewAssignment(p => ({ ...p, section: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 2) }))}
                                                     maxLength={2}
                                                     disabled={!newAssignment.master_course_id}
-                                                    className="bg-slate-950 border-slate-700 text-slate-200 font-mono text-center disabled:opacity-40"
+                                                    className="bg-white border-neutral-200 text-neutral-900 font-mono text-center disabled:bg-neutral-100 shadow-sm focus-visible:ring-primary-500"
                                                 />
                                             </div>
-                                            <div className="col-span-2 space-y-1">
-                                                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Faculty *</label>
+                                            <div className="col-span-2 space-y-1.5">
+                                                <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Faculty *</label>
                                                 <Select
                                                     value={newAssignment.faculty_id}
                                                     onValueChange={v => setNewAssignment(p => ({ ...p, faculty_id: v }))}
                                                     disabled={!newAssignment.master_course_id}
                                                 >
-                                                    <SelectTrigger className="w-full bg-slate-950 border-slate-700 text-slate-200 disabled:opacity-40">
+                                                    <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm disabled:bg-neutral-100 focus:ring-primary-500">
                                                         <SelectValue placeholder="Select faculty…" />
                                                     </SelectTrigger>
-                                                    <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
+                                                    <SelectContent className="bg-white border-neutral-200 text-neutral-900">
                                                         {facultyList.filter(f => f.first_name && f.last_name).map(f => (
-                                                            <SelectItem
-                                                                key={f.faculty_id}
-                                                                value={f.faculty_id}
-                                                                disabled={!f.is_active}
-                                                                className={!f.is_active ? 'opacity-40 cursor-not-allowed' : ''}
-                                                            >
+                                                            <SelectItem key={f.faculty_id} value={f.faculty_id} disabled={!f.is_active} className={!f.is_active ? 'opacity-50' : ''}>
                                                                 {f.first_name} {f.last_name}
                                                             </SelectItem>
                                                         ))}
@@ -1432,33 +1418,24 @@ export default function AdminSettingsPage() {
 
                                         {/* Inline validation messages */}
                                         {facultyAlreadyOnSection && (
-                                            <div className="flex items-center gap-2 bg-red-950/40 border border-red-800/50 rounded-lg px-3 py-2">
-                                                <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
-                                                <p className="text-xs text-red-400">
-                                                    This faculty is already assigned to {selectedCatalogEntry?.course_code} Section {newAssignment.section}.
-                                                </p>
+                                            <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2 text-destructive mt-2">
+                                                <AlertCircle className="h-4 w-4 shrink-0" />
+                                                <p className="text-xs font-medium">This faculty is already assigned to {selectedCatalogEntry?.course_code} Section {newAssignment.section}.</p>
                                             </div>
                                         )}
                                         {!facultyAlreadyOnSection && sectionTaken && (
-                                            <div className="flex items-center gap-2 bg-amber-950/40 border border-amber-800/50 rounded-lg px-3 py-2">
-                                                <AlertCircle className="h-4 w-4 text-amber-400 shrink-0" />
-                                                <p className="text-xs text-amber-400">
-                                                    {selectedCatalogEntry?.course_code} Section {newAssignment.section} is already assigned to another faculty. Try a different section (B, C…).
-                                                </p>
+                                            <div className="flex items-center gap-2 bg-warning/10 border border-warning/20 rounded-lg px-3 py-2 text-warning mt-2">
+                                                <AlertCircle className="h-4 w-4 shrink-0" />
+                                                <p className="text-xs font-medium">{selectedCatalogEntry?.course_code} Section {newAssignment.section} is already assigned. Try a different section.</p>
                                             </div>
                                         )}
                                     </div>
 
-                                    <DialogFooter>
-                                        <Button
-                                            variant="outline"
-                                            onClick={closeAssignModal}
-                                            className="bg-transparent border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
-                                        >
+                                    <DialogFooter className="mt-4 gap-2 sm:gap-3">
+                                        <Button variant="outline" onClick={closeAssignModal} className="border-neutral-200 text-neutral-700 hover:bg-neutral-100">
                                             Cancel
                                         </Button>
                                         <Button
-                                            className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-40"
                                             disabled={!assignmentValid || assignmentDuplicate}
                                             onClick={async () => {
                                                 const ok = await handleAddCourse({
@@ -1474,73 +1451,59 @@ export default function AdminSettingsPage() {
                                     </DialogFooter>
                                 </DialogContent>
                             </Dialog>
-
-
-
                         </TabsContent>
 
                         {/* TAB: FACULTY MANAGEMENT */}
                         <TabsContent value="faculty" className="mt-0">
-                            <Card className="bg-slate-900 border-slate-800 shadow-none">
-                                <CardHeader className="border-b border-slate-800 py-4">
-                                    <CardTitle className="text-base text-slate-100 flex items-center gap-2">
-                                        <Users className="h-4 w-4 text-blue-400" /> Faculty Management
+                            <Card className="bg-white border-neutral-200 shadow-sm">
+                                <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
+                                    <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                        <Users className="h-4 w-4 text-primary-600" /> Faculty Management
                                     </CardTitle>
-                                    <CardDescription className="text-slate-500">
+                                    <CardDescription className="text-neutral-500">
                                         Double-click a cell to edit Emp ID, Employment Type, or Status. List updates automatically when permissions change.
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent className="pt-6">
-                                    <div className="border border-slate-800 rounded-md overflow-hidden bg-slate-950" style={{ height: '500px' }}>
-                                        <div style={{ height: '100%', width: '100%' }}>
-                                            <AgGridReact
-                                                theme={customTheme}
-                                                rowData={facultyList}
-                                                columnDefs={facultyColumnDefs}
-                                                getRowId={(params) => String(params.data.faculty_id)}
-                                                defaultColDef={{
-                                                    sortable: true,
-                                                    filter: true,
-                                                    resizable: true,
-                                                }}
-                                                animateRows={true}
-                                                stopEditingWhenCellsLoseFocus={true}
-                                                onCellValueChanged={handleFacultyCellValueChanged}
-                                            />
-                                        </div>
-                                    </div>
+                                    <DataTable
+                                        rowData={facultyList}
+                                        columnDefs={facultyColumnDefs}
+                                        getRowId={(params) => String(params.data.faculty_id)}
+                                        onCellValueChanged={handleFacultyCellValueChanged}
+                                        overlayNoRowsTemplate='<span style="color:var(--neutral-500);font-style:italic">No faculty records found.</span>'
+                                    />
                                 </CardContent>
                             </Card>
-                        </TabsContent >
+                        </TabsContent>
 
                         {/* TAB: DOCUMENT TYPES */}
                         <TabsContent value="doc_types" className="mt-0">
-                            <Card className="bg-slate-900 border-slate-800 shadow-none">
-                                <CardHeader className="border-b border-slate-800 py-4">
+                            <Card className="bg-white border-neutral-200 shadow-sm">
+                                <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
                                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                         <div>
-                                            <CardTitle className="text-base text-slate-100 flex items-center gap-2">
-                                                <Folder className="h-4 w-4 text-blue-400" /> Document Requirements
+                                            <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                                <Folder className="h-4 w-4 text-primary-600" /> Document Requirements
                                             </CardTitle>
-                                            <CardDescription className="text-slate-500">Manage required submissions and their target folders</CardDescription>
+                                            <CardDescription className="text-neutral-500">Manage required submissions and their target folders</CardDescription>
                                         </div>
                                     </div>
                                 </CardHeader>
                                 <CardContent className="pt-6 space-y-6">
                                     {/* Add New Form */}
-                                    <div className="bg-slate-950/50 p-4 rounded-lg border border-slate-800 flex flex-col md:flex-row gap-3 items-start">
+                                    <div className="bg-neutral-50 p-5 rounded-xl border border-neutral-200 flex flex-col md:flex-row gap-4 items-start">
                                         {/* Requirement Name Column */}
-                                        <div className="flex-1 space-y-1 w-full">
-                                            <Label className="text-xs font-semibold text-slate-400 uppercase">Requirement Name</Label>
+                                        <div className="flex-1 space-y-1.5 w-full">
+                                            <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Requirement Name *</Label>
                                             <Input
                                                 placeholder="e.g. Quarterly Report"
                                                 value={newReq.name}
                                                 onChange={(e) => setNewReq({ ...newReq, name: e.target.value })}
-                                                className={`bg-slate-900 border-slate-700 text-slate-200 ${isDuplicateRequirement ? 'border-red-500/50' : ''}`}
+                                                className={`bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 shadow-sm ${isDuplicateRequirement ? 'border-destructive focus-visible:ring-destructive/20' : ''}`}
                                             />
                                             <div className="min-h-[1.25rem]">
                                                 {isDuplicateRequirement && (
-                                                    <p className="text-[10px] text-red-400 font-medium italic flex items-center gap-1 mt-1">
+                                                    <p className="text-[10px] text-destructive font-medium italic flex items-center gap-1 mt-1 text-warning">
                                                         <AlertTriangle className="h-2.5 w-2.5" />
                                                         "{newReq.name}" is already a requirement.
                                                     </p>
@@ -1549,18 +1512,18 @@ export default function AdminSettingsPage() {
                                         </div>
 
                                         {/* GDrive Folder Name Column */}
-                                        <div className="flex-1 space-y-1 w-full">
-                                            <Label className="text-xs font-semibold text-slate-400 uppercase">GDrive Folder Name</Label>
+                                        <div className="flex-1 space-y-1.5 w-full">
+                                            <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">GDrive Folder Name *</Label>
                                             <Input
                                                 placeholder="e.g. Reports_Q1"
                                                 value={newReq.folder}
                                                 disabled={!newReq.name.trim() || isDuplicateRequirement}
                                                 onChange={(e) => setNewReq({ ...newReq, folder: e.target.value })}
-                                                className={`bg-slate-900 border-slate-700 text-slate-200 ${isDuplicateFolder ? 'border-red-500/50' : ''} disabled:opacity-30 disabled:cursor-not-allowed`}
+                                                className={`bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 shadow-sm disabled:bg-neutral-100 disabled:text-neutral-400 ${isDuplicateFolder ? 'border-destructive focus-visible:ring-destructive/20' : ''}`}
                                             />
                                             <div className="min-h-[1.25rem]">
                                                 {isDuplicateFolder && (
-                                                    <p className="text-[10px] text-red-400 font-medium italic flex items-center gap-1 mt-1">
+                                                    <p className="text-[10px] text-destructive font-medium italic flex items-center gap-1 mt-1 text-warning">
                                                         <AlertTriangle className="h-2.5 w-2.5" />
                                                         Folder "/{newReq.folder}" is already in use.
                                                     </p>
@@ -1569,8 +1532,8 @@ export default function AdminSettingsPage() {
                                         </div>
 
                                         {/* Required Checkbox Column */}
-                                        <div className="w-auto shrink-0 space-y-1">
-                                            <Label className="text-xs font-semibold text-transparent select-none uppercase pointer-events-none">_</Label>
+                                        <div className="w-auto shrink-0 space-y-1.5">
+                                            <Label className="text-xs font-bold text-transparent select-none uppercase pointer-events-none">_</Label>
                                             <div className="h-9 flex items-center">
                                                 <CheckboxItem
                                                     label="Required"
@@ -1582,11 +1545,11 @@ export default function AdminSettingsPage() {
                                         </div>
 
                                         {/* Add Button Column */}
-                                        <div className="w-auto shrink-0 space-y-1">
-                                            <Label className="text-xs font-semibold text-transparent select-none uppercase pointer-events-none">_</Label>
+                                        <div className="w-auto shrink-0 space-y-1.5">
+                                            <Label className="text-xs font-bold text-transparent select-none uppercase pointer-events-none">_</Label>
                                             <div className="h-9 flex items-center">
                                                 <Button
-                                                    className="bg-blue-600 hover:bg-blue-700 text-white shrink-0 disabled:opacity-40 h-10 px-6 w-full md:w-auto min-w-[80px]"
+                                                    className="w-full md:w-auto min-w-[80px]"
                                                     disabled={!canAddDocType}
                                                     onClick={() => {
                                                         if (canAddDocType) {
@@ -1595,7 +1558,7 @@ export default function AdminSettingsPage() {
                                                         }
                                                     }}
                                                 >
-                                                    <Plus className="h-4 w-4 mr-2" /> Add
+                                                    <Plus className="h-4 w-4 mr-1" /> Add
                                                 </Button>
                                             </div>
                                             <div className="min-h-[1.25rem]" />
@@ -1604,90 +1567,100 @@ export default function AdminSettingsPage() {
 
                                     {/* Card Grid */}
                                     {docRequirements.length === 0 ? (
-                                        <div className="text-center py-12 text-slate-500">
-                                            <Folder className="h-10 w-10 mx-auto mb-3 text-slate-700" />
-                                            <p className="text-sm font-medium">No document types configured yet</p>
-                                            <p className="text-xs mt-1">Use the form above to add your first requirement</p>
+                                        <div className="flex flex-col items-center justify-center py-16 bg-neutral-50 border border-dashed border-neutral-200 rounded-xl">
+                                            <div className="p-4 rounded-full bg-white border border-neutral-100 shadow-sm mb-4">
+                                                <Folder className="h-8 w-8 text-neutral-300" />
+                                            </div>
+                                            <p className="text-neutral-900 font-bold">No document types configured</p>
+                                            <p className="text-neutral-500 text-sm mt-1">Use the form above to add your first requirement</p>
                                         </div>
                                     ) : (
-                                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                                             {docRequirements.map(req => {
                                                 const isActive = req.is_active !== false;
                                                 return (
                                                     <div
                                                         key={req.id}
-                                                        className={`bg-slate-950/60 border rounded-xl overflow-hidden transition-all hover:shadow-lg ${isActive
-                                                            ? 'border-slate-800 hover:border-slate-600'
-                                                            : 'border-slate-800/50 opacity-60'
+                                                        className={`bg-white border rounded-xl overflow-hidden shadow-sm transition-all hover:shadow-md group ${isActive
+                                                            ? 'border-neutral-200 hover:border-primary-400'
+                                                            : 'border-neutral-200 bg-neutral-50/50'
                                                             }`}
                                                     >
                                                         {/* Card Header */}
-                                                        <div className="flex items-start gap-3 px-4 py-3.5 border-b border-slate-800/50">
-                                                            <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${req.required
-                                                                ? 'bg-gradient-to-br from-blue-600/20 to-indigo-600/20 text-blue-400'
-                                                                : 'bg-slate-800/60 text-slate-500'
+                                                        <div className={`flex items-start gap-4 px-5 py-4 border-b border-neutral-100 ${isActive ? 'bg-neutral-50/50' : 'opacity-60'}`}>
+                                                            <div className={`flex-shrink-0 w-11 h-11 rounded-lg flex items-center justify-center border shadow-sm ${req.required
+                                                                ? 'bg-primary-50 text-primary-600 border-primary-200'
+                                                                : 'bg-white text-neutral-400 border-neutral-200'
                                                                 }`}>
                                                                 <FileIcon className="h-5 w-5" />
                                                             </div>
                                                             <div className="flex-1 min-w-0">
-                                                                <p className="text-slate-100 font-semibold text-sm truncate">{req.name}</p>
-                                                                <p className="text-xs text-slate-500 mt-0.5 font-mono truncate">/{req.folder}</p>
+                                                                <p className={`font-bold text-sm truncate ${isActive ? 'text-neutral-900' : 'text-neutral-500 line-through decoration-neutral-300'}`}>{req.name}</p>
+                                                                <p className="text-xs text-neutral-500 mt-0.5 font-mono truncate">/{req.folder}</p>
                                                             </div>
                                                         </div>
 
                                                         {/* Card Body — badges row */}
-                                                        <div className="px-4 py-2.5 flex items-center gap-2 flex-wrap">
+                                                        <div className={`px-5 py-3 flex items-center gap-2 flex-wrap ${!isActive && 'opacity-60'}`}>
                                                             {req.required ? (
-                                                                <Badge variant="outline" className="text-[10px] border-blue-800/60 text-blue-400 px-2">
+                                                                <Badge variant="outline" className="text-[10px] border-primary-200 text-primary-700 bg-primary-50 px-2 py-0 h-5 shadow-sm font-bold">
                                                                     Required
                                                                 </Badge>
                                                             ) : (
-                                                                <Badge variant="outline" className="text-[10px] border-slate-700 text-slate-500 px-2">
+                                                                <Badge variant="outline" className="text-[10px] border-neutral-200 text-neutral-600 bg-white px-2 py-0 h-5 shadow-sm font-bold">
                                                                     Optional
                                                                 </Badge>
                                                             )}
-                                                            <Badge variant="outline" className={`text-[10px] px-2 ${isActive
-                                                                ? 'border-emerald-800/60 text-emerald-400'
-                                                                : 'border-amber-800/60 text-amber-400'
+                                                            <Badge variant="outline" className={`text-[10px] px-2 py-0 h-5 shadow-sm font-bold ${isActive
+                                                                ? 'border-success/20 text-success bg-success/5'
+                                                                : 'border-neutral-200 text-neutral-500 bg-neutral-100'
                                                                 }`}>
                                                                 {isActive ? 'Active' : 'Inactive'}
                                                             </Badge>
                                                         </div>
 
                                                         {/* Card Footer — actions */}
-                                                        <div className="px-4 py-2.5 border-t border-slate-800/50 flex items-center justify-between">
+                                                        <div className="px-5 py-3 border-t border-neutral-100 flex items-center justify-between bg-neutral-50/30">
                                                             <div className="flex items-center gap-2">
-                                                                <span className="text-[10px] text-slate-500 uppercase font-semibold">Active</span>
+                                                                <span className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Active</span>
                                                                 <Switch
                                                                     checked={isActive}
                                                                     onCheckedChange={(c) => updateDocRequirement(req.id, { is_active: c })}
-                                                                    className="data-[state=checked]:bg-emerald-600 scale-90"
+                                                                    className="data-[state=checked]:bg-success scale-90"
                                                                 />
                                                             </div>
-                                                            {pendingDeleteId === req.id ? (
-                                                                <div className="flex items-center gap-1">
-                                                                    <button
-                                                                        onClick={() => { setPendingDeleteId(null); deleteDocRequirement(req.id); }}
-                                                                        className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-900/40 text-red-400 hover:bg-red-800/50 transition-colors"
+
+                                                            <div className="h-8 flex items-center justify-end min-w-[32px] transition-all duration-200">
+                                                                {pendingDeleteId === req.id ? (
+                                                                    <div className="flex items-center gap-1 animate-in fade-in slide-in-from-right-2 duration-200">
+                                                                        <Button
+                                                                            size="xs"
+                                                                            variant="destructive"
+                                                                            onClick={() => { setPendingDeleteId(null); deleteDocRequirement(req.id); }}
+                                                                        >
+                                                                            Confirm
+                                                                        </Button>
+                                                                        <Button
+                                                                            size="xs"
+                                                                            variant="ghost"
+                                                                            className="text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100"
+                                                                            onClick={() => setPendingDeleteId(null)}
+                                                                        >
+                                                                            Cancel
+                                                                        </Button>
+                                                                    </div>
+                                                                ) : (
+                                                                    <Button
+                                                                        size="icon-xs"
+                                                                        variant="ghost"
+                                                                        onClick={() => setPendingDeleteId(req.id)}
+                                                                        className="text-neutral-400 hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all"
+                                                                        title="Delete document type"
                                                                     >
-                                                                        Confirm
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => setPendingDeleteId(null)}
-                                                                        className="text-[10px] font-medium px-1.5 py-0.5 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
-                                                                    >
-                                                                        Cancel
-                                                                    </button>
-                                                                </div>
-                                                            ) : (
-                                                                <button
-                                                                    onClick={() => setPendingDeleteId(req.id)}
-                                                                    className="p-1.5 rounded text-slate-600 hover:text-red-400 hover:bg-slate-800/50 transition-all"
-                                                                    title="Delete document type"
-                                                                >
-                                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                                </button>
-                                                            )}
+                                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                                    </Button>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 );
@@ -1701,123 +1674,106 @@ export default function AdminSettingsPage() {
                         {/* TAB: TEMPLATES */}
                         <TabsContent value="templates" className="mt-0 space-y-6">
                             {/* Certificates Grid */}
-                            <Card className="bg-slate-900 border-slate-800 shadow-none">
-                                <CardHeader className="border-b border-slate-800 py-4 flex flex-row justify-between items-center">
+                            <Card className="bg-white border-neutral-200 shadow-sm">
+                                <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                     <div>
-                                        <CardTitle className="text-base text-slate-100 flex items-center gap-2">
-                                            <Shield className="h-4 w-4 text-emerald-400" /> Certificates
+                                        <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                            <Shield className="h-4 w-4 text-primary-600" /> Certificates
                                         </CardTitle>
-                                        <CardDescription className="text-slate-500">Manage Clearance Certificates and visual calibration.</CardDescription>
+                                        <CardDescription className="text-neutral-500">Manage Clearance Certificates and visual calibration.</CardDescription>
                                     </div>
                                     <Button
+                                        variant="default"
                                         size="sm"
-                                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                        className="shadow-sm active:scale-95 transition-all"
                                         onClick={() => setTemplateModalOpen(true)}
                                     >
-                                        <Plus className="h-4 w-4 mr-2" /> Upload New Certificate
+                                        <Plus className="h-4 w-4 mr-1.5" /> Upload Certificate
                                     </Button>
                                 </CardHeader>
                                 <CardContent className="pt-6">
-                                    <div className="ag-theme-balham-dark" style={{ height: 350, width: '100%' }}>
-                                        <AgGridReact
-                                            theme={customTheme}
-                                            rowData={certificateTemplates}
-                                            columnDefs={certificateColumnDefs}
-                                            animateRows={true}
-                                            suppressCellFocus={true}
-                                            overlayNoRowsTemplate={
-                                                `<div style="padding: 20px; text-align: center; color: #64748b;">
-                                                <div style="font-size: 24px; margin-bottom: 8px;">🎓</div>
-                                                No certificates deployed.
-                                            </div>`
-                                            }
-                                        />
-                                    </div>
+                                    <DataTable
+                                        rowData={certificateTemplates}
+                                        columnDefs={certificateColumnDefs}
+                                        height="320px"
+                                        overlayNoRowsTemplate='<div style="padding: 20px; text-align: center; color: var(--neutral-500);"><div style="font-size: 24px; margin-bottom: 8px;">🎓</div>No certificates deployed.</div>'
+                                    />
                                 </CardContent>
                             </Card>
 
                             {/* General Templates Grid */}
-                            <Card className="bg-slate-900 border-slate-800 shadow-none">
-                                <CardHeader className="border-b border-slate-800 py-4 flex flex-row justify-between items-center">
+                            <Card className="bg-white border-neutral-200 shadow-sm">
+                                <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                     <div>
-                                        <CardTitle className="text-base text-slate-100 flex items-center gap-2">
-                                            <LayoutTemplate className="h-4 w-4 text-purple-400" /> System Templates
+                                        <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                            <LayoutTemplate className="h-4 w-4 text-primary-600" /> System Templates
                                         </CardTitle>
-                                        <CardDescription className="text-slate-500">Manage Syllabus, Grade Sheets, and General templates.</CardDescription>
+                                        <CardDescription className="text-neutral-500">Manage Syllabus, Grade Sheets, and General templates.</CardDescription>
                                     </div>
                                     <Button
+                                        variant="default"
                                         size="sm"
-                                        className="bg-purple-600 hover:bg-purple-700 text-white"
+                                        className="shadow-sm active:scale-95 transition-all"
                                         onClick={() => setTemplateModalOpen(true)}
                                     >
-                                        <Plus className="h-4 w-4 mr-2" /> Upload New Template
+                                        <Plus className="h-4 w-4 mr-1" /> Upload Template
                                     </Button>
                                 </CardHeader>
                                 <CardContent className="pt-6">
-                                    <div className="ag-theme-balham-dark" style={{ height: 350, width: '100%' }}>
-                                        <AgGridReact
-                                            theme={customTheme}
-                                            rowData={generalTemplates}
-                                            columnDefs={generalColumnDefs}
-                                            animateRows={true}
-                                            suppressCellFocus={true}
-                                            overlayNoRowsTemplate={
-                                                `<div style="padding: 20px; text-align: center; color: #64748b;">
-                                                <div style="font-size: 24px; margin-bottom: 8px;">📑</div>
-                                                No generic templates deployed.
-                                            </div>`
-                                            }
-                                        />
-                                    </div>
+                                    <DataTable
+                                        rowData={generalTemplates}
+                                        columnDefs={generalColumnDefs}
+                                        height="320px"
+                                        overlayNoRowsTemplate='<div style="padding: 20px; text-align: center; color: var(--neutral-500);"><div style="font-size: 24px; margin-bottom: 8px;">📑</div>No generic templates deployed.</div>'
+                                    />
                                 </CardContent>
                             </Card>
                         </TabsContent>
 
                         {/* TAB: SCHEDULING (HOLIDAYS) */}
-                        < TabsContent value="scheduling" className="mt-0" >
-                            <Card className="bg-slate-900 border-slate-800 shadow-none">
-                                <CardHeader className="border-b border-slate-800 py-4">
-                                    <CardTitle className="text-base text-slate-100 flex items-center gap-2">
-                                        <Clock className="h-4 w-4 text-blue-400" /> Holiday Scheduling
+                        <TabsContent value="scheduling" className="mt-0">
+                            <Card className="bg-white border-neutral-200 shadow-sm">
+                                <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
+                                    <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                        <Clock className="h-4 w-4 text-primary-600" /> Holiday Scheduling
                                     </CardTitle>
-                                    <CardDescription className="text-slate-500">Manage holidays to pause automated email reminders</CardDescription>
+                                    <CardDescription className="text-neutral-500">Manage holidays to pause automated email reminders.</CardDescription>
                                 </CardHeader>
                                 <CardContent className="pt-6 space-y-6">
                                     {/* Add Holiday Date Range */}
-                                    <div className="p-4 bg-slate-950/50 border border-slate-800 rounded-lg flex flex-col md:flex-row gap-4 items-end">
-                                        <div className="space-y-2">
-                                            <Label className="text-xs font-semibold text-slate-400 uppercase">Start Date</Label>
+                                    <div className="p-5 bg-neutral-50 border border-neutral-200 rounded-xl flex flex-col md:flex-row gap-4 items-end shadow-sm">
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Start Date</Label>
                                             <Input
                                                 type="date"
                                                 value={newHoliday.startDate}
                                                 min={todayStr}
                                                 onChange={e => setNewHoliday({ ...newHoliday, startDate: e.target.value })}
-                                                className={`bg-slate-900 border-slate-700 text-slate-200 ${holidayIsPast || holidayStartDateOccupied ? 'border-red-500/50' : ''}`}
+                                                className={`bg-white border-neutral-200 text-neutral-900 shadow-sm focus-visible:ring-primary-500 ${holidayIsPast || holidayStartDateOccupied ? 'border-destructive focus-visible:ring-destructive/20' : ''}`}
                                             />
                                         </div>
-                                        <div className="space-y-2">
-                                            <Label className="text-xs font-semibold text-slate-400 uppercase">End Date (Optional)</Label>
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">End Date (Optional)</Label>
                                             <Input
                                                 type="date"
                                                 value={newHoliday.endDate}
                                                 min={newHoliday.startDate || todayStr}
                                                 disabled={!newHoliday.startDate}
                                                 onChange={e => setNewHoliday({ ...newHoliday, endDate: e.target.value })}
-                                                className={`bg-slate-900 border-slate-700 text-slate-200 ${holidayEndDateInvalid || holidayEndDateOccupied || holidayEndDateSameAsStart ? 'border-red-500/50' : ''} disabled:opacity-30`}
+                                                className={`bg-white border-neutral-200 text-neutral-900 shadow-sm focus-visible:ring-primary-500 disabled:bg-neutral-100 disabled:text-neutral-400 ${holidayEndDateInvalid || holidayEndDateOccupied || holidayEndDateSameAsStart ? 'border-destructive focus-visible:ring-destructive/20' : ''}`}
                                             />
                                         </div>
-                                        <div className="flex-1 space-y-2 w-full">
-                                            <Label className="text-xs font-semibold text-slate-400 uppercase">Description</Label>
+                                        <div className="flex-1 space-y-1.5 w-full">
+                                            <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Description</Label>
                                             <Input
                                                 placeholder="e.g. Christmas Break"
                                                 value={newHoliday.description}
                                                 onChange={e => setNewHoliday({ ...newHoliday, description: e.target.value })}
-                                                className={`bg-slate-900 border-slate-700 text-slate-200 ${holidayDescriptionDuplicate ? 'border-red-500/50' : ''}`}
+                                                className={`bg-white border-neutral-200 text-neutral-900 shadow-sm focus-visible:ring-primary-500 ${holidayDescriptionDuplicate ? 'border-destructive focus-visible:ring-destructive/20' : ''}`}
                                             />
                                         </div>
-                                        {/* Removed Recurring checkbox as it's redundant across semesters */}
                                         <Button
-                                            className="bg-blue-600 hover:bg-blue-700 text-white shrink-0 disabled:opacity-40"
+                                            className="bg-primary-600 hover:bg-primary-700 text-white shrink-0 shadow-sm transition-all active:scale-95 disabled:opacity-40"
                                             disabled={!canAddHoliday}
                                             onClick={async () => {
                                                 if (canAddHoliday) {
@@ -1835,30 +1791,30 @@ export default function AdminSettingsPage() {
                                     </div>
 
                                     {/* Inline holiday validation warnings */}
-                                    <div className="space-y-1">
+                                    <div className="space-y-1.5">
                                         {holidayDescriptionDuplicate && (
-                                            <p className="text-xs text-red-400 font-medium italic flex items-center gap-1.5">
+                                            <p className="text-xs text-destructive font-medium italic flex items-center gap-1.5">
                                                 <AlertTriangle className="h-3 w-3" /> "{newHoliday.description}" already exists. Description must be unique.
                                             </p>
                                         )}
                                         {holidayIsPast && (
-                                            <p className="text-xs text-red-400 font-medium italic flex items-center gap-1.5">
+                                            <p className="text-xs text-destructive font-medium italic flex items-center gap-1.5">
                                                 <AlertTriangle className="h-3 w-3" /> Start date cannot be in the past.
                                             </p>
                                         )}
                                         {holidayEndDateInvalid && (
-                                            <p className="text-xs text-red-400 font-medium italic flex items-center gap-1.5">
+                                            <p className="text-xs text-destructive font-medium italic flex items-center gap-1.5">
                                                 <AlertTriangle className="h-3 w-3" /> End date must be after Start date.
                                             </p>
                                         )}
                                         {holidayOccupiedDates.length > 0 && (
-                                            <p className="text-xs text-red-400 font-medium italic flex items-center gap-1.5">
+                                            <p className="text-xs text-destructive font-medium italic flex items-center gap-1.5">
                                                 <AlertTriangle className="h-3 w-3" />
                                                 Occupied: {holidayOccupiedDates.join(', ')}. Please choose different dates.
                                             </p>
                                         )}
                                         {holidayEndDateSameAsStart && (
-                                            <p className="text-xs text-red-400 font-medium italic flex items-center gap-1.5">
+                                            <p className="text-xs text-destructive font-medium italic flex items-center gap-1.5">
                                                 <AlertTriangle className="h-3 w-3" />
                                                 {newHoliday.startDate} is already a start date. Please choose another date.
                                             </p>
@@ -1868,50 +1824,53 @@ export default function AdminSettingsPage() {
                                     {/* List */}
                                     <div className="space-y-2 mt-6">
                                         {holidays.length === 0 ? (
-                                            <div className="text-center py-8 text-slate-500">No holidays scheduled.</div>
-                                        ) : (
-                                            <div className="h-[400px] w-full">
-                                                <AgGridReact
-                                                    theme={customTheme}
-                                                    rowData={holidays}
-                                                    columnDefs={holidayColDefs}
-                                                    animateRows={true}
-                                                    suppressCellFocus={true}
-                                                    getRowId={(params) => String(params.data.holiday_id || params.data.id)}
-                                                />
+                                            <div className="flex flex-col items-center justify-center py-16 bg-neutral-50 border border-dashed border-neutral-200 rounded-xl">
+                                                <div className="p-4 rounded-full bg-white border border-neutral-100 shadow-sm mb-4">
+                                                    <Clock className="h-8 w-8 text-neutral-300" />
+                                                </div>
+                                                <p className="text-neutral-900 font-bold">No holidays scheduled</p>
+                                                <p className="text-neutral-500 text-sm mt-1">Use the form above to add blackout dates.</p>
                                             </div>
+                                        ) : (
+                                            <DataTable
+                                                rowData={holidays}
+                                                columnDefs={holidayColDefs}
+                                                getRowId={(params) => String(params.data.holiday_id || params.data.id)}
+                                                height="400px"
+                                            />
                                         )}
                                     </div>
                                 </CardContent>
                             </Card>
-                        </TabsContent >
+                        </TabsContent>
 
-                        {/* TAB 2: VALIDATION RULES */}
+                        {/* TAB: VALIDATION RULES */}
                         <TabsContent value="validation" className="mt-0">
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                                 {/* Left Pane - Document Types List */}
-                                <div className="md:col-span-1 space-y-4">
-                                    <Card className="bg-slate-900 border-slate-800 shadow-none h-full md:max-h-[650px] flex flex-col">
-                                        <CardHeader className="border-b border-slate-800 py-4 shrink-0">
-                                            <CardTitle className="text-sm text-slate-100 flex items-center gap-2">
-                                                <Folder className="h-4 w-4 text-blue-400" /> Document Types
+                                <div className="md:col-span-1 space-y-2 self-start ">
+                                    <Card className="bg-white border-neutral-200 shadow-sm flex flex-col max-h-[calc(100vh-120px)]">
+                                        <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4 shrink-0">
+                                            <CardTitle className="text-sm text-neutral-900 flex items-center gap-2">
+                                                <Folder className="h-4 w-4 text-primary-600" /> Document Types
                                             </CardTitle>
+                                            <div className="text-xs text-neutral-500 font-medium">Select a document type to view its validation rules.</div>
                                         </CardHeader>
-                                        <CardContent className="p-2 space-y-1 overflow-auto flex-1">
+                                        <CardContent className="p-2 space-y-1 overflow-y-auto bg-white">
                                             {docRequirements.filter(d => d.is_active).map(doc => (
                                                 <button
                                                     key={doc.id}
                                                     onClick={() => setSelectedDocTypeId(doc.id)}
-                                                    className={`w-full text-left px-3 py-2.5 rounded-md text-sm transition-colors flex items-center justify-between ${selectedDocTypeId === doc.id
-                                                        ? 'bg-blue-600/20 text-blue-400 border border-blue-800/50'
-                                                        : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-transparent'
+                                                    className={`w-full text-left px-3 py-2.5 rounded-md text-sm transition-all flex items-center justify-between font-medium ${selectedDocTypeId === doc.id
+                                                        ? 'bg-primary-600 text-white shadow-md'
+                                                        : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 border border-transparent'
                                                         }`}
                                                 >
                                                     <span className="truncate pr-2">{doc.name}</span>
                                                 </button>
                                             ))}
                                             {docRequirements.filter(d => d.is_active).length === 0 && (
-                                                <div className="p-4 text-xs text-center text-slate-500">No active document types found.</div>
+                                                <div className="p-4 text-xs text-center text-neutral-500 font-medium">No active document types found.</div>
                                             )}
                                         </CardContent>
                                     </Card>
@@ -1919,118 +1878,129 @@ export default function AdminSettingsPage() {
 
                                 {/* Right Pane - Validation Rules Editor */}
                                 <div className="md:col-span-3">
-                                    <Card className="bg-slate-900 border-slate-800 shadow-none h-full">
-                                        <CardHeader className="border-b border-slate-800 py-4">
-                                            <CardTitle className="text-base text-slate-100 flex items-center gap-2">
-                                                <Shield className="h-4 w-4 text-emerald-400" />
+                                    <Card className="bg-white border-neutral-200 shadow-sm h-full">
+                                        <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
+                                            <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                                <Shield className="h-4 w-4 text-primary-600" />
                                                 Validation Rules: {docRequirements.find(d => d.id === selectedDocTypeId)?.name || 'Select a Document Type'}
                                             </CardTitle>
-                                            <CardDescription className="text-slate-500">
+                                            <CardDescription className="text-neutral-500">
                                                 Define the strict criteria the OCR Bot must enforce for this specific document.
                                             </CardDescription>
                                         </CardHeader>
                                         <CardContent className="pt-6">
                                             {rulesLoading ? (
-                                                <div className="flex flex-col items-center justify-center p-12 text-slate-500 gap-3">
-                                                    <RefreshCw className="h-8 w-8 animate-spin text-blue-500" />
-                                                    <p className="text-sm">Loading rules...</p>
+                                                <div className="flex flex-col items-center justify-center p-12 text-neutral-500 gap-3">
+                                                    <RefreshCw className="h-8 w-8 animate-spin text-primary-500" />
+                                                    <p className="text-sm font-medium">Loading rules...</p>
                                                 </div>
                                             ) : !selectedDocTypeId ? (
-                                                <div className="flex flex-col items-center justify-center p-12 text-slate-500 gap-3">
+                                                <div className="flex flex-col items-center justify-center p-12 text-neutral-400 gap-3">
                                                     <FileText className="h-10 w-10 opacity-20" />
-                                                    <p>Select a document type from the left to configure its rules.</p>
+                                                    <p className="font-medium">Select a document type from the left to configure its rules.</p>
                                                 </div>
                                             ) : (
                                                 <div className="space-y-8">
                                                     {/* Text Content Rules */}
                                                     <div>
-                                                        <h3 className="text-sm font-medium text-slate-200 mb-4 flex items-center border-b border-slate-800 pb-2">
-                                                            <FileText className="mr-2 h-4 w-4 text-blue-400" /> Text Extraction Rules
+                                                        <h3 className="text-sm font-bold text-neutral-900 mb-4 flex items-center border-b border-neutral-200 pb-2">
+                                                            <FileText className="mr-2 h-4 w-4 text-primary-600" /> Text Extraction Rules
                                                         </h3>
-                                                        <div className="grid grid-cols-1 gap-5 pl-1">
+                                                        <div className="grid grid-cols-1 gap-6 pl-1">
+                                                            {/* Required Keywords */}
                                                             <div className="space-y-2">
-                                                                <div className="flex flex-col gap-1">
+                                                                <div className="flex flex-col gap-1.5">
                                                                     <div className="flex items-center justify-between">
-                                                                        <Label className="text-sm font-semibold text-emerald-400 uppercase tracking-wider">Must Contain Keywords</Label>
-                                                                        <span className="text-[10px] text-slate-500 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">Comma separated</span>
+                                                                        <Label className="text-xs font-bold text-success uppercase tracking-wider">Must Contain Keywords</Label>
+                                                                        <span className="text-[10px] font-bold text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded border border-neutral-200 uppercase tracking-wider">Comma separated</span>
                                                                     </div>
-                                                                    <p className="text-[11px] text-amber-500/90 font-medium leading-snug">
-                                                                        <span className="font-bold">Recommendation:</span> Choose broad/generic words for batch submissions (like Presentations). As long as one slide in the batch contains the word, the whole batch passes.
-                                                                    </p>
+                                                                    <div className="flex items-start gap-2 bg-info/5 border border-info/20 p-2.5 rounded-md">
+                                                                        <p className="text-[11px] text-info font-medium leading-relaxed">
+                                                                            <strong className="font-bold">Recommendation:</strong> Choose broad/generic words for batch submissions (like Presentations). As long as one slide in the batch contains the word, the whole batch passes.
+                                                                        </p>
+                                                                    </div>
                                                                 </div>
                                                                 <Input
                                                                     value={docRules.required_keywords || ''}
                                                                     onChange={(e) => setDocRules({ ...docRules, required_keywords: e.target.value })}
-                                                                    className="bg-slate-950 border-slate-700 text-slate-200 focus:border-emerald-500 text-base"
+                                                                    className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-success/20 focus-visible:border-success shadow-sm text-sm"
                                                                     placeholder="e.g. Vision & Mission, Grading System, Course Outcomes"
                                                                 />
-                                                                <p className="text-xs text-slate-500">The OCR bot will instantly reject the document if any of these phrases are missing.</p>
+                                                                <p className="text-xs text-neutral-500 font-medium">The OCR bot will instantly reject the document if any of these phrases are missing.</p>
                                                             </div>
 
+                                                            {/* Forbidden Keywords */}
                                                             <div className="space-y-2 mt-2">
-                                                                <div className="flex items-center justify-between">
-                                                                    <Label className="text-sm font-semibold text-red-400 uppercase tracking-wider">Must NOT Contain Keywords</Label>
-                                                                    <span className="text-[10px] text-slate-500 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">Comma separated</span>
+                                                                <div className="flex flex-col gap-1.5">
+                                                                    <div className="flex items-center justify-between">
+                                                                        <Label className="text-xs font-bold text-destructive uppercase tracking-wider">Must NOT Contain Keywords</Label>
+                                                                        <span className="text-[10px] font-bold text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded border border-neutral-200 uppercase tracking-wider">Comma separated</span>
+                                                                    </div>
+                                                                    <div className="flex items-start gap-2 bg-warning/5 border border-warning/20 p-2.5 rounded-md">
+                                                                        <p className="text-[11px] text-warning font-medium leading-relaxed">
+                                                                            <strong className="font-bold">Recommendation:</strong> Choose broad/generic words for batch submissions (like Research). As long as one slide in the batch contains the word, the whole batch is rejected.
+                                                                        </p>
+                                                                    </div>
                                                                 </div>
-                                                                <p className="text-[11px] text-amber-500/90 font-medium leading-snug">
-                                                                    <span className="font-bold">Recommendation:</span> Choose broad/generic words for batch submissions (like Presentations). As long as one slide in the batch contains the word, the whole batch is rejected.
-                                                                </p>
                                                                 <Input
                                                                     value={docRules.forbidden_keywords || ''}
                                                                     onChange={(e) => setDocRules({ ...docRules, forbidden_keywords: e.target.value })}
-                                                                    className="bg-slate-950 border-slate-700 text-slate-200 focus:border-red-500 text-base"
+                                                                    className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-destructive/20 focus-visible:border-destructive shadow-sm text-sm"
                                                                     placeholder="e.g. Draft, Unofficial, Template"
                                                                 />
-                                                                <p className="text-xs text-slate-500">Prevents upload spoofing (e.g. rejecting a document explicitly marked as "Draft").</p>
+                                                                <p className="text-xs text-neutral-500 font-medium">Prevents upload spoofing (e.g. rejecting a document explicitly marked as "Draft").</p>
                                                             </div>
 
+                                                            {/* Minimum Word Count */}
                                                             <div className="space-y-2 max-w-sm mt-2">
-                                                                <Label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Minimum Word Count</Label>
+                                                                <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Minimum Word Count</Label>
                                                                 <div className="flex items-center gap-3">
                                                                     <Input
                                                                         type="number"
                                                                         min="0"
                                                                         value={docRules.min_word_count ?? 0}
                                                                         onChange={(e) => setDocRules({ ...docRules, min_word_count: e.target.value === '' ? '' : parseInt(e.target.value, 10) || 0 })}
-                                                                        className="bg-slate-950 border-slate-700 text-slate-200 focus:border-blue-500 font-mono text-lg"
+                                                                        className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 focus-visible:border-primary-500 shadow-sm font-mono text-lg w-32"
                                                                     />
-                                                                    <span className="text-sm text-slate-500 whitespace-nowrap">words minimum</span>
+                                                                    <span className="text-sm text-neutral-600 font-medium whitespace-nowrap">words minimum</span>
                                                                 </div>
-                                                                <p className="text-xs text-slate-500">Ensures documents have sufficient length, filtering out placeholder single-page uploads.</p>
+                                                                <p className="text-xs text-neutral-500 font-medium">Ensures documents have sufficient length, filtering out placeholder single-page uploads.</p>
                                                             </div>
                                                         </div>
                                                     </div>
 
                                                     {/* File Constraints */}
                                                     <div className="mt-8">
-                                                        <h3 className="text-sm font-medium text-slate-200 mb-4 flex items-center border-b border-slate-800 pb-2">
-                                                            <Archive className="mr-2 h-4 w-4 text-amber-400" /> Technical Constraints
+                                                        <h3 className="text-sm font-bold text-neutral-900 mb-4 flex items-center border-b border-neutral-200 pb-2">
+                                                            <Archive className="mr-2 h-4 w-4 text-primary-600" /> Technical Constraints
                                                         </h3>
                                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pl-1">
                                                             <div className="space-y-2">
-                                                                <Label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Max File Size (MB)</Label>
+                                                                <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Max File Size (MB)</Label>
                                                                 <Input
                                                                     type="number"
                                                                     value={docRules.max_file_size_mb}
                                                                     onChange={(e) => setDocRules({ ...docRules, max_file_size_mb: e.target.value === '' ? '' : parseInt(e.target.value, 10) || 10 })}
-                                                                    className="bg-slate-950 border-slate-700 text-slate-200 focus:border-blue-500"
+                                                                    className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 focus-visible:border-primary-500 shadow-sm"
                                                                 />
                                                             </div>
                                                             <div className="space-y-2">
-                                                                <Label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Allowed Extensions</Label>
+                                                                <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Allowed Extensions</Label>
                                                                 <Input
                                                                     value={docRules.allowed_extensions || ''}
                                                                     onChange={(e) => setDocRules({ ...docRules, allowed_extensions: e.target.value })}
-                                                                    className="bg-slate-950 border-slate-700 text-slate-200 focus:border-blue-500"
+                                                                    className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 focus-visible:border-primary-500 shadow-sm"
                                                                     placeholder=".pdf, .docx, .xlsx"
                                                                 />
                                                             </div>
                                                         </div>
                                                     </div>
 
-                                                    <div className="pt-6 mt-4 border-t border-slate-800 flex justify-end">
+                                                    {/* Save Action */}
+                                                    <div className="pt-6 mt-4 border-t border-neutral-200 flex justify-end">
                                                         <Button
-                                                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+                                                            variant="default"
+                                                            className="shadow-sm active:scale-95 transition-all"
                                                             onClick={handleSaveRules}
                                                             disabled={loading || rulesLoading}
                                                         >
@@ -2046,47 +2016,47 @@ export default function AdminSettingsPage() {
                             </div>
                         </TabsContent>
 
-                        {/* TAB 3: OCR & AI */}
-                        < TabsContent value="ocr" className="mt-0 space-y-6" >
+                        {/* TAB: OCR & AI */}
+                        <TabsContent value="ocr" className="mt-0 space-y-6">
                             <div className="space-y-6">
 
                                 {/* Engine Config */}
-                                <Card className="bg-slate-900 border-slate-800 shadow-none">
-                                    <CardHeader className="border-b border-slate-800 py-4">
-                                        <CardTitle className="text-base text-slate-100 flex items-center gap-2">
-                                            <Cpu className="h-4 w-4 text-purple-400" /> OCR Engine Configuration
+                                <Card className="bg-white border-neutral-200 shadow-sm">
+                                    <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
+                                        <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                            <Cpu className="h-4 w-4 text-primary-600" /> OCR Engine Configuration
                                         </CardTitle>
                                     </CardHeader>
                                     <CardContent className="pt-6 space-y-6">
-                                        <div className="flex items-center justify-between p-4 rounded-lg bg-slate-950/50 border border-slate-800">
+                                        <div className="flex items-center justify-between p-4 rounded-xl bg-neutral-50 border border-neutral-200 shadow-sm">
                                             <div>
-                                                <Label className="text-slate-200">Enable Automated Validation</Label>
-                                                <p className="text-xs text-slate-500 mt-1">Master switch to run the extraction engine on new uploads</p>
+                                                <Label className="text-neutral-900 font-bold text-sm">Enable Automated Validation</Label>
+                                                <p className="text-xs text-neutral-500 mt-1 font-medium">Master switch to run the extraction engine on new uploads.</p>
                                             </div>
                                             <Switch
                                                 checked={settings.ocr_enabled}
                                                 onCheckedChange={(c) => updateSetting('ocr_enabled', c)}
-                                                className="data-[state=checked]:bg-blue-600"
+                                                className="data-[state=checked]:bg-success shrink-0"
                                             />
                                         </div>
                                     </CardContent>
                                 </Card>
 
                                 {/* Test Area */}
-                                <Card className="bg-slate-900 border-slate-800 shadow-none">
-                                    <CardHeader className="border-b border-slate-800 py-4">
-                                        <CardTitle className="text-base text-slate-100">Parser Test Playground</CardTitle>
-                                        <CardDescription className="text-slate-500">Test the Edge Function parser against real files to see how it extracts and validates data.</CardDescription>
+                                <Card className="bg-white border-neutral-200 shadow-sm">
+                                    <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
+                                        <CardTitle className="text-base text-neutral-900 font-bold">Parser Test Playground</CardTitle>
+                                        <CardDescription className="text-neutral-500 font-medium">Test the Edge Function parser against real files to see how it extracts and validates data.</CardDescription>
                                     </CardHeader>
                                     <CardContent className="pt-6 space-y-4">
                                         <div className="flex flex-col gap-4">
                                             <div className="space-y-2">
-                                                <Label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Target Validation Rules (Document Type)</Label>
+                                                <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Target Validation Rules (Document Type)</Label>
                                                 <Select value={testDocTypeId} onValueChange={setTestDocTypeId}>
-                                                    <SelectTrigger className="w-full sm:w-80 bg-slate-950 border-slate-700 text-slate-200">
+                                                    <SelectTrigger className="w-full sm:w-80 bg-white border-neutral-200 text-neutral-900 shadow-sm focus:ring-primary-500">
                                                         <SelectValue placeholder="Select Document Type" />
                                                     </SelectTrigger>
-                                                    <SelectContent className="bg-slate-900 border-slate-700 text-slate-200">
+                                                    <SelectContent className="bg-white border-neutral-200 text-neutral-900 shadow-md">
                                                         {docRequirements.filter(d => d.is_active).map(doc => (
                                                             <SelectItem key={doc.id} value={doc.id}>{doc.name}</SelectItem>
                                                         ))}
@@ -2101,11 +2071,11 @@ export default function AdminSettingsPage() {
                                                         type="file"
                                                         multiple
                                                         onChange={(e) => setTestFile(Array.from(e.target.files))}
-                                                        className="bg-slate-950 border-slate-700 text-slate-200 file:text-slate-300 file:bg-slate-800 file:border-0 file:rounded-sm file:mr-4 hover:file:bg-slate-700 flex-1"
+                                                        className="bg-white border-neutral-200 text-neutral-900 file:text-neutral-700 file:bg-neutral-100 file:border-0 file:rounded-sm file:mr-4 hover:file:bg-neutral-200 shadow-sm flex-1 font-medium transition-colors"
                                                     />
                                                 ) : (
-                                                    <div className="flex-1 bg-slate-950 border border-slate-700 rounded-md px-4 py-2 flex items-center justify-between text-sm overflow-hidden">
-                                                        <span className="text-emerald-400 font-medium truncate">
+                                                    <div className="flex-1 bg-neutral-50 border border-neutral-200 rounded-md px-4 py-2 flex items-center justify-between text-sm overflow-hidden shadow-inner">
+                                                        <span className="text-primary-600 font-bold truncate">
                                                             {testFile.length === 1 ? testFile[0].name : `${testFile.length} files staged for batch testing`}
                                                         </span>
                                                     </div>
@@ -2113,7 +2083,7 @@ export default function AdminSettingsPage() {
                                                 <Button
                                                     onClick={() => runTestOCR(testFile, testDocTypeId)}
                                                     disabled={!testFile || testFile.length === 0 || !testDocTypeId || processing}
-                                                    className="bg-blue-600 hover:bg-blue-700 text-white shrink-0"
+                                                    className="bg-primary-600 hover:bg-primary-700 text-white shrink-0 shadow-sm active:scale-95 transition-all"
                                                 >
                                                     {processing ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
                                                     Run Parser
@@ -2122,27 +2092,29 @@ export default function AdminSettingsPage() {
                                         </div>
 
                                         {testResult && (
-                                            <div className={`border ${testResult.success ? 'border-emerald-800 bg-emerald-950/20' : 'border-red-900/50 bg-red-950/20'} p-4 rounded-lg mt-4`}>
-                                                <div className="flex justify-between mb-3 border-b border-slate-800 pb-2">
+                                            <div className={`border rounded-xl p-4 mt-4 shadow-sm transition-all ${testResult.success ? 'border-success/30 bg-success/5' : 'border-destructive/30 bg-destructive/5'}`}>
+                                                <div className={`flex justify-between items-center mb-3 border-b pb-3 ${testResult.success ? 'border-success/20' : 'border-destructive/20'}`}>
                                                     {testResult.success ? (
-                                                        <div className="flex gap-4 text-xs font-mono">
-                                                            <span className="text-emerald-400 font-bold uppercase tracking-wider">Validation Passed</span>
-                                                            {testResult.processing_time_ms && <span className="text-slate-400">Runtime: {testResult.processing_time_ms}ms</span>}
+                                                        <div className="flex items-center gap-4 text-xs font-mono">
+                                                            <span className="text-success font-bold uppercase tracking-wider flex items-center gap-1.5">
+                                                                <CheckCircle className="h-3.5 w-3.5" /> Validation Passed
+                                                            </span>
+                                                            {testResult.processing_time_ms && <span className="text-neutral-500 font-medium">Runtime: {testResult.processing_time_ms}ms</span>}
                                                         </div>
                                                     ) : (
-                                                        <div className="flex gap-4 text-xs font-mono text-red-400 font-bold uppercase tracking-wider">
-                                                            <span>Validation Failed / Error</span>
+                                                        <div className="flex gap-4 text-xs font-mono text-destructive font-bold uppercase tracking-wider items-center gap-1.5">
+                                                            <AlertCircle className="h-3.5 w-3.5" /> Validation Failed / Error
                                                         </div>
                                                     )}
-                                                    <Badge variant="outline" className={`text-[10px] border-slate-700 ${testResult.success ? 'text-slate-500' : 'text-red-400'}`}>
+                                                    <Badge variant="outline" className={`text-[10px] uppercase font-bold tracking-wider ${testResult.success ? 'border-success/30 text-success bg-success/10' : 'border-destructive/30 text-destructive bg-destructive/10'}`}>
                                                         {testResult.success ? 'Analysis Output' : 'System Message'}
                                                     </Badge>
                                                 </div>
 
                                                 {testResult.processedFiles && testResult.processedFiles.length > 0 && (
-                                                    <div className="mb-3 text-xs text-slate-400 font-mono">
-                                                        <span className="font-semibold text-slate-300">Files Processed ({testResult.processedFiles.length}):</span>
-                                                        <ul className="mt-1 ml-4 list-disc space-y-0.5">
+                                                    <div className="mb-4 text-xs text-neutral-600 font-mono">
+                                                        <span className="font-bold text-neutral-900">Files Processed ({testResult.processedFiles.length}):</span>
+                                                        <ul className="mt-1.5 ml-4 list-disc space-y-0.5">
                                                             {testResult.processedFiles.map((file, idx) => (
                                                                 <li key={idx} className="truncate">{file}</li>
                                                             ))}
@@ -2150,10 +2122,13 @@ export default function AdminSettingsPage() {
                                                     </div>
                                                 )}
 
-                                                <pre className={`text-xs font-mono overflow-auto max-h-64 whitespace-pre-wrap flex-1 ${testResult.success ? 'text-slate-300' : 'text-red-300'}`}>
-                                                    {testResult.success ? testResult.text : (testResult.error || testResult.text)}
-                                                </pre>
-                                                <div className="mt-3 flex justify-end">
+                                                <div className="bg-white border border-neutral-200 rounded-lg p-3 shadow-inner">
+                                                    <pre className={`text-xs font-mono overflow-auto max-h-64 whitespace-pre-wrap flex-1 ${testResult.success ? 'text-neutral-700' : 'text-destructive font-medium'}`}>
+                                                        {testResult.success ? testResult.text : (testResult.error || testResult.text)}
+                                                    </pre>
+                                                </div>
+
+                                                <div className="mt-4 flex justify-end">
                                                     <button
                                                         type="button"
                                                         onClick={(e) => {
@@ -2165,7 +2140,7 @@ export default function AdminSettingsPage() {
                                                             const fileInput = document.getElementById('testFileInput');
                                                             if (fileInput) fileInput.value = '';
                                                         }}
-                                                        className="text-xs text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+                                                        className="text-xs font-bold text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 px-3 py-1.5 rounded-md transition-colors cursor-pointer"
                                                     >
                                                         Clear Results
                                                     </button>
@@ -2175,16 +2150,16 @@ export default function AdminSettingsPage() {
                                     </CardContent>
                                 </Card>
                             </div>
-                        </TabsContent >
+                        </TabsContent>
 
                         {/* TAB 4: MAINTENANCE / DANGER ZONE */}
-                        < TabsContent value="maintenance" className="mt-0" >
-                            <Card className="bg-red-950/10 border-red-900/30 shadow-none">
-                                <CardHeader className="border-b border-red-900/30 py-4">
-                                    <CardTitle className="text-base text-red-400 flex items-center gap-2">
-                                        <AlertTriangle className="h-4 w-4" /> Danger Zone
+                        <TabsContent value="maintenance" className="mt-0">
+                            <Card className="bg-destructive/5 border-destructive/20 shadow-none">
+                                <CardHeader className="border-b border-destructive/20 py-4 bg-white/50">
+                                    <CardTitle className="text-base text-destructive flex items-center gap-2 font-bold">
+                                        <AlertTriangle className="h-5 w-5" /> Danger Zone
                                     </CardTitle>
-                                    <CardDescription className="text-red-400/60">
+                                    <CardDescription className="text-destructive/70 font-medium">
                                         Irreversible actions. These will affect live data.
                                     </CardDescription>
                                 </CardHeader>
@@ -2203,117 +2178,112 @@ export default function AdminSettingsPage() {
                                     />
                                 </CardContent>
                             </Card>
-                        </TabsContent >
+                        </TabsContent>
                     </div >
                 </Tabs >
 
-                {/* Global Modals Mounted Outside of Tabs */}
                 {/* Upload Template Modal */}
                 <Dialog open={isTemplateModalOpen} onOpenChange={setTemplateModalOpen}>
-                    <DialogContent className="bg-slate-900 border-slate-700 text-slate-100 max-w-lg">
+                    <DialogContent className="bg-white border-neutral-200 text-neutral-900 max-w-lg shadow-xl">
                         <DialogHeader>
-                            <DialogTitle className="text-slate-100 flex items-center gap-2">
-                                <LayoutTemplate className="h-5 w-5 text-purple-400" />
+                            <DialogTitle className="text-neutral-900 flex items-center gap-2">
+                                <LayoutTemplate className="h-5 w-5 text-primary-600" />
                                 Upload New Template
                             </DialogTitle>
-                            <DialogDescription className="text-slate-500">
+                            <DialogDescription className="text-neutral-500">
                                 Tie this template to a specific Academic Year and Document Type schema.
                             </DialogDescription>
                         </DialogHeader>
                         <div className="space-y-4 py-2">
-                            <div className="space-y-1">
-                                <Label className="text-xs font-semibold text-slate-400 uppercase">Document File *</Label>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Document File *</Label>
                                 <Input
                                     type="file"
                                     onChange={(e) => setNewTemplate({ ...newTemplate, file: e.target.files?.[0] || null })}
-                                    className="bg-slate-950 border-slate-700 text-slate-200 cursor-pointer"
+                                    className="bg-white border-neutral-200 text-neutral-900 cursor-pointer shadow-sm file:text-neutral-700 file:bg-neutral-100 file:border-0 file:rounded-sm file:mr-4 hover:file:bg-neutral-200"
                                     accept=".pdf,.docx,.doc,.xlsx,.xls"
                                     disabled={isUploadingTemplate}
                                 />
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <Label className="text-xs font-semibold text-slate-400 uppercase">Template Title</Label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Template Title</Label>
                                     <Input
                                         placeholder={!newTemplate.file ? "Attach a file first..." : "e.g. Clearance Cert v1"}
                                         value={newTemplate.title}
                                         onChange={e => setNewTemplate({ ...newTemplate, title: e.target.value })}
-                                        className="bg-slate-950 border-slate-700 text-slate-200"
+                                        className="bg-white border-neutral-200 text-neutral-900 shadow-sm focus-visible:ring-primary-500 disabled:bg-neutral-100"
                                         disabled={!newTemplate.file || isUploadingTemplate}
                                     />
                                 </div>
-                                <div className="space-y-1">
-                                    <div className="space-y-1">
-                                        <Label className="text-xs font-semibold text-slate-400 uppercase">System Category</Label>
-                                        <Select
-                                            value={newTemplate.systemCategory}
-                                            onValueChange={v => setNewTemplate({ ...newTemplate, systemCategory: v })}
-                                            disabled={!newTemplate.file || isUploadingTemplate}
-                                        >
-                                            <SelectTrigger className="w-full bg-slate-950 border-slate-700 text-slate-200">
-                                                <SelectValue placeholder={!newTemplate.file ? "Attach file first..." : "Select category..."} />
-                                            </SelectTrigger>
-                                            <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
-                                                <SelectItem value="CLEARANCE_CERTIFICATE">Clearance Certificate</SelectItem>
-                                                <SelectItem value="SYLLABUS">Syllabus</SelectItem>
-                                                <SelectItem value="GRADE_SHEET">Grade Sheet</SelectItem>
-                                                <SelectItem value="GENERAL">General</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">System Category</Label>
+                                    <Select
+                                        value={newTemplate.systemCategory}
+                                        onValueChange={v => setNewTemplate({ ...newTemplate, systemCategory: v })}
+                                        disabled={!newTemplate.file || isUploadingTemplate}
+                                    >
+                                        <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm focus:ring-primary-500 disabled:bg-neutral-100">
+                                            <SelectValue placeholder={!newTemplate.file ? "Attach file first..." : "Select category..."} />
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-white border-neutral-200 text-neutral-900 shadow-md">
+                                            <SelectItem value="CLEARANCE_CERTIFICATE">Clearance Certificate</SelectItem>
+                                            <SelectItem value="SYLLABUS">Syllabus</SelectItem>
+                                            <SelectItem value="GRADE_SHEET">Grade Sheet</SelectItem>
+                                            <SelectItem value="GENERAL">General</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
-                                <div className="space-y-1">
-                                    <Label className="text-xs font-semibold text-slate-400 uppercase">Description</Label>
+                                <div className="col-span-1 md:col-span-2 space-y-1.5">
+                                    <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Description</Label>
                                     <Input
                                         placeholder={!newTemplate.file ? "Attach file first..." : "Optional description"}
                                         value={newTemplate.description}
                                         onChange={e => setNewTemplate({ ...newTemplate, description: e.target.value })}
-                                        className="bg-slate-950 border-slate-700 text-slate-200"
+                                        className="bg-white border-neutral-200 text-neutral-900 shadow-sm focus-visible:ring-primary-500 disabled:bg-neutral-100"
                                         disabled={!newTemplate.file || isUploadingTemplate}
                                     />
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1">
-                                        <Label className="text-xs font-semibold text-slate-400 uppercase">Academic Year</Label>
-                                        <Select
-                                            value={newTemplate.academicYear}
-                                            onValueChange={v => setNewTemplate({ ...newTemplate, academicYear: v })}
-                                            disabled={!newTemplate.file || isUploadingTemplate}
-                                        >
-                                            <SelectTrigger className="w-full bg-slate-950 border-slate-700 text-slate-200">
-                                                <SelectValue placeholder={!newTemplate.file ? "Attach file first..." : "e.g. 2024-2025"} />
-                                            </SelectTrigger>
-                                            <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
-                                                <SelectItem value="2023-2024">2023-2024</SelectItem>
-                                                <SelectItem value="2024-2025">2024-2025</SelectItem>
-                                                <SelectItem value="2025-2026">2025-2026</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <Label className="text-xs font-semibold text-slate-400 uppercase">Semester</Label>
-                                        <Select
-                                            value={newTemplate.semester}
-                                            onValueChange={v => setNewTemplate({ ...newTemplate, semester: v })}
-                                            disabled={!newTemplate.file || isUploadingTemplate}
-                                        >
-                                            <SelectTrigger className="w-full bg-slate-950 border-slate-700 text-slate-200">
-                                                <SelectValue placeholder={!newTemplate.file ? "Attach file first..." : "e.g. 1st Semester"} />
-                                            </SelectTrigger>
-                                            <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
-                                                <SelectItem value="1st Semester">1st Semester</SelectItem>
-                                                <SelectItem value="2nd Semester">2nd Semester</SelectItem>
-                                                <SelectItem value="Summer">Summer</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Academic Year</Label>
+                                    <Select
+                                        value={newTemplate.academicYear}
+                                        onValueChange={v => setNewTemplate({ ...newTemplate, academicYear: v })}
+                                        disabled={!newTemplate.file || isUploadingTemplate}
+                                    >
+                                        <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm focus:ring-primary-500 disabled:bg-neutral-100">
+                                            <SelectValue placeholder={!newTemplate.file ? "Attach file first..." : "e.g. 2024-2025"} />
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-white border-neutral-200 text-neutral-900 shadow-md">
+                                            <SelectItem value="2023-2024">2023-2024</SelectItem>
+                                            <SelectItem value="2024-2025">2024-2025</SelectItem>
+                                            <SelectItem value="2025-2026">2025-2026</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Semester</Label>
+                                    <Select
+                                        value={newTemplate.semester}
+                                        onValueChange={v => setNewTemplate({ ...newTemplate, semester: v })}
+                                        disabled={!newTemplate.file || isUploadingTemplate}
+                                    >
+                                        <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm focus:ring-primary-500 disabled:bg-neutral-100">
+                                            <SelectValue placeholder={!newTemplate.file ? "Attach file first..." : "e.g. 1st Semester"} />
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-white border-neutral-200 text-neutral-900 shadow-md">
+                                            <SelectItem value="1st Semester">1st Semester</SelectItem>
+                                            <SelectItem value="2nd Semester">2nd Semester</SelectItem>
+                                            <SelectItem value="Summer">Summer</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                             </div>
                         </div>
-                        <DialogFooter>
-                            <Button variant="ghost" onClick={() => setTemplateModalOpen(false)} className="text-slate-400">Cancel</Button>
+                        <DialogFooter className="mt-4 gap-2 sm:gap-3">
+                            <Button variant="outline" onClick={() => setTemplateModalOpen(false)} className="border-neutral-200 text-neutral-700 hover:bg-neutral-100">Cancel</Button>
                             <Button
-                                className="bg-purple-600 hover:bg-purple-700 text-white"
+                                className="bg-primary-600 hover:bg-primary-700 text-white shadow-sm active:scale-95 transition-all"
                                 disabled={!newTemplate.file || !newTemplate.academicYear || !newTemplate.semester || !newTemplate.systemCategory || isUploadingTemplate}
                                 onClick={() => {
                                     setIsUploadingTemplate(true);
@@ -2334,7 +2304,10 @@ export default function AdminSettingsPage() {
                                 }}
                             >
                                 {isUploadingTemplate ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                {isUploadingTemplate ? 'Uploading...' : 'Upload Template'}
+                                {isUploadingTemplate ? 'Uploading...' :
+                                    <Button className="bg-primary-600 hover:bg-primary-700 text-white shadow-sm active:scale-95 transition-all">
+                                        <Plus className="h-4 w-4 mr-1" /> Upload Template
+                                    </Button>}
                             </Button>
                         </DialogFooter>
                     </DialogContent>
@@ -2353,50 +2326,50 @@ export default function AdminSettingsPage() {
 
                 {/* Danger Zone Action Modal */}
                 <Dialog open={isDangerModalOpen} onOpenChange={setIsDangerModalOpen}>
-                    <DialogContent className="bg-slate-900 border-red-900/50 text-slate-100 max-w-md">
+                    <DialogContent className="bg-white border-destructive/30 text-neutral-900 max-w-md shadow-2xl">
                         <DialogHeader>
-                            <DialogTitle className="text-red-400 flex items-center gap-2">
+                            <DialogTitle className="text-destructive flex items-center gap-2 font-bold">
                                 <AlertTriangle className="h-5 w-5" />
                                 {dangerModalConfig.title}
                             </DialogTitle>
-                            <DialogDescription className="text-slate-400 mt-2">
+                            <DialogDescription className="text-neutral-600 mt-2 font-medium">
                                 {dangerModalConfig.description}
                             </DialogDescription>
                         </DialogHeader>
 
-                        <div className="py-4 space-y-3 border-y border-red-900/20 my-2">
-                            <Label className="text-sm font-semibold text-slate-300">
-                                Please type <span className="text-red-400 font-mono select-none px-1 py-0.5 bg-red-950/30 rounded">{dangerModalConfig.confirmationText}</span> to confirm.
+                        <div className="py-4 space-y-3 border-y border-neutral-100 my-2">
+                            <Label className="text-sm font-bold text-neutral-700">
+                                Please type <span className="text-destructive font-mono select-none px-1.5 py-0.5 bg-destructive/10 border border-destructive/20 rounded">{dangerModalConfig.confirmationText}</span> to confirm.
                             </Label>
                             <Input
                                 placeholder={`Type ${dangerModalConfig.confirmationText}`}
                                 value={dangerModalInput}
                                 onChange={(e) => setDangerModalInput(e.target.value)}
-                                className="bg-slate-950 border-slate-700 text-slate-200 focus:border-red-500 font-mono"
+                                className="bg-neutral-50 border-neutral-200 text-neutral-900 focus-visible:ring-destructive/20 focus-visible:border-destructive font-mono font-bold shadow-inner"
                                 autoComplete="off"
                             />
                         </div>
 
-                        <DialogFooter className="gap-2 sm:gap-0">
+                        <DialogFooter className="gap-2 sm:gap-3">
                             <Button
-                                variant="ghost"
+                                variant="outline"
                                 onClick={() => setIsDangerModalOpen(false)}
-                                className="text-slate-400 hover:text-slate-300 hover:bg-slate-800"
+                                className="text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 border-neutral-200 shadow-sm"
                             >
                                 Cancel
                             </Button>
                             <Button
-                                className="bg-red-600 hover:bg-red-700 text-white"
+                                className="bg-destructive hover:bg-destructive/90 text-white shadow-sm transition-all active:scale-95"
                                 onClick={executeDangerAction}
                                 disabled={dangerModalInput !== dangerModalConfig.confirmationText || processing}
                             >
                                 {processing ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : null}
+                                <X className="h-4 w-4 mr-2" />
                                 Confirm Action
                             </Button>
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
-
             </div >
         </ToastProvider>
     );
@@ -2407,7 +2380,7 @@ export default function AdminSettingsPage() {
 const TabItem = ({ value, label, icon: Icon }) => (
     <TabsTrigger
         value={value}
-        className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:text-blue-400 text-slate-400 rounded-none px-4 py-3 border-b-2 border-transparent hover:text-slate-200 transition-all font-medium text-sm"
+        className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary-600 text-neutral-500 rounded-none px-4 py-3 hover:text-primary-700 hover:bg-neutral-100/50 transition-all font-medium text-sm"
     >
         <div className="flex items-center gap-2">
             <Icon className="h-4 w-4" />
@@ -2417,23 +2390,23 @@ const TabItem = ({ value, label, icon: Icon }) => (
 );
 
 const InfoRow = ({ label, value }) => (
-    <div className="flex justify-between items-center text-sm py-3 border-b border-slate-800/50 last:border-0 hover:bg-slate-900/50 px-2 rounded transition-colors bg-transparent">
-        <span className="text-slate-400 font-medium">{label}</span>
-        <span className="font-mono text-slate-200 bg-slate-950/50 px-2 py-0.5 rounded border border-slate-800">{value}</span>
+    <div className="flex justify-between items-center text-sm py-3 border-b border-neutral-100 last:border-0 hover:bg-neutral-50 px-2 rounded transition-colors bg-white">
+        <span className="text-neutral-500 font-medium">{label}</span>
+        <span className="font-mono text-neutral-900 font-bold bg-neutral-50 px-2 py-0.5 rounded border border-neutral-200 shadow-sm">{value}</span>
     </div>
 );
 
 const CheckboxItem = ({ label, checked, onChange }) => (
-    <div className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-slate-950/30 border border-slate-800/50 hover:border-slate-700 hover:bg-slate-950/50 transition-all cursor-pointer group" onClick={() => onChange(!checked)}>
+    <div className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-white border border-neutral-200 hover:border-primary-400 shadow-sm transition-all cursor-pointer group" onClick={() => onChange(!checked)}>
         <Checkbox
             id={label}
             checked={checked}
             onCheckedChange={onChange}
-            className="border-slate-600 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 h-4 w-4 rounded shadow-sm group-hover:border-blue-500/50"
+            className="border-neutral-300 data-[state=checked]:bg-primary-600 data-[state=checked]:border-primary-600 h-4 w-4 rounded shadow-sm group-hover:border-primary-400"
         />
         <label
             htmlFor={label}
-            className="text-sm font-medium leading-none text-slate-300 cursor-pointer select-none group-hover:text-slate-200"
+            className="text-sm font-bold leading-none text-neutral-700 cursor-pointer select-none group-hover:text-neutral-900"
         >
             {label}
         </label>
@@ -2441,18 +2414,18 @@ const CheckboxItem = ({ label, checked, onChange }) => (
 );
 
 const DangerRow = ({ title, desc, btnText, onClick }) => (
-    <div className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-red-950/10 border border-red-900/20 rounded-lg gap-4 hover:border-red-900/40 transition-all">
+    <div className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-white border border-destructive/20 rounded-xl gap-4 hover:border-destructive/40 hover:shadow-sm transition-all">
         <div>
-            <h4 className="font-medium text-red-200 text-sm flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-red-500" />
+            <h4 className="font-bold text-destructive text-sm flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
                 {title}
             </h4>
-            <p className="text-xs text-red-200/50 mt-1 pl-6">{desc}</p>
+            <p className="text-xs text-neutral-600 font-medium mt-1 pl-6">{desc}</p>
         </div>
         <Button
-            variant="ghost"
+            variant="outline"
             onClick={onClick}
-            className="text-red-400 hover:text-red-300 hover:bg-red-950/30 border border-red-900/30 hover:border-red-500/30 whitespace-nowrap"
+            className="text-destructive hover:text-white hover:bg-destructive border-destructive/30 whitespace-nowrap shadow-sm transition-colors"
             size="sm"
         >
             {btnText}

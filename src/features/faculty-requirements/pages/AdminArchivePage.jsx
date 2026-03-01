@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { AgGridReact } from 'ag-grid-react';
-import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-community';
+import { ModuleRegistry, AllCommunityModule, themeQuartz } from 'ag-grid-community';
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -21,17 +21,21 @@ import { Badge } from "@/components/ui/badge";
 import { useAdminArchive } from '../hooks/AdminArchiveHook';
 import { archiveService } from '../services/AdminArchiveService';
 
-// Custom theme using AG Grid v33+ Theming API with Balham theme (better dark mode support)
-const customTheme = themeBalham.withParams({
-  accentColor: '#3b82f6',
-  backgroundColor: '#020617',
-  foregroundColor: '#e2e8f0',
-  borderColor: '#1e293b',
-  headerBackgroundColor: '#0f172a',
-  headerTextColor: '#94a3b8',
-  oddRowBackgroundColor: '#020617',
+// Custom theme using AG Grid v33+ Theming API with Quartz theme for a modern institutional look
+const customTheme = themeQuartz.withParams({
+  accentColor: 'var(--primary-600)',
+  backgroundColor: 'var(--neutral-50)',
+  foregroundColor: 'var(--neutral-900)',
+  borderColor: 'var(--neutral-200)',
+  headerBackgroundColor: 'var(--neutral-100)',
+  headerTextColor: 'var(--neutral-900)',
+  oddRowBackgroundColor: '#ffffff',
+  rowHoverColor: 'var(--neutral-100)',
+  selectedRowBackgroundColor: 'color-mix(in srgb, var(--primary-500) 10%, transparent)',
   rowHeight: 48,
   headerHeight: 40,
+  headerFontWeight: '700',
+  fontSize: '13px',
 });
 
 export default function AdminArchivePage() {
@@ -90,11 +94,11 @@ export default function AdminArchivePage() {
       filter: true,
       cellRenderer: (params) => (
         <div className="flex items-center">
-          <div className="p-1.5 bg-slate-800 rounded mr-3 text-blue-400">
+          <div className="p-1.5 bg-neutral-100 rounded mr-3 text-primary-600">
             <FileText className="h-3.5 w-3.5" />
           </div>
           <div className="min-w-0">
-            <span className="block truncate text-slate-200 font-medium text-xs" title={params.value}>{params.value}</span>
+            <span className="block truncate text-neutral-900 font-medium text-xs" title={params.value}>{params.value}</span>
           </div>
         </div>
       )
@@ -103,14 +107,14 @@ export default function AdminArchivePage() {
       field: "faculty_name",
       headerName: "Faculty",
       width: 140,
-      cellClass: "text-slate-400 text-xs"
+      cellClass: "text-neutral-500 text-xs font-medium"
     },
     {
       field: "course_code",
       headerName: "Course",
       width: 100,
       cellRenderer: (p) => (
-        <span className="font-mono text-xs bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800 text-slate-400">
+        <span className="font-mono text-[10px] bg-neutral-100 px-1.5 py-0.5 rounded border border-neutral-200 text-neutral-700 font-bold">
           {p.value}
         </span>
       )
@@ -120,7 +124,7 @@ export default function AdminArchivePage() {
       headerName: "Type",
       width: 130,
       cellRenderer: (params) => (
-        <Badge variant="outline" className="border-slate-700 text-slate-400 font-normal text-[10px]">
+        <Badge variant="outline" className="border-neutral-200 text-neutral-600 font-semibold text-[10px] bg-white">
           {params.value}
         </Badge>
       )
@@ -130,7 +134,7 @@ export default function AdminArchivePage() {
       headerName: "Archived On",
       width: 100,
       cellRenderer: (params) => (
-        <span className="text-slate-500 text-xs font-mono">
+        <span className="text-neutral-400 text-xs font-mono">
           {params.value?.split(' ')[0] || '-'}
         </span>
       )
@@ -143,7 +147,7 @@ export default function AdminArchivePage() {
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 text-slate-400 hover:text-blue-400 hover:bg-slate-800"
+            className="h-7 w-7 text-neutral-400 hover:text-primary-600 hover:bg-neutral-100"
             onClick={() => handleDownload(params.data)}
             title="Download"
           >
@@ -153,7 +157,7 @@ export default function AdminArchivePage() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 text-slate-400 hover:text-emerald-400 hover:bg-slate-800"
+              className="h-7 w-7 text-neutral-400 hover:text-primary-600 hover:bg-neutral-100"
               onClick={() => window.open(params.data.gdrive_web_view_link, '_blank')}
               title="View in Drive"
             >
@@ -173,19 +177,19 @@ export default function AdminArchivePage() {
   };
 
   return (
-    <div className="space-y-6 flex flex-col h-full">
+    <div className="space-y-6 flex flex-col h-full bg-neutral-50">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
         <div>
-          <h1 className="text-2xl font-bold text-slate-100">Document Archive</h1>
-          <p className="text-slate-400 text-sm">Centralized repository for all submitted documents</p>
+          <h1 className="text-2xl font-bold text-neutral-900 tracking-tight transition-all">Document Archive</h1>
+          <p className="text-neutral-500 text-sm">Centralized institutional repository for all validated documents</p>
         </div>
         <Button
           variant="outline"
           size="sm"
           onClick={refresh}
           disabled={loading}
-          className="bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
+          className="bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50 hover:text-primary-600 shadow-sm"
         >
           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
           Refresh Archive
@@ -198,21 +202,21 @@ export default function AdminArchivePage() {
         <div className="lg:col-span-2 flex flex-col gap-6 min-h-0">
 
           {/* 1. Search Documents Card */}
-          <Card className="bg-slate-900 border-slate-800 shadow-none flex-1 flex flex-col min-h-[500px]">
-            <CardHeader className="flex flex-col gap-4 border-b border-slate-800 py-4 shrink-0 bg-slate-950/30">
-              <div className="flex items-center justify-between">
+          <Card className="bg-white border-neutral-200 shadow-sm flex-1 flex flex-col min-h-[500px] overflow-hidden">
+            <CardHeader className="flex flex-col gap-4 border-b border-neutral-100 py-4 shrink-0 bg-neutral-50/50">
+              <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
-                  <div className="bg-emerald-600/20 p-1.5 rounded text-emerald-400">
+                  <div className="bg-primary-600/10 p-1.5 rounded text-primary-600">
                     <Archive className="h-4 w-4" />
                   </div>
-                  <CardTitle className="text-base text-slate-100">Archive Explorer</CardTitle>
+                  <CardTitle className="text-base text-neutral-900 font-bold uppercase tracking-tight">Archive Explorer</CardTitle>
                 </div>
                 {filters.search_query && (
                   <Button
                     size="sm"
                     variant="ghost"
                     onClick={clearFilters}
-                    className="h-7 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-950/20"
+                    className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
                   >
                     Clear Filters
                   </Button>
@@ -221,10 +225,10 @@ export default function AdminArchivePage() {
 
               <div className="flex flex-col md:flex-row gap-3">
                 <div className="relative flex-1">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-neutral-400 group-focus-within:text-primary-600 transition-colors" />
                   <Input
                     placeholder="Search by filename, faculty, or course code..."
-                    className="pl-9 bg-slate-950 border-slate-700 text-slate-200 placeholder:text-slate-500 focus-visible:ring-blue-500"
+                    className="pl-9 bg-white border-neutral-200 text-neutral-900 placeholder:text-neutral-400 focus-visible:ring-primary-500 focus-visible:border-primary-500 transition-all font-medium"
                     value={filters.search_query}
                     onChange={(e) => updateFilter('search_query', e.target.value)}
                   />
@@ -233,20 +237,20 @@ export default function AdminArchivePage() {
                 {/* Compact Filter Group */}
                 <div className="flex gap-2">
                   <Select value={filters.department} onValueChange={(v) => updateFilter('department', v)}>
-                    <SelectTrigger className="w-[140px] bg-slate-950 border-slate-700 text-slate-200 text-xs">
+                    <SelectTrigger className="w-[140px] bg-white border-neutral-200 text-neutral-900 text-xs">
                       <SelectValue placeholder="Dept" />
                     </SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
+                    <SelectContent className="bg-white border-neutral-200 text-neutral-900">
                       <SelectItem value="All Departments">All Depts</SelectItem>
                       {options.departments?.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                     </SelectContent>
                   </Select>
 
                   <Select value={filters.doc_type} onValueChange={(v) => updateFilter('doc_type', v)}>
-                    <SelectTrigger className="w-[140px] bg-slate-950 border-slate-700 text-slate-200 text-xs">
+                    <SelectTrigger className="w-[140px] bg-white border-neutral-200 text-neutral-900 text-xs">
                       <SelectValue placeholder="Type" />
                     </SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
+                    <SelectContent className="bg-white border-neutral-200 text-neutral-900">
                       <SelectItem value="All Document Types">All Types</SelectItem>
                       {options.types?.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                     </SelectContent>
@@ -285,57 +289,57 @@ export default function AdminArchivePage() {
         <div className="flex flex-col gap-6">
 
           {/* 2. Stats Card */}
-          <Card className="bg-slate-900 border-slate-800 shadow-none">
-            <CardHeader className="border-b border-slate-800 py-3">
-              <CardTitle className="text-base text-slate-100 flex items-center gap-2">
-                <HardDrive className="h-4 w-4 text-slate-400" />
+          <Card className="bg-white border-neutral-200 shadow-sm overflow-hidden">
+            <CardHeader className="border-b border-neutral-100 py-3 bg-neutral-50/50">
+              <CardTitle className="text-base text-neutral-900 flex items-center gap-2 font-bold uppercase tracking-tight">
+                <HardDrive className="h-4 w-4 text-primary-600" />
                 Storage Status
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-4 space-y-4">
+            <CardContent className="pt-4 space-y-4 bg-white">
               <div>
                 <div className="flex justify-between items-end mb-2">
                   <div>
-                    <p className="text-2xl font-bold text-slate-100">{formatStorage(stats.storage_used_bytes)}</p>
-                    <p className="text-xs text-slate-500">Used of 15 GB Quota</p>
+                    <p className="text-2xl font-bold text-neutral-900">{formatStorage(stats.storage_used_bytes)}</p>
+                    <p className="text-xs text-neutral-500 font-medium">Used of 15 GB Institutional Quota</p>
                   </div>
-                  <span className={`text-sm font-bold ${stats.storage_percentage > 80 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                  <span className={`text-sm font-bold ${stats.storage_percentage > 80 ? 'text-destructive' : 'text-primary-600'}`}>
                     {stats.storage_percentage.toFixed(1)}%
                   </span>
                 </div>
-                <div className="w-full bg-slate-950 rounded-full h-2 border border-slate-800">
+                <div className="w-full bg-neutral-100 rounded-full h-2 border border-neutral-200 overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all duration-500 ${stats.storage_percentage > 80 ? 'bg-rose-500' : 'bg-blue-500'}`}
+                    className={`h-full rounded-full transition-all duration-500 ${stats.storage_percentage > 80 ? 'bg-destructive' : 'bg-primary-600'} shadow-sm`}
                     style={{ width: `${Math.min(stats.storage_percentage, 100)}%` }}
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800">
-                <div className="bg-slate-950/50 p-2 rounded border border-slate-800">
-                  <p className="text-[10px] text-slate-500 uppercase font-bold">Total Files</p>
-                  <p className="text-lg font-mono text-slate-200">{stats.total_documents.toLocaleString()}</p>
+              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-neutral-100">
+                <div className="bg-neutral-50 p-2 rounded border border-neutral-200">
+                  <p className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Total Files</p>
+                  <p className="text-lg font-bold text-neutral-900">{stats.total_documents.toLocaleString()}</p>
                 </div>
-                <div className="bg-slate-950/50 p-2 rounded border border-slate-800">
-                  <p className="text-[10px] text-slate-500 uppercase font-bold">This Sem</p>
-                  <p className="text-lg font-mono text-slate-200">{documents.length}</p>
+                <div className="bg-neutral-50 p-2 rounded border border-neutral-200">
+                  <p className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">This Sem</p>
+                  <p className="text-lg font-bold text-neutral-900">{documents.length}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           {/* 3. Bulk Archive Operations */}
-          <Card className="bg-slate-900 border-slate-800 shadow-none">
-            <CardHeader className="border-b border-slate-800 py-3">
-              <CardTitle className="text-base text-slate-100 flex items-center gap-2">
-                <FileArchive className="h-4 w-4 text-slate-400" />
+          <Card className="bg-white border-neutral-200 shadow-sm overflow-hidden">
+            <CardHeader className="border-b border-neutral-100 py-3 bg-neutral-50/50">
+              <CardTitle className="text-base text-neutral-900 flex items-center gap-2 font-bold uppercase tracking-tight">
+                <FileArchive className="h-4 w-4 text-primary-600" />
                 Bulk Export
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-4 space-y-4">
+            <CardContent className="pt-4 space-y-4 bg-white">
               <div className="space-y-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-400 uppercase">Target Semester</Label>
+                  <Label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Target Semester</Label>
                   <Select
                     value={bulkConfig.semester && bulkConfig.academic_year ? `${bulkConfig.semester}||${bulkConfig.academic_year}` : ''}
                     onValueChange={(v) => {
@@ -343,10 +347,10 @@ export default function AdminArchivePage() {
                       setBulkConfig({ ...bulkConfig, semester: sem, academic_year: yr });
                     }}
                   >
-                    <SelectTrigger className="bg-slate-950 border-slate-700 text-slate-200 text-xs">
+                    <SelectTrigger className="bg-white border-neutral-200 text-neutral-900 text-xs">
                       <SelectValue placeholder="Select Semester & Year" />
                     </SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
+                    <SelectContent className="bg-white border-neutral-200 text-neutral-900">
                       {options?.years?.map(year => (
                         options?.semesters?.map(sem => (
                           <SelectItem key={`${sem}-${year}`} value={`${sem}||${year}`}>
@@ -359,8 +363,8 @@ export default function AdminArchivePage() {
                   </Select>
                 </div>
 
-                <div className="bg-slate-950/30 p-3 rounded border border-slate-800">
-                  <Label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block">Include</Label>
+                <div className="bg-neutral-50 p-3 rounded border border-neutral-200">
+                  <Label className="text-[10px] font-bold text-neutral-500 uppercase mb-2 block tracking-wider">Included Documents</Label>
                   <div className="grid grid-cols-2 gap-2">
                     <CheckboxItem
                       label="Syllabi"
@@ -382,7 +386,7 @@ export default function AdminArchivePage() {
               </div>
 
               <Button
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-900/20"
+                className="w-full bg-primary-600 hover:bg-primary-700 text-white shadow-md shadow-emerald-900/10 transition-all font-bold"
                 onClick={handleBulkExport}
                 disabled={downloading}
               >
@@ -391,28 +395,28 @@ export default function AdminArchivePage() {
                 ) : (
                   <Download className="mr-2 h-4 w-4" />
                 )}
-                {downloading ? "Compressing & Downloading..." : "Download .ZIP Archive"}
+                {downloading ? "Processing Archive..." : "Download Institutional Archive"}
               </Button>
             </CardContent>
           </Card>
 
           {/* 4. Recent Downloads List */}
-          <Card className="bg-slate-900 border-slate-800 shadow-none flex-1">
-            <CardHeader className="border-b border-slate-800 py-3">
-              <CardTitle className="text-base text-slate-100">Download History</CardTitle>
+          <Card className="bg-white border-neutral-200 shadow-sm flex-1 overflow-hidden">
+            <CardHeader className="border-b border-neutral-100 py-3 bg-neutral-50/50">
+              <CardTitle className="text-base text-neutral-900 font-bold uppercase tracking-tight">Download History</CardTitle>
             </CardHeader>
-            <CardContent className="p-0">
-              <div className="divide-y divide-slate-800/50">
+            <CardContent className="p-0 bg-white">
+              <div className="divide-y divide-neutral-100">
                 {recentDownloads && recentDownloads.length > 0 ? (
                   recentDownloads.map((item) => (
                     <RecentDownloadItem
                       key={item.history_id}
                       name={item.report_name}
-                      meta={`${new Date(item.generated_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} • ${item.semester !== 'All' ? item.semester : 'Complete Archive'}`}
+                      meta={`${new Date(item.generated_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} • ${item.semester !== 'All' ? item.semester : 'Institutional Archive'}`}
                     />
                   ))
                 ) : (
-                  <div className="p-6 text-center text-slate-500 text-xs">
+                  <div className="p-6 text-center text-neutral-400 text-xs italic font-medium">
                     No recent exports found.
                   </div>
                 )}
@@ -433,11 +437,11 @@ const CheckboxItem = ({ label, checked, onChange }) => (
       id={label}
       checked={checked}
       onCheckedChange={onChange}
-      className="border-slate-600 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 h-3.5 w-3.5"
+      className="border-neutral-300 data-[state=checked]:bg-primary-600 data-[state=checked]:border-primary-600 h-3.5 w-3.5"
     />
     <label
       htmlFor={label}
-      className="text-xs font-medium leading-none text-slate-300 peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer select-none"
+      className="text-xs font-semibold leading-none text-neutral-600 peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer select-none"
     >
       {label}
     </label>
@@ -445,17 +449,17 @@ const CheckboxItem = ({ label, checked, onChange }) => (
 );
 
 const RecentDownloadItem = ({ name, meta }) => (
-  <div className="flex items-center justify-between p-3 hover:bg-slate-800/30 transition-colors group">
+  <div className="flex items-center justify-between p-3 hover:bg-neutral-50 transition-colors group">
     <div className="flex items-center gap-2.5">
-      <div className="p-1.5 bg-slate-950 rounded text-slate-500 group-hover:text-blue-400 transition-colors">
+      <div className="p-1.5 bg-neutral-100 rounded text-neutral-400 group-hover:text-primary-600 group-hover:bg-primary-600/10 transition-all">
         <File className="h-3.5 w-3.5" />
       </div>
       <div>
-        <p className="font-medium text-xs text-slate-200">{name}</p>
-        <p className="text-[10px] text-slate-500">{meta}</p>
+        <p className="font-bold text-xs text-neutral-800">{name}</p>
+        <p className="text-[10px] text-neutral-500 font-medium">{meta}</p>
       </div>
     </div>
-    <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-600 hover:text-slate-300">
+    <Button variant="ghost" size="icon" className="h-6 w-6 text-neutral-400 hover:text-primary-600">
       <Download className="h-3 w-3" />
     </Button>
   </div>

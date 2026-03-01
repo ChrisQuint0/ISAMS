@@ -98,23 +98,28 @@ function Toast({
       onOpenChange={handleOpenChange}
       className={cn(
         "group pointer-events-auto relative flex w-full items-center justify-between space-x-4 overflow-hidden rounded-md border p-6 pr-8 shadow-lg transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-top-full data-[state=open]:sm:slide-in-from-bottom-full",
-        variant === "destructive" && "destructive group border-destructive bg-destructive text-destructive-foreground",
-        variant === "default" && "border bg-slate-900 text-slate-100"
+        // 👇 CHANGED: Default is now a clean white card
+        variant === "default" && "border-neutral-200 bg-white text-neutral-900",
+        // 👇 CHANGED: Destructive uses semantic error tokens
+        variant === "destructive" && "destructive group border-destructive bg-destructive text-white",
+        // 👇 ADDED: Success variant for positive feedback
+        variant === "success" && "success group border-success bg-success text-white"
       )}
     >
       <div className="flex flex-col gap-1">
         {title && (
-          <ToastPrimitive.Title className="text-sm font-semibold">
+          <ToastPrimitive.Title className="text-sm font-bold">
             {title}
           </ToastPrimitive.Title>
         )}
         {description && (
-          <ToastPrimitive.Description className="text-sm opacity-90">
+          <ToastPrimitive.Description className="text-sm opacity-90 font-medium">
             {description}
           </ToastPrimitive.Description>
         )}
       </div>
-      <ToastPrimitive.Close className="inline-flex h-8 shrink-0 items-center justify-center rounded-md p-1 text-foreground/50 opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-hover:opacity-100 group-[.destructive]:text-red-300 group-[.destructive]:hover:text-red-50">
+      {/* 👇 CHANGED: Close button colors adapt to the background */}
+      <ToastPrimitive.Close className="inline-flex h-8 shrink-0 items-center justify-center rounded-md p-1 opacity-0 transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-hover:opacity-100 text-neutral-500 hover:text-neutral-900 group-[.destructive]:text-white/70 group-[.destructive]:hover:text-white group-[.success]:text-white/70 group-[.success]:hover:text-white">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="24"
