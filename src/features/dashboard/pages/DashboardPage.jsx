@@ -25,7 +25,6 @@ const isAdmin = (rbac) => {
 };
 
 const isStudent = (rbac) => {
-  // A student is someone who is NOT an admin
   return !isAdmin(rbac);
 };
 
@@ -88,7 +87,6 @@ export default function DashboardPage() {
     },
   ];
 
-  // Student modules - simplified view with thesis archiving pointing to student portal
   const studentModules = [
     {
       id: "thesis",
@@ -97,25 +95,20 @@ export default function DashboardPage() {
         "Upload and manage your OJT and HTE documents for thesis archiving",
       icon: thesisIcon,
       href: "/student/documents",
-      bgColor: "bg-slate-900/50",
-      iconBg: "bg-slate-800",
-      iconBorder: "border-slate-700",
-      accentLine: "bg-gradient-to-r from-slate-700 via-slate-600 to-slate-700",
+      orb: "#BFDBFE",
+      accent: "#2563EB",
+      accentLight: "#DBEAFE",
     },
   ];
 
-  // Determine which modules to show
-  const modules = isStudent(rbac) 
+  const modules = isStudent(rbac)
     ? studentModules
     : allModules.filter(
-        (module) => rbac?.superadmin || rbac?.[module.id]
-      );
+      (module) => rbac?.superadmin || rbac?.[module.id]
+    );
 
   return (
     <div className="min-h-screen bg-white flex flex-col relative overflow-x-hidden">
-
-
-
       {/* ── Decorative background blobs ── */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute -top-32 -left-32 w-[480px] h-[480px] rounded-full"
@@ -141,7 +134,6 @@ export default function DashboardPage() {
         }}
       >
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          {/* Logo */}
           <div className="flex items-center gap-3">
             <div
               className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden"
@@ -151,27 +143,14 @@ export default function DashboardPage() {
               }}
             >
               <img src={isamsFavicon} alt="ISAMS" className="w-6 h-6 object-contain" />
-    <div className="min-h-screen bg-slate-950 flex flex-col">
-      {/* Header */}
-      <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold text-slate-100">
-                {isStudent(rbac) ? "Student Portal" : "ISAMS Dashboard"}
-              </h1>
-              <p className="text-sm text-slate-400 mt-0.5">
-                Welcome back, {user?.email}
-              </p>
             </div>
-            <p className="text-sm font-semibold text-gray-900">ISAMS Dashboard</p>
+            <p className="text-sm font-semibold text-gray-900">
+              {isStudent(rbac) ? "Student Portal" : "ISAMS Dashboard"}
+            </p>
           </div>
 
-          {/* Right */}
           <div className="flex items-center gap-2">
-            {/* User pill */}
-            <div
-              className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full"
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full"
               style={{
                 background: "rgba(0,138,69,0.07)",
                 border: "1px solid rgba(0,138,69,0.15)",
@@ -194,8 +173,7 @@ export default function DashboardPage() {
                   <TooltipTrigger asChild>
                     <button
                       onClick={() => navigate("/users")}
-                      className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-150 hover:scale-105 hover:bg-gray-100"
-                      style={{ border: "1px solid rgba(0,0,0,0.08)" }}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-150 hover:scale-105 hover:bg-gray-100 border border-black/10"
                     >
                       <UserRoundPlus className="h-3.5 w-3.5 text-gray-500" />
                     </button>
@@ -209,8 +187,7 @@ export default function DashboardPage() {
 
             <button
               onClick={handleSignOut}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-100 transition-all duration-150"
-              style={{ border: "1px solid rgba(0,0,0,0.08)" }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-100 transition-all duration-150 border border-black/10"
             >
               <LogOut className="h-3.5 w-3.5" />
               Sign Out
@@ -230,21 +207,11 @@ export default function DashboardPage() {
             : user?.email?.split("@")[0] ?? "User"}
         </h2>
         <p className="text-sm text-gray-400">
-          Select a module below to access its features and functionality.
+          {isStudent(rbac)
+            ? "Upload and manage your OJT and HTE documents."
+            : "Select a module below to access its features and functionality."}
         </p>
       </div>
-      {/* Main Content */}
-      <main className="flex-1 max-w-7xl mx-auto px-6 py-12 w-full">
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold text-slate-100 mb-2">
-            {isStudent(rbac) ? "My Documents" : "System Modules"}
-          </h2>
-          <p className="text-slate-400 text-sm">
-            {isStudent(rbac) 
-              ? "Upload and manage your OJT and HTE documents"
-              : "Select a module to access its features and functionality"}
-          </p>
-        </div>
 
       {/* ── Module grid ── */}
       <main className="relative z-10 flex-1 max-w-7xl mx-auto px-6 pb-14 w-full">
@@ -275,75 +242,24 @@ export default function DashboardPage() {
                   e.currentTarget.style.background = "rgba(255,255,255,0.55)";
                 }}
               >
-                {/* Top shimmer line */}
-                <div
-                  className="absolute top-0 left-8 right-8 h-px"
-                  style={{
-                    background: `linear-gradient(90deg, transparent, ${module.accent}50, transparent)`,
-                  }}
-                />
+                <div className="absolute top-0 left-8 right-8 h-px"
+                  style={{ background: `linear-gradient(90deg, transparent, ${module.accent}50, transparent)` }} />
 
-                {/* Icon */}
-                <div
-                  className="relative w-11 h-11 rounded-xl flex items-center justify-center mb-4 transition-transform duration-300 group-hover:scale-105"
-                  style={{
-                    background: module.accentLight,
-                    border: `1px solid ${module.accent}25`,
-                  }}
-                >
-                  <img
-                    src={module.icon}
-                    alt={module.title}
-                    className="w-5 h-5 object-contain"
-                    style={{
-                      filter: `brightness(0) saturate(100%) invert(20%)`,
-                      // tint each icon to its accent color via CSS filter
-                      // the mix-blend + colored bg handles the rest
-                    }}
-                  />
+                <div className="relative w-11 h-11 rounded-xl flex items-center justify-center mb-4 transition-transform duration-300 group-hover:scale-105"
+                  style={{ background: module.accentLight, border: `1px solid ${module.accent}25` }}>
+                  <img src={module.icon} alt={module.title} className="w-5 h-5 object-contain"
+                    style={{ filter: `brightness(0) saturate(100%) invert(20%)` }} />
                 </div>
 
-                {/* Title */}
                 <h3 className="relative text-[15px] font-semibold text-gray-900 mb-1.5 leading-snug pr-6">
                   {module.title}
                 </h3>
-
-
-                {/* Icon */}
-                <div
-                  className="relative w-11 h-11 rounded-xl flex items-center justify-center mb-4 transition-transform duration-300 group-hover:scale-105"
-                  style={{
-                    background: module.accentLight,
-                    border: `1px solid ${module.accent}25`,
-                  }}
-                >
-                  <img
-                    src={module.icon}
-                    alt={module.title}
-                    className="w-5 h-5 object-contain"
-                    style={{
-                      filter: `brightness(0) saturate(100%) invert(20%)`,
-                      // tint each icon to its accent color via CSS filter
-                      // the mix-blend + colored bg handles the rest
-                    }}
-                  />
-                </div>
-
-                {/* Title */}
-                <h3 className="relative text-[15px] font-semibold text-gray-900 mb-1.5 leading-snug pr-6">
-                  {module.title}
-                </h3>
-
-                {/* Description */}
                 <p className="relative text-sm text-gray-500 leading-relaxed">
                   {module.description}
                 </p>
 
-                {/* CTA */}
-                <div
-                  className="relative mt-4 flex items-center gap-1 text-xs font-semibold tracking-wide transition-all duration-200 group-hover:gap-2"
-                  style={{ color: module.accent }}
-                >
+                <div className="relative mt-4 flex items-center gap-1 text-xs font-semibold tracking-wide transition-all duration-200 group-hover:gap-2"
+                  style={{ color: module.accent }}>
                   Open module
                   <ArrowUpRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                 </div>
