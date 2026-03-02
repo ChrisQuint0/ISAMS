@@ -25,6 +25,11 @@ const isAdmin = (rbac) => {
   );
 };
 
+const isStudent = (rbac) => {
+  // A student is someone who is NOT an admin
+  return !isAdmin(rbac);
+};
+
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { user, rbac, signOut } = useAuth();
@@ -95,9 +100,28 @@ export default function DashboardPage() {
     },
   ];
 
-  const modules = allModules.filter(
-    (module) => rbac?.superadmin || rbac?.[module.id]
-  );
+  // Student modules - simplified view with thesis archiving pointing to student portal
+  const studentModules = [
+    {
+      id: "thesis",
+      title: "Thesis Archiving",
+      description:
+        "Upload and manage your OJT and HTE documents for thesis archiving",
+      icon: thesisIcon,
+      href: "/student/documents",
+      bgColor: "bg-slate-900/50",
+      iconBg: "bg-slate-800",
+      iconBorder: "border-slate-700",
+      accentLine: "bg-gradient-to-r from-slate-700 via-slate-600 to-slate-700",
+    },
+  ];
+
+  // Determine which modules to show
+  const modules = isStudent(rbac) 
+    ? studentModules
+    : allModules.filter(
+        (module) => rbac?.superadmin || rbac?.[module.id]
+      );
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col">
@@ -107,7 +131,7 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-semibold text-slate-100">
-                ISAMS Dashboard
+                {isStudent(rbac) ? "Student Portal" : "ISAMS Dashboard"}
               </h1>
               <p className="text-sm text-slate-400 mt-0.5">
                 Welcome back, {user?.email}
@@ -150,10 +174,12 @@ export default function DashboardPage() {
       <main className="flex-1 max-w-7xl mx-auto px-6 py-12 w-full">
         <div className="mb-8">
           <h2 className="text-xl font-semibold text-slate-100 mb-2">
-            System Modules
+            {isStudent(rbac) ? "My Documents" : "System Modules"}
           </h2>
           <p className="text-slate-400 text-sm">
-            Select a module to access its features and functionality
+            {isStudent(rbac) 
+              ? "Upload and manage your OJT and HTE documents"
+              : "Select a module to access its features and functionality"}
           </p>
         </div>
 

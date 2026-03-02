@@ -40,12 +40,22 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
-// Public Route wrapper
+// Public Route wrapper - redirects authenticated users to dashboard
+// Dashboard page handles showing appropriate view (admin vs student)
 function PublicRoute({ children }) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    // Still loading auth state, show login
+    return children;
+  }
+  
   if (user) {
+    // User is authenticated, redirect to dashboard
+    // Dashboard intelligently shows admin or student view based on RBAC
     return <Navigate to="/dashboard" replace />;
   }
+  
   return children;
 }
 

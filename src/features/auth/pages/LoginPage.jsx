@@ -38,12 +38,11 @@ export default function LoginPage() {
       // Sign in with Supabase
       await signIn(formData.email, formData.password);
 
-      // Redirect to dashboard on success
-      navigate("/dashboard");
+      // PublicRoute will automatically redirect to correct dashboard based on role
+      // No need to manually navigate here
     } catch (err) {
       console.error("Login error:", err);
       setError(err.message || "Invalid email or password");
-    } finally {
       setIsLoading(false);
     }
   };
