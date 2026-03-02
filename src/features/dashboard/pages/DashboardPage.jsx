@@ -1,14 +1,13 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { LogOut, UserRoundPlus } from "lucide-react";
+import { LogOut, UserRoundPlus, ArrowUpRight } from "lucide-react";
+import isamsFavicon from "@/assets/images/isams_favicon.png";
 import thesisIcon from "@/assets/icons/thesis_icon.svg";
 import facReqIcon from "@/assets/icons/fac_req_icon.svg";
 import classlistIcon from "@/assets/icons/classlist_icon.svg";
@@ -18,11 +17,16 @@ const isAdmin = (rbac) => {
   if (!rbac) return false;
   return (
     rbac.superadmin === true ||
-    rbac.thesis_role === 'admin' ||
-    rbac.facsub_role === 'admin' ||
-    rbac.labman_role === 'admin' ||
-    rbac.studvio_role === 'admin'
+    rbac.thesis_role === "admin" ||
+    rbac.facsub_role === "admin" ||
+    rbac.labman_role === "admin" ||
+    rbac.studvio_role === "admin"
   );
+};
+
+const isStudent = (rbac) => {
+  // A student is someone who is NOT an admin
+  return !isAdmin(rbac);
 };
 
 export default function DashboardPage() {
@@ -37,67 +41,75 @@ export default function DashboardPage() {
     }
   };
 
-  const handleModuleClick = (href) => {
-    console.log("Navigating to:", href);
-    navigate(href);
-  };
-
   const allModules = [
     {
       id: "thesis",
       title: "Thesis Archiving",
       description:
-        "Manage and archive thesis documents with advanced search and categorization",
+        "Manage and archive thesis documents with advanced search and categorization.",
       icon: thesisIcon,
       href: "/thesis-archiving",
-      bgColor: "bg-slate-900/50",
-      iconBg: "bg-slate-800",
-      iconBorder: "border-slate-700",
-      accentLine: "bg-gradient-to-r from-slate-700 via-slate-600 to-slate-700",
+      orb: "#BFDBFE",       // soft blue
+      accent: "#2563EB",    // blue-600
+      accentLight: "#DBEAFE",
     },
     {
       id: "facsub",
       title: "Faculty Requirement Submission",
       description:
-        "Submit, track, and manage faculty requirements and documentation",
+        "Submit, track, and manage faculty requirements and documentation.",
       icon: facReqIcon,
       href: "/faculty-requirements",
-      bgColor: "bg-blue-950/30",
-      iconBg: "bg-blue-900/50",
-      iconBorder: "border-blue-800/50",
-      accentLine:
-        "bg-gradient-to-r from-blue-800/50 via-blue-700/50 to-blue-800/50",
+      orb: "#FEF08A",       // soft yellow
+      accent: "#D97706",    // amber-600
+      accentLight: "#FEF3C7",
     },
     {
       id: "studvio",
       title: "Student Violation Management",
       description:
-        "Manage and track student violations effectively",
+        "Record, review, and resolve student violations efficiently.",
       icon: classlistIcon,
       href: "/student-violations",
-      bgColor: "bg-purple-950/30",
-      iconBg: "bg-purple-900/50",
-      iconBorder: "border-purple-800/50",
-      accentLine:
-        "bg-gradient-to-r from-purple-800/50 via-purple-700/50 to-purple-800/50",
+      orb: "#FBCFE8",       // soft pink
+      accent: "#DB2777",    // pink-600
+      accentLight: "#FCE7F3",
     },
     {
       id: "labman",
       title: "Laboratory Time Monitoring",
-      description: "Monitor and track laboratory usage and time allocation",
+      description:
+        "Monitor and track laboratory usage and time allocation across sessions.",
       icon: labIcon,
       href: "/lab-monitoring",
-      bgColor: "bg-cyan-950/30",
-      iconBg: "bg-cyan-900/50",
-      iconBorder: "border-cyan-800/50",
-      accentLine:
-        "bg-gradient-to-r from-cyan-800/50 via-cyan-700/50 to-cyan-800/50",
+      orb: "#99F6E4",       // soft teal
+      accent: "#0F766E",    // teal-700
+      accentLight: "#CCFBF1",
     },
   ];
 
-  const modules = allModules.filter(
-    (module) => rbac?.superadmin || rbac?.[module.id]
-  );
+  // Student modules - simplified view with thesis archiving pointing to student portal
+  const studentModules = [
+    {
+      id: "thesis",
+      title: "Thesis Archiving",
+      description:
+        "Upload and manage your OJT and HTE documents for thesis archiving",
+      icon: thesisIcon,
+      href: "/student/documents",
+      bgColor: "bg-slate-900/50",
+      iconBg: "bg-slate-800",
+      iconBorder: "border-slate-700",
+      accentLine: "bg-gradient-to-r from-slate-700 via-slate-600 to-slate-700",
+    },
+  ];
+
+  // Determine which modules to show
+  const modules = isStudent(rbac) 
+    ? studentModules
+    : allModules.filter(
+        (module) => rbac?.superadmin || rbac?.[module.id]
+      );
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col">
@@ -107,41 +119,63 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-semibold text-slate-100">
-                ISAMS Dashboard
+                {isStudent(rbac) ? "Student Portal" : "ISAMS Dashboard"}
               </h1>
               <p className="text-sm text-slate-400 mt-0.5">
                 Welcome back, {user?.email}
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              {isAdmin(rbac) && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        onClick={() => navigate("/users")}
-                        variant="outline"
-                        size="icon"
-                        className="bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700 hover:text-slate-100 transition-colors"
-                      >
-                        <UserRoundPlus className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      <p>Manage Users</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-              <Button
-                onClick={handleSignOut}
-                variant="outline"
-                className="bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700 hover:text-slate-100 transition-colors"
+            <p className="text-sm font-semibold text-gray-900">ISAMS Dashboard</p>
+          </div>
+
+          {/* Right */}
+          <div className="flex items-center gap-2">
+            {/* User pill */}
+            <div
+              className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full"
+              style={{
+                background: "rgba(0,138,69,0.07)",
+                border: "1px solid rgba(0,138,69,0.15)",
+              }}
+            >
+              <div
+                className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white"
+                style={{ background: "linear-gradient(135deg, #008A45, #00c46a)" }}
               >
-                <LogOut className="h-4 w-4 mr-2" />
-                Sign Out
-              </Button>
+                {user?.email?.[0]?.toUpperCase() ?? "U"}
+              </div>
+              <span className="text-xs text-gray-600 max-w-[150px] truncate">
+                {user?.email}
+              </span>
             </div>
+
+            {isAdmin(rbac) && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => navigate("/users")}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-150 hover:scale-105 hover:bg-gray-100"
+                      style={{ border: "1px solid rgba(0,0,0,0.08)" }}
+                    >
+                      <UserRoundPlus className="h-3.5 w-3.5 text-gray-500" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p>Manage Users</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+
+            <button
+              onClick={handleSignOut}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-100 transition-all duration-150"
+              style={{ border: "1px solid rgba(0,0,0,0.08)" }}
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Sign Out
+            </button>
           </div>
         </div>
       </header>
@@ -150,69 +184,101 @@ export default function DashboardPage() {
       <main className="flex-1 max-w-7xl mx-auto px-6 py-12 w-full">
         <div className="mb-8">
           <h2 className="text-xl font-semibold text-slate-100 mb-2">
-            System Modules
+            {isStudent(rbac) ? "My Documents" : "System Modules"}
           </h2>
           <p className="text-slate-400 text-sm">
-            Select a module to access its features and functionality
+            {isStudent(rbac) 
+              ? "Upload and manage your OJT and HTE documents"
+              : "Select a module to access its features and functionality"}
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* ── Module grid ── */}
+      <main className="relative z-10 flex-1 max-w-7xl mx-auto px-6 pb-14 w-full">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {modules.map((module, index) => (
-            <div
+            <button
               key={index}
-              onClick={() => handleModuleClick(module.href)}
-              className="cursor-pointer"
+              onClick={() => navigate(module.href)}
+              className="group text-left w-full focus:outline-none transition-all duration-300 hover:-translate-y-1"
             >
-              <Card
-                className={`group relative overflow-hidden ${module.bgColor} border-slate-800 hover:border-slate-700 transition-all duration-300 hover:shadow-xl hover:shadow-slate-900/50`}
+              <div
+                className="relative rounded-2xl overflow-hidden p-6 h-full transition-all duration-300"
+                style={{
+                  background: "rgba(255,255,255,0.55)",
+                  backdropFilter: "blur(20px)",
+                  WebkitBackdropFilter: "blur(20px)",
+                  border: "1px solid rgba(255,255,255,0.85)",
+                  boxShadow: "0 4px 24px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9)",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.boxShadow = `0 12px 40px rgba(0,0,0,0.10), 0 0 0 1.5px ${module.accent}30, inset 0 1px 0 rgba(255,255,255,0.9)`;
+                  e.currentTarget.style.borderColor = `${module.accent}35`;
+                  e.currentTarget.style.background = "rgba(255,255,255,0.72)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.boxShadow = "0 4px 24px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9)";
+                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.85)";
+                  e.currentTarget.style.background = "rgba(255,255,255,0.55)";
+                }}
               >
-                {/* Gloss effect overlay */}
-                <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none" />
-
-                {/* Shimmer effect */}
-                <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
-
-                <CardHeader className="relative">
-                  <div className="flex items-start gap-4">
-                    <div
-                      className={`flex-shrink-0 w-14 h-14 rounded-xl ${module.iconBg} border ${module.iconBorder} flex items-center justify-center group-hover:border-slate-600 transition-all duration-300`}
-                    >
-                      <img
-                        src={module.icon}
-                        alt={`${module.title} icon`}
-                        className="w-8 h-8 object-contain group-hover:scale-110 transition-transform duration-300"
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <CardTitle className="text-lg font-semibold text-slate-100 group-hover:text-white transition-colors duration-300">
-                        {module.title}
-                      </CardTitle>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="relative">
-                  <p className="text-sm text-slate-400 leading-relaxed group-hover:text-slate-300 transition-colors duration-300">
-                    {module.description}
-                  </p>
-                </CardContent>
-
-                {/* Bottom accent line */}
+                {/* Top shimmer line */}
                 <div
-                  className={`absolute bottom-0 left-0 right-0 h-0.5 ${module.accentLine} scale-x-0 group-hover:scale-x-100 transition-transform duration-500`}
+                  className="absolute top-0 left-8 right-8 h-px"
+                  style={{
+                    background: `linear-gradient(90deg, transparent, ${module.accent}50, transparent)`,
+                  }}
                 />
-              </Card>
-            </div>
+
+                {/* Icon */}
+                <div
+                  className="relative w-11 h-11 rounded-xl flex items-center justify-center mb-4 transition-transform duration-300 group-hover:scale-105"
+                  style={{
+                    background: module.accentLight,
+                    border: `1px solid ${module.accent}25`,
+                  }}
+                >
+                  <img
+                    src={module.icon}
+                    alt={module.title}
+                    className="w-5 h-5 object-contain"
+                    style={{
+                      filter: `brightness(0) saturate(100%) invert(20%)`,
+                      // tint each icon to its accent color via CSS filter
+                      // the mix-blend + colored bg handles the rest
+                    }}
+                  />
+                </div>
+
+                {/* Title */}
+                <h3 className="relative text-[15px] font-semibold text-gray-900 mb-1.5 leading-snug pr-6">
+                  {module.title}
+                </h3>
+
+                {/* Description */}
+                <p className="relative text-sm text-gray-500 leading-relaxed">
+                  {module.description}
+                </p>
+
+                {/* CTA */}
+                <div
+                  className="relative mt-4 flex items-center gap-1 text-xs font-semibold tracking-wide transition-all duration-200 group-hover:gap-2"
+                  style={{ color: module.accent }}
+                >
+                  Open module
+                  <ArrowUpRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                </div>
+              </div>
+            </button>
           ))}
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-800 bg-slate-900/30">
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <p className="text-xs text-slate-500 text-center">
-            ISAMS - Integrated Smart Academic Management System • College of
-            Computer Studies © 2026
+      {/* ── Footer ── */}
+      <footer className="relative z-10 border-t border-gray-100 bg-white/60">
+        <div className="max-w-7xl mx-auto px-6 py-5">
+          <p className="text-xs text-gray-400 text-center">
+            ISAMS — Integrated Smart Academic Management System &nbsp;·&nbsp; College of Computer Studies &nbsp;·&nbsp; © 2026
           </p>
         </div>
       </footer>
