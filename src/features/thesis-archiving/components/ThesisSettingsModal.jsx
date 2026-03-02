@@ -112,7 +112,8 @@ const ActionCellRenderer = (params) => {
     );
 };
 
-export function ThesisSettingsModal() {
+export function ThesisSettingsModal({ variant = "dark" }) {
+    const isDark = variant === "dark";
     const [view, setView] = useState('settings'); // 'settings' | 'advisers' | 'categories'
     const [advisers, setAdvisers] = useState([
         { id: 1, name: "Professor. Alan Turing, Ph.D." },
@@ -216,7 +217,10 @@ export function ThesisSettingsModal() {
                 <Button
                     variant="ghost"
                     size="icon"
-                    className="text-slate-400 hover:text-slate-100 hover:bg-slate-800"
+                    className={`transition-colors ${isDark
+                            ? "text-slate-400 hover:text-slate-100 hover:bg-slate-800"
+                            : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                        }`}
                 >
                     <Settings className="h-5 w-5" />
                 </Button>

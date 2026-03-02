@@ -189,8 +189,8 @@ function Pagination({ page, totalPages, onPage }) {
         {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
           <Button key={p} size="sm" onClick={() => onPage(p)}
             className={`h-8 w-8 p-0 text-xs font-bold transition-all rounded-lg ${p === page
-                ? "bg-gradient-to-br from-green-600 to-emerald-700 text-white border-0 shadow-[0_2px_14px_rgba(34,211,238,0.4)]"
-                : "bg-gray-50 border border-gray-300 text-gray-900 hover:text-gray-900 hover:bg-gray-200 hover:border-gray-400"
+              ? "bg-gradient-to-br from-green-600 to-emerald-700 text-white border-0 shadow-[0_2px_14px_rgba(34,211,238,0.4)]"
+              : "bg-gray-50 border border-gray-300 text-gray-900 hover:text-gray-900 hover:bg-gray-200 hover:border-gray-400"
               }`}
           >{p}</Button>
         ))}
@@ -408,19 +408,19 @@ function ReportsThesis({ filters }) {
       setError(null);
       try {
         const mockData = generateMockThesisData();
-        
+
         // Filter and paginate the data
         let filtered = mockData.archiveInventory;
-        
+
         if (filters.category !== "All") {
           filtered = filtered.filter(item => item.category === filters.category);
         }
-        
+
         const totalCount = filtered.length;
         const start = (page - 1) * PER_PAGE;
         const end = start + PER_PAGE;
         const paginated = filtered.slice(start, end);
-        
+
         setData({
           submissionSummary: mockData.submissionSummary,
           archiveInventory: paginated,
@@ -450,7 +450,7 @@ function ReportsThesis({ filters }) {
     try {
       // Use full mock dataset for export
       const fullData = generateMockThesisData();
-      
+
       let filtered = fullData.archiveInventory;
       if (filters.category !== "All") {
         filtered = filtered.filter(item => item.category === filters.category);
@@ -574,19 +574,19 @@ function ReportsSimilarity({ filters }) {
       setError(null);
       try {
         const mockData = generateMockSimilarityData();
-        
+
         // Filter and paginate the data
         let filtered = mockData.flaggedSubmissions;
-        
+
         if (filters.category !== "All") {
           filtered = filtered.filter(item => item.category === filters.category);
         }
-        
+
         const totalCount = filtered.length;
         const start = (page - 1) * PER_PAGE;
         const end = start + PER_PAGE;
         const paginated = filtered.slice(start, end);
-        
+
         setData({
           flaggedSubmissions: paginated,
           similarityDistribution: mockData.similarityDistribution,
@@ -616,7 +616,7 @@ function ReportsSimilarity({ filters }) {
     try {
       // Use full mock dataset for export
       const fullData = generateMockSimilarityData();
-      
+
       let filtered = fullData.flaggedSubmissions;
       if (filters.category !== "All") {
         filtered = filtered.filter(item => item.category === filters.category);
@@ -738,27 +738,27 @@ function ReportsOJT({ filters }) {
       setError(null);
       try {
         const mockData = generateMockOJTData();
-        
+
         // Filter and paginate the data
         let filtered = mockData.traineeStatus;
-        
+
         if (filters.coordinator !== "All") {
           filtered = filtered.filter(item => item.coordinator === filters.coordinator);
         }
         if (filters.completionStatus !== "All") {
           filtered = filtered.filter(item => item.overallStatus === filters.completionStatus);
         }
-        
+
         const totalCount = filtered.length;
         const start = (page - 1) * PER_PAGE;
         const end = start + PER_PAGE;
         const paginated = filtered.slice(start, end);
-        
+
         // Calculate stats
         const complete = filtered.filter(t => t.overallStatus === "Complete").length;
         const incomplete = filtered.filter(t => t.overallStatus === "Incomplete").length;
         const rate = totalCount > 0 ? ((complete / totalCount) * 100).toFixed(1) : "0.0";
-        
+
         setData({
           traineeStatus: paginated,
           totalCount,
@@ -797,7 +797,7 @@ function ReportsOJT({ filters }) {
     try {
       // Use full mock dataset for export
       const fullData = generateMockOJTData();
-      
+
       let filtered = fullData.traineeStatus;
       if (filters.coordinator !== "All") {
         filtered = filtered.filter(item => item.coordinator === filters.coordinator);
@@ -944,7 +944,7 @@ export default function ReportsAnalyticsPage() {
     <ProtectedReportsRoute>
       <ReportsToastProvider>
         <div className="flex flex-col min-h-screen bg-white">
-          <ThesisArchivingHeader title="Reports & Analytics" />
+          <ThesisArchivingHeader title="Reports & Analytics" variant="light" />
 
           <main className="flex-1 px-8 py-10 lg:px-12 lg:py-12">
             <div className="max-w-7xl mx-auto space-y-6">
@@ -993,8 +993,8 @@ export default function ReportsAnalyticsPage() {
                       key={t.value}
                       onClick={() => setReportType(t.value)}
                       className={`relative flex-1 flex flex-col items-center justify-center gap-1.5 rounded-2xl border py-6 px-4 transition-all duration-200 outline-none cursor-pointer select-none ${active
-                          ? "border-gray-300 bg-white shadow-xl shadow-gray-300/10 backdrop-blur-sm"
-                          : "border-gray-200 bg-white hover:bg-white hover:border-gray-300 hover:shadow-lg hover:shadow-gray-300/10"
+                        ? "border-gray-300 bg-white shadow-xl shadow-gray-300/10 backdrop-blur-sm"
+                        : "border-gray-200 bg-white hover:bg-white hover:border-gray-300 hover:shadow-lg hover:shadow-gray-300/10"
                         }`}
                     >
                       {/* Top accent bar — active only */}
