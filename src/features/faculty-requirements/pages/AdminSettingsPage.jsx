@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
     Save, Database, Terminal, Trash2, RefreshCw, Eye, Settings,
     Cpu, CheckCircle, AlertCircle, Play, Shield, FileText,
-    Clock, Archive, AlertTriangle, HardDrive, Server, Activity,
+    Clock, Archive, HardDrive, Server, Activity,
     Wifi, WifiOff, Globe, Lock, Unlock,
     ChevronUp, ChevronDown, Plus, Folder, File as FileIcon, LayoutTemplate, Users, BookOpen, X
 } from 'lucide-react';
@@ -1158,8 +1158,8 @@ export default function AdminSettingsPage() {
                                     </div>
                                     {/* Inline catalog duplicate warning */}
                                     {catalogCodeTaken && (
-                                        <div className="flex items-center gap-2 bg-warning/10 border border-warning/20 text-warning px-3 py-2 rounded-lg text-xs font-medium">
-                                            <AlertTriangle className="h-4 w-4 shrink-0" />
+                                        <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/20 text-destructive px-3 py-2 rounded-lg text-xs font-medium">
+                                            <AlertCircle className="h-4 w-4 shrink-0" />
                                             <p>{catalogConflictType} "{catalogConflictType === 'Code' ? newCatalog.code.toUpperCase() : newCatalog.name}" already exists in {existingCatalogEntry?.semester || 'another semester'}. Each course must be unique.</p>
                                         </div>
                                     )}
@@ -1230,7 +1230,7 @@ export default function AdminSettingsPage() {
                                                             <div className="flex items-center gap-2 shrink-0">
                                                                 {(() => {
                                                                     const uniqueCourses = new Set(group.assignments.map(a => String(a.master_course_id || a.course_code))).size;
-                                                                    const totalSections = group.assignments.length;
+                                                                    const totalSections = new Set(group.assignments.map(a => String(a.section))).size;
                                                                     return (
                                                                         <>
                                                                             <Badge variant="outline" className="border-neutral-200 text-neutral-600 bg-white shadow-sm text-[11px] px-2 py-0 h-5">
@@ -1286,7 +1286,7 @@ export default function AdminSettingsPage() {
                                                                                 Sec {asgn.section || '—'}
                                                                             </span>
 
-                                                                            <span className="text-[11px] text-neutral-500 font-medium w-12 text-right hidden sm:block">
+                                                                            <span className="text-[11px] text-neutral-500 font-medium w-14 text-right hidden sm:block">
                                                                                 {asgn.semester || '—'}
                                                                             </span>
 
@@ -1424,7 +1424,7 @@ export default function AdminSettingsPage() {
                                             </div>
                                         )}
                                         {!facultyAlreadyOnSection && sectionTaken && (
-                                            <div className="flex items-center gap-2 bg-warning/10 border border-warning/20 rounded-lg px-3 py-2 text-warning mt-2">
+                                            <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2 text-destructive mt-2">
                                                 <AlertCircle className="h-4 w-4 shrink-0" />
                                                 <p className="text-xs font-medium">{selectedCatalogEntry?.course_code} Section {newAssignment.section} is already assigned. Try a different section.</p>
                                             </div>
@@ -1503,8 +1503,8 @@ export default function AdminSettingsPage() {
                                             />
                                             <div className="min-h-[1.25rem]">
                                                 {isDuplicateRequirement && (
-                                                    <p className="text-[10px] text-destructive font-medium italic flex items-center gap-1 mt-1 text-warning">
-                                                        <AlertTriangle className="h-2.5 w-2.5" />
+                                                    <p className="text-[10px] text-destructive font-medium italic flex items-center gap-1 mt-1 text-destructive">
+                                                        <AlertCircle className="h-2.5 w-2.5" />
                                                         "{newReq.name}" is already a requirement.
                                                     </p>
                                                 )}
@@ -1523,8 +1523,8 @@ export default function AdminSettingsPage() {
                                             />
                                             <div className="min-h-[1.25rem]">
                                                 {isDuplicateFolder && (
-                                                    <p className="text-[10px] text-destructive font-medium italic flex items-center gap-1 mt-1 text-warning">
-                                                        <AlertTriangle className="h-2.5 w-2.5" />
+                                                    <p className="text-[10px] text-destructive font-medium italic flex items-center gap-1 mt-1 text-destructive">
+                                                        <AlertCircle className="h-2.5 w-2.5" />
                                                         Folder "/{newReq.folder}" is already in use.
                                                     </p>
                                                 )}
@@ -1794,28 +1794,28 @@ export default function AdminSettingsPage() {
                                     <div className="space-y-1.5">
                                         {holidayDescriptionDuplicate && (
                                             <p className="text-xs text-destructive font-medium italic flex items-center gap-1.5">
-                                                <AlertTriangle className="h-3 w-3" /> "{newHoliday.description}" already exists. Description must be unique.
+                                                <AlertCircle className="h-3 w-3" /> "{newHoliday.description}" already exists. Description must be unique.
                                             </p>
                                         )}
                                         {holidayIsPast && (
                                             <p className="text-xs text-destructive font-medium italic flex items-center gap-1.5">
-                                                <AlertTriangle className="h-3 w-3" /> Start date cannot be in the past.
+                                                <AlertCircle className="h-3 w-3" /> Start date cannot be in the past.
                                             </p>
                                         )}
                                         {holidayEndDateInvalid && (
                                             <p className="text-xs text-destructive font-medium italic flex items-center gap-1.5">
-                                                <AlertTriangle className="h-3 w-3" /> End date must be after Start date.
+                                                <AlertCircle className="h-3 w-3" /> End date must be after Start date.
                                             </p>
                                         )}
                                         {holidayOccupiedDates.length > 0 && (
                                             <p className="text-xs text-destructive font-medium italic flex items-center gap-1.5">
-                                                <AlertTriangle className="h-3 w-3" />
+                                                <AlertCircle className="h-3 w-3" />
                                                 Occupied: {holidayOccupiedDates.join(', ')}. Please choose different dates.
                                             </p>
                                         )}
                                         {holidayEndDateSameAsStart && (
                                             <p className="text-xs text-destructive font-medium italic flex items-center gap-1.5">
-                                                <AlertTriangle className="h-3 w-3" />
+                                                <AlertCircle className="h-3 w-3" />
                                                 {newHoliday.startDate} is already a start date. Please choose another date.
                                             </p>
                                         )}
@@ -2157,7 +2157,7 @@ export default function AdminSettingsPage() {
                             <Card className="bg-destructive/5 border-destructive/20 shadow-none">
                                 <CardHeader className="border-b border-destructive/20 py-4 bg-white/50">
                                     <CardTitle className="text-base text-destructive flex items-center gap-2 font-bold">
-                                        <AlertTriangle className="h-5 w-5" /> Danger Zone
+                                        <AlertCircle className="h-5 w-5" /> Danger Zone
                                     </CardTitle>
                                     <CardDescription className="text-destructive/70 font-medium">
                                         Irreversible actions. These will affect live data.
@@ -2329,7 +2329,7 @@ export default function AdminSettingsPage() {
                     <DialogContent className="bg-white border-destructive/30 text-neutral-900 max-w-md shadow-2xl">
                         <DialogHeader>
                             <DialogTitle className="text-destructive flex items-center gap-2 font-bold">
-                                <AlertTriangle className="h-5 w-5" />
+                                <AlertCircle className="h-5 w-5" />
                                 {dangerModalConfig.title}
                             </DialogTitle>
                             <DialogDescription className="text-neutral-600 mt-2 font-medium">
@@ -2417,7 +2417,7 @@ const DangerRow = ({ title, desc, btnText, onClick }) => (
     <div className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-white border border-destructive/20 rounded-xl gap-4 hover:border-destructive/40 hover:shadow-sm transition-all">
         <div>
             <h4 className="font-bold text-destructive text-sm flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4" />
+                <AlertCircle className="h-4 w-4" />
                 {title}
             </h4>
             <p className="text-xs text-neutral-600 font-medium mt-1 pl-6">{desc}</p>
