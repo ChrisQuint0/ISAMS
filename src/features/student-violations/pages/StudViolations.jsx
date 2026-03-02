@@ -17,6 +17,7 @@ import { Card } from "@/components/ui/card";
 import { supabase } from "@/lib/supabaseClient";
 import { ManageViolationModal } from "../components/ManageViolationModal";
 import { AddViolationModal } from "../components/AddViolationModal";
+import { ManageSanctionModal } from "../components/ManageSanctionModal";
 
 // FACULTY THEME: Consistent Slate palette and filter popup styling
 const GRID_STYLE_OVERRIDES = `
@@ -62,22 +63,27 @@ const StudViolations = () => {
   const [selectedViolation, setSelectedViolation] = useState(null);
   const [activeTab, setActiveTab] = useState("violations");
   const [searchValue, setSearchValue] = useState("");
+  const [sanctionsList, setSanctionsList] = useState([]);
+  const [isManageSanctionModalOpen, setIsManageSanctionModalOpen] = useState(false);
+  const [selectedSanction, setSelectedSanction] = useState(null);
 
-  const fetchViolations = async () => {
+  const fetchDistilledData = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      // 1. Fetch Violations
+      const { data: vData, error: vError } = await supabase
         .from('violations_sv')
         .select(`
           *,
           students_sv (first_name, last_name),
           offense_types_sv (name, severity)
-        `);
+        `)
+        .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error("Error fetching violations:", error.message);
-      } else if (data) {
-        const formattedData = data.map(v => ({
+      if (vError) {
+        console.error("Error fetching violations:", vError.message);
+      } else if (vData) {
+        const formattedData = vData.map(v => ({
           ...v,
           student_number: v.student_number,
           name: v.students_sv ? `${v.students_sv.first_name} ${v.students_sv.last_name}` : 'Unknown',
@@ -87,15 +93,44 @@ const StudViolations = () => {
         }));
         setViolations(formattedData);
       }
+
+      // 2. Fetch Sanctions
+      const { data: sData, error: sError } = await supabase
+        .from('student_sanctions_sv')
+        .select(`
+            *,
+            violations_sv (
+                student_number,
+                students_sv (first_name, last_name)
+            )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (sError) {
+        console.error("Error fetching sanctions:", sError.message);
+      } else if (sData) {
+        const formattedSanctions = sData.map(s => ({
+          sanction_id: s.sanction_id,
+          student_name: s.violations_sv?.students_sv
+            ? `${s.violations_sv.students_sv.first_name} ${s.violations_sv.students_sv.last_name}`
+            : 'Unknown',
+          sanction_name: s.penalty_name,
+          status: s.status,
+          due_date: s.deadline_date || 'None',
+          original_data: s
+        }));
+        setSanctionsList(formattedSanctions);
+      }
+
     } catch (err) {
-      console.error("Unexpected error fetching violations:", err);
+      console.error("Unexpected error fetching data:", err);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchViolations();
+    fetchDistilledData();
   }, []);
 
   useEffect(() => {
@@ -178,11 +213,52 @@ const StudViolations = () => {
   ], []);
 
   const sanctionColumnDefs = useMemo(() => [
-    { headerName: "Sanction ID", field: "sanction_id", flex: 1, tooltipField: "sanction_id", cellStyle: { color: '#94a3b8' } },
-    { headerName: "Student Name", field: "student_name", flex: 1, tooltipField: "student_name", cellStyle: { color: '#f8fafc', fontWeight: '600' } },
-    { headerName: "Sanction", field: "sanction_name", flex: 1.5, tooltipField: "sanction_name", cellStyle: { color: '#94a3b8' } },
-    { headerName: "Status", field: "status", flex: 1, tooltipField: "status", cellStyle: { color: '#94a3b8' } },
-    { headerName: "Due Date", field: "due_date", flex: 1, tooltipField: "due_date", cellStyle: { color: '#94a3b8' } },
+    { headerName: "ID", field: "sanction_id", width: 110, tooltipField: "sanction_id", cellStyle: { color: '#94a3b8' } },
+    { headerName: "Student Name", field: "student_name", flex: 1.5, tooltipField: "student_name", filter: true, cellStyle: { color: '#f8fafc', fontWeight: '600' } },
+    { headerName: "Sanction", field: "sanction_name", flex: 1.5, tooltipField: "sanction_name", filter: true, cellStyle: { color: '#94a3b8', fontWeight: '500' } },
+    {
+      headerName: "Status", field: "status", flex: 1, tooltipField: "status", filter: true,
+      cellRenderer: (params) => {
+        const isCompleted = params.value === 'Completed';
+        const isOverdue = params.value === 'Overdue';
+        const isInProgress = params.value === 'In Progress';
+
+        let colorClass = 'text-slate-400 bg-slate-400';
+        if (isCompleted) colorClass = 'text-emerald-400 bg-emerald-400';
+        else if (isOverdue) colorClass = 'text-rose-400 bg-rose-400';
+        else if (isInProgress) colorClass = 'text-blue-400 bg-blue-400';
+
+        return (
+          <div className="flex items-center h-full">
+            <span className={`flex items-center text-[12px] font-bold ${colorClass.split(' ')[0]}`}>
+              <span className={`mr-2 h-1.5 w-1.5 rounded-full ${colorClass.split(' ')[1]}`} />
+              {params.value}
+            </span>
+          </div>
+        );
+      }
+    },
+    { headerName: "Due Date", field: "due_date", width: 140, tooltipField: "due_date", cellStyle: { color: '#94a3b8' } },
+    {
+      headerName: "Action",
+      field: "action",
+      width: 120,
+      pinned: 'right',
+      cellRenderer: (params) => (
+        <div className="flex items-center justify-end h-full pr-2">
+          <Button
+            variant="outline"
+            className="h-7 px-4 bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-100 hover:text-slate-900 hover:border-slate-100 rounded-md text-[11px] font-semibold transition-all duration-200"
+            onClick={() => {
+              setSelectedSanction(params.data);
+              setIsManageSanctionModalOpen(true);
+            }}
+          >
+            Manage
+          </Button>
+        </div>
+      )
+    }
   ], []);
 
 
@@ -261,7 +337,7 @@ const StudViolations = () => {
           ) : (
             <AgGridReact
               theme={themeQuartz}
-              rowData={activeTab === "violations" ? violations : []}
+              rowData={activeTab === "violations" ? violations : sanctionsList}
               columnDefs={activeTab === "violations" ? columnDefs : sanctionColumnDefs}
               defaultColDef={defaultColDef}
               onGridReady={(params) => setGridApi(params.api)}
@@ -281,14 +357,22 @@ const StudViolations = () => {
       <ManageViolationModal
         isOpen={isManageModalOpen}
         onClose={() => setIsManageModalOpen(false)}
-        onSuccess={fetchViolations}
+        onSuccess={fetchDistilledData}
         violationData={selectedViolation}
       />
 
       <AddViolationModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        onSuccess={fetchViolations}
+        onSuccess={fetchDistilledData}
+      />
+
+      {/* TODO: Add ManageSanctionModal here */}
+      <ManageSanctionModal
+        isOpen={isManageSanctionModalOpen}
+        onClose={() => setIsManageSanctionModalOpen(false)}
+        onSuccess={fetchDistilledData}
+        sanctionData={selectedSanction}
       />
     </div>
   );
