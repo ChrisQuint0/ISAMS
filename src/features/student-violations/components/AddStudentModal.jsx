@@ -225,74 +225,74 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
 
     return (
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-            <DialogContent className="sm:max-w-[550px] bg-slate-900 border-slate-800 text-slate-200">
+            <DialogContent className="sm:max-w-[550px] bg-white border-neutral-200 text-neutral-900 shadow-lg rounded-xl">
                 <DialogHeader>
-                    <DialogTitle className="text-xl text-white">Add new student</DialogTitle>
-                    <DialogDescription className="text-slate-400">
+                    <DialogTitle className="text-xl font-bold text-neutral-900 tracking-tight">Add new student</DialogTitle>
+                    <DialogDescription className="text-neutral-500 font-medium">
                         Add a student to the registry manually or upload a CSV file for multiple entries.
                     </DialogDescription> 
                 </DialogHeader>
 
                 {errorMsg && (
-                    <div className="bg-rose-500/10 border border-rose-500/50 text-rose-400 p-3 rounded-md flex items-start gap-3 mt-4 text-sm">
+                    <div className="bg-red-50 border border-red-200 text-destructive-semantic p-3 rounded-md flex items-start gap-3 mt-4 text-sm font-medium">
                         <AlertCircle className="w-5 h-5 shrink-0" />
                         <p>{errorMsg}</p>
                     </div>
                 )}
 
                 {successMsg && (
-                    <div className="bg-emereald-500/10 border border-emerald-500/50 justify-center text-emerald-400 p-3 rounded-md flex items-center gap-3 mt-4 text-sm">
+                    <div className="bg-emerald-50 border border-emerald-200 justify-center text-success p-3 rounded-md flex items-center gap-3 mt-4 text-sm font-medium">
                         <CheckCircle2 className="w-5 h-5" />
                         <p>{successMsg}</p>
                     </div>
                 )}
 
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
-                    <TabsList className="grid w-full grid-cols-2 bg-slate-950 border border-slate-800 h-11 p-1 rounded-lg">
-                        <TabsTrigger value="single" className="data-[state=active]:bg-slate-800 data-[state=active]:text-blue-400 text-slate-400 hover:text-slate-200 rounded-md transition-all">Single Entry</TabsTrigger>
-                        <TabsTrigger value="bulk" className="data-[state=active]:bg-slate-800 data-[state=active]:text-blue-400 text-slate-400 hover:text-slate-200 rounded-md transition-all">Bulk Upload</TabsTrigger>
+                    <TabsList className="grid w-full grid-cols-2 bg-neutral-100 border border-neutral-200 h-11 p-1 rounded-lg">
+                        <TabsTrigger value="single" className="data-[state=active]:bg-white data-[state=active]:text-primary-600 data-[state=active]:shadow-sm text-neutral-500 hover:text-neutral-900 rounded-md transition-all font-bold">Single Entry</TabsTrigger>
+                        <TabsTrigger value="bulk" className="data-[state=active]:bg-white data-[state=active]:text-primary-600 data-[state=active]:shadow-sm text-neutral-500 hover:text-neutral-900 rounded-md transition-all font-bold">Bulk Upload</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="single" className="mt-6 space-y-4">
                         <form onSubmit={submitSingle} className="grid grid-cols-2 gap-4">
                             <div className="col-span-2 space-y-2">
-                                <Label htmlFor="student_number" className="text-slate-300">Student Number *</Label>
-                                <Input id="student_number" name="student_number" value={formData.student_number} onChange={handleInputChange} className="bg-slate-950 border-slate-700" placeholder="e.g. 23-00201" />
+                                <Label htmlFor="student_number" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Student Number *</Label>
+                                <Input id="student_number" name="student_number" value={formData.student_number} onChange={handleInputChange} className="bg-white border-neutral-200 focus-visible:ring-primary-500 h-9 text-sm text-neutral-900 placeholder:text-neutral-400" placeholder="e.g. 23-00201" />
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="first_name" className="text-slate-300">First Name *</Label>
-                                <Input id="first_name" name="first_name" value={formData.first_name} onChange={handleInputChange} className="bg-slate-950 border-slate-700" placeholder="Juan" />
+                                <Label htmlFor="first_name" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">First Name *</Label>
+                                <Input id="first_name" name="first_name" value={formData.first_name} onChange={handleInputChange} className="bg-white border-neutral-200 focus-visible:ring-primary-500 h-9 text-sm text-neutral-900 placeholder:text-neutral-400" placeholder="Juan" />
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="last_name" className="text-slate-300">Last Name *</Label>
-                                <Input id="last_name" name="last_name" value={formData.last_name} onChange={handleInputChange} className="bg-slate-950 border-slate-700" placeholder="dela Cruz" />
+                                <Label htmlFor="last_name" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Last Name *</Label>
+                                <Input id="last_name" name="last_name" value={formData.last_name} onChange={handleInputChange} className="bg-white border-neutral-200 focus-visible:ring-primary-500 h-9 text-sm text-neutral-900 placeholder:text-neutral-400" placeholder="dela Cruz" />
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="course_year_section" className="text-slate-300">Course & Section *</Label>
-                                <Input id="course_year_section" name="course_year_section" value={formData.course_year_section} onChange={handleInputChange} className="bg-slate-950 border-slate-700" placeholder="BSIT-3A" />
+                                <Label htmlFor="course_year_section" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Course & Section *</Label>
+                                <Input id="course_year_section" name="course_year_section" value={formData.course_year_section} onChange={handleInputChange} className="bg-white border-neutral-200 focus-visible:ring-primary-500 h-9 text-sm text-neutral-900 placeholder:text-neutral-400" placeholder="BSIT-3A" />
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="email" className="text-slate-300">Email Address</Label>
-                                <Input id="email" name="email" type="email" value={formData.email} onChange={handleInputChange} className="bg-slate-950 border-slate-700" placeholder="juan@student.edu.ph" />
+                                <Label htmlFor="email" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Email Address</Label>
+                                <Input id="email" name="email" type="email" value={formData.email} onChange={handleInputChange} className="bg-white border-neutral-200 focus-visible:ring-primary-500 h-9 text-sm text-neutral-900 placeholder:text-neutral-400" placeholder="juan@student.edu.ph" />
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="guardian_name" className="text-slate-300">Guardian Name</Label>
-                                <Input id="guardian_name" name="guardian_name" value={formData.guardian_name} onChange={handleInputChange} className="bg-slate-950 border-slate-700" placeholder="Maria dela Cruz" />
+                                <Label htmlFor="guardian_name" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Guardian Name</Label>
+                                <Input id="guardian_name" name="guardian_name" value={formData.guardian_name} onChange={handleInputChange} className="bg-white border-neutral-200 focus-visible:ring-primary-500 h-9 text-sm text-neutral-900 placeholder:text-neutral-400" placeholder="Maria dela Cruz" />
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="guardian_contact" className="text-slate-300">Guardian Contact</Label>
-                                <Input id="guardian_contact" name="guardian_contact" value={formData.guardian_contact} onChange={handleInputChange} className="bg-slate-950 border-slate-700" placeholder="09123456789" />
+                                <Label htmlFor="guardian_contact" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Guardian Contact</Label>
+                                <Input id="guardian_contact" name="guardian_contact" value={formData.guardian_contact} onChange={handleInputChange} className="bg-white border-neutral-200 focus-visible:ring-primary-500 h-9 text-sm text-neutral-900 placeholder:text-neutral-400" placeholder="09123456789" />
                             </div>
 
-                            <div className="col-span-2 flex justify-end gap-3 mt-4 pt-4 border-t border-slate-800">
-                                <Button type="button" variant="ghost" className="text-slate-400 hover:text-white hover:bg-slate-800" onClick={() => handleOpenChange(false)}>Cancel</Button>
-                                <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white" disabled={isSubmitting}>
+                            <div className="col-span-2 flex justify-end gap-3 mt-4 pt-4 border-t border-neutral-100">
+                                <Button type="button" variant="ghost" className="text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 font-bold" onClick={() => handleOpenChange(false)}>Cancel</Button>
+                                <Button type="submit" className="bg-primary-600 hover:bg-primary-700 text-white font-bold shadow-md" disabled={isSubmitting}>
                                     {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                                     Save Student
                                 </Button>
@@ -302,18 +302,18 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
 
                     <TabsContent value="bulk" className="mt-6">
                         <div className="space-y-4">
-                            <div className="border-2 border-dashed border-slate-700 rounded-lg p-8 flex flex-col items-center justify-center bg-slate-950/50 hover:bg-slate-800/50 transition-colors">
-                                <UploadCloud className="w-10 h-10 text-slate-500 mb-4" />
-                                <Label htmlFor="csv_upload" className="cursor-pointer text-slate-300 text-center font-medium">
+                            <div className="border-2 border-dashed border-neutral-300 rounded-lg p-8 flex flex-col items-center justify-center bg-neutral-50 hover:bg-neutral-100 transition-colors">
+                                <UploadCloud className="w-10 h-10 text-neutral-400 mb-4" />
+                                <Label htmlFor="csv_upload" className="cursor-pointer text-primary-600 hover:text-primary-700 hover:underline text-center font-bold">
                                     Click to browse CSV file
                                     <Input id="csv_upload" type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
                                 </Label>
-                                <p className="text-xs text-slate-500 mt-2">Maximum file size 5MB</p>
+                                <p className="text-xs font-medium text-neutral-500 mt-2">Maximum file size 5MB</p>
 
                                 {file && (
-                                    <div className="mt-4 p-2 bg-blue-500/10 border border-blue-500/30 rounded text-blue-400 text-sm flex items-center justify-between w-full max-w-xs">
+                                    <div className="mt-4 p-2 bg-primary-50 border border-primary-200 rounded text-primary-700 font-medium text-sm flex items-center justify-between w-full max-w-xs">
                                         <span className="truncate pr-4">{file.name}</span>
-                                        {parsedData && <span className="shrink-0 text-xs bg-blue-500/20 px-2 py-0.5 rounded">{parsedData.length} valid rows</span>}
+                                        {parsedData && <span className="shrink-0 text-xs bg-primary-100 px-2 py-0.5 rounded font-bold">{parsedData.length} valid rows</span>}
                                     </div>
                                 )}
                             </div>
@@ -322,25 +322,25 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
                                 variant="outline"
                                 size="sm"
                                 onClick={downloadTemplate}
-                                className="w-full bg-slate-900 border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800"
+                                className="w-full bg-white border-neutral-200 text-neutral-600 hover:text-primary-700 hover:bg-primary-50 font-bold"
                             >
                                 <Download className="w-4 h-4 mr-2" />
                                 Download Template
                             </Button>
 
-                            <div className="bg-slate-950 p-4 rounded border border-slate-800">
+                            <div className="bg-neutral-50 p-4 rounded border border-neutral-200">
                                 <div>
-                                    <h4 className="text-sm font-semibold text-slate-300 mb-2">CSV Format Requirements:</h4>
-                                    <ul className="text-xs text-slate-400 space-y-1 list-disc list-inside">
-                                        <li>Must include headers: <code className="text-blue-400">student_number</code>, <code className="text-blue-400">first_name</code>, <code className="text-blue-400">last_name</code>, <code className="text-blue-400">course_year_section</code></li>
-                                        <li>Optional headers: <code className="text-slate-500">email</code>, <code className="text-slate-500">guardian_name</code>, <code className="text-slate-500">guardian_contact</code>, <code className="text-slate-500">status</code></li>
+                                    <h4 className="text-sm font-bold text-neutral-900 mb-2">CSV Format Requirements:</h4>
+                                    <ul className="text-xs font-medium text-neutral-600 space-y-1 list-disc list-inside">
+                                        <li>Must include headers: <code className="text-primary-600 bg-white px-1 py-0.5 rounded border border-neutral-200">student_number</code>, <code className="text-primary-600 bg-white px-1 py-0.5 rounded border border-neutral-200">first_name</code>, <code className="text-primary-600 bg-white px-1 py-0.5 rounded border border-neutral-200">last_name</code>, <code className="text-primary-600 bg-white px-1 py-0.5 rounded border border-neutral-200">course_year_section</code></li>
+                                        <li>Optional headers: <code className="text-neutral-500 bg-white px-1 py-0.5 rounded border border-neutral-200">email</code>, <code className="text-neutral-500 bg-white px-1 py-0.5 rounded border border-neutral-200">guardian_name</code>, <code className="text-neutral-500 bg-white px-1 py-0.5 rounded border border-neutral-200">guardian_contact</code>, <code className="text-neutral-500 bg-white px-1 py-0.5 rounded border border-neutral-200">status</code></li>
                                     </ul>
                                 </div>
                             </div>
 
-                            <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
-                                <Button type="button" variant="ghost" className="text-slate-400 hover:text-white hover:bg-slate-800" onClick={() => handleOpenChange(false)}>Cancel</Button>
-                                <Button type="button" className="bg-blue-600 hover:bg-blue-700 text-white" disabled={!parsedData || isSubmitting} onClick={submitBulk}>
+                            <div className="flex justify-end gap-3 pt-4 border-t border-neutral-100">
+                                <Button type="button" variant="ghost" className="text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 font-bold" onClick={() => handleOpenChange(false)}>Cancel</Button>
+                                <Button type="button" className="bg-primary-600 hover:bg-primary-700 text-white font-bold shadow-md" disabled={!parsedData || isSubmitting} onClick={submitBulk}>
                                     {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                                     Import Students
                                 </Button>

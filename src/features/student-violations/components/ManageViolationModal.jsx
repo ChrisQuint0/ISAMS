@@ -122,24 +122,24 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
 
     return (
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-            <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-hidden flex flex-col bg-slate-900 border-slate-800 text-slate-200 p-0">
-                <div className="p-6 border-b border-slate-800">
+            <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-hidden flex flex-col bg-white border-neutral-200 text-neutral-900 p-0 shadow-lg rounded-xl">
+                <div className="p-6 border-b border-neutral-100">
                     <DialogHeader>
-                        <DialogTitle className="text-xl text-white">Manage Violation</DialogTitle>
-                        <DialogDescription className="text-slate-400">
+                        <DialogTitle className="text-xl font-bold text-neutral-900 tracking-tight">Manage Violation</DialogTitle>
+                        <DialogDescription className="text-neutral-500 font-medium">
                             View details and update the status for this violation record.
                         </DialogDescription>
                     </DialogHeader>
 
                     {errorMsg && (
-                        <div className="bg-rose-500/10 border border-rose-500/50 text-rose-400 p-3 rounded-md flex items-start gap-3 mt-4 text-sm">
+                        <div className="bg-red-50 border border-red-200 text-destructive-semantic p-3 rounded-md flex items-start gap-3 mt-4 text-sm font-medium">
                             <AlertCircle className="w-5 h-5 shrink-0" />
                             <p>{errorMsg}</p>
                         </div>
                     )}
 
                     {successMsg && (
-                        <div className="bg-emerald-500/10 border border-emerald-500/50 text-emerald-400 p-3 rounded-md flex items-center gap-3 mt-4 text-sm">
+                        <div className="bg-emerald-50 border border-emerald-200 text-success p-3 rounded-md flex items-center gap-3 mt-4 text-sm font-medium">
                             <CheckCircle2 className="w-5 h-5" />
                             <p>{successMsg}</p>
                         </div>
@@ -149,42 +149,42 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
                 <div className="flex-1 overflow-y-auto p-6 pt-4">
                     <div className="grid grid-cols-2 gap-4 text-sm">
                         <div className="space-y-1">
-                            <p className="text-slate-400">Student Name</p>
-                            <p className="font-medium text-slate-200">{violationData.name}</p>
+                            <p className="text-neutral-500 text-xs uppercase font-bold tracking-wider">Student Name</p>
+                            <p className="font-bold text-neutral-900">{violationData.name}</p>
                         </div>
 
                         <div className="space-y-1">
-                            <p className="text-slate-400">Section/Course</p>
-                            <p className="font-medium text-slate-200">{violationData.section}</p>
+                            <p className="text-neutral-500 text-xs uppercase font-bold tracking-wider">Section/Course</p>
+                            <p className="font-bold text-neutral-900">{violationData.section}</p>
                         </div>
 
                         <div className="space-y-1">
-                            <p className="text-slate-400">Violation Type</p>
-                            <p className="font-medium text-slate-200">{violationData.violation}</p>
+                            <p className="text-neutral-500 text-xs uppercase font-bold tracking-wider">Violation Type</p>
+                            <p className="font-bold text-neutral-900">{violationData.violation}</p>
                         </div>
 
                         <div className="space-y-1">
-                            <p className="text-slate-400">Incident Date/Time</p>
-                            <p className="font-medium text-slate-200">
+                            <p className="text-neutral-500 text-xs uppercase font-bold tracking-wider">Incident Date/Time</p>
+                            <p className="font-bold text-neutral-900">
                                 {violationData.incident_date ? new Date(violationData.incident_date).toLocaleDateString() : 'N/A'}
                                 {violationData.incident_time ? ` at ${violationData.incident_time}` : ''}
                             </p>
                         </div>
 
-                        <div className="col-span-2 space-y-1 border-t border-slate-800 pt-3">
-                            <p className="text-slate-400">Description / Remarks</p>
-                            <p className="text-slate-300 italic">{violationData.description || 'No additional description provided.'}</p>
+                        <div className="col-span-2 space-y-1 border-t border-neutral-100 pt-3 mt-2">
+                            <p className="text-neutral-500 text-xs uppercase font-bold tracking-wider">Description / Remarks</p>
+                            <p className="text-neutral-700 italic">{violationData.description || 'No additional description provided.'}</p>
                         </div>
 
-                        <div className="col-span-2 space-y-1 border-t border-slate-800 pt-3">
-                            <p className="text-slate-400">Location</p>
-                            <p className="text-slate-300">{violationData.location || 'N/A'}</p>
+                        <div className="col-span-2 space-y-1 border-t border-neutral-100 pt-3">
+                            <p className="text-neutral-500 text-xs uppercase font-bold tracking-wider">Location</p>
+                            <p className="text-neutral-700">{violationData.location || 'N/A'}</p>
                         </div>
 
-                        <div className="col-span-2 space-y-2 border-t border-slate-800 pt-3">
-                            <p className="text-slate-400">Attached Evidence</p>
+                        <div className="col-span-2 space-y-2 border-t border-neutral-100 pt-3 mt-1">
+                            <p className="text-neutral-500 text-xs uppercase font-bold tracking-wider">Attached Evidence</p>
                             {isLoadingEvidence ? (
-                                <div className="flex items-center gap-2 text-slate-400">
+                                <div className="flex items-center gap-2 text-neutral-500 font-medium">
                                     <Loader2 className="w-4 h-4 animate-spin" />
                                     <span>Loading evidence...</span>
                                 </div>
@@ -196,52 +196,52 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
                                             href={file.file_url}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="flex items-center justify-between p-2.5 rounded-md bg-slate-950/50 border border-slate-800 hover:border-slate-600 hover:bg-slate-800/50 transition-colors group"
+                                            className="flex items-center justify-between p-2.5 rounded-md bg-neutral-50 border border-neutral-200 hover:border-primary-300 hover:bg-primary-50 transition-colors group"
                                         >
                                             <div className="flex items-center gap-3 overflow-hidden">
-                                                <div className="p-1.5 bg-indigo-500/10 rounded text-indigo-400 shrink-0">
+                                                <div className="p-1.5 bg-white shadow-sm border border-neutral-100 rounded text-primary-500 shrink-0">
                                                     <FileText className="w-4 h-4" />
                                                 </div>
-                                                <span className="text-slate-300 truncate text-xs group-hover:text-indigo-300 transition-colors">
+                                                <span className="text-neutral-700 font-medium truncate text-xs group-hover:text-primary-700 transition-colors">
                                                     {file.file_name}
                                                 </span>
                                             </div>
-                                            <ExternalLink className="w-4 h-4 shrink-0 text-slate-500 group-hover:text-indigo-400 opacity-0 group-hover:opacity-100 transition-all" />
+                                            <ExternalLink className="w-4 h-4 shrink-0 text-neutral-400 group-hover:text-primary-500 opacity-0 group-hover:opacity-100 transition-all shadow-sm" />
                                         </a>
                                     ))}
                                 </div>
                             ) : (
-                                <div className="p-3 rounded border border-slate-800 border-dashed bg-slate-900 text-slate-400 text-center text-xs italic">
+                                <div className="p-3 rounded-md border border-neutral-200 border-dashed bg-neutral-50/50 text-neutral-500 text-center text-xs italic font-medium">
                                     No evidence files attached to this violation.
                                 </div>
                             )}
                         </div>
 
                         {existingSanction && (
-                            <div className="col-span-2 space-y-2 border-t border-slate-800 pt-4 mt-2">
+                            <div className="col-span-2 space-y-2 border-t border-neutral-100 pt-4 mt-2">
                                 <div className="flex items-center gap-2 mb-2">
-                                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                                    <p className="font-bold text-slate-200">Active Sanction</p>
+                                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                                    <p className="font-bold text-neutral-900">Active Sanction</p>
                                 </div>
-                                <div className="bg-slate-950 border border-slate-800 rounded-md p-4 grid grid-cols-2 gap-3 text-sm">
+                                <div className="bg-emerald-50 border border-emerald-100 rounded-md p-4 grid grid-cols-2 gap-3 text-sm shadow-sm">
                                     <div>
-                                        <p className="text-slate-500 text-xs uppercase tracking-wider font-semibold mb-1">Action</p>
-                                        <p className="text-emerald-300 font-medium">{existingSanction.penalty_name}</p>
+                                        <p className="text-neutral-500 text-xs uppercase tracking-wider font-bold mb-1">Action</p>
+                                        <p className="text-emerald-700 font-bold">{existingSanction.penalty_name}</p>
                                     </div>
                                     <div>
-                                        <p className="text-slate-500 text-xs uppercase tracking-wider font-semibold mb-1">Status</p>
-                                        <p className="text-slate-300">{existingSanction.status}</p>
+                                        <p className="text-neutral-500 text-xs uppercase tracking-wider font-bold mb-1">Status</p>
+                                        <p className="text-neutral-700 font-medium">{existingSanction.status}</p>
                                     </div>
                                     <div className="col-span-2">
-                                        <p className="text-slate-500 text-xs uppercase tracking-wider font-semibold mb-1">Duration / Deadline</p>
-                                        <p className="text-slate-300">
+                                        <p className="text-neutral-500 text-xs uppercase tracking-wider font-bold mb-1">Duration / Deadline</p>
+                                        <p className="text-neutral-700 font-medium">
                                             {existingSanction.start_date || 'N/A'} {existingSanction.deadline_date ? ` to ${existingSanction.deadline_date}` : ''}
                                         </p>
                                     </div>
                                     {existingSanction.description && (
                                         <div className="col-span-2 mt-1">
-                                            <p className="text-slate-500 text-xs uppercase tracking-wider font-semibold mb-1">Conditions</p>
-                                            <p className="text-slate-400 italic text-xs">{existingSanction.description}</p>
+                                            <p className="text-neutral-500 text-xs uppercase tracking-wider font-bold mb-1">Conditions</p>
+                                            <p className="text-neutral-600 italic text-xs font-medium">{existingSanction.description}</p>
                                         </div>
                                     )}
                                 </div>
@@ -250,15 +250,15 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
                     </div>
                 </div>
 
-                <div className="p-6 border-t border-slate-800 bg-slate-900/50 shrink-0">
+                <div className="p-6 border-t border-neutral-100 bg-neutral-50 shrink-0 rounded-b-xl">
                     <form onSubmit={handleSubmit}>
                         <div className="space-y-2 mb-6">
-                            <Label htmlFor="status" className="text-slate-300">Update Status</Label>
+                            <Label htmlFor="status" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Update Status</Label>
                             <Select value={status} onValueChange={handleStatusChange}>
-                                <SelectTrigger className="w-full bg-slate-950 border-slate-700">
+                                <SelectTrigger className="w-full bg-white border-neutral-200 h-9 text-sm text-neutral-900 focus:ring-primary-500 shadow-sm">
                                     <SelectValue placeholder="Select status" />
                                 </SelectTrigger>
-                                <SelectContent className="bg-slate-900 border-slate-700 text-slate-200">
+                                <SelectContent className="bg-white border-neutral-200 text-neutral-900 shadow-lg">
                                     <SelectItem value="Pending">Pending</SelectItem>
                                     <SelectItem value="Under Investigation">Under Investigation</SelectItem>
                                     <SelectItem value="Sanctioned">Sanctioned</SelectItem>
@@ -269,8 +269,8 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
                         </div>
 
                         <div className="flex justify-end gap-3">
-                            <Button type="button" variant="ghost" className="text-slate-400 hover:text-white hover:bg-slate-800" onClick={() => handleOpenChange(false)}>Close</Button>
-                            <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white" disabled={isSubmitting || status === violationData.status}>
+                            <Button type="button" variant="ghost" className="text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200 font-bold" onClick={() => handleOpenChange(false)}>Close</Button>
+                            <Button type="submit" className="bg-primary-600 hover:bg-primary-700 text-white font-bold shadow-md" disabled={isSubmitting || status === violationData.status}>
                                 {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                                 Save Changes
                             </Button>

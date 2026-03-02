@@ -207,27 +207,27 @@ export function ImposeSanctionModal({ isOpen, onClose, onSuccess, violationData 
 
     return (
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-            <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-hidden flex flex-col bg-slate-900 border-slate-800 text-slate-200 p-0 shadow-2xl">
-                <div className="p-6 border-b border-slate-800 shrink-0 bg-slate-900/80 backdrop-blur-sm z-10 relative">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-rose-500/10 rounded-full blur-3xl -z-10 translate-x-1/2 -translate-y-1/2 pointer-events-none" />
+            <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-hidden flex flex-col bg-white border-neutral-200 text-neutral-900 p-0 shadow-2xl rounded-xl">
+                <div className="p-6 border-b border-neutral-100 shrink-0 bg-white/80 backdrop-blur-sm z-10 relative">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-red-500/5 rounded-full blur-3xl -z-10 translate-x-1/2 -translate-y-1/2 pointer-events-none" />
                     <DialogHeader>
-                        <DialogTitle className="text-xl font-bold text-white flex items-center gap-2">
+                        <DialogTitle className="text-xl font-bold text-neutral-900 tracking-tight flex items-center gap-2">
                             Impose Sanction
                         </DialogTitle>
-                        <DialogDescription className="text-slate-400">
-                            Determine and assign a disciplinary action for {violationData.name}.
+                        <DialogDescription className="text-neutral-500 font-medium">
+                            Determine and assign a disciplinary action for <strong className="text-neutral-900">{violationData.name}</strong>.
                         </DialogDescription>
                     </DialogHeader>
 
                     {errorMsg && (
-                        <div className="bg-rose-500/10 border border-rose-500/50 text-rose-400 p-3 rounded-md flex items-start gap-3 mt-4 text-sm font-medium">
+                        <div className="bg-red-50 border border-red-200 text-destructive-semantic p-3 rounded-md flex items-start gap-3 mt-4 text-sm font-medium">
                             <AlertCircle className="w-5 h-5 shrink-0" />
                             <p>{errorMsg}</p>
                         </div>
                     )}
 
                     {successMsg && (
-                        <div className="bg-emerald-500/10 border border-emerald-500/50 text-emerald-400 p-3 rounded-md flex items-center gap-3 mt-4 text-sm font-medium animate-in fade-in zoom-in-95">
+                        <div className="bg-emerald-50 border border-emerald-200 text-success p-3 rounded-md flex items-center gap-3 mt-4 text-sm font-medium animate-in fade-in zoom-in-95">
                             <CheckCircle2 className="w-5 h-5" />
                             <p>{successMsg}</p>
                         </div>
@@ -237,22 +237,22 @@ export function ImposeSanctionModal({ isOpen, onClose, onSuccess, violationData 
                 <div className="flex-1 overflow-y-auto p-6 pt-4 space-y-6">
 
                     {/* --- AI Suggestions Engine Panel --- */}
-                    <div className="bg-slate-800/30 border border-indigo-500/20 rounded-xl p-5 shadow-inner">
+                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-5 shadow-sm">
                         <div className="flex items-center gap-2 mb-4">
-                            <Sparkles className="w-5 h-5 text-indigo-400 animate-pulse" />
-                            <h3 className="text-sm font-bold text-indigo-300 uppercase tracking-wide">System Suggestions</h3>
+                            <Sparkles className="w-5 h-5 text-primary-500" />
+                            <h3 className="text-xs font-bold text-primary-700 uppercase tracking-wider">System Suggestions</h3>
                         </div>
 
                         {isAnalyzing ? (
-                            <div className="flex items-center justify-center p-6 text-slate-400">
-                                <Loader2 className="w-5 h-5 animate-spin mr-3 text-indigo-500" />
+                            <div className="flex items-center justify-center p-6 text-neutral-500">
+                                <Loader2 className="w-5 h-5 animate-spin mr-3 text-primary-500" />
                                 <span className="text-sm font-medium animate-pulse">Analyzing rules and historical data...</span>
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {/* Rule-based */}
                                 <div className="space-y-3">
-                                    <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
+                                    <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 uppercase tracking-wider">
                                         <BookOpen className="w-3.5 h-3.5" /> HandBook Rules
                                     </div>
                                     {ruleSuggestions.length > 0 ? (
@@ -262,7 +262,7 @@ export function ImposeSanctionModal({ isOpen, onClose, onSuccess, violationData 
                                                     key={idx}
                                                     type="button"
                                                     onClick={() => handleApplySuggestion(rule.sanction_name)}
-                                                    className="text-xs bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-3 py-1.5 rounded-full transition-all flex items-center gap-2 group active:scale-95"
+                                                    className="text-xs bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-200 hover:border-emerald-300 px-3 py-1.5 rounded-full shadow-sm transition-all flex items-center gap-2 group active:scale-95 font-medium"
                                                     title={rule.sanction_description || "As per student handbook"}
                                                 >
                                                     {rule.sanction_name}
@@ -271,13 +271,13 @@ export function ImposeSanctionModal({ isOpen, onClose, onSuccess, violationData 
                                             ))}
                                         </div>
                                     ) : (
-                                        <p className="text-xs text-slate-500 italic">No exact handbook match found for this frequency.</p>
+                                        <p className="text-xs text-neutral-500 italic bg-white/50 border border-neutral-100 rounded px-2 py-1 inline-block">No exact handbook match found for this frequency.</p>
                                     )}
                                 </div>
 
                                 {/* Historical Data */}
                                 <div className="space-y-3">
-                                    <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-400">
+                                    <div className="flex items-center gap-1.5 text-xs font-bold text-primary-700 uppercase tracking-wider">
                                         <TrendingUp className="w-3.5 h-3.5" /> Past Records (Same Offense)
                                     </div>
                                     {historySuggestions.length > 0 ? (
@@ -287,15 +287,15 @@ export function ImposeSanctionModal({ isOpen, onClose, onSuccess, violationData 
                                                     key={idx}
                                                     type="button"
                                                     onClick={() => handleApplySuggestion(hist.penalty_name)}
-                                                    className="text-xs bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 border border-blue-500/30 px-3 py-1.5 rounded-full transition-all flex items-center gap-2 group active:scale-95"
+                                                    className="text-xs bg-white hover:bg-primary-50 text-primary-700 border border-primary-200 hover:border-primary-300 px-3 py-1.5 rounded-full shadow-sm transition-all flex items-center gap-2 group active:scale-95 font-medium"
                                                     title={`Used ${hist.count} times in the past`}
                                                 >
-                                                    {hist.penalty_name} <span className="bg-blue-500/20 px-1.5 py-0.5 rounded text-[10px] ml-1">{hist.count}x</span>
+                                                    {hist.penalty_name} <span className="bg-primary-100 text-primary-800 px-1.5 py-0.5 rounded-md text-[10px] ml-1 font-bold">{hist.count}x</span>
                                                 </button>
                                             ))}
                                         </div>
                                     ) : (
-                                        <p className="text-xs text-slate-500 italic">No past sanctions recorded for this specific offense.</p>
+                                        <p className="text-xs text-neutral-500 italic bg-white/50 border border-neutral-100 rounded px-2 py-1 inline-block">No past sanctions recorded for this specific offense.</p>
                                     )}
                                 </div>
                             </div>
@@ -305,59 +305,59 @@ export function ImposeSanctionModal({ isOpen, onClose, onSuccess, violationData 
                     {/* --- Manual Input Form --- */}
                     <form id="impose-sanction-form" onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-2">
-                            <Label htmlFor="sanctionName" className="text-slate-300 font-semibold">Sanction Action *</Label>
+                            <Label htmlFor="sanctionName" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Sanction Action *</Label>
                             <Input
                                 id="sanctionName"
                                 value={sanctionName}
                                 onChange={(e) => setSanctionName(e.target.value)}
                                 placeholder="e.g. 3 Days Suspension"
-                                className="bg-slate-950 border-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-200 transition-all shadow-sm h-10"
+                                className="bg-white border-neutral-200 focus-visible:ring-primary-500 text-sm text-neutral-900 transition-all shadow-sm h-9"
                                 required
                             />
-                            <p className="text-[11px] text-slate-500">You can select a suggestion above or enter a custom action.</p>
+                            <p className="text-[11px] text-neutral-500 font-medium">You can select a suggestion above or enter a custom action.</p>
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="description" className="text-slate-300 font-semibold">Conditions / Description</Label>
+                            <Label htmlFor="description" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Conditions / Description</Label>
                             <Textarea
                                 id="description"
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
                                 placeholder="Additional requirements or details for this sanction..."
-                                className="bg-slate-950 border-slate-700 min-h-[80px] focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 resize-none text-slate-200 shadow-sm"
+                                className="bg-white border-neutral-200 min-h-[80px] focus-visible:ring-primary-500 text-sm text-neutral-900 resize-none shadow-sm placeholder:text-neutral-400"
                             />
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label htmlFor="startDate" className="text-slate-300 font-semibold">Start Date</Label>
+                                <Label htmlFor="startDate" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Start Date</Label>
                                 <Input
                                     id="startDate"
                                     type="date"
                                     value={startDate}
                                     onChange={(e) => setStartDate(e.target.value)}
-                                    className="bg-slate-950 border-slate-700 text-slate-200 [color-scheme:dark] shadow-sm"
+                                    className="bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-sm focus-visible:ring-primary-500"
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="deadlineDate" className="text-slate-300 font-semibold">Deadline / End Date</Label>
+                                <Label htmlFor="deadlineDate" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Deadline / End Date</Label>
                                 <Input
                                     id="deadlineDate"
                                     type="date"
                                     min={startDate}
                                     value={deadlineDate}
                                     onChange={(e) => setDeadlineDate(e.target.value)}
-                                    className="bg-slate-950 border-slate-700 text-slate-200 [color-scheme:dark] shadow-sm"
+                                    className="bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-sm focus-visible:ring-primary-500"
                                 />
                             </div>
                         </div>
                     </form>
                 </div>
 
-                <div className="p-6 border-t border-slate-800 bg-slate-900/80 backdrop-blur-sm shrink-0">
+                <div className="p-6 border-t border-neutral-100 bg-neutral-50 shrink-0 rounded-b-xl">
                     <div className="flex justify-end gap-3">
-                        <Button type="button" variant="ghost" className="text-slate-400 hover:text-white hover:bg-slate-800" onClick={() => handleOpenChange(false)}>Cancel</Button>
-                        <Button form="impose-sanction-form" type="submit" className="bg-rose-600 hover:bg-rose-700 text-white font-semibold transition-all shadow-lg active:scale-95 px-6" disabled={isSubmitting || !sanctionName}>
+                        <Button type="button" variant="ghost" className="text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200 font-bold" onClick={() => handleOpenChange(false)}>Cancel</Button>
+                        <Button form="impose-sanction-form" type="submit" className="bg-destructive-semantic hover:bg-red-600 text-white font-bold shadow-md transition-all active:scale-95 px-6" disabled={isSubmitting || !sanctionName}>
                             {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                             Confirm & Impose Sanction
                         </Button>

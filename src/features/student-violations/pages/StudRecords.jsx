@@ -8,48 +8,27 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 import { Plus, Search, UserCheck, Users, GraduationCap, Edit2, UserX, Clock, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/lib/supabaseClient";
 import { AddStudentModal } from "../components/AddStudentModal";
 import { EditStudentModal } from "../components/EditStudentModal";
 
-const GRID_STYLE_OVERRIDES = `
-  .ag-theme-quartz-dark {
-    --ag-background-color: #0f172a !important;
-    --ag-header-background-color: #1e293b !important;
-    --ag-border-color: #1e293b !important;
-    --ag-header-foreground-color: #94a3b8 !important;
-    --ag-foreground-color: #ffffff !important;
-    --ag-row-hover-color: rgba(30, 41, 59, 0.5) !important;
-  }
-  .ag-theme-quartz-dark .ag-header-cell-label {
-    font-size: 14px;
-    font-weight: 600;
-    color: #64748b;
-  }
-  .ag-theme-quartz-dark .ag-cell {
-    font-size: 15px;
-    color: #e2e8f0 !important;
-    display: flex;
-    align-items: center;
-    border-bottom: 1px solid #1e293b44 !important;
-  }
-  .ag-theme-quartz-dark .ag-row {
-    background-color: #0f172a !important;
-  }
-  /* Style for the filter popup to match our slate theme */
-  .ag-theme-quartz-dark .ag-filter-wrapper {
-    background-color: #1e293b !important;
-    border: 1px solid #334155 !important;
-  }
-  /* Modal Backdrop Blur */
-  div[data-state="open"].fixed.inset-0.z-50 {
-    backdrop-filter: blur(5px);
-  }
-  .ag-theme-quartz-dark .ag-root-wrapper {
-    border: none !important;
-  }
-`;
+// Custom theme using AG Grid v33+ Theming API with Quartz theme for a clean institutional look
+const customTheme = themeQuartz.withParams({
+  accentColor: 'var(--primary-600)',
+  backgroundColor: 'var(--neutral-50)',
+  foregroundColor: 'var(--neutral-900)',
+  borderColor: 'var(--neutral-200)',
+  headerBackgroundColor: 'var(--neutral-100)',
+  headerTextColor: 'var(--neutral-900)',
+  oddRowBackgroundColor: '#ffffff',
+  rowHoverColor: 'var(--neutral-100)',
+  selectedRowBackgroundColor: 'color-mix(in srgb, var(--primary-500) 10%, transparent)',
+  rowHeight: 48,
+  headerHeight: 40,
+  headerFontWeight: '700',
+  fontSize: '13px',
+});
 
 const StudRecords = () => {
   const [gridApi, setGridApi] = useState(null);
@@ -89,13 +68,7 @@ const StudRecords = () => {
   };
 
   useEffect(() => {
-    const styleEl = document.createElement('style');
-    styleEl.innerHTML = GRID_STYLE_OVERRIDES;
-    document.head.appendChild(styleEl);
-
     fetchStudents();
-
-    return () => document.head.removeChild(styleEl);
   }, []);
 
 
@@ -104,7 +77,7 @@ const StudRecords = () => {
       headerName: "Student ID",
       field: "id",
       flex: 1,
-      cellStyle: { fontWeight: '500', color: '#94a3b8' },
+      cellStyle: { fontWeight: '500', color: 'var(--neutral-500)' },
       filter: true, // Enabled filtering for IDs
       tooltipField: "id"
     },
@@ -112,7 +85,7 @@ const StudRecords = () => {
       headerName: "Full Name",
       field: "name",
       flex: 1.5,
-      cellStyle: { fontWeight: '600', color: '#f8fafc' },
+      cellStyle: { fontWeight: '600', color: 'var(--neutral-900)' },
       filter: true, // Enabled filtering for names
       tooltipField: "name"
     },
@@ -120,7 +93,7 @@ const StudRecords = () => {
       headerName: "Email",
       field: "email",
       flex: 2,
-      cellStyle: { color: '#94a3b8' },
+      cellStyle: { color: 'var(--neutral-500)' },
       filter: true,
       tooltipField: "email"
     },
@@ -128,7 +101,7 @@ const StudRecords = () => {
       headerName: "Course",
       field: "course",
       flex: 1,
-      cellStyle: { color: '#94a3b8', fontWeight: '500' },
+      cellStyle: { color: 'var(--neutral-500)', fontWeight: '500' },
       filter: 'agSetColumnFilter', // Specialized filter for categories
       tooltipField: "course"
     },
@@ -136,7 +109,7 @@ const StudRecords = () => {
       headerName: "Guardian",
       field: "guardian",
       flex: 1.5,
-      cellStyle: { color: '#94a3b8' },
+      cellStyle: { color: 'var(--neutral-500)' },
       filter: true,
       valueFormatter: (params) => params.value ? params.value : 'Not provided'
     },
@@ -144,7 +117,7 @@ const StudRecords = () => {
       headerName: "Guardian Contact",
       field: "guardianContact",
       flex: 1.5,
-      cellStyle: { color: '#94a3b8' },
+      cellStyle: { color: 'var(--neutral-500)' },
       filter: true,
       valueFormatter: (params) => params.value ? params.value : 'Not provided'
     },
@@ -155,13 +128,13 @@ const StudRecords = () => {
       filter: true,
       cellRenderer: (params) => {
         const statusColors = {
-          'Enrolled': { text: 'text-emerald-400', dot: 'bg-emerald-400 animate-pulse' },
-          'Graduated': { text: 'text-indigo-400', dot: 'bg-indigo-400' },
-          'LOA': { text: 'text-amber-400', dot: 'bg-amber-400' },
-          'Dropped': { text: 'text-orange-400', dot: 'bg-orange-400' },
-          'Expelled': { text: 'text-rose-400', dot: 'bg-rose-400' }
+          'Enrolled': { text: 'text-success', dot: 'bg-success animate-pulse' },
+          'Graduated': { text: 'text-info', dot: 'bg-info' },
+          'LOA': { text: 'text-warning', dot: 'bg-warning' },
+          'Dropped': { text: 'text-destructive-semantic', dot: 'bg-destructive-semantic' },
+          'Expelled': { text: 'text-destructive-semantic', dot: 'bg-destructive-semantic' }
         };
-        const style = statusColors[params.value] || { text: 'text-slate-400', dot: 'bg-slate-400' };
+        const style = statusColors[params.value] || { text: 'text-neutral-500', dot: 'bg-neutral-500' };
         return (
           <div className="flex items-center h-full">
             <span className={`flex items-center text-[12px] font-bold ${style.text}`}>
@@ -184,7 +157,7 @@ const StudRecords = () => {
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 w-8 p-0 text-blue-400 hover:text-blue-300 hover:bg-blue-900/40"
+              className="h-8 w-8 p-0 text-primary-600 hover:text-primary-700 hover:bg-primary-50"
               onClick={() => {
                 setSelectedStudent(params.data);
                 setIsEditModalOpen(true);
@@ -214,14 +187,14 @@ const StudRecords = () => {
   const expelledStudents = students.filter(s => s.status === 'Expelled').length;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 text-left">
+    <div className="space-y-6 flex flex-col h-full animate-in fade-in duration-500 text-left bg-neutral-50">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Student database</h1>
-          <p className="text-slate-400">Manage and monitor student enrollment records</p>
+          <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Student database</h1>
+          <p className="text-neutral-500 text-sm font-medium">Manage and monitor student enrollment records</p>
         </div>
         <Button
-          className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 rounded-md font-medium text-sm transition-all shadow-sm active:scale-95"
+          className="bg-primary-600 hover:bg-primary-700 text-white shadow-md shadow-emerald-900/10 transition-all font-bold h-9 px-4 rounded-md text-sm active:scale-95"
           onClick={() => setIsModalOpen(true)}
         >
           <Plus className="w-4 h-4 mr-2" /> Add student
@@ -230,23 +203,23 @@ const StudRecords = () => {
 
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <QuickStat title="Total students" value={totalStudents.toLocaleString()} icon={Users} color="text-blue-400" />
-        <QuickStat title="Active enrollment" value={activeStudents.toLocaleString()} icon={UserCheck} color="text-emerald-400" />
-        <QuickStat title="Graduated" value={graduatedStudents.toLocaleString()} icon={GraduationCap} color="text-indigo-400" />
-        <QuickStat title="On Leave (LOA)" value={loaStudents.toLocaleString()} icon={Clock} color="text-amber-400" />
-        <QuickStat title="Dropped" value={droppedStudents.toLocaleString()} icon={UserX} color="text-orange-400" />
-        <QuickStat title="Expelled" value={expelledStudents.toLocaleString()} icon={Ban} color="text-rose-400" />
+        <QuickStat title="Total students" value={totalStudents.toLocaleString()} icon={Users} color="text-primary-600" />
+        <QuickStat title="Active enrollment" value={activeStudents.toLocaleString()} icon={UserCheck} color="text-success" />
+        <QuickStat title="Graduated" value={graduatedStudents.toLocaleString()} icon={GraduationCap} color="text-info" />
+        <QuickStat title="On Leave (LOA)" value={loaStudents.toLocaleString()} icon={Clock} color="text-warning" />
+        <QuickStat title="Dropped" value={droppedStudents.toLocaleString()} icon={UserX} color="text-destructive-semantic" />
+        <QuickStat title="Expelled" value={expelledStudents.toLocaleString()} icon={Ban} color="text-destructive-semantic" />
       </div>
 
-      <Card className="bg-slate-900 border-slate-800 flex flex-col rounded-lg overflow-hidden shadow-sm">
-        <div className="px-3 py-0 flex items-center justify-between bg-slate-900/50">
-          <h3 className="text-sm font-bold text-slate-200">Enrollment registry</h3>
+      <Card className="bg-white border-neutral-200 shadow-sm flex flex-col rounded-lg overflow-hidden flex-1">
+        <div className="px-4 py-4 flex items-center justify-between border-b border-neutral-100 bg-neutral-50/50">
+          <h3 className="text-base font-bold text-neutral-900 uppercase tracking-tight">Enrollment registry</h3>
           <div className="flex items-center">
-            <div className="relative w-36 md:w-64">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500" />
+            <div className="relative w-48 md:w-64 group">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-primary-600 transition-colors" />
               <Input
                 placeholder="Quick search..."
-                className="pl-8 bg-slate-950 border-slate-800 text-slate-200 text-xs h-6 rounded focus:ring-1 focus:ring-blue-600"
+                className="pl-10 h-8 bg-white border-neutral-200 text-neutral-900 placeholder:text-neutral-400 focus-visible:ring-primary-500 focus-visible:border-primary-500 transition-all font-medium text-xs rounded"
                 value={searchValue}
                 onChange={(e) => setSearchValue(e.target.value)}
               />
@@ -254,14 +227,14 @@ const StudRecords = () => {
           </div>
         </div>
 
-        <div className="ag-theme-quartz-dark w-full" style={{ height: "500px" }}>
+        <div className="w-full flex-1" style={{ minHeight: "500px" }}>
           {isLoading ? (
-            <div className="flex items-center justify-center h-full text-slate-400">
+            <div className="flex items-center justify-center h-full text-neutral-500 font-medium">
               Loading student records...
             </div>
           ) : (
             <AgGridReact
-              theme={themeQuartz}
+              theme={customTheme}
               rowData={students}
               columnDefs={columnDefs}
               defaultColDef={defaultColDef}
@@ -296,26 +269,18 @@ const StudRecords = () => {
 };
 
 function QuickStat({ title, value, icon: Icon, color }) {
-  const getGradient = (c) => {
-    if (c.includes("blue")) return "from-blue-600/50 via-blue-500/50 to-blue-600/50";
-    if (c.includes("emerald")) return "from-emerald-600/50 via-emerald-500/50 to-emerald-600/50";
-    if (c.includes("indigo")) return "from-indigo-600/50 via-indigo-500/50 to-indigo-600/50";
-    if (c.includes("amber")) return "from-amber-600/50 via-amber-500/50 to-amber-600/50";
-    if (c.includes("orange")) return "from-orange-600/50 via-orange-500/50 to-orange-600/50";
-    if (c.includes("rose")) return "from-rose-600/50 via-rose-500/50 to-rose-600/50";
-    return "from-slate-600/50 via-slate-500/50 to-slate-600/50";
-  };
-
   return (
-    <div className="group relative overflow-hidden bg-slate-900 border border-slate-800 p-4 rounded-lg flex items-center gap-4 transition-all duration-300 hover:border-slate-700 hover:shadow-lg hover:shadow-slate-900/20">
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none" />
-      <div className={`relative p-2 rounded-md bg-slate-800/50 border border-slate-700 ${color}`}><Icon size={20} /></div>
-      <div className="relative">
-        <p className="text-sm font-medium text-slate-500 leading-none">{title}</p>
-        <p className="text-2xl font-bold text-white mt-1 leading-none">{value}</p>
-      </div>
-      <div className={`absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r ${getGradient(color)} scale-x-0 group-hover:scale-x-100 transition-transform duration-500`} />
-    </div>
+    <Card className="bg-white border-neutral-200 shadow-sm transition-all hover:shadow-md h-full">
+      <CardContent className="p-4 flex flex-col items-start justify-center text-left gap-1">
+        <div className="flex justify-between items-start w-full mb-1">
+          <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">{title}</p>
+          <div className={`p-1.5 rounded-lg bg-neutral-50 border border-neutral-100`}>
+            <Icon className={`h-4 w-4 ${color}`} />
+          </div>
+        </div>
+        <p className="text-2xl font-bold text-neutral-900 mt-0">{value}</p>
+      </CardContent>
+    </Card>
   );
 }
 
