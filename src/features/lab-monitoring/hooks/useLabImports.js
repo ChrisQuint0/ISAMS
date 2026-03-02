@@ -14,7 +14,7 @@ export function useLabImport() {
         setIsImporting(true);
         setImportError("");
 
-        const tableName = importType === "classlist" ? "students_lists" : "lab_schedules";
+        const tableName = importType === "classlist" ? "students_lists_lm" : "lab_schedules_lm";
         
         const conflictKey = importType === "classlist" 
             ? "student_no" 
