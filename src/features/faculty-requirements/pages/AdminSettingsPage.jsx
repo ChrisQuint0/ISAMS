@@ -509,7 +509,7 @@ export default function AdminSettingsPage() {
             sortable: false,
             filter: false,
             cellRenderer: (params) => (
-                <div className="flex items-center gap-2 mt-1.5">
+                <div className="flex items-center gap-2">
                     <Button
                         variant="outline"
                         size="xs"
@@ -564,7 +564,7 @@ export default function AdminSettingsPage() {
             sortable: false,
             filter: false,
             cellRenderer: (params) => (
-                <div className="flex items-center gap-2 mt-1.5">
+                <div className="flex items-center gap-2">
                     <Button
                         variant="ghost"
                         size="xs"
