@@ -29,6 +29,7 @@ import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-communi
 
 // Hook
 import { useAdminSettings } from '../hooks/AdminSettingHook';
+import { useAdminSemesterManagement } from '../hooks/AdminSemesterManagementHook';
 import { settingsService } from '../services/AdminSettingService';
 import NameCalibratorModal from '../components/NameCalibratorModal';
 
@@ -105,6 +106,8 @@ export default function AdminSettingsPage() {
         systemHealth, holidays, handleAddHoliday, handleBulkAddHolidays, handleDeleteHoliday,
         fetchDocTypeRules, saveDocTypeRules
     } = useAdminSettings();
+
+    const { currentSettings } = useAdminSemesterManagement();
 
     const [testFile, setTestFile] = useState(null);
     const [testDocTypeId, setTestDocTypeId] = useState('');
@@ -187,10 +190,25 @@ export default function AdminSettingsPage() {
 
     // ── Template Hub state ──────────────────────────────────────────────
     const [isTemplateModalOpen, setTemplateModalOpen] = useState(false);
+    const [modalMode, setModalMode] = useState('SYSTEM'); // 'SYSTEM' or 'CERTIFICATE'
     const [isUploadingTemplate, setIsUploadingTemplate] = useState(false);
     const [newTemplate, setNewTemplate] = useState({
-        file: null, title: '', description: '', systemCategory: '', academicYear: '', semester: ''
+        file: null, title: '', description: '', systemCategory: '', academicYear: '', semester: '',
+        courseCode: '', courseName: ''
     });
+
+    // Auto-fill template modal with current semester/year
+    useEffect(() => {
+        if (isTemplateModalOpen) {
+            setNewTemplate(prev => ({
+                ...prev,
+                academicYear: currentSettings.academic_year,
+                semester: currentSettings.semester,
+                courseCode: prev.courseCode || '', // Keep manual selection if any
+                courseName: prev.courseName || ''
+            }));
+        }
+    }, [isTemplateModalOpen, currentSettings]);
 
     const certificateTemplates = useMemo(() => templates.filter(t => t.category === 'CLEARANCE_CERTIFICATE'), [templates]);
     const generalTemplates = useMemo(() => templates.filter(t => t.category !== 'CLEARANCE_CERTIFICATE'), [templates]);
@@ -526,6 +544,8 @@ export default function AdminSettingsPage() {
             )
         },
         { field: 'category', headerName: 'System Category', flex: 1.5, valueFormatter: params => params.value || 'General' },
+        { field: 'courseCode', headerName: 'Course Code', flex: 1, valueFormatter: params => params.value || 'All' },
+        { field: 'courseName', headerName: 'Course Name', flex: 1.5, valueFormatter: params => params.value || 'All' },
         { field: 'academicYear', headerName: 'Academic Year', flex: 1, valueFormatter: params => params.value || 'N/A' },
         { field: 'semester', headerName: 'Semester', flex: 1, valueFormatter: params => params.value || 'N/A' },
         {
@@ -1686,7 +1706,11 @@ export default function AdminSettingsPage() {
                                         variant="default"
                                         size="sm"
                                         className="shadow-sm active:scale-95 transition-all"
-                                        onClick={() => setTemplateModalOpen(true)}
+                                        onClick={() => {
+                                            setModalMode('CERTIFICATE');
+                                            setNewTemplate(prev => ({ ...prev, systemCategory: 'CLEARANCE_CERTIFICATE', courseCode: 'GENERAL' }));
+                                            setTemplateModalOpen(true);
+                                        }}
                                     >
                                         <Plus className="h-4 w-4 mr-1.5" /> Upload Certificate
                                     </Button>
@@ -1714,7 +1738,11 @@ export default function AdminSettingsPage() {
                                         variant="default"
                                         size="sm"
                                         className="shadow-sm active:scale-95 transition-all"
-                                        onClick={() => setTemplateModalOpen(true)}
+                                        onClick={() => {
+                                            setModalMode('SYSTEM');
+                                            setNewTemplate(prev => ({ ...prev, systemCategory: '', courseCode: '' }));
+                                            setTemplateModalOpen(true);
+                                        }}
                                     >
                                         <Plus className="h-4 w-4 mr-1" /> Upload Template
                                     </Button>
@@ -2188,10 +2216,12 @@ export default function AdminSettingsPage() {
                         <DialogHeader>
                             <DialogTitle className="text-neutral-900 flex items-center gap-2">
                                 <LayoutTemplate className="h-5 w-5 text-primary-600" />
-                                Upload New Template
+                                {modalMode === 'CERTIFICATE' ? 'Upload Clearance Certificate' : 'Upload System Template'}
                             </DialogTitle>
                             <DialogDescription className="text-neutral-500">
-                                Tie this template to a specific Academic Year and Document Type schema.
+                                {modalMode === 'CERTIFICATE'
+                                    ? 'Upload a new version of the system-wide Clearance Certificate.'
+                                    : 'Tie this template to a specific Academic Year and optional Course.'}
                             </DialogDescription>
                         </DialogHeader>
                         <div className="space-y-4 py-2">
@@ -2221,19 +2251,53 @@ export default function AdminSettingsPage() {
                                     <Select
                                         value={newTemplate.systemCategory}
                                         onValueChange={v => setNewTemplate({ ...newTemplate, systemCategory: v })}
-                                        disabled={!newTemplate.file || isUploadingTemplate}
+                                        disabled={!newTemplate.file || isUploadingTemplate || modalMode === 'CERTIFICATE'}
                                     >
                                         <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm focus:ring-primary-500 disabled:bg-neutral-100">
                                             <SelectValue placeholder={!newTemplate.file ? "Attach file first..." : "Select category..."} />
                                         </SelectTrigger>
                                         <SelectContent className="bg-white border-neutral-200 text-neutral-900 shadow-md">
-                                            <SelectItem value="CLEARANCE_CERTIFICATE">Clearance Certificate</SelectItem>
-                                            <SelectItem value="SYLLABUS">Syllabus</SelectItem>
-                                            <SelectItem value="GRADE_SHEET">Grade Sheet</SelectItem>
-                                            <SelectItem value="GENERAL">General</SelectItem>
+                                            {modalMode === 'CERTIFICATE' ? (
+                                                <SelectItem value="CLEARANCE_CERTIFICATE">Clearance Certificate</SelectItem>
+                                            ) : (
+                                                <>
+                                                    <SelectItem value="SYLLABUS">Syllabus</SelectItem>
+                                                    <SelectItem value="GRADE_SHEET">Grade Sheet</SelectItem>
+                                                    <SelectItem value="GENERAL">General</SelectItem>
+                                                </>
+                                            )}
                                         </SelectContent>
                                     </Select>
                                 </div>
+                                {modalMode === 'SYSTEM' && (
+                                    <div className="col-span-1 md:col-span-2 space-y-1.5">
+                                        <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Course Selection</Label>
+                                        <Select
+                                            value={newTemplate.courseCode}
+                                            onValueChange={(code) => {
+                                                const course = masterCourseList.find(c => c.course_code === code);
+                                                setNewTemplate({
+                                                    ...newTemplate,
+                                                    courseCode: code,
+                                                    courseName: course ? course.course_name : ''
+                                                });
+                                            }}
+                                            disabled={!newTemplate.file || isUploadingTemplate}
+                                        >
+                                            <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm focus:ring-primary-500 disabled:bg-neutral-100">
+                                                <SelectValue placeholder="Select Course to tie template to..." />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-white border-neutral-200 text-neutral-900 shadow-md max-h-[250px]">
+                                                <SelectItem value="GENERAL">--- Set as All Courses ---</SelectItem>
+                                                {masterCourseList.filter(c => c.is_active).map(c => (
+                                                    <SelectItem key={c.id} value={c.course_code}>
+                                                        {c.course_code} - {c.course_name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
                                 <div className="col-span-1 md:col-span-2 space-y-1.5">
                                     <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Description</Label>
                                     <Input
@@ -2244,39 +2308,15 @@ export default function AdminSettingsPage() {
                                         disabled={!newTemplate.file || isUploadingTemplate}
                                     />
                                 </div>
-                                <div className="space-y-1.5">
-                                    <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Academic Year</Label>
-                                    <Select
-                                        value={newTemplate.academicYear}
-                                        onValueChange={v => setNewTemplate({ ...newTemplate, academicYear: v })}
-                                        disabled={!newTemplate.file || isUploadingTemplate}
-                                    >
-                                        <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm focus:ring-primary-500 disabled:bg-neutral-100">
-                                            <SelectValue placeholder={!newTemplate.file ? "Attach file first..." : "e.g. 2024-2025"} />
-                                        </SelectTrigger>
-                                        <SelectContent className="bg-white border-neutral-200 text-neutral-900 shadow-md">
-                                            <SelectItem value="2023-2024">2023-2024</SelectItem>
-                                            <SelectItem value="2024-2025">2024-2025</SelectItem>
-                                            <SelectItem value="2025-2026">2025-2026</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-1.5">
-                                    <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Semester</Label>
-                                    <Select
-                                        value={newTemplate.semester}
-                                        onValueChange={v => setNewTemplate({ ...newTemplate, semester: v })}
-                                        disabled={!newTemplate.file || isUploadingTemplate}
-                                    >
-                                        <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm focus:ring-primary-500 disabled:bg-neutral-100">
-                                            <SelectValue placeholder={!newTemplate.file ? "Attach file first..." : "e.g. 1st Semester"} />
-                                        </SelectTrigger>
-                                        <SelectContent className="bg-white border-neutral-200 text-neutral-900 shadow-md">
-                                            <SelectItem value="1st Semester">1st Semester</SelectItem>
-                                            <SelectItem value="2nd Semester">2nd Semester</SelectItem>
-                                            <SelectItem value="Summer">Summer</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-4 bg-neutral-50 p-3 rounded-lg border border-neutral-100 mt-2">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Academic Year</label>
+                                        <div className="text-neutral-900 text-sm font-medium">{currentSettings.academic_year || '---'}</div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Semester</label>
+                                        <div className="text-neutral-700 text-sm font-mono">{currentSettings.semester || '---'}</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -2284,7 +2324,7 @@ export default function AdminSettingsPage() {
                             <Button variant="outline" onClick={() => setTemplateModalOpen(false)} className="border-neutral-200 text-neutral-700 hover:bg-neutral-100">Cancel</Button>
                             <Button
                                 className="bg-primary-600 hover:bg-primary-700 text-white shadow-sm active:scale-95 transition-all"
-                                disabled={!newTemplate.file || !newTemplate.academicYear || !newTemplate.semester || !newTemplate.systemCategory || isUploadingTemplate}
+                                disabled={!newTemplate.file || !newTemplate.academicYear || !newTemplate.semester || !newTemplate.systemCategory || !newTemplate.courseCode || isUploadingTemplate}
                                 onClick={() => {
                                     setIsUploadingTemplate(true);
                                     addTemplate(
@@ -2293,11 +2333,16 @@ export default function AdminSettingsPage() {
                                         newTemplate.description,
                                         newTemplate.systemCategory,
                                         newTemplate.academicYear,
-                                        newTemplate.semester
+                                        newTemplate.semester,
+                                        newTemplate.courseCode === 'GENERAL' ? null : newTemplate.courseCode,
+                                        newTemplate.courseName
                                     ).then(() => {
                                         setIsUploadingTemplate(false);
                                         setTemplateModalOpen(false);
-                                        setNewTemplate({ file: null, title: '', description: '', systemCategory: '', academicYear: '', semester: '' });
+                                        setNewTemplate({
+                                            file: null, title: '', description: '', systemCategory: '',
+                                            academicYear: '', semester: '', courseCode: '', courseName: ''
+                                        });
                                     }).catch(() => {
                                         setIsUploadingTemplate(false);
                                     });

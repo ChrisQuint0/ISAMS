@@ -111,11 +111,11 @@ export function useAdminSettings() {
   };
 
   // --- Template Handlers ---
-  const addTemplate = async (file, title, description, systemCategory, academicYear, semester) => {
+  const addTemplate = async (file, title, description, systemCategory, academicYear, semester, courseCode = null, courseName = null) => {
     if (!file) return;
     setLoading(true);
     try {
-      await settingsService.addTemplate(file, title, description, systemCategory, academicYear, semester);
+      await settingsService.addTemplate(file, title, description, systemCategory, academicYear, semester, courseCode, courseName);
       await fetchData(); // Refresh list
       setSuccess("Template uploaded successfully.");
       setTimeout(() => setSuccess(null), 3000);
@@ -445,6 +445,8 @@ export function useAdminSettings() {
         category: t.system_category || 'General',
         academicYear: t.academic_year || 'N/A',
         semester: t.semester || 'N/A',
+        courseCode: t.course_code || 'All',
+        courseName: t.course_name || 'All',
         isActive: t.is_active_default,
         size: t.file_size_bytes ? `${(t.file_size_bytes / 1024 / 1024).toFixed(1)} MB` : 'Unknown',
         updated: new Date(t.created_at).toLocaleDateString(),
