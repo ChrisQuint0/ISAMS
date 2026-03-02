@@ -28,11 +28,16 @@ const GOOGLE_DRIVE_FOLDER_ID = process.env.VITE_GOOGLE_DRIVE_FOLDER_ID;
 app.use(cors());
 app.use(express.json());
 
-// Supabase Client
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false },
-});
+// Supabase Client (Initialize conditionally to prevent app crash if keys are missing)
+const supabase = (SUPABASE_URL && SUPABASE_KEY)
+  ? createClient(SUPABASE_URL, SUPABASE_KEY)
+  : null;
+
+const supabaseAdmin = (SUPABASE_URL && SUPABASE_SERVICE_KEY)
+  ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+  : null;
 
 // OAuth2 Client
 const oauth2Client = new google.auth.OAuth2(
