@@ -1,5 +1,4 @@
 import React from "react";
-import { Clock } from "lucide-react";
 
 export default function ActivityItem({ time, text, detail, alert }) {
     return (
