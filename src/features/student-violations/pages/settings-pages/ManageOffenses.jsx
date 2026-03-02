@@ -13,35 +13,22 @@ import { AddOffenseModal } from "../../components/AddOffenseModal";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
-const GRID_STYLE_OVERRIDES = `
-  .ag-theme-quartz-dark {
-    --ag-background-color: #0f172a !important;
-    --ag-header-background-color: #1e293b !important;
-    --ag-border-color: #1e293b !important;
-    --ag-header-foreground-color: #94a3b8 !important;
-    --ag-foreground-color: #ffffff !important;
-    --ag-row-hover-color: rgba(30, 41, 59, 0.5) !important;
-  }
-  .ag-theme-quartz-dark .ag-header-cell-label {
-    font-size: 12px;
-    font-weight: 600;
-    color: #64748b;
-  }
-  .ag-theme-quartz-dark .ag-cell {
-    font-size: 14px;
-    color: #e2e8f0 !important;
-    display: flex;
-    align-items: center;
-    border-bottom: 1px solid #1e293b44 !important;
-  }
-  .ag-theme-quartz-dark .ag-row {
-    background-color: #0f172a !important;
-  }
-  .ag-theme-quartz-dark .ag-filter-wrapper {
-    background-color: #1e293b !important;
-    border: 1px solid #334155 !important;
-  }
-`;
+// Custom theme using AG Grid v33+ Theming API with Quartz theme for a clean institutional look
+const customTheme = themeQuartz.withParams({
+  accentColor: 'var(--primary-600)',
+  backgroundColor: 'var(--neutral-50)',
+  foregroundColor: 'var(--neutral-900)',
+  borderColor: 'var(--neutral-200)',
+  headerBackgroundColor: 'var(--neutral-100)',
+  headerTextColor: 'var(--neutral-900)',
+  oddRowBackgroundColor: '#ffffff',
+  rowHoverColor: 'var(--neutral-100)',
+  selectedRowBackgroundColor: 'color-mix(in srgb, var(--primary-500) 10%, transparent)',
+  rowHeight: 48,
+  headerHeight: 40,
+  headerFontWeight: '700',
+  fontSize: '13px',
+});
 
 const ManageOffenses = () => {
     const navigate = useNavigate();
@@ -72,12 +59,6 @@ const ManageOffenses = () => {
 
     useEffect(() => {
         fetchOffenses();
-
-        // Inject Grid Styles
-        const styleEl = document.createElement('style');
-        styleEl.innerHTML = GRID_STYLE_OVERRIDES;
-        document.head.appendChild(styleEl);
-        return () => document.head.removeChild(styleEl);
     }, []);
 
     const handleOpenModal = (offense = null) => {
@@ -119,7 +100,7 @@ const ManageOffenses = () => {
             field: "name",
             flex: 2,
             filter: true,
-            cellStyle: { color: '#f8fafc', fontWeight: '600' }
+            cellStyle: { color: 'var(--neutral-900)', fontWeight: '600' }
         },
         {
             headerName: "Severity",
@@ -127,12 +108,12 @@ const ManageOffenses = () => {
             flex: 1,
             filter: true,
             cellRenderer: (params) => {
-                let colorClass = "text-slate-400";
-                if (params.value === "Major") colorClass = "text-rose-400";
-                if (params.value === "Minor") colorClass = "text-amber-400";
-                if (params.value === "Compliance") colorClass = "text-emerald-400";
+                let colorClass = "text-neutral-500 bg-neutral-100";
+                if (params.value === "Major") colorClass = "text-destructive-semantic bg-red-50";
+                if (params.value === "Minor") colorClass = "text-warning bg-amber-50";
+                if (params.value === "Compliance") colorClass = "text-neutral-600 bg-neutral-100";
 
-                return <span className={`font-medium ${colorClass}`}>{params.value}</span>;
+                return <span className={`font-bold text-[10px] uppercase tracking-widest px-2 py-1 rounded shadow-sm border border-neutral-200/50 ${colorClass}`}>{params.value}</span>;
             }
         },
         {
@@ -140,7 +121,7 @@ const ManageOffenses = () => {
             field: "description",
             flex: 2,
             tooltipField: "description",
-            cellStyle: { color: '#94a3b8' }
+            cellStyle: { color: 'var(--neutral-500)' }
         },
         {
             headerName: "Actions",
@@ -150,18 +131,18 @@ const ManageOffenses = () => {
             cellRenderer: (params) => (
                 <div className="flex items-center justify-end h-full gap-2 pr-2">
                     <Button
-                        variant="outline"
+                        variant="ghost"
                         size="icon"
-                        className="h-7 w-7 bg-slate-800 border-slate-700 text-slate-300 hover:text-indigo-400 transition-colors"
+                        className="h-7 w-7 text-neutral-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
                         onClick={() => handleOpenModal(params.data)}
                         title="Edit"
                     >
                         <Edit2 className="h-3.5 w-3.5" />
                     </Button>
                     <Button
-                        variant="outline"
+                        variant="ghost"
                         size="icon"
-                        className="h-7 w-7 bg-slate-800 border-slate-700 text-slate-300 hover:text-rose-400 transition-colors"
+                        className="h-7 w-7 text-neutral-400 hover:text-destructive-semantic hover:bg-red-50 transition-colors"
                         onClick={() => handleDelete(params.data)}
                         title="Delete"
                     >
@@ -178,23 +159,23 @@ const ManageOffenses = () => {
     }), []);
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500 text-left">
+        <div className="space-y-6 flex flex-col h-full animate-in fade-in duration-500 text-left bg-neutral-50 px-2">
             {/* Header with Back Button */}
             <div className="flex flex-col gap-4">
                 <Button
                     variant="ghost"
-                    className="w-fit text-slate-400 hover:text-white pl-0 gap-2 hover:bg-transparent"
+                    className="w-fit text-neutral-500 hover:text-neutral-900 pl-0 gap-2 hover:bg-transparent -ml-2 font-bold group"
                     onClick={() => navigate('/violation-settings')}
                 >
-                    <ArrowLeft className="h-4 w-4" /> Back to Settings
+                    <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to Settings
                 </Button>
                 <div className="flex justify-between items-center">
                     <div>
-                        <h1 className="text-3xl font-bold text-white tracking-tight">Manage Offenses</h1>
-                        <p className="text-slate-400">Configure student offense types and categorization</p>
+                        <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Manage Offenses</h1>
+                        <p className="text-neutral-500 text-sm font-medium mt-1">Configure student offense types and categorization</p>
                     </div>
                     <Button
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+                        className="bg-primary-600 hover:bg-primary-700 text-white shadow-md shadow-emerald-900/10 font-bold h-9 px-4 rounded-md text-sm active:scale-95"
                         onClick={() => handleOpenModal()}
                     >
                         <Plus className="w-4 h-4 mr-2" /> Add Offense
@@ -203,35 +184,35 @@ const ManageOffenses = () => {
             </div>
 
             {/* Grid Card */}
-            <Card className="bg-slate-900 border-slate-800 flex flex-col rounded-lg overflow-hidden shadow-sm">
-                <div className="p-4 border-b border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-800/20">
+            <Card className="bg-white border-neutral-200 shadow-sm flex flex-col rounded-lg overflow-hidden flex-1">
+                <div className="px-4 py-4 flex items-center justify-between border-b border-neutral-100 bg-neutral-50/50">
                     <div className="flex items-center gap-2">
-                        <ShieldAlert className="h-4 w-4 text-slate-400" />
-                        <h3 className="text-sm font-semibold text-slate-200">Offense Type Directory</h3>
+                        <ShieldAlert className="h-4 w-4 text-neutral-400" />
+                        <h3 className="text-base font-bold text-neutral-900 uppercase tracking-tight">Offense Type Directory</h3>
                     </div>
-                    <div className="flex items-center gap-3 w-full md:w-auto">
-                        <div className="relative w-full md:w-72">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                    <div className="flex items-center gap-2 w-full md:w-auto">
+                        <div className="relative w-full md:w-72 group">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 group-focus-within:text-primary-600 transition-colors" />
                             <Input
                                 placeholder="Search offenses..."
-                                className="pl-9 bg-slate-950 border-slate-800 text-slate-200 text-sm h-9 rounded-md focus:ring-1 focus:ring-indigo-600"
+                                className="pl-9 h-8 bg-white border-neutral-200 text-neutral-900 placeholder:text-neutral-400 text-xs font-medium rounded focus-visible:ring-primary-500 focus-visible:border-primary-500 transition-all"
                                 onChange={(e) => gridApi?.setQuickFilter(e.target.value)}
                             />
                         </div>
-                        <Button variant="outline" className="h-9 px-3 bg-slate-800 border-slate-700 text-slate-400 hover:text-white">
+                        <Button variant="outline" className="h-8 px-3 bg-white border-neutral-200 text-neutral-600 hover:text-primary-600 hover:bg-primary-50">
                             <Filter className="h-4 w-4" />
                         </Button>
                     </div>
                 </div>
 
-                <div className="ag-theme-quartz-dark w-full" style={{ height: "600px" }}>
+                <div className="w-full flex-1" style={{ minHeight: "500px" }}>
                     {isLoading ? (
-                        <div className="flex items-center justify-center h-full text-slate-400">
+                        <div className="flex items-center justify-center h-full text-neutral-500 font-medium">
                             Loading offenses...
                         </div>
                     ) : (
                         <AgGridReact
-                            theme={themeQuartz}
+                            theme={customTheme}
                             rowData={offenses}
                             columnDefs={columnDefs}
                             defaultColDef={defaultColDef}

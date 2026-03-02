@@ -22,31 +22,28 @@ export default function AdminLayout() {
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen w-full bg-slate-950 font-sans">
+      <div className="flex min-h-screen w-full bg-neutral-50 font-sans">
        
         <AdminSidebar />
        
-        <SidebarInset className="bg-slate-950 flex flex-col">
-          <header className="flex h-14 shrink-0 items-center gap-4 border-b border-slate-800 bg-slate-900/50 px-6 backdrop-blur-sm sticky top-0 z-10">
-            <SidebarTrigger className="text-slate-400 hover:text-white transition-colors" />
+        <SidebarInset className="bg-neutral-50 flex flex-col">
+          <header className="flex h-14 shrink-0 items-center gap-4 border-b border-neutral-200 bg-white/80 px-6 backdrop-blur-md sticky top-0 z-10">
+            <SidebarTrigger className="text-neutral-500 hover:text-primary-600 transition-colors" />
            
-            <Separator orientation="vertical" className="h-4 bg-slate-800" />
+            <Separator orientation="vertical" className="h-4 bg-neutral-200" />
            
-            {/* BREADCRUMB: ISAMS is now muted slate instead of white */}
-            <div className="flex items-center gap-2 text-sm tracking-tight">
-              <span className="font-bold text-slate-500 tracking-wider uppercase">ISAMS</span>
-              <span className="text-slate-700 font-light">/</span>
-              <span className="font-medium text-slate-500">
-                Student Violation Module
-              </span>
-              <span className="text-slate-700 font-light">/</span>
-              <span className="font-semibold text-white">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-primary-700 tracking-tight">ISAMS</span>
+              <span className="text-neutral-300 font-light">/</span>
+              <span className="text-sm font-medium text-neutral-500">Student Violation Module</span>
+              <span className="text-neutral-300 font-light">/</span>
+              <span className="text-sm font-semibold text-neutral-600">
                 {getPageTitle()}
               </span>
             </div>
           </header>
          
-          <main className="flex-1 p-4 lg:p-7 overflow-auto bg-slate-950 text-slate-100 no-scrollbar">
+          <main className="flex-1 p-4 lg:p-7 overflow-auto bg-neutral-50 text-neutral-900 no-scrollbar">
             <Outlet />
           </main>
         </SidebarInset>

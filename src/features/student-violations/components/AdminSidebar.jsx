@@ -100,20 +100,20 @@ export function AdminSidebar() {
     <Sidebar
       variant="sidebar"
       collapsible="icon"
-      className="bg-slate-900 border-slate-800"
+      className="bg-white border-neutral-200"
     >
-      <SidebarHeader className="bg-slate-900 border-b border-slate-800">
+      <SidebarHeader className="bg-white border-b border-neutral-200">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
-              className="hover:bg-transparent cursor-default active:bg-transparent"
+              className="data-[state=open]:bg-neutral-100 data-[state=open]:text-neutral-900 hover:bg-neutral-100 cursor-default"
             >
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-blue-600 text-white shadow-lg shadow-blue-900/20 shrink-0 transition-transform">
+              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-gradient-primary text-white shadow-lg shadow-emerald-900/20 shrink-0 transition-transform">
                 <Shield className="size-4" />
               </div>
               <div className="flex flex-1 items-center group-data-[collapsible=icon]:hidden ml-3">
-                <span className="truncate font-bold text-slate-100 tracking-tight">
+                <span className="truncate font-bold text-neutral-900 tracking-tight">
                   Violation Management
                 </span>
               </div>
@@ -122,10 +122,10 @@ export function AdminSidebar() {
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent className="bg-slate-900 overflow-y-auto no-scrollbar overflow-x-hidden">
-        <SidebarSeparator className="bg-slate-800 group-data-[collapsible=icon]:hidden" />
+      <SidebarContent className="bg-white overflow-y-auto no-scrollbar overflow-x-hidden">
+        <SidebarSeparator className="bg-neutral-100 group-data-[collapsible=icon]:hidden" />
         <SidebarGroup>
-          <SidebarGroupLabel className="text-slate-500 text-[11px] font-semibold px-2 mb-4 group-data-[collapsible=icon]:hidden tracking-wide">
+          <SidebarGroupLabel className="text-neutral-500 group-data-[collapsible=icon]:hidden font-semibold uppercase tracking-wider text-[10px] px-2 mb-4">
             Admin Navigation
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -136,10 +136,10 @@ export function AdminSidebar() {
                     isActive={isActive(item.path)}
                     onClick={() => navigate(item.path)}
                     tooltip={item.label}
-                    className={`h-10 w-full rounded-md transition-all ${
+                    className={`text-neutral-600 hover:text-primary-700 hover:bg-neutral-100 transition-all rounded-md h-10 w-full ${
                       isActive(item.path)
-                        ? "bg-slate-100 !text-blue-600 shadow-sm font-bold"
-                        : "text-slate-400 hover:text-slate-100 hover:bg-white/5"
+                        ? "!bg-primary-600 !text-white shadow-md shadow-emerald-900/10 font-bold"
+                        : ""
                     }`}
                   >
                     <item.icon
@@ -149,7 +149,7 @@ export function AdminSidebar() {
                       {item.label}
                     </span>
                     {item.badge > 0 && (
-                      <SidebarMenuBadge className="bg-blue-600 text-white">
+                      <SidebarMenuBadge className={isActive(item.path) ? "bg-white text-primary-700 font-bold" : "bg-primary-600 text-white"}>
                         {item.badge}
                       </SidebarMenuBadge>
                     )}
@@ -161,11 +161,11 @@ export function AdminSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="bg-slate-900 border-t border-slate-800 p-2 space-y-1">
+      <SidebarFooter className="bg-neutral-50 border-t border-neutral-200 p-2 space-y-1">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              className="w-full text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors"
+              className="w-full text-neutral-600 hover:text-primary-700 hover:bg-neutral-200 transition-colors rounded-md"
               onClick={() => navigate("/violation-settings")}
             >
               <Settings className="size-4" />
@@ -180,32 +180,32 @@ export function AdminSidebar() {
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
                   size="lg"
-                  className="w-full hover:bg-slate-800 text-slate-200"
+                  className="w-full justify-start gap-3 hover:bg-neutral-200 text-neutral-900 group-data-[collapsible=icon]:justify-center"
                 >
-                  <div className="flex aspect-square size-8 items-center justify-center rounded-full bg-slate-800 shrink-0 border border-slate-700">
-                    <User className="size-4 text-slate-400" />
+                  <div className="flex aspect-square size-8 items-center justify-center rounded-full bg-primary-600 shrink-0">
+                    <User className="size-4 text-white" />
                   </div>
-                  <div className="flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden overflow-hidden ml-3">
-                    <span className="truncate font-semibold block text-slate-100">
+                  <div className="flex-1 text-left text-neutral-900 text-sm leading-tight group-data-[collapsible=icon]:hidden overflow-hidden min-w-0 ml-3">
+                    <span className="truncate font-bold block">
                       Admin's Office
                     </span>
-                    <span className="truncate text-[10px] flex items-center gap-1.5 text-slate-500">
+                    <span className="truncate text-[10px] flex items-center gap-1.5 text-neutral-500">
                       <span
-                        className={`h-1.5 w-1.5 rounded-full ${stats.systemStatus === "Online" ? "bg-green-500" : "bg-amber-500"}`}
+                        className={`h-1.5 w-1.5 rounded-full ${stats.systemStatus === "Online" ? "bg-emerald-500" : "bg-amber-500"}`}
                       />
                       {stats.systemStatus}
                     </span>
                   </div>
-                  <ChevronUp className="ml-auto size-4 text-slate-500 group-data-[collapsible=icon]:hidden" />
+                  <ChevronUp className="ml-auto size-4 text-neutral-400 group-data-[collapsible=icon]:hidden shrink-0" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 side="top"
-                className="w-56 bg-slate-900 border-slate-800 text-slate-200"
+                className="w-56 bg-white border-neutral-200 text-neutral-900 shadow-xl"
               >
                 <DropdownMenuItem
                   onClick={() => navigate("/login")}
-                  className="text-red-400 hover:bg-red-950/30 cursor-pointer font-semibold"
+                  className="text-primary-600 hover:bg-neutral-100 cursor-pointer font-semibold"
                 >
                   <LogOut className="mr-2 h-4 w-4" /> Back to Dashboard
                 </DropdownMenuItem>
