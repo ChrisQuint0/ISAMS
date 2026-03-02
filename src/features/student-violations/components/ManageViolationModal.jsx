@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/lib/supabaseClient";
-import { CheckCircle2, AlertCircle, Loader2, FileText, ExternalLink } from "lucide-react";
+import { CheckCircle2, AlertCircle, Loader2, FileText, ExternalLink, ShieldCheck } from "lucide-react";
+import { ImposeSanctionModal } from "./ImposeSanctionModal";
 
 export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData }) {
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -22,12 +23,31 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
     const [evidenceList, setEvidenceList] = useState([]);
     const [isLoadingEvidence, setIsLoadingEvidence] = useState(false);
 
+    const [isImposeSanctionOpen, setIsImposeSanctionOpen] = useState(false);
+    const [existingSanction, setExistingSanction] = useState(null);
+
     useEffect(() => {
         if (isOpen && violationData) {
             setStatus(violationData.status || "Pending");
             fetchEvidence(violationData.violation_id);
+            fetchExistingSanction(violationData.violation_id);
         }
     }, [isOpen, violationData]);
+
+    const fetchExistingSanction = async (violationId) => {
+        try {
+            const { data, error } = await supabase
+                .from('student_sanctions_sv')
+                .select('*')
+                .eq('violation_id', violationId)
+                .single();
+
+            if (error && error.code !== 'PGRST116') throw error; // ignore no rows found error
+            setExistingSanction(data || null);
+        } catch (error) {
+            console.error("Error fetching existing sanction:", error);
+        }
+    };
 
     const fetchEvidence = async (violationId) => {
         setIsLoadingEvidence(true);
@@ -59,6 +79,15 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
             resetState();
             onClose();
         }
+    };
+
+    const handleStatusChange = (newStatus) => {
+        if (newStatus === "Sanctioned" && (!existingSanction)) {
+            // Open sanction modal instead of just changing dropdown if no sanction exists
+            setIsImposeSanctionOpen(true);
+            return;
+        }
+        setStatus(newStatus);
     };
 
     const handleSubmit = async (e) => {
@@ -187,6 +216,37 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
                                 </div>
                             )}
                         </div>
+
+                        {existingSanction && (
+                            <div className="col-span-2 space-y-2 border-t border-slate-800 pt-4 mt-2">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                                    <p className="font-bold text-slate-200">Active Sanction</p>
+                                </div>
+                                <div className="bg-slate-950 border border-slate-800 rounded-md p-4 grid grid-cols-2 gap-3 text-sm">
+                                    <div>
+                                        <p className="text-slate-500 text-xs uppercase tracking-wider font-semibold mb-1">Action</p>
+                                        <p className="text-emerald-300 font-medium">{existingSanction.penalty_name}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-slate-500 text-xs uppercase tracking-wider font-semibold mb-1">Status</p>
+                                        <p className="text-slate-300">{existingSanction.status}</p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p className="text-slate-500 text-xs uppercase tracking-wider font-semibold mb-1">Duration / Deadline</p>
+                                        <p className="text-slate-300">
+                                            {existingSanction.start_date || 'N/A'} {existingSanction.deadline_date ? ` to ${existingSanction.deadline_date}` : ''}
+                                        </p>
+                                    </div>
+                                    {existingSanction.description && (
+                                        <div className="col-span-2 mt-1">
+                                            <p className="text-slate-500 text-xs uppercase tracking-wider font-semibold mb-1">Conditions</p>
+                                            <p className="text-slate-400 italic text-xs">{existingSanction.description}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -194,7 +254,7 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
                     <form onSubmit={handleSubmit}>
                         <div className="space-y-2 mb-6">
                             <Label htmlFor="status" className="text-slate-300">Update Status</Label>
-                            <Select value={status} onValueChange={setStatus}>
+                            <Select value={status} onValueChange={handleStatusChange}>
                                 <SelectTrigger className="w-full bg-slate-950 border-slate-700">
                                     <SelectValue placeholder="Select status" />
                                 </SelectTrigger>
@@ -219,6 +279,18 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
                 </div>
 
             </DialogContent>
+
+            {/* Nested Modal for imposing sanctions */}
+            <ImposeSanctionModal
+                isOpen={isImposeSanctionOpen}
+                onClose={() => setIsImposeSanctionOpen(false)}
+                onSuccess={() => {
+                    // Refresh data after sanction is added
+                    handleOpenChange(false);
+                    if (onSuccess) onSuccess();
+                }}
+                violationData={violationData}
+            />
         </Dialog>
     );
 }
