@@ -82,7 +82,12 @@ export function useAdminDeadlines() {
     try {
       const { data, error } = await supabase.from('systemsettings_fs')
         .select('setting_key, setting_value')
-        .in('setting_key', ['current_semester', 'current_academic_year']);
+        .in('setting_key', [
+          'current_semester',
+          'current_academic_year',
+          'general_default_deadline',
+          'general_grace_period'
+        ]);
 
       if (error) throw error;
 
@@ -90,6 +95,8 @@ export function useAdminDeadlines() {
       data?.forEach(s => {
         if (s.setting_key === 'current_semester') newSettings.semester = s.setting_value;
         if (s.setting_key === 'current_academic_year') newSettings.academic_year = s.setting_value;
+        if (s.setting_key === 'general_default_deadline') newSettings.default_deadline = parseInt(s.setting_value) || 14;
+        if (s.setting_key === 'general_grace_period') newSettings.default_grace = parseInt(s.setting_value) || 3;
       });
       setSettings(prev => ({ ...prev, ...newSettings }));
     } catch (err) {

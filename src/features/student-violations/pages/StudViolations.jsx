@@ -8,7 +8,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 
 import {
   ShieldAlert, Search, AlertTriangle,
-  CheckCircle2, History, AlertCircle, Filter
+  CheckCircle2, AlertCircle
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -29,12 +29,12 @@ const GRID_STYLE_OVERRIDES = `
     --ag-row-hover-color: rgba(30, 41, 59, 0.5) !important;
   }
   .ag-theme-quartz-dark .ag-header-cell-label {
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 600;
     color: #64748b;
   }
   .ag-theme-quartz-dark .ag-cell {
-    font-size: 14px;
+    font-size: 15px;
     color: #e2e8f0 !important;
     display: flex;
     align-items: center;
@@ -47,6 +47,9 @@ const GRID_STYLE_OVERRIDES = `
     background-color: #1e293b !important;
     border: 1px solid #334155 !important;
   }
+  .ag-theme-quartz-dark .ag-root-wrapper {
+    border: none !important;
+  }
 `;
 
 
@@ -57,18 +60,18 @@ const StudViolations = () => {
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedViolation, setSelectedViolation] = useState(null);
+  const [activeTab, setActiveTab] = useState("violations");
+  const [searchValue, setSearchValue] = useState("");
 
   const fetchViolations = async () => {
     setIsLoading(true);
     try {
-      // Assuming foreign keys exist for students_sv and offense_types_sv. 
-      // If the join fails due to no relation, we might need a fallback.
       const { data, error } = await supabase
         .from('violations_sv')
         .select(`
           *,
           students_sv (first_name, last_name),
-          offense_types_sv (name)
+          offense_types_sv (name, severity)
         `);
 
       if (error) {
@@ -76,9 +79,10 @@ const StudViolations = () => {
       } else if (data) {
         const formattedData = data.map(v => ({
           ...v,
-          name: v.students_sv ? `${v.students_sv.first_name} ${v.students_sv.last_name}` : v.student_number,
+          student_number: v.student_number,
+          name: v.students_sv ? `${v.students_sv.first_name} ${v.students_sv.last_name}` : 'Unknown',
           section: v.student_course_year_section || (v.students_sv && v.students_sv.course_year_section) || 'N/A',
-          violation: v.offense_types_sv ? v.offense_types_sv.name : `Type ID ${v.offense_type_id}`,
+          violation: v.offense_types_sv ? `${v.offense_types_sv.name}: ${v.offense_types_sv.severity}` : `Type ID ${v.offense_type_id}`,
           status: v.status || "Pending"
         }));
         setViolations(formattedData);
@@ -101,16 +105,21 @@ const StudViolations = () => {
     return () => document.head.removeChild(styleEl);
   }, []);
 
-
-  // Replaced static rowData with the fetched violations state
-
-
   const columnDefs = useMemo(() => [
+    {
+      headerName: "Student ID",
+      field: "student_number",
+      width: 130,
+      filter: true,
+      tooltipField: "student_number",
+      cellStyle: { color: '#94a3b8', fontWeight: '500' }
+    },
     {
       headerName: "Student Name",
       field: "name",
-      flex: 1.5,
+      flex: 1,
       filter: true, // Enabled filtering for names
+      tooltipField: "name",
       cellStyle: { color: '#f8fafc', fontWeight: '600' }
     },
     {
@@ -118,6 +127,7 @@ const StudViolations = () => {
       field: "section",
       flex: 1,
       filter: true, // Enabled filtering for sections
+      tooltipField: "section",
       cellStyle: { color: '#94a3b8', fontWeight: '500' }
     },
     {
@@ -125,6 +135,7 @@ const StudViolations = () => {
       field: "violation",
       flex: 1.5,
       filter: true, // Enabled filtering for violation types
+      tooltipField: "violation",
       cellStyle: { color: '#94a3b8', fontWeight: '500' }
     },
     {
@@ -166,6 +177,14 @@ const StudViolations = () => {
     }
   ], []);
 
+  const sanctionColumnDefs = useMemo(() => [
+    { headerName: "Sanction ID", field: "sanction_id", flex: 1, tooltipField: "sanction_id", cellStyle: { color: '#94a3b8' } },
+    { headerName: "Student Name", field: "student_name", flex: 1, tooltipField: "student_name", cellStyle: { color: '#f8fafc', fontWeight: '600' } },
+    { headerName: "Sanction", field: "sanction_name", flex: 1.5, tooltipField: "sanction_name", cellStyle: { color: '#94a3b8' } },
+    { headerName: "Status", field: "status", flex: 1, tooltipField: "status", cellStyle: { color: '#94a3b8' } },
+    { headerName: "Due Date", field: "due_date", flex: 1, tooltipField: "due_date", cellStyle: { color: '#94a3b8' } },
+  ], []);
+
 
   const defaultColDef = useMemo(() => ({
     sortable: true,
@@ -195,25 +214,42 @@ const StudViolations = () => {
         <QuickStat title="Resolved records" value={violations.filter(v => v.status === 'Resolved' || v.status === 'Dismissed').length} icon={CheckCircle2} color="text-emerald-500" />
       </div>
 
+      <div className="flex items-center gap-4 border-b border-slate-800">
+        <button
+          onClick={() => setActiveTab("violations")}
+          className={`pb-2 text-sm font-medium border-b-2 transition-all ${activeTab === "violations"
+            ? "border-blue-500 text-blue-400"
+            : "border-transparent text-slate-400 hover:text-slate-300"
+            }`}
+        >
+          Violations
+        </button>
+        <button
+          onClick={() => setActiveTab("sanctions")}
+          className={`pb-2 text-sm font-medium border-b-2 transition-all ${activeTab === "sanctions"
+            ? "border-blue-500 text-blue-400"
+            : "border-transparent text-slate-400 hover:text-slate-300"
+            }`}
+        >
+          Sanctions
+        </button>
+      </div>
 
       <Card className="bg-slate-900 border-slate-800 flex flex-col rounded-lg overflow-hidden shadow-sm">
-        <div className="p-4 border-b border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-800/20">
-          <div className="flex items-center gap-2">
-            <History className="h-4 w-4 text-slate-400" />
-            <h3 className="text-sm font-semibold text-slate-200">Disciplinary logs</h3>
-          </div>
-          <div className="flex items-center gap-3 w-full md:w-auto">
-            <div className="relative w-full md:w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+        <div className="px-3 py-0 flex items-center justify-between bg-slate-900/50">
+          <h3 className="text-sm font-bold text-slate-200">
+            {activeTab === "violations" ? "Disciplinary logs" : "Sanction records"}
+          </h3>
+          <div className="flex items-center">
+            <div className="relative w-36 md:w-64">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500" />
               <Input
                 placeholder="Quick search..."
-                className="pl-9 bg-slate-950 border-slate-800 text-slate-200 text-sm h-9 rounded-md focus:ring-1 focus:ring-blue-600"
-                onChange={(e) => gridApi?.setQuickFilter(e.target.value)}
+                className="pl-8 bg-slate-950 border-slate-800 text-slate-200 text-xs h-6 rounded focus:ring-1 focus:ring-blue-600"
+                value={searchValue}
+                onChange={(e) => setSearchValue(e.target.value)}
               />
             </div>
-            <Button variant="outline" className="h-9 px-3 bg-slate-800 border-slate-700 text-slate-400 hover:text-white">
-              <Filter className="h-4 w-4" />
-            </Button>
           </div>
         </div>
 
@@ -225,16 +261,18 @@ const StudViolations = () => {
           ) : (
             <AgGridReact
               theme={themeQuartz}
-              rowData={violations}
-              columnDefs={columnDefs}
+              rowData={activeTab === "violations" ? violations : []}
+              columnDefs={activeTab === "violations" ? columnDefs : sanctionColumnDefs}
               defaultColDef={defaultColDef}
               onGridReady={(params) => setGridApi(params.api)}
+              tooltipShowDelay={0}
               animateRows={true}
-              rowHeight={48}
-              headerHeight={44}
+              rowHeight={42}
+              headerHeight={24}
               pagination={true}
               paginationPageSize={10}
               suppressCellFocus={true}
+              quickFilterText={searchValue}
             />
           )}
         </div>
@@ -258,16 +296,27 @@ const StudViolations = () => {
 
 
 function QuickStat({ title, value, icon: Icon, color }) {
+  const getGradient = (c) => {
+    if (c.includes("blue")) return "from-blue-600/50 via-blue-500/50 to-blue-600/50";
+    if (c.includes("emerald")) return "from-emerald-600/50 via-emerald-500/50 to-emerald-600/50";
+    if (c.includes("indigo")) return "from-indigo-600/50 via-indigo-500/50 to-indigo-600/50";
+    if (c.includes("amber")) return "from-amber-600/50 via-amber-500/50 to-amber-600/50";
+    if (c.includes("orange")) return "from-orange-600/50 via-orange-500/50 to-orange-600/50";
+    if (c.includes("rose")) return "from-rose-600/50 via-rose-500/50 to-rose-600/50";
+    return "from-slate-600/50 via-slate-500/50 to-slate-600/50";
+  };
+
   return (
-    <div className="bg-slate-900 border border-slate-800 p-4 rounded-lg flex items-center gap-4 transition-colors hover:border-slate-700">
-      <div className={`p-2 rounded-md bg-slate-800/50 border border-slate-700 ${color}`}><Icon size={20} /></div>
-      <div>
-        <p className="text-xs font-medium text-slate-500 leading-none">{title}</p>
-        <p className="text-lg font-bold text-white mt-1 leading-none">{value}</p>
+    <div className="group relative overflow-hidden bg-slate-900 border border-slate-800 p-4 rounded-lg flex items-center gap-4 transition-all duration-300 hover:border-slate-700 hover:shadow-lg hover:shadow-slate-900/20">
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none" />
+      <div className={`relative p-2 rounded-md bg-slate-800/50 border border-slate-700 ${color}`}><Icon size={20} /></div>
+      <div className="relative">
+        <p className="text-sm font-medium text-slate-500 leading-none">{title}</p>
+        <p className="text-2xl font-bold text-white mt-1 leading-none">{value}</p>
       </div>
+      <div className={`absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r ${getGradient(color)} scale-x-0 group-hover:scale-x-100 transition-transform duration-500`} />
     </div>
   );
 }
-
 
 export default StudViolations;

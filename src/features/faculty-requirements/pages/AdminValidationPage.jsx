@@ -82,10 +82,10 @@ export default function AdminValidationPage() {
 
   // --- Helpers ---
   const getFileIcon = (filename = "") => {
-    if (filename.endsWith('.pdf')) return <FileText className="h-8 w-8 text-rose-400" />;
-    if (filename.endsWith('.xlsx') || filename.endsWith('.xls')) return <FileText className="h-8 w-8 text-emerald-400" />;
-    if (filename.endsWith('.docx') || filename.endsWith('.doc')) return <FileText className="h-8 w-8 text-blue-400" />;
-    return <FileText className="h-8 w-8 text-slate-400" />;
+    if (filename.endsWith('.pdf')) return <FileText className="h-8 w-8 text-destructive" />;
+    if (filename.endsWith('.xlsx') || filename.endsWith('.xls')) return <FileText className="h-8 w-8 text-success" />;
+    if (filename.endsWith('.docx') || filename.endsWith('.doc')) return <FileText className="h-8 w-8 text-info" />;
+    return <FileText className="h-8 w-8 text-neutral-400" />;
   };
 
   return (
@@ -93,15 +93,15 @@ export default function AdminValidationPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
         <div>
-          <h1 className="text-2xl font-bold text-slate-100">Validation Queue</h1>
-          <p className="text-slate-400 text-sm">Review and approve flagged submissions</p>
+          <h1 className="text-2xl font-bold text-neutral-900">Validation Queue</h1>
+          <p className="text-neutral-500 text-sm font-medium">Review and approve flagged submissions</p>
         </div>
         <Button
           variant="outline"
           size="sm"
           onClick={refresh}
           disabled={loading}
-          className="bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
+          className="bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900 shadow-sm transition-all"
         >
           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
           Refresh Queue
@@ -114,63 +114,63 @@ export default function AdminValidationPage() {
         <div className="lg:col-span-2 flex flex-col gap-6 min-h-0">
 
           {/* Pending Review Card */}
-          <Card className="bg-slate-900 border-slate-800 shadow-none flex-1 flex flex-col min-h-[400px]">
-            <CardHeader className="border-b border-slate-800 py-3 shrink-0">
+          <Card className="bg-white border-neutral-200 shadow-sm flex-1 flex flex-col min-h-[400px]">
+            <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-3 shrink-0">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base text-slate-100 flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-warning" />
                   Pending Review
-                  <Badge variant="secondary" className="bg-slate-800 text-slate-300 ml-2 border-slate-700">{queue.length}</Badge>
+                  <Badge variant="secondary" className="bg-white text-neutral-700 ml-2 border-neutral-200 shadow-sm">{queue.length}</Badge>
                 </CardTitle>
               </div>
             </CardHeader>
-            <CardContent className="p-0 flex-1 relative bg-slate-950/30">
+            <CardContent className="p-0 flex-1 relative bg-neutral-50/50">
               <ScrollArea className="h-full">
                 <div className="p-4 space-y-4">
                   {loading ? (
-                    <div className="text-center py-12 text-slate-500">Loading queue...</div>
+                    <div className="text-center py-12 text-neutral-500 font-medium">Loading queue...</div>
                   ) : queue.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-16 text-slate-500">
-                      <div className="h-16 w-16 bg-slate-900 rounded-full flex items-center justify-center mb-4 border border-slate-800">
-                        <CheckCircle className="h-8 w-8 text-emerald-500/50" />
+                    <div className="flex flex-col items-center justify-center py-16 text-neutral-500">
+                      <div className="h-16 w-16 bg-white shadow-sm rounded-full flex items-center justify-center mb-4 border border-neutral-200">
+                        <CheckCircle className="h-8 w-8 text-success" />
                       </div>
-                      <h3 className="text-lg font-medium text-slate-300">All caught up!</h3>
-                      <p className="text-sm">No pending submissions require validation.</p>
+                      <h3 className="text-lg font-bold text-neutral-900">All caught up!</h3>
+                      <p className="text-sm font-medium mt-1">No pending submissions require validation.</p>
                     </div>
                   ) : (
                     queue.map((item) => (
-                      <div key={item.submission_id} className="group border border-slate-800 rounded-lg bg-slate-900 hover:border-slate-700 transition-all shadow-sm">
+                      <div key={item.submission_id} className="group border border-neutral-200 rounded-xl bg-white hover:border-primary-400 transition-all shadow-sm">
                         {/* Header Row */}
-                        <div className="p-4 border-b border-slate-800/50">
+                        <div className="p-4 border-b border-neutral-100 bg-neutral-50/50 rounded-t-xl">
                           <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
                             <div>
                               <div className="flex items-center gap-2 mb-1.5">
                                 {item.is_staged && (
-                                  <Badge className="bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase">
+                                  <Badge className="bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200 px-1.5 py-0.5 text-[10px] font-bold uppercase shadow-sm">
                                     <Scale className="h-3 w-3 mr-1" /> Sandbox
                                   </Badge>
                                 )}
                                 {item.submission_status === 'VALIDATED' ? (
-                                  <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase">
+                                  <Badge className="bg-success/10 text-success border-success/20 px-1.5 py-0.5 text-[10px] font-bold uppercase shadow-sm">
                                     Validated
                                   </Badge>
                                 ) : (
-                                  <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase">
+                                  <Badge className="bg-warning/10 text-warning border-warning/20 px-1.5 py-0.5 text-[10px] font-bold uppercase shadow-sm">
                                     Manual Review
                                   </Badge>
                                 )}
-                                <span className="text-xs text-slate-500 flex items-center">
-                                  <Bot className="h-3 w-3 mr-1" /> Automated Check
+                                <span className="text-xs text-neutral-500 font-bold flex items-center uppercase tracking-wider">
+                                  <Bot className="h-3.5 w-3.5 mr-1" /> Automated Check
                                 </span>
                               </div>
-                              <h4 className="font-semibold text-slate-200 text-sm">
+                              <h4 className="font-bold text-neutral-900 text-sm">
                                 {item.doc_type_name}
                               </h4>
-                              <p className="text-xs text-slate-400 mt-0.5">
-                                Submitted by <span className="text-slate-300">{item.faculty_name}</span> • {item.course_code}
+                              <p className="text-xs text-neutral-500 mt-0.5 font-medium">
+                                Submitted by <span className="text-neutral-900 font-bold">{item.faculty_name}</span> • {item.course_code}
                               </p>
                             </div>
-                            <span className="text-[10px] text-slate-500 bg-slate-950/50 px-2 py-1 rounded border border-slate-800">
+                            <span className="text-[10px] font-bold text-neutral-500 bg-white px-2 py-1 rounded-md border border-neutral-200 shadow-sm uppercase tracking-wider">
                               {item.submitted_at}
                             </span>
                           </div>
@@ -178,26 +178,26 @@ export default function AdminValidationPage() {
 
                         <div className="p-4">
                           {/* File Info Row */}
-                          <div className="flex items-center p-3 rounded-md bg-slate-950/50 border border-slate-800/50 mb-4 group-hover:border-slate-700/50 transition-colors">
-                            <div className="mr-3">
+                          <div className="flex items-center p-3 rounded-lg bg-neutral-50 border border-neutral-200 mb-4 group-hover:border-primary-200 transition-colors shadow-inner">
+                            <div className="mr-3 bg-white p-2 rounded border border-neutral-100 shadow-sm">
                               {getFileIcon(item.original_filename)}
                             </div>
                             <div className="flex-grow min-w-0">
-                              <p className="text-sm font-medium text-slate-200 truncate" title={item.original_filename}>
+                              <p className="text-sm font-bold text-neutral-900 truncate" title={item.original_filename}>
                                 {item.original_filename || "Untitled Document"}
                               </p>
                               <button
                                 onClick={() => downloadFile(item.submission_id)}
-                                className="text-xs text-blue-400 hover:text-blue-300 hover:underline flex items-center mt-0.5"
+                                className="text-xs font-bold text-primary-600 hover:text-primary-700 hover:underline flex items-center mt-1"
                               >
                                 <Download className="h-3 w-3 mr-1" /> Download Original
                               </button>
                             </div>
                             {item.gdrive_web_view_link && (
                               <Button
-                                variant="ghost"
+                                variant="outline"
                                 size="sm"
-                                className="h-8 text-slate-400 hover:text-slate-100 hover:bg-slate-800"
+                                className="h-8 text-neutral-600 hover:text-primary-600 hover:bg-primary-50 hover:border-primary-200 bg-white ml-2 transition-all shadow-sm"
                                 onClick={() => handlePreview(item.gdrive_web_view_link)}
                               >
                                 <Eye className="h-4 w-4 mr-2" /> Preview
@@ -210,7 +210,7 @@ export default function AdminValidationPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-7 text-xs border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20"
+                              className="h-7 text-xs border-info/20 bg-info/5 text-info hover:bg-info/10 font-bold shadow-sm"
                               onClick={() => handleRunAnalysis(item)}
                               disabled={analyzingId === item.submission_id}
                             >
@@ -223,7 +223,7 @@ export default function AdminValidationPage() {
                             </Button>
 
                             {item.bot_analysis && item.bot_analysis.status === 'PASSED' && (
-                              <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                              <Badge className="bg-success/10 text-success border-success/20 font-bold shadow-sm">
                                 <CheckCircle2 className="h-3 w-3 mr-1" /> AI Clean
                               </Badge>
                             )}
@@ -231,19 +231,19 @@ export default function AdminValidationPage() {
 
                           {/* Analysis Results / Issues */}
                           {((item.validation_issues && item.validation_issues.length > 0) || (item.bot_analysis && item.bot_analysis.issues && item.bot_analysis.issues.length > 0)) && (
-                            <div className="bg-rose-950/10 border border-rose-900/30 rounded-md p-3 mb-4">
+                            <div className="bg-destructive/5 border border-destructive/20 rounded-lg p-3 mb-4 shadow-sm">
                               <div className="flex items-start gap-2">
-                                <AlertTriangle className="h-4 w-4 text-rose-500 mt-0.5 shrink-0" />
+                                <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
                                 <div className="min-w-0">
-                                  <p className="font-semibold text-rose-400 text-xs uppercase tracking-wider mb-1">Issues Detected</p>
-                                  <ul className="list-disc list-inside text-xs text-rose-300/80 space-y-0.5">
+                                  <p className="font-bold text-destructive text-xs uppercase tracking-wider mb-1">Issues Detected</p>
+                                  <ul className="list-disc list-inside text-xs text-destructive/80 font-medium space-y-0.5">
                                     {/* Traditional Issues */}
                                     {item.validation_issues?.map((issue, i) => (
                                       <li key={`v-${i}`} className="truncate">{issue}</li>
                                     ))}
                                     {/* Bot Issues */}
                                     {item.bot_analysis?.issues?.map((issue, i) => (
-                                      <li key={`b-${i}`} className="truncate">{issue} <span className="text-[10px] opacity-60 ml-1">(AI)</span></li>
+                                      <li key={`b-${i}`} className="truncate">{issue} <span className="text-[10px] opacity-60 ml-1 font-bold">(AI)</span></li>
                                     ))}
                                   </ul>
                                 </div>
@@ -252,18 +252,18 @@ export default function AdminValidationPage() {
                           )}
 
                           {/* Action Buttons */}
-                          <div className="flex gap-3">
+                          <div className="flex gap-3 pt-2 border-t border-neutral-100">
                             <Button
                               variant="outline"
                               size="sm"
-                              className="flex-1 bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
+                              className="flex-1 bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900 shadow-sm font-bold transition-all active:scale-95"
                               onClick={() => handleActionClick(item, 'REQUEST_REVISION')}
                             >
-                              <RotateCcw className="h-3.5 w-3.5 mr-2" /> Request Revision
+                              <RotateCcw className="h-3.5 w-3.5 mr-2 text-warning" /> Request Revision
                             </Button>
                             <Button
                               size="sm"
-                              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-900/20"
+                              className="flex-1 bg-success hover:bg-success/90 text-white shadow-sm font-bold transition-all active:scale-95"
                               onClick={() => handleActionClick(item, 'APPROVE')}
                             >
                               <Check className="h-3.5 w-3.5 mr-2" /> Approve
@@ -279,27 +279,27 @@ export default function AdminValidationPage() {
           </Card>
 
           {/* Recently Approved */}
-          <Card className="bg-slate-900 border-slate-800 shadow-none shrink-0">
-            <CardHeader className="border-b border-slate-800 py-3">
-              <CardTitle className="text-base text-slate-100">Recently Approved</CardTitle>
+          <Card className="bg-white border-neutral-200 shadow-sm shrink-0">
+            <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-3">
+              <CardTitle className="text-base text-neutral-900 font-bold">Recently Approved</CardTitle>
             </CardHeader>
             <CardContent className="p-4">
               <div className="space-y-2">
                 {recentApprovals.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between p-2 rounded bg-slate-950/50 border border-slate-800/50">
+                  <div key={item.id} className="flex items-center justify-between p-2 rounded-lg bg-neutral-50 border border-neutral-200 shadow-sm">
                     <div className="flex items-center overflow-hidden min-w-0">
-                      <div className="p-1.5 bg-emerald-500/10 rounded mr-3">
-                        <FileCheck className="h-3.5 w-3.5 text-emerald-500" />
+                      <div className="p-1.5 bg-success/10 border border-success/20 rounded-md mr-3">
+                        <FileCheck className="h-4 w-4 text-success" />
                       </div>
                       <div className="min-w-0">
-                        <p className="font-medium text-xs text-slate-200 truncate">{item.filename}</p>
-                        <p className="text-[10px] text-slate-500 truncate">Approved by Admin • {item.date}</p>
+                        <p className="font-bold text-xs text-neutral-900 truncate">{item.filename}</p>
+                        <p className="text-[10px] text-neutral-500 font-medium truncate">Approved by Admin • {item.date}</p>
                       </div>
                     </div>
                   </div>
                 ))}
                 {recentApprovals.length === 0 && (
-                  <p className="text-sm text-slate-500 text-center py-2">No history available.</p>
+                  <p className="text-sm font-medium text-neutral-500 text-center py-2">No history available.</p>
                 )}
               </div>
             </CardContent>
@@ -310,48 +310,45 @@ export default function AdminValidationPage() {
         <div className="space-y-6 flex flex-col">
 
           {/* Statistics Widget */}
-          <Card className="bg-slate-900 border-slate-800 shadow-none">
-            <CardHeader className="border-b border-slate-800 py-3">
-              <CardTitle className="text-base text-slate-100">Statistics</CardTitle>
+          <Card className="bg-white border-neutral-200 shadow-sm">
+            <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-3">
+              <CardTitle className="text-base text-neutral-900 font-bold">Statistics</CardTitle>
             </CardHeader>
-            <CardContent className="p-4 space-y-4">
-              <StatItem label="Pending Review" value={stats.pending_count} color="text-amber-400" />
-              <StatItem label="Auto-Approved" value={stats.auto_approved_count} color="text-emerald-400" />
-              <StatItem label="Rejected / Revised" value={stats.rejected_count} color="text-rose-400" />
+            <CardContent className="p-4 space-y-3">
+              <StatItem label="Pending Review" value={stats.pending_count} color="text-warning" />
+              <StatItem label="Auto-Approved" value={stats.auto_approved_count} color="text-success" />
+              <StatItem label="Rejected / Revised" value={stats.rejected_count} color="text-destructive" />
 
-              <div className="pt-2 border-t border-slate-800 space-y-4">
-                <StatItem label="Staging Sandbox" value={stats.sandbox_count} color="text-fuchsia-400" />
-                <StatItem label="Official Vault" value={stats.vault_count} color="text-emerald-500" />
+              <div className="pt-3 border-t border-neutral-100 space-y-3 mt-1">
+                <StatItem label="Staging Sandbox" value={stats.sandbox_count} color="text-fuchsia-600" />
+                <StatItem label="Official Vault" value={stats.vault_count} color="text-primary-600" />
               </div>
             </CardContent>
           </Card>
 
           {/* Quick Actions Widget */}
-          <Card className="bg-slate-900 border-slate-800 shadow-none">
-            <CardHeader className="border-b border-slate-800 py-3">
-              <CardTitle className="text-base text-slate-100">Quick Actions</CardTitle>
+          <Card className="bg-white border-neutral-200 shadow-sm">
+            <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-3">
+              <CardTitle className="text-base text-neutral-900 font-bold">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-3">
               <SidebarBtn
                 icon={CheckCircle}
-                color="text-emerald-400"
-                bg="hover:bg-slate-800 border-slate-800"
+                color="text-success"
                 label="Approve All"
                 sub="Clear entire queue"
                 onClick={handleApproveAll}
               />
               <SidebarBtn
                 icon={Mail}
-                color="text-blue-400"
-                bg="hover:bg-slate-800 border-slate-800"
+                color="text-info"
                 label="Bulk Revision"
                 sub="Email all failed items"
                 onClick={() => alert("Bulk revisions sent.")}
               />
               <SidebarBtn
                 icon={SlidersHorizontal}
-                color="text-purple-400"
-                bg="hover:bg-slate-800 border-slate-800"
+                color="text-primary-600"
                 label="Validation Rules"
                 sub="Adjust automated checks"
                 onClick={() => navigate('/settings')}
@@ -360,29 +357,29 @@ export default function AdminValidationPage() {
           </Card>
 
           {/* Active Rules Widget */}
-          <Card className="bg-slate-900 border-slate-800 shadow-none flex-1">
-            <CardHeader className="border-b border-slate-800 py-3">
-              <CardTitle className="text-base text-slate-100">Active Checks</CardTitle>
+          <Card className="bg-white border-neutral-200 shadow-sm flex-1">
+            <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-3">
+              <CardTitle className="text-base text-neutral-900 font-bold">Active Checks</CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-4">
               <RuleItem
                 icon={Bot}
-                color="text-rose-400"
-                bg="bg-rose-500/10"
+                color="text-primary-600"
+                bg="bg-primary-50 border border-primary-100"
                 title="Syllabus Auditor"
                 desc="Scans for Vision, Mission & Grading"
               />
               <RuleItem
                 icon={FileCheck}
-                color="text-blue-400"
-                bg="bg-blue-500/10"
+                color="text-info"
+                bg="bg-info/10 border border-info/20"
                 title="Format Validator"
                 desc="Strict .pdf & .docx enforcement"
               />
               <RuleItem
                 icon={Scale}
-                color="text-emerald-400"
-                bg="bg-emerald-500/10"
+                color="text-warning"
+                bg="bg-warning/10 border border-warning/20"
                 title="Size Limiter"
                 desc="Max file size 25MB"
               />
@@ -393,16 +390,16 @@ export default function AdminValidationPage() {
 
       {/* Confirmation Dialog */}
       <Dialog open={actionDialogOpen} onOpenChange={setActionDialogOpen}>
-        <DialogContent className="bg-slate-900 border-slate-800 text-slate-100 sm:max-w-[425px]">
+        <DialogContent className="bg-white border-neutral-200 text-neutral-900 sm:max-w-[425px] shadow-xl">
           <DialogHeader>
-            <DialogTitle className="text-slate-100 flex items-center gap-2">
+            <DialogTitle className="text-neutral-900 flex items-center gap-2 font-bold">
               {pendingAction === 'APPROVE' ? (
-                <><Check className="h-5 w-5 text-emerald-500" /> Approve Submission</>
+                <><Check className="h-5 w-5 text-success" /> Approve Submission</>
               ) : (
-                <><RotateCcw className="h-5 w-5 text-amber-500" /> Request Revision</>
+                <><RotateCcw className="h-5 w-5 text-warning" /> Request Revision</>
               )}
             </DialogTitle>
-            <DialogDescription className="text-slate-400">
+            <DialogDescription className="text-neutral-500 font-medium">
               {pendingAction === 'APPROVE'
                 ? "This will mark the document as valid and notify the faculty."
                 : "This will return the document to the faculty for correction."}
@@ -411,31 +408,32 @@ export default function AdminValidationPage() {
 
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label className="text-xs font-semibold text-slate-400 uppercase">
-                {pendingAction === 'REQUEST_REVISION' ? "Reason for Rejection" : "Remarks (Optional)"}
+              <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">
+                {pendingAction === 'REQUEST_REVISION' ? "Reason for Rejection *" : "Remarks (Optional)"}
               </Label>
               <Textarea
                 placeholder={pendingAction === 'REQUEST_REVISION' ? "e.g., Wrong file format, missing signature..." : "Add a note..."}
                 value={remarks}
                 onChange={e => setRemarks(e.target.value)}
-                className="bg-slate-950 border-slate-700 text-slate-200 placeholder:text-slate-500 min-h-[100px] focus:border-blue-500"
+                className="bg-white border-neutral-200 text-neutral-900 placeholder:text-neutral-400 min-h-[100px] focus-visible:ring-primary-500 focus-visible:border-primary-500 shadow-sm"
               />
             </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="gap-2 sm:gap-0 mt-2 border-t border-neutral-100 pt-4">
             <Button
               variant="outline"
-              className="bg-transparent border-slate-700 text-slate-300 hover:bg-slate-800"
+              className="bg-transparent border-neutral-200 text-neutral-700 hover:bg-neutral-100 shadow-sm"
               onClick={() => setActionDialogOpen(false)}
             >
               Cancel
             </Button>
             <Button
               onClick={confirmAction}
-              className={pendingAction === 'APPROVE' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}
-              disabled={submitting}
+              className={`shadow-sm transition-all active:scale-95 font-bold ${pendingAction === 'APPROVE' ? 'bg-success hover:bg-success/90 text-white' : 'bg-primary-600 hover:bg-primary-700 text-white'}`}
+              disabled={submitting || (pendingAction === 'REQUEST_REVISION' && remarks.trim().length === 0)}
             >
+              {submitting ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : null}
               {submitting ? 'Processing...' : 'Confirm Action'}
             </Button>
           </DialogFooter>
@@ -444,12 +442,13 @@ export default function AdminValidationPage() {
 
       {/* Preview Dialog */}
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <DialogContent className="bg-slate-900 border-slate-800 text-slate-100 w-[90vw] max-w-4xl h-[80vh] p-0 overflow-hidden flex flex-col">
-          <div className="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-900 shrink-0">
-            <DialogTitle className="text-slate-100 text-sm">Document Preview</DialogTitle>
-            {/* Close button provided by Dialog primitive, usually */}
+        <DialogContent className="bg-white border-neutral-200 text-neutral-900 w-[90vw] max-w-4xl h-[80vh] p-0 overflow-hidden flex flex-col shadow-2xl">
+          <div className="flex justify-between items-center p-4 border-b border-neutral-200 bg-neutral-50/50 shrink-0">
+            <DialogTitle className="text-neutral-900 text-sm font-bold flex items-center gap-2">
+              <Eye className="h-4 w-4 text-primary-600" /> Document Preview
+            </DialogTitle>
           </div>
-          <div className="flex-1 bg-slate-950 relative">
+          <div className="flex-1 bg-neutral-100 relative">
             <iframe
               src={previewUrl}
               className="w-full h-full border-0"
@@ -466,36 +465,36 @@ export default function AdminValidationPage() {
 // --- Visual Helpers ---
 
 const RuleItem = ({ icon: Icon, color, bg, title, desc }) => (
-  <div className="flex items-start gap-3">
-    <div className={`p-2 rounded-md ${bg} shrink-0`}>
+  <div className="flex items-start gap-3 p-2 border border-transparent rounded-lg hover:border-neutral-100 hover:bg-neutral-50 transition-colors">
+    <div className={`p-2 rounded-md ${bg} shrink-0 shadow-sm`}>
       <Icon className={`h-4 w-4 ${color}`} />
     </div>
-    <div className="min-w-0">
-      <p className="font-medium text-sm text-slate-200">{title}</p>
-      <p className="text-xs text-slate-500 leading-tight mt-0.5">{desc}</p>
+    <div className="min-w-0 pt-0.5">
+      <p className="font-bold text-sm text-neutral-900 truncate">{title}</p>
+      <p className="text-xs text-neutral-500 font-medium leading-tight mt-0.5">{desc}</p>
     </div>
   </div>
 );
 
 const StatItem = ({ label, value, color }) => (
-  <div className="flex justify-between items-center p-2 rounded bg-slate-950/30 border border-slate-800/50">
-    <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">{label}</span>
+  <div className="flex justify-between items-center p-2.5 rounded-lg bg-neutral-50 border border-neutral-100 shadow-sm transition-colors hover:border-neutral-200">
+    <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider">{label}</span>
     <span className={`font-mono font-bold text-lg ${color}`}>{value}</span>
   </div>
 );
 
-const SidebarBtn = ({ icon: Icon, color, bg, label, sub, onClick }) => (
+const SidebarBtn = ({ icon: Icon, color, label, sub, onClick }) => (
   <button
     onClick={onClick}
-    className={`flex items-center w-full p-3 rounded-lg border transition-all text-left group ${bg}`}
+    className="flex items-center w-full p-3 rounded-xl border border-neutral-200 bg-white hover:border-primary-300 hover:bg-primary-50 transition-all text-left group shadow-sm active:scale-95"
   >
-    <div className={`mr-3 p-1.5 rounded bg-slate-950/50 group-hover:bg-slate-950 transition-colors`}>
+    <div className="mr-3 p-1.5 rounded-md bg-neutral-50 border border-neutral-100 group-hover:bg-white group-hover:border-primary-200 transition-colors shadow-sm">
       <Icon className={`h-4 w-4 ${color}`} />
     </div>
     <div className="flex-1 min-w-0">
-      <p className="font-medium text-sm text-slate-200 truncate">{label}</p>
-      <p className="text-[10px] text-slate-500 truncate">{sub}</p>
+      <p className="font-bold text-sm text-neutral-900 truncate group-hover:text-primary-700 transition-colors">{label}</p>
+      <p className="text-[10px] font-medium text-neutral-500 truncate mt-0.5">{sub}</p>
     </div>
-    <ArrowRight className="h-3 w-3 text-slate-600 group-hover:text-slate-400 transition-colors" />
+    <ArrowRight className="h-3 w-3 text-neutral-400 group-hover:text-primary-600 transition-colors ml-2" />
   </button>
 );

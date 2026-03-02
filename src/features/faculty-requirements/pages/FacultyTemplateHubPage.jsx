@@ -7,7 +7,7 @@ import {
   Copy,
   Download,
   Eye,
-  File,
+  File as FileIcon, // Aliased to prevent window.File constructor collision
   FileSpreadsheet,
   FileText,
   Presentation,
@@ -177,21 +177,21 @@ export default function FacultyTemplateHubPage() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-8">
+    <div className="space-y-6 flex flex-col h-full bg-neutral-50/30">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
         <div>
-          <h1 className="text-3xl font-bold text-slate-100">Template Hub</h1>
-          <p className="text-slate-400">
+          <h1 className="text-2xl font-bold text-neutral-900 mb-1">Template Hub</h1>
+          <p className="text-neutral-500 text-sm font-medium">
             Download official templates and clone previous documents
           </p>
         </div>
         <div className="flex items-center gap-2 w-full md:w-auto">
           <div className="relative flex-1 md:w-64">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" />
             <Input
               placeholder="Search templates..."
-              className="pl-9 bg-slate-900/50 border-slate-700 text-slate-200"
+              className="pl-9 bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 shadow-sm font-medium"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -200,14 +200,14 @@ export default function FacultyTemplateHubPage() {
       </div>
 
       {/* Quick Filters */}
-      <div className="flex gap-2 overflow-x-auto pb-2">
+      <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar shrink-0">
         {quickFilters.map((f) => (
           <Button
             key={f}
             variant={selectedCategory === f ? "default" : "outline"}
-            className={`whitespace-nowrap ${selectedCategory === f
-              ? "bg-blue-600 hover:bg-blue-700"
-              : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
+            className={`whitespace-nowrap font-bold shadow-sm transition-all rounded-full ${selectedCategory === f
+              ? "bg-primary-600 hover:bg-primary-700 text-white"
+              : "bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900"
               }`}
             onClick={() => setSelectedCategory(f)}
           >
@@ -217,26 +217,28 @@ export default function FacultyTemplateHubPage() {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
         {/* Left Column (2/3 width on large screens) */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-6 overflow-y-auto pr-1">
 
           {/* Official Templates Section */}
-          <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-semibold text-slate-100">Official Templates</h3>
-              <span className="text-sm text-slate-400">
+          <div className="bg-white border border-neutral-200 rounded-xl shadow-sm p-6 lg:p-8">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-2">
+              <h3 className="font-bold text-lg text-neutral-900 flex items-center gap-2">
+                <FileIcon className="h-5 w-5 text-primary-600" /> Official Templates
+              </h3>
+              <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider bg-neutral-100 px-3 py-1 rounded-full">
                 {templates.length > 0
-                  ? `Last updated: ${new Date(Math.max(...templates.map(t => new Date(t.created_at || t.updated_at || Date.now()).getTime()))).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}`
+                  ? `Updated: ${new Date(Math.max(...templates.map(t => new Date(t.created_at || t.updated_at || Date.now()).getTime()))).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}`
                   : 'Last updated: N/A'}
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {filteredTemplates.length === 0 ? (
-                <div className="col-span-2 text-center py-8 text-slate-500">
-                  <File className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>No templates found.</p>
+                <div className="col-span-2 text-center py-12 text-neutral-500 bg-neutral-50 border border-neutral-200 border-dashed rounded-xl">
+                  <FileIcon className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                  <p className="font-medium text-sm">No templates match your filters.</p>
                 </div>
               ) : (
                 filteredTemplates.map((t) => {
@@ -244,32 +246,35 @@ export default function FacultyTemplateHubPage() {
                   return (
                     <div
                       key={t.template_id}
-                      className="border border-slate-700 rounded-lg p-4 hover:bg-slate-800/40 transition-colors"
+                      className="bg-neutral-50 border border-neutral-200 rounded-xl p-5 hover:border-primary-300 hover:shadow-md transition-all group flex flex-col justify-between"
                     >
-                      <div className="flex items-start mb-3">
-                        <Icon className="h-8 w-8 mr-3 text-blue-400 flex-shrink-0" />
-                        <div>
-                          <h4 className="font-medium text-slate-100">{t.title}</h4>
-                          <p className="text-sm text-slate-400 line-clamp-2">{t.description}</p>
+                      <div>
+                        <div className="flex items-start mb-3">
+                          <div className="bg-white p-2.5 rounded-lg border border-neutral-100 shadow-sm mr-3">
+                            <Icon className="h-6 w-6 text-primary-500" />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-neutral-900 leading-tight">{t.title}</h4>
+                            <p className="text-[11px] text-neutral-500 font-medium mt-1 line-clamp-2">{t.description}</p>
+                          </div>
                         </div>
-                      </div>
-
-                      <div className="flex justify-between text-sm text-slate-500">
-                        <span className="bg-slate-800 px-2 py-0.5 rounded text-xs border border-slate-700">
-                          {t.category || 'General'}
-                        </span>
+                        <div className="mb-4">
+                          <span className="bg-white border border-neutral-200 text-[9px] font-bold uppercase tracking-wider text-neutral-500 px-2.5 py-0.5 rounded shadow-sm inline-block">
+                            {t.category || 'General'}
+                          </span>
+                        </div>
                       </div>
 
                       <Button
                         variant="outline"
-                        className="w-full mt-3 bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700"
+                        className="w-full bg-white border-neutral-200 text-neutral-700 hover:text-primary-700 hover:bg-primary-50 shadow-sm font-bold active:scale-95 transition-all"
                         onClick={() => {
                           if (t.file_url) window.open(t.file_url, '_blank');
                         }}
                         disabled={!t.file_url}
                       >
                         <Download className="h-4 w-4 mr-2" />
-                        Download
+                        Download Template
                       </Button>
                     </div>
                   );
@@ -279,24 +284,24 @@ export default function FacultyTemplateHubPage() {
           </div>
 
           {/* Clone from Previous Semester Section */}
-          <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md p-6">
-            <h3 className="font-semibold mb-4 text-slate-100 flex items-center">
-              <Copy className="h-5 w-5 mr-2 text-blue-400" />
+          <div className="bg-white border border-neutral-200 rounded-xl shadow-sm p-6 lg:p-8">
+            <h3 className="font-bold text-lg mb-2 text-neutral-900 flex items-center gap-2">
+              <Copy className="h-5 w-5 text-primary-600" />
               Clone from Previous Semester
             </h3>
-            <p className="text-slate-400 mb-6 text-sm">
-              Select an archived course from a past semester to duplicate its approved documents into your current active courses. It will automatically match the deadlines.
+            <p className="text-neutral-500 text-sm font-medium mb-6 leading-relaxed">
+              Select an archived course from a past semester to duplicate its approved documents into your current active courses. System will automatically recalibrate the deadlines.
             </p>
 
             <div className="space-y-6">
               {/* Source Selection */}
-              <div>
-                <label className="text-sm font-medium text-slate-300 mb-2 block">1. Select Source Archived Course</label>
+              <div className="bg-neutral-50 p-5 rounded-xl border border-neutral-200 shadow-inner">
+                <label className="text-xs font-bold uppercase tracking-wider text-neutral-600 mb-2.5 block">1. Select Source Archived Course</label>
                 <Select value={sourceCourseId} onValueChange={setSourceCourseId}>
-                  <SelectTrigger className="w-full bg-slate-800 border-slate-700 text-slate-200">
+                  <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 focus:ring-primary-500 shadow-sm font-medium">
                     <SelectValue placeholder="Choose an archived course..." />
                   </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-slate-700 text-slate-200">
+                  <SelectContent className="bg-white border-neutral-200 text-neutral-900 shadow-md">
                     {courseList && courseList.length > 0 ? (
                       courseList.map(course => (
                         <SelectItem key={course.course_id} value={course.course_id}>
@@ -304,7 +309,7 @@ export default function FacultyTemplateHubPage() {
                         </SelectItem>
                       ))
                     ) : (
-                      <div className="p-2 text-sm text-slate-500 text-center">No archived courses found for selected semester.</div>
+                      <div className="p-3 text-sm text-neutral-500 text-center font-medium italic">No archived courses found for selected semester.</div>
                     )}
                   </SelectContent>
                 </Select>
@@ -312,35 +317,35 @@ export default function FacultyTemplateHubPage() {
 
               {/* Dynamic Checklist */}
               {sourceCourseId && (
-                <div className="border border-slate-700 rounded-lg p-4 bg-slate-950/30">
-                  <div className="flex justify-between items-center mb-3">
-                    <label className="text-sm font-medium text-slate-300">2. Select Documents to Clone</label>
+                <div className="border border-neutral-200 rounded-xl p-5 bg-white shadow-sm">
+                  <div className="flex justify-between items-center mb-4 border-b border-neutral-100 pb-3">
+                    <label className="text-xs font-bold uppercase tracking-wider text-neutral-600">2. Select Documents to Clone</label>
                     {courseHistory.length > 0 && (
-                      <Button variant="ghost" size="sm" onClick={toggleAllDocs} className="h-8 text-xs text-blue-400 hover:text-blue-300">
+                      <Button variant="ghost" size="sm" onClick={toggleAllDocs} className="h-7 text-[10px] font-bold uppercase tracking-wider text-primary-600 hover:text-primary-700 hover:bg-primary-50">
                         {selectedDocsToClone.length === courseHistory.length ? "Deselect All" : "Select All"}
                       </Button>
                     )}
                   </div>
 
                   {loading && courseHistory.length === 0 ? (
-                    <div className="text-center py-4 text-slate-500 text-sm">Loading documents...</div>
+                    <div className="text-center py-6 text-neutral-500 text-sm font-medium">Loading documents...</div>
                   ) : courseHistory.length === 0 ? (
-                    <div className="text-center py-4 text-slate-500 text-sm">No documents found for this course.</div>
+                    <div className="text-center py-6 text-neutral-500 text-sm font-medium bg-neutral-50 rounded-lg border border-neutral-200 border-dashed">No documents found for this course.</div>
                   ) : (
-                    <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-3 custom-scrollbar">
                       {courseHistory.map(doc => (
-                        <div key={doc.submission_id} className="flex items-start space-x-3 p-2 hover:bg-slate-800/50 rounded transition-colors">
+                        <div key={doc.submission_id} className="flex items-start space-x-3 p-3 bg-neutral-50 hover:bg-neutral-100 border border-transparent hover:border-neutral-200 rounded-lg transition-colors group">
                           <Checkbox
                             id={`doc-${doc.submission_id}`}
                             checked={selectedDocsToClone.includes(doc.submission_id)}
                             onCheckedChange={() => toggleDocSelection(doc.submission_id)}
-                            className="mt-1 border-slate-500 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                            className="mt-1 border-neutral-300 data-[state=checked]:bg-primary-600 data-[state=checked]:border-primary-600 shadow-sm"
                           />
-                          <div className="grid gap-1.5 leading-none cursor-pointer" onClick={() => toggleDocSelection(doc.submission_id)}>
-                            <label className="text-sm font-medium leading-none text-slate-200 cursor-pointer">
+                          <div className="grid gap-1 leading-none cursor-pointer flex-1" onClick={() => toggleDocSelection(doc.submission_id)}>
+                            <label className="text-sm font-bold text-neutral-900 cursor-pointer group-hover:text-primary-700 transition-colors">
                               {doc.documenttypes_fs?.type_name || "Document"}
                             </label>
-                            <p className="text-xs text-slate-500">
+                            <p className="text-[11px] font-medium text-neutral-500">
                               {doc.original_filename}
                             </p>
                           </div>
@@ -353,33 +358,35 @@ export default function FacultyTemplateHubPage() {
 
               {/* Target Selection & Execute Button */}
               {sourceCourseId && courseHistory.length > 0 && (
-                <div className="pt-2 border-t border-slate-800">
-                  <label className="text-sm font-medium text-slate-300 mb-2 block">3. Select Target Active Course</label>
-                  <Select value={targetCourseId} onValueChange={setTargetCourseId}>
-                    <SelectTrigger className="w-full bg-slate-800 border-slate-700 text-slate-200 mb-4">
-                      <SelectValue placeholder="Choose current semester course..." />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-800 border-slate-700 text-slate-200">
-                      {activeCourses && activeCourses.length > 0 ? (
-                        activeCourses.map(course => (
-                          <SelectItem key={course.course_id} value={course.course_id}>
-                            {course.course_code} - {course.course_name}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <div className="p-2 text-sm text-slate-500 text-center">No active courses configured.</div>
-                      )}
-                    </SelectContent>
-                  </Select>
+                <div className="pt-4 border-t border-neutral-100">
+                  <div className="bg-neutral-50 p-5 rounded-xl border border-neutral-200 shadow-inner mb-6">
+                    <label className="text-xs font-bold uppercase tracking-wider text-neutral-600 mb-2.5 block">3. Select Target Active Course</label>
+                    <Select value={targetCourseId} onValueChange={setTargetCourseId}>
+                      <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 focus:ring-primary-500 shadow-sm font-medium">
+                        <SelectValue placeholder="Choose current semester course..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white border-neutral-200 text-neutral-900 shadow-md">
+                        {activeCourses && activeCourses.length > 0 ? (
+                          activeCourses.map(course => (
+                            <SelectItem key={course.course_id} value={course.course_id}>
+                              {course.course_code} - {course.course_name}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <div className="p-3 text-sm text-neutral-500 text-center font-medium italic">No active courses configured.</div>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
                   {cloneStatus && (
-                    <div className={`p-3 mb-4 rounded-md text-sm flex items-start ${cloneStatus.type === 'error' ? 'bg-red-900/40 text-red-200 border border-red-800' :
-                        cloneStatus.type === 'success' ? 'bg-green-900/40 text-green-200 border border-green-800' :
-                          'bg-blue-900/40 text-blue-200 border border-blue-800'
+                    <div className={`p-4 mb-5 rounded-lg text-sm font-bold flex items-start shadow-sm border ${cloneStatus.type === 'error' ? 'bg-destructive/5 text-destructive border-destructive/20' :
+                        cloneStatus.type === 'success' ? 'bg-success/5 text-success border-success/20' :
+                          'bg-info/5 text-info border-info/20'
                       }`}>
-                      {cloneStatus.type === 'error' ? <AlertCircle className="h-4 w-4 mr-2 mt-0.5" /> :
-                        cloneStatus.type === 'success' ? <CheckCircle2 className="h-4 w-4 mr-2 mt-0.5" /> :
-                          <Copy className="h-4 w-4 mr-2 mt-0.5 animate-pulse" />}
+                      {cloneStatus.type === 'error' ? <AlertCircle className="h-4 w-4 mr-2.5 mt-0.5 shrink-0" /> :
+                        cloneStatus.type === 'success' ? <CheckCircle2 className="h-4 w-4 mr-2.5 mt-0.5 shrink-0" /> :
+                          <Copy className="h-4 w-4 mr-2.5 mt-0.5 shrink-0 animate-pulse" />}
                       {cloneStatus.message}
                     </div>
                   )}
@@ -387,14 +394,14 @@ export default function FacultyTemplateHubPage() {
                   <Button
                     onClick={executeClone}
                     disabled={!targetCourseId || selectedDocsToClone.length === 0 || cloning}
-                    className={`w-full ${!targetCourseId || selectedDocsToClone.length === 0
-                        ? "bg-slate-800 text-slate-500 cursor-not-allowed"
-                        : "bg-blue-600 hover:bg-blue-700 text-white"
+                    className={`w-full font-bold h-12 shadow-sm transition-all active:scale-95 ${!targetCourseId || selectedDocsToClone.length === 0
+                        ? "bg-neutral-100 text-neutral-400 border border-neutral-200 cursor-not-allowed"
+                        : "bg-primary-600 hover:bg-primary-700 text-white"
                       }`}
                   >
                     {cloning ? (
                       <>
-                        <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         Cloning Documents...
                       </>
                     ) : (
@@ -409,54 +416,59 @@ export default function FacultyTemplateHubPage() {
             </div>
           </div>
 
-
         </div>
 
         {/* Right Column (1/3 width) */}
-        <div>
+        <div className="flex flex-col gap-6">
           {/* Archived Documents */}
-          <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md p-6 sticky top-6">
-            <h3 className="font-semibold mb-4 text-slate-100">Your Archived Documents</h3>
-            <div className="space-y-3">
+          <div className="bg-white border border-neutral-200 rounded-xl shadow-sm p-6 max-h-[600px] flex flex-col">
+            <h3 className="font-bold mb-4 text-neutral-900 border-b border-neutral-100 pb-3 shrink-0 flex items-center gap-2">
+              <Archive className="h-5 w-5 text-primary-600" /> Your Archives
+            </h3>
+
+            <div className="space-y-3 overflow-y-auto pr-2 custom-scrollbar flex-1">
               {archivedDocs && archivedDocs.length > 0 ? (
                 archivedDocs.map((d) => (
                   <div
                     key={d.submission_id}
-                    className="flex items-center justify-between p-3 bg-slate-800/50 rounded"
+                    className="flex items-center justify-between p-3.5 bg-neutral-50 rounded-xl border border-neutral-200 hover:border-primary-300 hover:shadow-md transition-all group"
                   >
-                    <div className="flex items-center">
-                      <FileText className="h-5 w-5 text-slate-400 mr-3 flex-shrink-0" />
-                      <div>
-                        <p className="font-medium text-slate-100 text-sm">
+                    <div className="flex items-center min-w-0">
+                      <div className="bg-white p-2 rounded-lg border border-neutral-100 shadow-sm mr-3 shrink-0">
+                        <FileIcon className="h-4 w-4 text-neutral-400 group-hover:text-primary-500 transition-colors" />
+                      </div>
+                      <div className="min-w-0 pr-3">
+                        <p className="font-bold text-neutral-900 text-sm truncate">
                           {d.documenttypes_fs?.type_name || d.standardized_filename}
                         </p>
-                        <p className="text-xs text-slate-400">
+                        <p className="text-[11px] font-medium text-neutral-500 uppercase tracking-wider mt-0.5 truncate">
                           {d.courses_fs?.course_code} · {new Date(d.submitted_at).toLocaleDateString()}
                         </p>
                       </div>
                     </div>
                     <Button
                       variant="outline"
-                      size="sm"
-                      className="bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700 flex-shrink-0"
+                      size="icon"
+                      className="bg-white border-neutral-200 text-neutral-600 hover:text-primary-600 hover:bg-primary-50 hover:border-primary-200 shadow-sm shrink-0 transition-colors h-8 w-8"
                       onClick={() => d.gdrive_web_view_link && window.open(d.gdrive_web_view_link, '_blank')}
                       disabled={!d.gdrive_web_view_link}
+                      title="View Archive"
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
                   </div>
                 ))
               ) : (
-                <div className="text-center py-4 text-slate-500">
-                  <Archive className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">No archives found</p>
+                <div className="text-center py-10 bg-neutral-50 rounded-xl border border-dashed border-neutral-200 text-neutral-500">
+                  <Archive className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm font-medium">No archives found</p>
                 </div>
               )}
             </div>
 
             <Button
               variant="outline"
-              className="w-full mt-4 bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700"
+              className="w-full mt-4 bg-white border-neutral-200 text-neutral-700 hover:text-primary-700 hover:bg-primary-50 shadow-sm font-bold active:scale-95 transition-all shrink-0"
               onClick={() => navigate("/faculty-requirements/archive")}
             >
               <Archive className="h-4 w-4 mr-2" />
@@ -465,22 +477,24 @@ export default function FacultyTemplateHubPage() {
           </div>
 
           {/* FAQ Section */}
-          <div className="bg-slate-900/50 border border-slate-800 rounded-lg shadow-md p-6 mt-6">
-            <h3 className="font-semibold mb-4 text-slate-100">Frequently Asked Questions</h3>
+          <div className="bg-white border border-neutral-200 rounded-xl shadow-sm p-6 shrink-0">
+            <h3 className="font-bold mb-2 text-neutral-900 flex items-center gap-2">
+              FAQ
+            </h3>
             <Accordion type="single" collapsible className="w-full">
               {faqs.length === 0 ? (
-                <div className="text-center py-4 text-slate-500 text-sm">No FAQs available.</div>
+                <div className="text-center py-4 text-neutral-500 text-sm font-medium italic">No FAQs available.</div>
               ) : (
                 faqs.map((faq) => (
                   <AccordionItem
                     key={faq.faq_id}
                     value={`item-${faq.faq_id}`}
-                    className="border-slate-800"
+                    className="border-neutral-100"
                   >
-                    <AccordionTrigger className="text-slate-200 hover:text-slate-100 text-left">
+                    <AccordionTrigger className="text-neutral-800 hover:text-primary-600 font-bold text-left text-sm py-3 transition-colors">
                       {faq.question}
                     </AccordionTrigger>
-                    <AccordionContent className="text-slate-400">
+                    <AccordionContent className="text-neutral-600 font-medium text-sm leading-relaxed pb-3">
                       {faq.answer}
                     </AccordionContent>
                   </AccordionItem>

@@ -15,7 +15,7 @@ const AnalyticsCard = ({ title, value, trend, isUp, icon: Icon }) => (
   <Card className="bg-slate-900 border-slate-800 rounded-xl overflow-hidden relative group transition-all hover:border-slate-700">
     <CardContent className="p-5">
       <div className="flex justify-between items-start mb-4">
-        <p className="text-xs font-semibold text-slate-500 tracking-tight">{title}</p>
+        <p className="text-sm font-semibold text-slate-500 tracking-tight">{title}</p>
         <div className="p-2 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-400 group-hover:text-white transition-colors">
           <Icon size={18} />
         </div>

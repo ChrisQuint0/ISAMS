@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AgGridReact } from 'ag-grid-react';
-import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-community';
+import { ModuleRegistry, AllCommunityModule, themeQuartz } from 'ag-grid-community';
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -20,17 +20,21 @@ import { Progress } from "@/components/ui/progress";
 // Custom Hook
 import { useAdminDashboard } from '../hooks/AdminDashboardHook';
 
-// Custom theme using AG Grid v33+ Theming API with Balham theme (better dark mode support)
-const customTheme = themeBalham.withParams({
-  accentColor: '#3b82f6',
-  backgroundColor: '#020617',
-  foregroundColor: '#e2e8f0',
-  borderColor: '#1e293b',
-  headerBackgroundColor: '#0f172a',
-  headerTextColor: '#94a3b8',
-  oddRowBackgroundColor: '#020617',
+// Custom theme using AG Grid v33+ Theming API with Quartz theme for a clean institutional look
+const customTheme = themeQuartz.withParams({
+  accentColor: 'var(--primary-600)',
+  backgroundColor: 'var(--neutral-50)',
+  foregroundColor: 'var(--neutral-900)',
+  borderColor: 'var(--neutral-200)',
+  headerBackgroundColor: 'var(--neutral-100)',
+  headerTextColor: 'var(--neutral-900)',
+  oddRowBackgroundColor: '#ffffff',
+  rowHoverColor: 'var(--neutral-100)',
+  selectedRowBackgroundColor: 'color-mix(in srgb, var(--primary-500) 10%, transparent)',
   rowHeight: 48,
   headerHeight: 40,
+  headerFontWeight: '700',
+  fontSize: '13px',
 });
 
 export default function AdminDashboardPage() {
@@ -76,22 +80,22 @@ export default function AdminDashboardPage() {
       headerName: "Faculty Name",
       flex: 1.5,
       filter: true,
-      cellClass: "font-medium text-slate-200"
+      cellClass: "font-semibold text-neutral-900"
     },
     {
       field: "department",
       headerName: "Department",
       flex: 1.2,
       filter: true,
-      cellClass: "text-slate-400"
+      cellClass: "text-neutral-500 font-medium"
     },
     {
       field: "courses_count",
       headerName: "Courses",
       width: 120,
       cellRenderer: (params) => (
-        <span className="text-slate-400 bg-slate-800/50 px-2 py-1 rounded text-xs">
-          {params.value} courses
+        <span className="text-neutral-600 bg-neutral-100 px-2 py-0.5 border border-neutral-200 rounded text-[10px] font-bold">
+          {params.value} COURSES
         </span>
       )
     },
@@ -101,16 +105,15 @@ export default function AdminDashboardPage() {
       flex: 1.5,
       cellRenderer: (params) => (
         <div className="flex items-center w-full pr-4 gap-3">
-          {/* FIX: Used flex-1 so bar takes available space */}
-          <div className="flex-1 bg-slate-800 rounded-full h-2 overflow-hidden">
+          <div className="flex-1 bg-neutral-100 rounded-full h-1.5 overflow-hidden border border-neutral-200">
             <div
-              className={`h-full rounded-full transition-all duration-500 ${params.value >= 100 ? 'bg-green-500' :
-                params.value >= 50 ? 'bg-blue-500' : 'bg-amber-500'
+              className={`h-full rounded-full transition-all duration-500 ${params.value >= 100 ? 'bg-primary-600' :
+                params.value >= 50 ? 'bg-info' : 'bg-warning'
                 }`}
               style={{ width: `${Math.min(params.value, 100)}%` }}
             />
           </div>
-          <span className="text-xs font-medium text-slate-300 w-8 text-right">
+          <span className="text-[10px] font-bold text-neutral-900 w-8 text-right">
             {params.value.toFixed(0)}%
           </span>
         </div>
@@ -122,15 +125,15 @@ export default function AdminDashboardPage() {
       width: 140,
       cellRenderer: (params) => {
         const styles = {
-          'On Track': 'bg-green-500/10 text-green-400 border-green-500/20',
-          'At Risk': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-          'Delayed': 'bg-red-500/10 text-red-400 border-red-500/20',
-          'No Submissions': 'bg-slate-800 text-slate-400 border-slate-700'
+          'On Track': 'bg-success/10 text-success border-success/20',
+          'At Risk': 'bg-warning/10 text-warning border-warning/20',
+          'Delayed': 'bg-destructive-semantic/10 text-destructive-semantic border-destructive-semantic/20',
+          'No Submissions': 'bg-neutral-100 text-neutral-500 border-neutral-200'
         };
         const activeStyle = styles[params.value] || styles['No Submissions'];
 
         return (
-          <span className={`px-2 py-1 rounded-md text-xs font-medium border ${activeStyle} flex items-center justify-center w-fit`}>
+          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border uppercase tracking-wider ${activeStyle} flex items-center justify-center w-fit`}>
             {params.value}
           </span>
         );
@@ -143,11 +146,11 @@ export default function AdminDashboardPage() {
       sortable: false,
       filter: false,
       cellRenderer: (params) => (
-        <div className="flex gap-1">
+        <div className="flex gap-1 items-center h-full">
           <Button
             size="icon"
             variant="ghost"
-            className="h-7 w-7 text-slate-400 hover:text-blue-400 hover:bg-slate-800"
+            className="h-7 w-7 text-neutral-400 hover:text-primary-600 hover:bg-primary-600/10"
             onClick={() => navigate(`/faculty/${params.data.faculty_id}`)}
             title="View Details"
           >
@@ -156,7 +159,7 @@ export default function AdminDashboardPage() {
           <Button
             size="icon"
             variant="ghost"
-            className="h-7 w-7 text-slate-400 hover:text-amber-400 hover:bg-slate-800"
+            className="h-7 w-7 text-neutral-400 hover:text-gold-600 hover:bg-gold-500/10"
             onClick={() => sendIndividualReminder(params.data)}
             title="Send Reminder"
           >
@@ -168,25 +171,25 @@ export default function AdminDashboardPage() {
   ], [sendIndividualReminder, navigate]);
 
   return (
-    <div className="space-y-6 h-full flex flex-col">
+    <div className="space-y-6 flex flex-col h-full bg-neutral-50">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
         <div>
-          <h1 className="text-2xl font-bold text-slate-100">Dean's Dashboard</h1>
-          <p className="text-slate-400 text-sm">College-wide overview • {settings?.semester || 'Loading...'}, AY {settings?.academic_year || '...'}</p>
+          <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Dean's Dashboard</h1>
+          <p className="text-neutral-500 text-sm font-medium">College-wide overview • {settings?.semester || 'Loading...'}, AY {settings?.academic_year || '...'}</p>
         </div>
         <div className="flex gap-2 w-full md:w-auto">
           <Button
             variant="outline"
             onClick={refresh}
             disabled={loading}
-            className="bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
+            className="bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50 hover:text-primary-600 shadow-sm"
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh Data
           </Button>
           <Button
-            className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-900/20"
+            className="bg-primary-600 hover:bg-primary-700 text-white shadow-md shadow-emerald-900/10 transition-all font-bold"
             onClick={() => window.print()}
           >
             <Download className="h-4 w-4 mr-2" />
@@ -217,36 +220,36 @@ export default function AdminDashboardPage() {
           title="Overall Completion"
           value={`${stats.overall_completion}%`}
           icon={PieChart}
-          color="text-emerald-400"
-          bg="bg-emerald-500/10"
-          border="border-emerald-500/20"
+          color="text-primary-600"
+          bg="bg-white"
+          border="border-neutral-200"
         />
         <StatCard
           title="Pending Submissions"
           value={stats.pending_submissions}
-          sub="12 days to deadline"
+          sub="12 days to institutional deadline"
           icon={Clock}
-          color="text-amber-400"
-          bg="bg-amber-500/10"
-          border="border-amber-500/20"
+          color="text-neutral-500"
+          bg="bg-white"
+          border="border-neutral-200"
         />
         <StatCard
           title="Validation Queue"
           value={stats.validation_queue}
-          sub="Requires attention"
+          sub="Items requiring dean audit"
           icon={AlertTriangle}
-          color="text-rose-400"
-          bg="bg-rose-500/10"
-          border="border-rose-500/20"
+          color="text-warning"
+          bg="bg-white"
+          border="border-neutral-200"
         />
         <StatCard
           title="On-Time Rate"
           value={`${stats.on_time_rate}%`}
-          sub="+5% from last sem"
-          icon={CalendarCheck}
-          color="text-blue-400"
-          bg="bg-blue-500/10"
-          border="border-blue-500/20"
+          sub="+5% from last academic semester"
+          icon={CheckCircle}
+          color="text-success"
+          bg="bg-white"
+          border="border-neutral-200"
         />
       </div>
 
@@ -254,40 +257,38 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 shrink-0">
 
         {/* Department Progress (Left 2 Columns) */}
-        <Card className="lg:col-span-2 bg-slate-900 border-slate-800 shadow-none">
-          <CardHeader className="border-b border-slate-800 py-4">
+        <Card className="lg:col-span-2 bg-white border-neutral-200 shadow-sm overflow-hidden">
+          <CardHeader className="border-b border-neutral-100 py-4 bg-neutral-50/50">
             <div className="flex justify-between items-center">
-              <CardTitle className="text-base font-medium text-slate-100">Department Progress</CardTitle>
+              <CardTitle className="text-base font-bold text-neutral-900 uppercase tracking-tight">Department Progress</CardTitle>
               <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-                <SelectTrigger className="w-[180px] h-8 bg-slate-800 border-slate-700 text-xs text-slate-200">
+                <SelectTrigger className="w-[180px] h-8 bg-white border-neutral-200 text-xs text-neutral-900 font-semibold shadow-sm focus:ring-primary-500/20">
                   <SelectValue placeholder="Select department" />
                 </SelectTrigger>
-                <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
+                <SelectContent className="bg-white border-neutral-200 text-neutral-900">
                   {departments.map(d => (
-                    <SelectItem key={d} value={d} className="focus:bg-slate-300 text-xs">{d}</SelectItem>
+                    <SelectItem key={d} value={d} className="focus:bg-neutral-100 text-xs font-medium">{d}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
           </CardHeader>
-          <CardContent className="pt-6 space-y-5">
+          <CardContent className="pt-6 space-y-6 bg-white">
             {departmentProgress
               .filter(d => selectedDepartment === 'All Departments' || d.department === selectedDepartment)
               .map(d => (
                 <div key={d.department} className="group">
                   <div className="flex justify-between text-sm mb-2">
-                    <span className="text-slate-300 font-medium">{d.department}</span>
-                    <span className="font-bold text-slate-100">{d.progress}%</span>
+                    <span className="text-neutral-700 font-bold">{d.department}</span>
+                    <span className="font-extrabold text-primary-600">{d.progress}%</span>
                   </div>
                   <Progress
                     value={d.progress}
-                    className="h-2 bg-slate-800"
-                  // Use a more specific selector or style for the indicator if needed, 
-                  // but default Shadcn Progress usually handles color via class
+                    className="h-2 bg-neutral-100 border border-neutral-200 shadow-inner"
                   />
-                  <div className="flex justify-between text-xs text-slate-500 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span>{d.total_faculty} faculty members</span>
-                    <span>{d.faculty_completed} completed</span>
+                  <div className="flex justify-between text-[10px] text-neutral-400 mt-1 uppercase font-bold tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span>{d.total_faculty} Faculty Members</span>
+                    <span>{d.faculty_completed} Validated</span>
                   </div>
                 </div>
               ))}
@@ -295,43 +296,43 @@ export default function AdminDashboardPage() {
         </Card>
 
         {/* Quick Actions (Right Column) */}
-        <Card className="bg-slate-900 border-slate-800 shadow-none h-full">
-          <CardHeader className="border-b border-slate-800 py-4">
-            <CardTitle className="text-base font-medium text-slate-100">Quick Actions</CardTitle>
+        <Card className="bg-white border-neutral-200 shadow-sm h-full overflow-hidden">
+          <CardHeader className="border-b border-neutral-100 py-4 bg-neutral-50/50">
+            <CardTitle className="text-base font-bold text-neutral-900 uppercase tracking-tight">Quick Actions</CardTitle>
           </CardHeader>
-          <CardContent className="pt-6">
+          <CardContent className="pt-6 bg-white">
             <div className="space-y-3">
               <ActionButton
                 icon={CalendarPlus}
                 label="Extend Deadline"
-                sub="Modify submission dates"
+                sub="Modify academic dates"
                 onClick={() => navigate('/deadlines')}
-                color="text-emerald-400"
-                bg="hover:bg-slate-800/80"
+                color="text-primary-600"
+                bg="hover:bg-neutral-50"
               />
               <ActionButton
                 icon={CheckCircle}
                 label="Review Queue"
-                sub={`${stats.validation_queue} pending items`}
+                sub={`${stats.validation_queue} Pending items`}
                 onClick={() => navigate('/validation')}
-                color="text-blue-400"
-                bg="hover:bg-slate-800/80"
+                color="text-info"
+                bg="hover:bg-neutral-50"
               />
               <ActionButton
                 icon={FileText}
                 label="Export Report"
-                sub="Download status report"
+                sub="Download GSDS report"
                 onClick={() => navigate('/reports')}
-                color="text-purple-400"
-                bg="hover:bg-slate-800/80"
+                color="text-gold-600"
+                bg="hover:bg-neutral-50"
               />
               <ActionButton
                 icon={Bell}
                 label="Send Reminders"
                 sub="Notify pending faculty"
                 onClick={() => { if (window.confirm('Send bulk reminders?')) sendBulkReminders(); }}
-                color="text-amber-400"
-                bg="hover:bg-slate-800/80"
+                color="text-warning"
+                bg="hover:bg-neutral-50"
               />
             </div>
           </CardContent>
@@ -339,15 +340,15 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Faculty Grid - Fills remaining height */}
-      <Card className="flex-1 bg-slate-900 border-slate-800 shadow-none flex flex-col min-h-[400px]">
-        <CardHeader className="border-b border-slate-800 py-4 shrink-0">
+      <Card className="flex-1 bg-white border-neutral-200 shadow-sm flex flex-col min-h-[400px] overflow-hidden">
+        <CardHeader className="border-b border-neutral-100 py-4 shrink-0 bg-neutral-50/50">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <CardTitle className="text-base font-medium text-slate-100">Faculty Status Overview</CardTitle>
+            <CardTitle className="text-base font-bold text-neutral-900 uppercase tracking-tight">Faculty Status Overview</CardTitle>
             <div className="relative w-full sm:w-[300px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-primary-600 transition-colors" />
               <Input
                 placeholder="Search faculty name or department..."
-                className="pl-10 bg-slate-800 border-slate-700 text-slate-200 placeholder:text-slate-500 focus:ring-blue-500/20"
+                className="pl-10 bg-white border-neutral-200 text-neutral-900 placeholder:text-neutral-400 focus-visible:ring-primary-500 focus-visible:border-primary-500 transition-all font-medium"
                 value={searchText}
                 onChange={e => setSearchText(e.target.value)}
               />
@@ -377,19 +378,18 @@ export default function AdminDashboardPage() {
 
 function StatCard({ title, value, sub, icon: Icon, color, bg, border }) {
   return (
-    // FIX: Removed 'bg-transparent' to allow color themes to show
-    <Card className={`${bg} ${border} border backdrop-blur-sm shadow-none`}>
+    <Card className={`${bg} ${border} shadow-sm border-neutral-200 transition-all hover:shadow-md`}>
       <CardContent className="p-5">
         <div className="flex justify-between items-start">
           <div>
-            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">{title}</p>
-            <p className="text-2xl font-bold text-slate-100 mt-1">{value}</p>
+            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">{title}</p>
+            <p className="text-2xl font-bold text-neutral-900 mt-1">{value}</p>
           </div>
-          <div className={`p-2 rounded-lg bg-slate-950/30 border ${border}`}>
+          <div className={`p-2 rounded-lg bg-neutral-50 border border-neutral-100`}>
             <Icon className={`h-5 w-5 ${color}`} />
           </div>
         </div>
-        {sub && <p className="text-xs text-slate-400 mt-3 font-medium">{sub}</p>}
+        {sub && <p className="text-[10px] text-neutral-400 mt-3 font-bold uppercase tracking-tight">{sub}</p>}
       </CardContent>
     </Card>
   );
@@ -399,14 +399,14 @@ function ActionButton({ icon: Icon, label, sub, onClick, color, bg }) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center w-full p-3 rounded-lg transition-all duration-200 text-left border border-slate-800 hover:border-slate-700 group ${bg}`}
+      className={`flex items-center w-full p-3 rounded-lg transition-all duration-200 text-left border border-neutral-100 hover:border-primary-200 hover:shadow-sm group bg-neutral-50/30 ${bg}`}
     >
-      <div className={`mr-4 p-2 rounded-md bg-slate-950/50 group-hover:bg-slate-950 transition-colors`}>
+      <div className={`mr-4 p-2 rounded-md bg-white border border-neutral-200 group-hover:border-primary-100 transition-all shadow-xs`}>
         <Icon className={`${color} h-5 w-5`} />
       </div>
-      <div className="flex-1 min-w-0"> {/* min-w-0 helps text truncation work */}
-        <p className="font-medium text-slate-200 text-sm">{label}</p>
-        <p className="text-xs text-slate-500 truncate">{sub}</p>
+      <div className="flex-1 min-w-0">
+        <p className="font-bold text-neutral-900 text-sm tracking-tight">{label}</p>
+        <p className="text-[10px] text-neutral-500 font-extrabold uppercase tracking-wider truncate">{sub}</p>
       </div>
     </button>
   );

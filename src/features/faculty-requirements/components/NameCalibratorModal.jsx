@@ -1,3 +1,4 @@
+import { RefreshCw } from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
@@ -44,13 +45,13 @@ export default function NameCalibratorModal({ isOpen, onClose, template, onSave 
             const sampleName = "JUAN DELA CRUZ";
             const textWidth = helveticaFont.widthOfTextAtSize(sampleName, fontSize);
 
-            // Draw the sample name
+            // Draw the sample name using PLP Green (rgb mapping of #006b35)
             firstPage.drawText(sampleName, {
                 x: Number(currentX),
                 y: Number(currentY),
                 size: fontSize,
                 font: helveticaFont,
-                color: rgb(0, 0.53, 0.71), // ISAMS Blue-ish
+                color: rgb(0, 107 / 255, 53 / 255),
             });
 
             // Draw a red bounding box for visual calibration
@@ -103,19 +104,19 @@ export default function NameCalibratorModal({ isOpen, onClose, template, onSave 
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="bg-slate-900 border-slate-700 text-slate-100 !max-w-[95vw] !w-[95vw] !h-[90vh] flex flex-col">
+            <DialogContent className="bg-neutral-50 border-neutral-200 text-neutral-900 !max-w-[95vw] !w-[95vw] !h-[90vh] flex flex-col shadow-2xl">
                 <DialogHeader className="shrink-0 mb-2">
-                    <DialogTitle className="text-slate-100 flex items-center gap-2">
-                        <Move className="h-5 w-5 text-blue-400" />
+                    <DialogTitle className="text-neutral-900 flex items-center gap-2 font-bold">
+                        <Move className="h-5 w-5 text-primary-600" />
                         Clearance Name Calibrator
                     </DialogTitle>
-                    <DialogDescription className="text-slate-500">
+                    <DialogDescription className="text-neutral-500 font-medium">
                         Adjust X and Y coordinates (in points) to align the faculty name precisely on the selected template layout. The Y axis originates from the bottom-left corner.
                     </DialogDescription>
                 </DialogHeader>
 
                 {error && (
-                    <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-3 rounded-md text-sm shrink-0 mb-4">
+                    <div className="bg-destructive/10 border border-destructive/20 text-destructive p-3 rounded-md text-sm shrink-0 mb-4 font-medium">
                         {error}
                     </div>
                 )}
@@ -123,41 +124,41 @@ export default function NameCalibratorModal({ isOpen, onClose, template, onSave 
                 <div className="flex-1 flex gap-6 overflow-hidden">
                     {/* Left Params */}
                     <div className="w-1/3 space-y-6 flex flex-col justify-center">
-                        <div className="bg-slate-950/50 p-6 border border-slate-800 rounded-xl space-y-6">
+                        <div className="bg-white p-6 border border-neutral-200 rounded-xl shadow-sm space-y-6">
                             <div className="space-y-4">
-                                <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-                                    <LayoutTemplate className="h-4 w-4" /> Position Coordinates
+                                <h3 className="text-sm font-bold text-neutral-900 uppercase tracking-wider flex items-center gap-2">
+                                    <LayoutTemplate className="h-4 w-4 text-primary-600" /> Position Coordinates
                                 </h3>
-                                <div className="space-y-2">
-                                    <Label className="text-xs text-slate-400 uppercase">X Coordinate (Left)</Label>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">X Coordinate (Left)</Label>
                                     <Input
                                         type="number"
                                         value={x}
                                         onChange={e => setX(e.target.value)}
-                                        className="bg-slate-900 border-slate-700 text-emerald-400 font-mono text-lg"
+                                        className="bg-neutral-50 border-neutral-200 text-primary-600 focus-visible:ring-primary-500 font-mono text-lg font-bold shadow-sm"
                                     />
-                                    <p className="text-[10px] text-slate-500">Distance from the left edge</p>
+                                    <p className="text-[10px] text-neutral-500 font-medium">Distance from the left edge</p>
                                 </div>
-                                <div className="space-y-2">
-                                    <Label className="text-xs text-slate-400 uppercase">Y Coordinate (Bottom)</Label>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Y Coordinate (Bottom)</Label>
                                     <Input
                                         type="number"
                                         value={y}
                                         onChange={e => setY(e.target.value)}
-                                        className="bg-slate-900 border-slate-700 text-emerald-400 font-mono text-lg"
+                                        className="bg-neutral-50 border-neutral-200 text-primary-600 focus-visible:ring-primary-500 font-mono text-lg font-bold shadow-sm"
                                     />
-                                    <p className="text-[10px] text-slate-500">Distance from the BOTTOM edge (0 is bottom)</p>
+                                    <p className="text-[10px] text-neutral-500 font-medium">Distance from the BOTTOM edge (0 is bottom)</p>
                                 </div>
                             </div>
 
-                            <hr className="border-slate-800" />
+                            <hr className="border-neutral-100" />
 
-                            <div className="space-y-4">
-                                <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-                                    <Eye className="h-4 w-4" /> Visual Preview
+                            <div className="space-y-3">
+                                <h3 className="text-sm font-bold text-neutral-900 uppercase tracking-wider flex items-center gap-2">
+                                    <Eye className="h-4 w-4 text-info" /> Visual Preview
                                 </h3>
-                                <p className="text-xs text-slate-400">
-                                    The sample name JUAN DELA CRUZ is automatically stamped on the preview PDF.
+                                <p className="text-xs text-neutral-500 font-medium leading-relaxed">
+                                    The sample name <strong className="text-neutral-700">JUAN DELA CRUZ</strong> is automatically stamped on the preview PDF.
                                     Adjust X and Y to move the red bounding box.
                                 </p>
                             </div>
@@ -165,10 +166,10 @@ export default function NameCalibratorModal({ isOpen, onClose, template, onSave 
                     </div>
 
                     {/* Right PDF Preview */}
-                    <div className="flex-1 bg-slate-950 border border-slate-800 rounded-xl overflow-hidden relative">
+                    <div className="flex-1 bg-neutral-200/50 border border-neutral-200 rounded-xl overflow-hidden relative shadow-inner">
                         {loading && (
-                            <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px] z-10 flex items-center justify-center">
-                                <Loader2 className="h-10 w-10 text-blue-500 animate-spin" />
+                            <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 flex items-center justify-center">
+                                <RefreshCw className="h-10 w-10 text-primary-600 animate-spin" />
                             </div>
                         )}
                         {previewUrl ? (
@@ -178,21 +179,21 @@ export default function NameCalibratorModal({ isOpen, onClose, template, onSave 
                                 title="Template Preview"
                             />
                         ) : (
-                            <div className="w-full h-full flex items-center justify-center text-slate-500">
+                            <div className="w-full h-full flex items-center justify-center text-neutral-400 font-medium">
                                 Loading preview...
                             </div>
                         )}
                     </div>
                 </div>
 
-                <DialogFooter className="shrink-0 mt-4 pt-4 border-t border-slate-800">
-                    <Button variant="ghost" onClick={onClose} className="text-slate-400">Cancel</Button>
+                <DialogFooter className="shrink-0 mt-4 pt-4 border-t border-neutral-200 gap-2 sm:gap-3">
+                    <Button variant="outline" onClick={onClose} className="border-neutral-200 text-neutral-700 hover:bg-neutral-100 shadow-sm">Cancel</Button>
                     <Button
                         onClick={handleSave}
                         disabled={loading}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                        className="bg-primary-600 hover:bg-primary-700 text-white shadow-sm transition-all active:scale-95"
                     >
-                        {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                        {loading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                         Save Coordinates
                     </Button>
                 </DialogFooter>

@@ -30,9 +30,11 @@ GEMINI.md
 
 # Notes
 notes.md
+colors.txt
 
 # OCR File
 eng.traineddata
 
 #DB
 schema.sql
+student_violation_schema.sql

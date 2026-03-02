@@ -20,26 +20,26 @@ export default function FacultyLayout() {
 
   return (
     <SidebarProvider>
-      {/* Container with slate-950 background matches the AdminLayout */}
-      <div className="flex min-h-screen w-full bg-slate-950">
+      {/* Container with neutral-50 background for an institutional look */}
+      <div className="flex min-h-screen w-full bg-neutral-50">
         <FacultySidebar />
-        
-        <SidebarInset className="bg-slate-950 flex flex-col">
-          {/* Header styling matches the AdminLayout */}
-          <header className="flex h-14 shrink-0 items-center gap-4 border-b border-slate-800 bg-slate-900/50 px-6 backdrop-blur-sm">
-            <SidebarTrigger className="text-slate-400 hover:text-slate-900" />
-            
-            <Separator orientation="vertical" className="h-4 bg-slate-800" />
-            
+
+        <SidebarInset className="bg-neutral-50 flex flex-col">
+          {/* Header styling: Clean white with subtle border */}
+          <header className="flex h-14 shrink-0 items-center gap-4 border-b border-neutral-200 bg-white/80 px-6 backdrop-blur-md sticky top-0 z-10">
+            <SidebarTrigger className="text-neutral-500 hover:text-primary-600 transition-colors" />
+
+            <Separator orientation="vertical" className="h-4 bg-neutral-200" />
+
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-slate-100">ISAMS</span>
-              <span className="text-slate-600">/</span>
-              <span className="text-sm font-medium text-slate-400">{getPageTitle()}</span>
+              <span className="text-sm font-bold text-primary-700 tracking-tight">ISAMS</span>
+              <span className="text-neutral-300 font-light">/</span>
+              <span className="text-sm font-medium text-neutral-600">{getPageTitle()}</span>
             </div>
           </header>
-          
-          {/* Main content area */}
-          <main className="flex-1 p-6 overflow-auto bg-slate-950 text-slate-100">
+
+          {/* Main content area: Neutral background with high-contrast text */}
+          <main className="flex-1 p-6 overflow-auto bg-neutral-50 text-neutral-900">
             <Outlet />
           </main>
         </SidebarInset>
