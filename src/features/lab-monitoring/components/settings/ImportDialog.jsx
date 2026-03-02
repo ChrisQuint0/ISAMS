@@ -34,10 +34,6 @@ export default function ImportDialog({
     handleUpload,
     isImporting
 }) {
-    /**
-     * Helper to transform technical CSV keys into readable labels.
-     * Example: 'student_no' -> 'Student ID'
-     */
     const formatHeaderLabel = (header) => {
         if (!header) return "";
         

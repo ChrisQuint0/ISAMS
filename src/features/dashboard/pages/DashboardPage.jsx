@@ -24,6 +24,11 @@ const isAdmin = (rbac) => {
   );
 };
 
+const isStudent = (rbac) => {
+  // A student is someone who is NOT an admin
+  return !isAdmin(rbac);
+};
+
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { user, rbac, signOut } = useAuth();
@@ -83,9 +88,28 @@ export default function DashboardPage() {
     },
   ];
 
-  const modules = allModules.filter(
-    (module) => rbac?.superadmin || rbac?.[module.id]
-  );
+  // Student modules - simplified view with thesis archiving pointing to student portal
+  const studentModules = [
+    {
+      id: "thesis",
+      title: "Thesis Archiving",
+      description:
+        "Upload and manage your OJT and HTE documents for thesis archiving",
+      icon: thesisIcon,
+      href: "/student/documents",
+      bgColor: "bg-slate-900/50",
+      iconBg: "bg-slate-800",
+      iconBorder: "border-slate-700",
+      accentLine: "bg-gradient-to-r from-slate-700 via-slate-600 to-slate-700",
+    },
+  ];
+
+  // Determine which modules to show
+  const modules = isStudent(rbac) 
+    ? studentModules
+    : allModules.filter(
+        (module) => rbac?.superadmin || rbac?.[module.id]
+      );
 
   return (
     <div className="min-h-screen bg-white flex flex-col relative overflow-x-hidden">
@@ -127,6 +151,18 @@ export default function DashboardPage() {
               }}
             >
               <img src={isamsFavicon} alt="ISAMS" className="w-6 h-6 object-contain" />
+    <div className="min-h-screen bg-slate-950 flex flex-col">
+      {/* Header */}
+      <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold text-slate-100">
+                {isStudent(rbac) ? "Student Portal" : "ISAMS Dashboard"}
+              </h1>
+              <p className="text-sm text-slate-400 mt-0.5">
+                Welcome back, {user?.email}
+              </p>
             </div>
             <p className="text-sm font-semibold text-gray-900">ISAMS Dashboard</p>
           </div>
@@ -197,6 +233,18 @@ export default function DashboardPage() {
           Select a module below to access its features and functionality.
         </p>
       </div>
+      {/* Main Content */}
+      <main className="flex-1 max-w-7xl mx-auto px-6 py-12 w-full">
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold text-slate-100 mb-2">
+            {isStudent(rbac) ? "My Documents" : "System Modules"}
+          </h2>
+          <p className="text-slate-400 text-sm">
+            {isStudent(rbac) 
+              ? "Upload and manage your OJT and HTE documents"
+              : "Select a module to access its features and functionality"}
+          </p>
+        </div>
 
       {/* ── Module grid ── */}
       <main className="relative z-10 flex-1 max-w-7xl mx-auto px-6 pb-14 w-full">
@@ -234,6 +282,32 @@ export default function DashboardPage() {
                     background: `linear-gradient(90deg, transparent, ${module.accent}50, transparent)`,
                   }}
                 />
+
+                {/* Icon */}
+                <div
+                  className="relative w-11 h-11 rounded-xl flex items-center justify-center mb-4 transition-transform duration-300 group-hover:scale-105"
+                  style={{
+                    background: module.accentLight,
+                    border: `1px solid ${module.accent}25`,
+                  }}
+                >
+                  <img
+                    src={module.icon}
+                    alt={module.title}
+                    className="w-5 h-5 object-contain"
+                    style={{
+                      filter: `brightness(0) saturate(100%) invert(20%)`,
+                      // tint each icon to its accent color via CSS filter
+                      // the mix-blend + colored bg handles the rest
+                    }}
+                  />
+                </div>
+
+                {/* Title */}
+                <h3 className="relative text-[15px] font-semibold text-gray-900 mb-1.5 leading-snug pr-6">
+                  {module.title}
+                </h3>
+
 
                 {/* Icon */}
                 <div

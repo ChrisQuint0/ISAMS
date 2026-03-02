@@ -176,14 +176,24 @@ export const settingsService = {
     return data;
   },
 
-  addTemplate: async (file, title, description, systemCategory, academicYear, semester) => {
+  addTemplate: async (file, title, description, systemCategory, academicYear, semester, courseCode = null, courseName = null) => {
     // 1. Enforce active rule: archive existing templates in the same category
     if (systemCategory) {
-      await supabase
+      const query = supabase
         .from('templates_fs')
         .update({ is_active_default: false })
         .eq('system_category', systemCategory)
         .eq('is_active_default', true); // Only touch currently active ones
+
+      // If it's a course-specific template, only archive templates for THAT course
+      if (courseCode) {
+        query.eq('course_code', courseCode);
+      } else {
+        // If it's a general template (like a certificate), only archive templates that ALSO have no course code
+        query.is('course_code', null);
+      }
+
+      await query;
     }
 
     // 2. Upload to storage
@@ -191,7 +201,8 @@ export const settingsService = {
     const safeYear = academicYear ? academicYear.replace(/\s+/g, '') : 'General';
     const safeSem = semester ? semester.replace(/\s+/g, '') : 'General';
     const safeCat = systemCategory ? systemCategory : 'General';
-    const fileName = `templates/${safeYear}/${safeSem}/${safeCat}/${Date.now()}_${file.name}`;
+    const safeCourse = courseCode ? courseCode.replace(/\s+/g, '') : 'General';
+    const fileName = `templates/${safeYear}/${safeSem}/${safeCat}/${safeCourse}/${Date.now()}_${file.name}`;
 
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('faculty_documents')
@@ -213,6 +224,8 @@ export const settingsService = {
         system_category: systemCategory,
         academic_year: academicYear || null,
         semester: semester || null,
+        course_code: courseCode || null,
+        course_name: courseName || null,
         file_url: publicUrl,
         file_size_bytes: file.size,
         is_active_default: true // Rule: New template becomes the active default

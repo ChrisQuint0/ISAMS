@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
     Save, Database, Terminal, Trash2, RefreshCw, Eye, Settings,
     Cpu, CheckCircle, AlertCircle, Play, Shield, FileText,
-    Clock, Archive, AlertTriangle, HardDrive, Server, Activity,
+    Clock, Archive, HardDrive, Server, Activity,
     Wifi, WifiOff, Globe, Lock, Unlock,
     ChevronUp, ChevronDown, Plus, Folder, File as FileIcon, LayoutTemplate, Users, BookOpen, X
 } from 'lucide-react';
@@ -29,6 +29,7 @@ import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-communi
 
 // Hook
 import { useAdminSettings } from '../hooks/AdminSettingHook';
+import { useAdminSemesterManagement } from '../hooks/AdminSemesterManagementHook';
 import { settingsService } from '../services/AdminSettingService';
 import NameCalibratorModal from '../components/NameCalibratorModal';
 
@@ -105,6 +106,8 @@ export default function AdminSettingsPage() {
         systemHealth, holidays, handleAddHoliday, handleBulkAddHolidays, handleDeleteHoliday,
         fetchDocTypeRules, saveDocTypeRules
     } = useAdminSettings();
+
+    const { currentSettings } = useAdminSemesterManagement();
 
     const [testFile, setTestFile] = useState(null);
     const [testDocTypeId, setTestDocTypeId] = useState('');
@@ -187,10 +190,25 @@ export default function AdminSettingsPage() {
 
     // ── Template Hub state ──────────────────────────────────────────────
     const [isTemplateModalOpen, setTemplateModalOpen] = useState(false);
+    const [modalMode, setModalMode] = useState('SYSTEM'); // 'SYSTEM' or 'CERTIFICATE'
     const [isUploadingTemplate, setIsUploadingTemplate] = useState(false);
     const [newTemplate, setNewTemplate] = useState({
-        file: null, title: '', description: '', systemCategory: '', academicYear: '', semester: ''
+        file: null, title: '', description: '', systemCategory: '', academicYear: '', semester: '',
+        courseCode: '', courseName: ''
     });
+
+    // Auto-fill template modal with current semester/year
+    useEffect(() => {
+        if (isTemplateModalOpen) {
+            setNewTemplate(prev => ({
+                ...prev,
+                academicYear: currentSettings.academic_year,
+                semester: currentSettings.semester,
+                courseCode: prev.courseCode || '', // Keep manual selection if any
+                courseName: prev.courseName || ''
+            }));
+        }
+    }, [isTemplateModalOpen, currentSettings]);
 
     const certificateTemplates = useMemo(() => templates.filter(t => t.category === 'CLEARANCE_CERTIFICATE'), [templates]);
     const generalTemplates = useMemo(() => templates.filter(t => t.category !== 'CLEARANCE_CERTIFICATE'), [templates]);
@@ -491,7 +509,7 @@ export default function AdminSettingsPage() {
             sortable: false,
             filter: false,
             cellRenderer: (params) => (
-                <div className="flex items-center gap-2 mt-1.5">
+                <div className="flex items-center gap-2">
                     <Button
                         variant="outline"
                         size="xs"
@@ -526,6 +544,8 @@ export default function AdminSettingsPage() {
             )
         },
         { field: 'category', headerName: 'System Category', flex: 1.5, valueFormatter: params => params.value || 'General' },
+        { field: 'courseCode', headerName: 'Course Code', flex: 1, valueFormatter: params => params.value || 'All' },
+        { field: 'courseName', headerName: 'Course Name', flex: 1.5, valueFormatter: params => params.value || 'All' },
         { field: 'academicYear', headerName: 'Academic Year', flex: 1, valueFormatter: params => params.value || 'N/A' },
         { field: 'semester', headerName: 'Semester', flex: 1, valueFormatter: params => params.value || 'N/A' },
         {
@@ -544,7 +564,7 @@ export default function AdminSettingsPage() {
             sortable: false,
             filter: false,
             cellRenderer: (params) => (
-                <div className="flex items-center gap-2 mt-1.5">
+                <div className="flex items-center gap-2">
                     <Button
                         variant="ghost"
                         size="xs"
@@ -1158,8 +1178,8 @@ export default function AdminSettingsPage() {
                                     </div>
                                     {/* Inline catalog duplicate warning */}
                                     {catalogCodeTaken && (
-                                        <div className="flex items-center gap-2 bg-warning/10 border border-warning/20 text-warning px-3 py-2 rounded-lg text-xs font-medium">
-                                            <AlertTriangle className="h-4 w-4 shrink-0" />
+                                        <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/20 text-destructive px-3 py-2 rounded-lg text-xs font-medium">
+                                            <AlertCircle className="h-4 w-4 shrink-0" />
                                             <p>{catalogConflictType} "{catalogConflictType === 'Code' ? newCatalog.code.toUpperCase() : newCatalog.name}" already exists in {existingCatalogEntry?.semester || 'another semester'}. Each course must be unique.</p>
                                         </div>
                                     )}
@@ -1230,7 +1250,7 @@ export default function AdminSettingsPage() {
                                                             <div className="flex items-center gap-2 shrink-0">
                                                                 {(() => {
                                                                     const uniqueCourses = new Set(group.assignments.map(a => String(a.master_course_id || a.course_code))).size;
-                                                                    const totalSections = group.assignments.length;
+                                                                    const totalSections = new Set(group.assignments.map(a => String(a.section))).size;
                                                                     return (
                                                                         <>
                                                                             <Badge variant="outline" className="border-neutral-200 text-neutral-600 bg-white shadow-sm text-[11px] px-2 py-0 h-5">
@@ -1286,7 +1306,7 @@ export default function AdminSettingsPage() {
                                                                                 Sec {asgn.section || '—'}
                                                                             </span>
 
-                                                                            <span className="text-[11px] text-neutral-500 font-medium w-12 text-right hidden sm:block">
+                                                                            <span className="text-[11px] text-neutral-500 font-medium w-14 text-right hidden sm:block">
                                                                                 {asgn.semester || '—'}
                                                                             </span>
 
@@ -1424,7 +1444,7 @@ export default function AdminSettingsPage() {
                                             </div>
                                         )}
                                         {!facultyAlreadyOnSection && sectionTaken && (
-                                            <div className="flex items-center gap-2 bg-warning/10 border border-warning/20 rounded-lg px-3 py-2 text-warning mt-2">
+                                            <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2 text-destructive mt-2">
                                                 <AlertCircle className="h-4 w-4 shrink-0" />
                                                 <p className="text-xs font-medium">{selectedCatalogEntry?.course_code} Section {newAssignment.section} is already assigned. Try a different section.</p>
                                             </div>
@@ -1503,8 +1523,8 @@ export default function AdminSettingsPage() {
                                             />
                                             <div className="min-h-[1.25rem]">
                                                 {isDuplicateRequirement && (
-                                                    <p className="text-[10px] text-destructive font-medium italic flex items-center gap-1 mt-1 text-warning">
-                                                        <AlertTriangle className="h-2.5 w-2.5" />
+                                                    <p className="text-[10px] text-destructive font-medium italic flex items-center gap-1 mt-1 text-destructive">
+                                                        <AlertCircle className="h-2.5 w-2.5" />
                                                         "{newReq.name}" is already a requirement.
                                                     </p>
                                                 )}
@@ -1523,8 +1543,8 @@ export default function AdminSettingsPage() {
                                             />
                                             <div className="min-h-[1.25rem]">
                                                 {isDuplicateFolder && (
-                                                    <p className="text-[10px] text-destructive font-medium italic flex items-center gap-1 mt-1 text-warning">
-                                                        <AlertTriangle className="h-2.5 w-2.5" />
+                                                    <p className="text-[10px] text-destructive font-medium italic flex items-center gap-1 mt-1 text-destructive">
+                                                        <AlertCircle className="h-2.5 w-2.5" />
                                                         Folder "/{newReq.folder}" is already in use.
                                                     </p>
                                                 )}
@@ -1686,7 +1706,11 @@ export default function AdminSettingsPage() {
                                         variant="default"
                                         size="sm"
                                         className="shadow-sm active:scale-95 transition-all"
-                                        onClick={() => setTemplateModalOpen(true)}
+                                        onClick={() => {
+                                            setModalMode('CERTIFICATE');
+                                            setNewTemplate(prev => ({ ...prev, systemCategory: 'CLEARANCE_CERTIFICATE', courseCode: 'GENERAL' }));
+                                            setTemplateModalOpen(true);
+                                        }}
                                     >
                                         <Plus className="h-4 w-4 mr-1.5" /> Upload Certificate
                                     </Button>
@@ -1714,7 +1738,11 @@ export default function AdminSettingsPage() {
                                         variant="default"
                                         size="sm"
                                         className="shadow-sm active:scale-95 transition-all"
-                                        onClick={() => setTemplateModalOpen(true)}
+                                        onClick={() => {
+                                            setModalMode('SYSTEM');
+                                            setNewTemplate(prev => ({ ...prev, systemCategory: '', courseCode: '' }));
+                                            setTemplateModalOpen(true);
+                                        }}
                                     >
                                         <Plus className="h-4 w-4 mr-1" /> Upload Template
                                     </Button>
@@ -1794,28 +1822,28 @@ export default function AdminSettingsPage() {
                                     <div className="space-y-1.5">
                                         {holidayDescriptionDuplicate && (
                                             <p className="text-xs text-destructive font-medium italic flex items-center gap-1.5">
-                                                <AlertTriangle className="h-3 w-3" /> "{newHoliday.description}" already exists. Description must be unique.
+                                                <AlertCircle className="h-3 w-3" /> "{newHoliday.description}" already exists. Description must be unique.
                                             </p>
                                         )}
                                         {holidayIsPast && (
                                             <p className="text-xs text-destructive font-medium italic flex items-center gap-1.5">
-                                                <AlertTriangle className="h-3 w-3" /> Start date cannot be in the past.
+                                                <AlertCircle className="h-3 w-3" /> Start date cannot be in the past.
                                             </p>
                                         )}
                                         {holidayEndDateInvalid && (
                                             <p className="text-xs text-destructive font-medium italic flex items-center gap-1.5">
-                                                <AlertTriangle className="h-3 w-3" /> End date must be after Start date.
+                                                <AlertCircle className="h-3 w-3" /> End date must be after Start date.
                                             </p>
                                         )}
                                         {holidayOccupiedDates.length > 0 && (
                                             <p className="text-xs text-destructive font-medium italic flex items-center gap-1.5">
-                                                <AlertTriangle className="h-3 w-3" />
+                                                <AlertCircle className="h-3 w-3" />
                                                 Occupied: {holidayOccupiedDates.join(', ')}. Please choose different dates.
                                             </p>
                                         )}
                                         {holidayEndDateSameAsStart && (
                                             <p className="text-xs text-destructive font-medium italic flex items-center gap-1.5">
-                                                <AlertTriangle className="h-3 w-3" />
+                                                <AlertCircle className="h-3 w-3" />
                                                 {newHoliday.startDate} is already a start date. Please choose another date.
                                             </p>
                                         )}
@@ -2157,7 +2185,7 @@ export default function AdminSettingsPage() {
                             <Card className="bg-destructive/5 border-destructive/20 shadow-none">
                                 <CardHeader className="border-b border-destructive/20 py-4 bg-white/50">
                                     <CardTitle className="text-base text-destructive flex items-center gap-2 font-bold">
-                                        <AlertTriangle className="h-5 w-5" /> Danger Zone
+                                        <AlertCircle className="h-5 w-5" /> Danger Zone
                                     </CardTitle>
                                     <CardDescription className="text-destructive/70 font-medium">
                                         Irreversible actions. These will affect live data.
@@ -2188,10 +2216,12 @@ export default function AdminSettingsPage() {
                         <DialogHeader>
                             <DialogTitle className="text-neutral-900 flex items-center gap-2">
                                 <LayoutTemplate className="h-5 w-5 text-primary-600" />
-                                Upload New Template
+                                {modalMode === 'CERTIFICATE' ? 'Upload Clearance Certificate' : 'Upload System Template'}
                             </DialogTitle>
                             <DialogDescription className="text-neutral-500">
-                                Tie this template to a specific Academic Year and Document Type schema.
+                                {modalMode === 'CERTIFICATE'
+                                    ? 'Upload a new version of the system-wide Clearance Certificate.'
+                                    : 'Tie this template to a specific Academic Year and optional Course.'}
                             </DialogDescription>
                         </DialogHeader>
                         <div className="space-y-4 py-2">
@@ -2221,19 +2251,53 @@ export default function AdminSettingsPage() {
                                     <Select
                                         value={newTemplate.systemCategory}
                                         onValueChange={v => setNewTemplate({ ...newTemplate, systemCategory: v })}
-                                        disabled={!newTemplate.file || isUploadingTemplate}
+                                        disabled={!newTemplate.file || isUploadingTemplate || modalMode === 'CERTIFICATE'}
                                     >
                                         <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm focus:ring-primary-500 disabled:bg-neutral-100">
                                             <SelectValue placeholder={!newTemplate.file ? "Attach file first..." : "Select category..."} />
                                         </SelectTrigger>
                                         <SelectContent className="bg-white border-neutral-200 text-neutral-900 shadow-md">
-                                            <SelectItem value="CLEARANCE_CERTIFICATE">Clearance Certificate</SelectItem>
-                                            <SelectItem value="SYLLABUS">Syllabus</SelectItem>
-                                            <SelectItem value="GRADE_SHEET">Grade Sheet</SelectItem>
-                                            <SelectItem value="GENERAL">General</SelectItem>
+                                            {modalMode === 'CERTIFICATE' ? (
+                                                <SelectItem value="CLEARANCE_CERTIFICATE">Clearance Certificate</SelectItem>
+                                            ) : (
+                                                <>
+                                                    <SelectItem value="SYLLABUS">Syllabus</SelectItem>
+                                                    <SelectItem value="GRADE_SHEET">Grade Sheet</SelectItem>
+                                                    <SelectItem value="GENERAL">General</SelectItem>
+                                                </>
+                                            )}
                                         </SelectContent>
                                     </Select>
                                 </div>
+                                {modalMode === 'SYSTEM' && (
+                                    <div className="col-span-1 md:col-span-2 space-y-1.5">
+                                        <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Course Selection</Label>
+                                        <Select
+                                            value={newTemplate.courseCode}
+                                            onValueChange={(code) => {
+                                                const course = masterCourseList.find(c => c.course_code === code);
+                                                setNewTemplate({
+                                                    ...newTemplate,
+                                                    courseCode: code,
+                                                    courseName: course ? course.course_name : ''
+                                                });
+                                            }}
+                                            disabled={!newTemplate.file || isUploadingTemplate}
+                                        >
+                                            <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm focus:ring-primary-500 disabled:bg-neutral-100">
+                                                <SelectValue placeholder="Select Course to tie template to..." />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-white border-neutral-200 text-neutral-900 shadow-md max-h-[250px]">
+                                                <SelectItem value="GENERAL">--- Set as All Courses ---</SelectItem>
+                                                {masterCourseList.filter(c => c.is_active).map(c => (
+                                                    <SelectItem key={c.id} value={c.course_code}>
+                                                        {c.course_code} - {c.course_name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
                                 <div className="col-span-1 md:col-span-2 space-y-1.5">
                                     <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Description</Label>
                                     <Input
@@ -2244,39 +2308,15 @@ export default function AdminSettingsPage() {
                                         disabled={!newTemplate.file || isUploadingTemplate}
                                     />
                                 </div>
-                                <div className="space-y-1.5">
-                                    <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Academic Year</Label>
-                                    <Select
-                                        value={newTemplate.academicYear}
-                                        onValueChange={v => setNewTemplate({ ...newTemplate, academicYear: v })}
-                                        disabled={!newTemplate.file || isUploadingTemplate}
-                                    >
-                                        <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm focus:ring-primary-500 disabled:bg-neutral-100">
-                                            <SelectValue placeholder={!newTemplate.file ? "Attach file first..." : "e.g. 2024-2025"} />
-                                        </SelectTrigger>
-                                        <SelectContent className="bg-white border-neutral-200 text-neutral-900 shadow-md">
-                                            <SelectItem value="2023-2024">2023-2024</SelectItem>
-                                            <SelectItem value="2024-2025">2024-2025</SelectItem>
-                                            <SelectItem value="2025-2026">2025-2026</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-1.5">
-                                    <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Semester</Label>
-                                    <Select
-                                        value={newTemplate.semester}
-                                        onValueChange={v => setNewTemplate({ ...newTemplate, semester: v })}
-                                        disabled={!newTemplate.file || isUploadingTemplate}
-                                    >
-                                        <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm focus:ring-primary-500 disabled:bg-neutral-100">
-                                            <SelectValue placeholder={!newTemplate.file ? "Attach file first..." : "e.g. 1st Semester"} />
-                                        </SelectTrigger>
-                                        <SelectContent className="bg-white border-neutral-200 text-neutral-900 shadow-md">
-                                            <SelectItem value="1st Semester">1st Semester</SelectItem>
-                                            <SelectItem value="2nd Semester">2nd Semester</SelectItem>
-                                            <SelectItem value="Summer">Summer</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-4 bg-neutral-50 p-3 rounded-lg border border-neutral-100 mt-2">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Academic Year</label>
+                                        <div className="text-neutral-900 text-sm font-medium">{currentSettings.academic_year || '---'}</div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Semester</label>
+                                        <div className="text-neutral-700 text-sm font-mono">{currentSettings.semester || '---'}</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -2284,7 +2324,7 @@ export default function AdminSettingsPage() {
                             <Button variant="outline" onClick={() => setTemplateModalOpen(false)} className="border-neutral-200 text-neutral-700 hover:bg-neutral-100">Cancel</Button>
                             <Button
                                 className="bg-primary-600 hover:bg-primary-700 text-white shadow-sm active:scale-95 transition-all"
-                                disabled={!newTemplate.file || !newTemplate.academicYear || !newTemplate.semester || !newTemplate.systemCategory || isUploadingTemplate}
+                                disabled={!newTemplate.file || !newTemplate.academicYear || !newTemplate.semester || !newTemplate.systemCategory || !newTemplate.courseCode || isUploadingTemplate}
                                 onClick={() => {
                                     setIsUploadingTemplate(true);
                                     addTemplate(
@@ -2293,11 +2333,16 @@ export default function AdminSettingsPage() {
                                         newTemplate.description,
                                         newTemplate.systemCategory,
                                         newTemplate.academicYear,
-                                        newTemplate.semester
+                                        newTemplate.semester,
+                                        newTemplate.courseCode === 'GENERAL' ? null : newTemplate.courseCode,
+                                        newTemplate.courseName
                                     ).then(() => {
                                         setIsUploadingTemplate(false);
                                         setTemplateModalOpen(false);
-                                        setNewTemplate({ file: null, title: '', description: '', systemCategory: '', academicYear: '', semester: '' });
+                                        setNewTemplate({
+                                            file: null, title: '', description: '', systemCategory: '',
+                                            academicYear: '', semester: '', courseCode: '', courseName: ''
+                                        });
                                     }).catch(() => {
                                         setIsUploadingTemplate(false);
                                     });
@@ -2329,7 +2374,7 @@ export default function AdminSettingsPage() {
                     <DialogContent className="bg-white border-destructive/30 text-neutral-900 max-w-md shadow-2xl">
                         <DialogHeader>
                             <DialogTitle className="text-destructive flex items-center gap-2 font-bold">
-                                <AlertTriangle className="h-5 w-5" />
+                                <AlertCircle className="h-5 w-5" />
                                 {dangerModalConfig.title}
                             </DialogTitle>
                             <DialogDescription className="text-neutral-600 mt-2 font-medium">
@@ -2417,7 +2462,7 @@ const DangerRow = ({ title, desc, btnText, onClick }) => (
     <div className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-white border border-destructive/20 rounded-xl gap-4 hover:border-destructive/40 hover:shadow-sm transition-all">
         <div>
             <h4 className="font-bold text-destructive text-sm flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4" />
+                <AlertCircle className="h-4 w-4" />
                 {title}
             </h4>
             <p className="text-xs text-neutral-600 font-medium mt-1 pl-6">{desc}</p>
