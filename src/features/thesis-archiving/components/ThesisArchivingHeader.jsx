@@ -4,11 +4,11 @@ import { ThesisSettingsModal } from "./ThesisSettingsModal";
 
 export function ThesisArchivingHeader({ title }) {
     return (
-        <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b border-slate-800 bg-slate-900/95 backdrop-blur supports-[backdrop-filter]:bg-slate-900/60 px-4 w-full">
+        <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b border-gray-200 bg-white backdrop-blur supports-[backdrop-filter]:bg-white/95 px-4 w-full shadow-sm">
             <div className="flex items-center gap-2 flex-1">
-                <SidebarTrigger className="text-slate-400 hover:text-slate-300 hover:bg-slate-800" />
-                <div className="h-6 w-px bg-slate-800" />
-                <h1 className="text-xl font-semibold text-slate-100">{title}</h1>
+                <SidebarTrigger className="text-gray-600 hover:text-gray-700 hover:bg-gray-100" />
+                <div className="h-6 w-px bg-gray-200" />
+                <h1 className="text-xl font-semibold text-gray-900">{title}</h1>
             </div>
             <ThesisSettingsModal />
         </header>
