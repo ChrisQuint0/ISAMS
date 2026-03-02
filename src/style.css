@@ -194,6 +194,13 @@
 
   body {
     @apply bg-background text-foreground;
+    margin: 0; /* remove default browser margin */
+  }
+
+  html, body, #root {
+    width: 100vw;
+    height: 100vh;
+    overflow-x: hidden;
   }
 }
 

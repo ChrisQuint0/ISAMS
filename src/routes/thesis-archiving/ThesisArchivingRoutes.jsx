@@ -7,9 +7,13 @@ import SimilarityCheckPage from "@/features/thesis-archiving/pages/SimilarityChe
 import HTEDocumentArchivePage from "@/features/thesis-archiving/pages/HTEDocumentArchivePage";
 import ReportsAnalyticsPage from "@/features/thesis-archiving/pages/ReportsAnalyticsPage";
 import AuditTrailPage from "@/features/thesis-archiving/pages/AuditTrailPage";
+import StudentDocumentPortal from "@/features/thesis-archiving/pages/StudentDocumentPortal";
+import { StudentGuard } from "@/routes/guards/StudentGuard";
+
 
 export const ThesisArchivingRoutes = (ProtectedRoute) => (
     <>
+        {/* Admin view - thesis archiving with dashboard */}
         <Route
             path="/thesis-archiving"
             element={
@@ -35,5 +39,19 @@ export const ThesisArchivingRoutes = (ProtectedRoute) => (
                 <Route path="audit-trail" element={<AuditTrailPage />} />
             </Route>
         </Route>
+
+        {/* Student document portal - for students to upload/view their documents */}
+        <Route
+            path="/student/documents"
+            element={
+                <ProtectedRoute>
+                    <StudentGuard>
+                        <StudentDocumentPortal />
+                    </StudentGuard>
+                </ProtectedRoute>
+            }
+        />
+
+        {/* HTEDocument settings routes removed since corresponding pages were deleted */}
     </>
 );

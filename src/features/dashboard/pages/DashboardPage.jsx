@@ -24,6 +24,11 @@ const isAdmin = (rbac) => {
   );
 };
 
+const isStudent = (rbac) => {
+  // A student is someone who is NOT an admin
+  return !isAdmin(rbac);
+};
+
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { user, rbac, signOut } = useAuth();
@@ -83,50 +88,42 @@ export default function DashboardPage() {
     },
   ];
 
-  const modules = allModules.filter(
-    (module) => rbac?.superadmin || rbac?.[module.id]
-  );
+  // Student modules - simplified view with thesis archiving pointing to student portal
+  const studentModules = [
+    {
+      id: "thesis",
+      title: "Thesis Archiving",
+      description:
+        "Upload and manage your OJT and HTE documents for thesis archiving",
+      icon: thesisIcon,
+      href: "/student/documents",
+      bgColor: "bg-slate-900/50",
+      iconBg: "bg-slate-800",
+      iconBorder: "border-slate-700",
+      accentLine: "bg-gradient-to-r from-slate-700 via-slate-600 to-slate-700",
+    },
+  ];
+
+  // Determine which modules to show
+  const modules = isStudent(rbac) 
+    ? studentModules
+    : allModules.filter(
+        (module) => rbac?.superadmin || rbac?.[module.id]
+      );
 
   return (
-    <div className="min-h-screen bg-white flex flex-col relative overflow-x-hidden">
-
-
-
-      {/* ── Decorative background blobs ── */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-32 -left-32 w-[480px] h-[480px] rounded-full"
-          style={{ background: "radial-gradient(circle, #bbf7d0 0%, transparent 70%)", filter: "blur(60px)", opacity: 0.7 }} />
-        <div className="absolute -top-20 right-0 w-[380px] h-[380px] rounded-full"
-          style={{ background: "radial-gradient(circle, #BFDBFE 0%, transparent 70%)", filter: "blur(55px)", opacity: 0.65 }} />
-        <div className="absolute top-[45%] -left-24 w-[320px] h-[320px] rounded-full"
-          style={{ background: "radial-gradient(circle, #FDE68A 0%, transparent 70%)", filter: "blur(50px)", opacity: 0.55 }} />
-        <div className="absolute top-[35%] right-[-60px] w-[360px] h-[360px] rounded-full"
-          style={{ background: "radial-gradient(circle, #FBCFE8 0%, transparent 70%)", filter: "blur(55px)", opacity: 0.55 }} />
-        <div className="absolute -bottom-24 left-[30%] w-[400px] h-[400px] rounded-full"
-          style={{ background: "radial-gradient(circle, #99F6E4 0%, transparent 70%)", filter: "blur(60px)", opacity: 0.5 }} />
-      </div>
-
-      {/* ── Header ── */}
-      <header
-        className="relative z-50 sticky top-0"
-        style={{
-          background: "rgba(255,255,255,0.75)",
-          backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
-          borderBottom: "1px solid rgba(0,0,0,0.07)",
-        }}
-      >
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          {/* Logo */}
-          <div className="flex items-center gap-3">
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden"
-              style={{
-                background: "linear-gradient(135deg, #008A45, #00c46a)",
-                boxShadow: "0 2px 12px rgba(0,138,69,0.35)",
-              }}
-            >
-              <img src={isamsFavicon} alt="ISAMS" className="w-6 h-6 object-contain" />
+    <div className="min-h-screen bg-slate-950 flex flex-col">
+      {/* Header */}
+      <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold text-slate-100">
+                {isStudent(rbac) ? "Student Portal" : "ISAMS Dashboard"}
+              </h1>
+              <p className="text-sm text-slate-400 mt-0.5">
+                Welcome back, {user?.email}
+              </p>
             </div>
             <p className="text-sm font-semibold text-gray-900">ISAMS Dashboard</p>
           </div>
@@ -183,20 +180,18 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* ── Greeting ── */}
-      <div className="relative z-10 max-w-7xl mx-auto px-6 pt-14 pb-10 w-full">
-        <p className="text-xs font-semibold tracking-[0.18em] uppercase mb-2" style={{ color: "#008A45" }}>
-          Welcome back
-        </p>
-        <h2 className="text-3xl font-bold text-gray-900 mb-1.5">
-          {user?.user_metadata?.first_name && user?.user_metadata?.last_name
-            ? `${user.user_metadata.first_name} ${user.user_metadata.last_name}`
-            : user?.email?.split("@")[0] ?? "User"}
-        </h2>
-        <p className="text-sm text-gray-400">
-          Select a module below to access its features and functionality.
-        </p>
-      </div>
+      {/* Main Content */}
+      <main className="flex-1 max-w-7xl mx-auto px-6 py-12 w-full">
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold text-slate-100 mb-2">
+            {isStudent(rbac) ? "My Documents" : "System Modules"}
+          </h2>
+          <p className="text-slate-400 text-sm">
+            {isStudent(rbac) 
+              ? "Upload and manage your OJT and HTE documents"
+              : "Select a module to access its features and functionality"}
+          </p>
+        </div>
 
       {/* ── Module grid ── */}
       <main className="relative z-10 flex-1 max-w-7xl mx-auto px-6 pb-14 w-full">
