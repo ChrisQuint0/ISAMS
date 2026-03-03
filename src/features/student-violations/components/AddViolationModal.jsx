@@ -243,24 +243,24 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
 
     return (
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-            <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-hidden flex flex-col bg-slate-900 border-slate-800 text-slate-200 p-0">
-                <div className="p-6 border-b border-slate-800 shrink-0">
+            <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-hidden flex flex-col bg-white border-neutral-200 text-neutral-900 p-0 shadow-lg rounded-xl">
+                <div className="p-6 border-b border-neutral-100 shrink-0">
                     <DialogHeader>
-                        <DialogTitle className="text-xl text-white">Report Violation</DialogTitle>
-                        <DialogDescription className="text-slate-400">
+                        <DialogTitle className="text-xl font-bold text-neutral-900 tracking-tight">Report Violation</DialogTitle>
+                        <DialogDescription className="text-neutral-500 font-medium">
                             File a new disciplinary violation record.
                         </DialogDescription>
                     </DialogHeader>
 
                     {errorMsg && (
-                        <div className="bg-rose-500/10 border border-rose-500/50 text-rose-400 p-3 rounded-md flex items-start gap-3 mt-4 text-sm">
+                        <div className="bg-red-50 border border-red-200 text-destructive-semantic p-3 rounded-md flex items-start gap-3 mt-4 text-sm font-medium">
                             <AlertCircle className="w-5 h-5 shrink-0" />
                             <p>{errorMsg}</p>
                         </div>
                     )}
 
                     {successMsg && (
-                        <div className="bg-emerald-500/10 border border-emerald-500/50 text-emerald-400 p-3 rounded-md flex items-center gap-3 mt-4 text-sm">
+                        <div className="bg-emerald-50 border border-emerald-200 text-success p-3 rounded-md flex items-center gap-3 mt-4 text-sm font-medium">
                             <CheckCircle2 className="w-5 h-5 shrink-0" />
                             <p>{successMsg}</p>
                         </div>
@@ -270,27 +270,27 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
                 <div className="flex-1 overflow-y-auto p-6 pt-4">
                     <form id="add-violation-form" onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
                         <div className="col-span-2 space-y-2">
-                            <Label htmlFor="student_number" className="text-slate-300">Student Number *</Label>
+                            <Label htmlFor="student_number" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Student Number *</Label>
                             <Input
                                 id="student_number"
                                 name="student_number"
                                 placeholder="e.g. 2023-00123"
                                 value={formData.student_number}
                                 onChange={handleInputChange}
-                                className={`bg-slate-950 border-slate-700 transition-colors ${studentValidationStatus === 'invalid' ? 'border-rose-500 focus-visible:ring-rose-500' : ''} ${studentValidationStatus === 'valid' ? 'border-emerald-500 focus-visible:ring-emerald-500' : ''}`}
+                                className={`bg-white border-neutral-200 h-9 text-sm focus-visible:ring-primary-500 transition-colors ${studentValidationStatus === 'invalid' ? 'border-destructive-semantic focus-visible:ring-destructive-semantic' : ''} ${studentValidationStatus === 'valid' ? 'border-success focus-visible:ring-success' : ''}`}
                             />
                             {studentValidationStatus === 'loading' && (
-                                <p className="text-xs text-slate-400 mt-1 flex items-center gap-1.5">
+                                <p className="text-xs text-neutral-500 mt-1 flex items-center gap-1.5 font-medium">
                                     <Loader2 className="w-3.5 h-3.5 animate-spin" /> Verifying student ID...
                                 </p>
                             )}
                             {studentValidationStatus === 'valid' && (
-                                <p className="text-xs text-emerald-400 mt-1 flex items-center gap-1.5 font-medium">
+                                <p className="text-xs text-success mt-1 flex items-center gap-1.5 font-bold">
                                     <CheckCircle2 className="w-3.5 h-3.5" /> Student found: {studentName}
                                 </p>
                             )}
                             {studentValidationStatus === 'invalid' && (
-                                <p className="text-xs text-rose-400 mt-1 flex items-center gap-1.5 font-medium">
+                                <p className="text-xs text-destructive-semantic mt-1 flex items-center gap-1.5 font-bold">
                                     <AlertCircle className="w-3.5 h-3.5" /> Student ID not found in records.
                                 </p>
                             )}
@@ -298,15 +298,15 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
 
                         <div className="col-span-2 grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label htmlFor="severity" className="text-slate-300">Severity Group</Label>
+                                <Label htmlFor="severity" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Severity Group</Label>
                                 <Select value={selectedSeverity} onValueChange={(val) => {
                                     setSelectedSeverity(val);
                                     setFormData(prev => ({ ...prev, offense_type_id: "" })); // Reset type when severity changes
                                 }} disabled={isLoadingData}>
-                                    <SelectTrigger className="w-full bg-slate-950 border-slate-700">
+                                    <SelectTrigger className="w-full bg-white border-neutral-200 h-9 text-sm text-neutral-900 focus:ring-primary-500">
                                         <SelectValue placeholder={isLoadingData ? "Loading..." : "Select Severity"} />
                                     </SelectTrigger>
-                                    <SelectContent className="bg-slate-900 border-slate-700 text-slate-200">
+                                    <SelectContent className="bg-white border-neutral-200 text-neutral-900">
                                         {severities.map((sev) => (
                                             <SelectItem key={sev} value={sev}>
                                                 {sev}
@@ -317,16 +317,16 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="offense_type_id" className="text-slate-300">Offense Type *</Label>
+                                <Label htmlFor="offense_type_id" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Offense Type *</Label>
                                 <Select value={formData.offense_type_id} onValueChange={(val) => handleSelectChange('offense_type_id', val)} disabled={!selectedSeverity || isLoadingData}>
-                                    <SelectTrigger className="w-full bg-slate-950 border-slate-700">
+                                    <SelectTrigger className="w-full bg-white border-neutral-200 h-9 text-sm text-neutral-900 focus:ring-primary-500">
                                         <SelectValue placeholder={
                                             isLoadingData ? "Loading offenses..." :
                                                 !selectedSeverity ? "Select Severity first" :
                                                     "Select the violation type"
                                         } />
                                     </SelectTrigger>
-                                    <SelectContent className="bg-slate-900 border-slate-700 text-slate-200">
+                                    <SelectContent className="bg-white border-neutral-200 text-neutral-900">
                                         {offenseTypes
                                             .filter(offense => offense.severity === selectedSeverity)
                                             .map((offense) => (
@@ -344,36 +344,36 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="incident_date" className="text-slate-300">Incident Date *</Label>
+                            <Label htmlFor="incident_date" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Incident Date *</Label>
                             <Input
                                 id="incident_date"
                                 name="incident_date"
                                 type="date"
                                 value={formData.incident_date}
                                 onChange={handleInputChange}
-                                className="bg-slate-950 border-slate-700 [color-scheme:dark]"
+                                className="bg-white border-neutral-200 h-9 text-sm text-neutral-900 focus-visible:ring-primary-500"
                             />
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="incident_time" className="text-slate-300">Incident Time</Label>
+                            <Label htmlFor="incident_time" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Incident Time</Label>
                             <Input
                                 id="incident_time"
                                 name="incident_time"
                                 type="time"
                                 value={formData.incident_time}
                                 onChange={handleInputChange}
-                                className="bg-slate-950 border-slate-700 [color-scheme:dark]"
+                                className="bg-white border-neutral-200 h-9 text-sm text-neutral-900 focus-visible:ring-primary-500"
                             />
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="status" className="text-slate-300">Initial Status *</Label>
+                            <Label htmlFor="status" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Initial Status *</Label>
                             <Select value={formData.status} onValueChange={(val) => handleSelectChange('status', val)} disabled={isSubmitting}>
-                                <SelectTrigger className="w-full bg-slate-950 border-slate-700">
+                                <SelectTrigger className="w-full bg-white border-neutral-200 h-9 text-sm text-neutral-900 focus:ring-primary-500">
                                     <SelectValue placeholder="Select Status" />
                                 </SelectTrigger>
-                                <SelectContent className="bg-slate-900 border-slate-700 text-slate-200">
+                                <SelectContent className="bg-white border-neutral-200 text-neutral-900">
                                     <SelectItem value="Pending">Pending</SelectItem>
                                     <SelectItem value="Under Investigation">Under Investigation</SelectItem>
                                 </SelectContent>
@@ -381,56 +381,56 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="location" className="text-slate-300">Location</Label>
+                            <Label htmlFor="location" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Location</Label>
                             <Input
                                 id="location"
                                 name="location"
                                 placeholder="Where did the incident occur?"
                                 value={formData.location}
                                 onChange={handleInputChange}
-                                className="bg-slate-950 border-slate-700"
+                                className="bg-white border-neutral-200 h-9 text-sm text-neutral-900 focus-visible:ring-primary-500 placeholder:text-neutral-400"
                             />
                         </div>
 
                         <div className="col-span-2 space-y-2">
-                            <Label htmlFor="description" className="text-slate-300">Description / Remarks</Label>
+                            <Label htmlFor="description" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Description / Remarks</Label>
                             <Textarea
                                 id="description"
                                 name="description"
                                 placeholder="Provide additional details about the incident..."
                                 value={formData.description}
                                 onChange={handleInputChange}
-                                className="bg-slate-950 border-slate-700 min-h-[80px]"
+                                className="bg-white border-neutral-200 min-h-[80px] text-sm text-neutral-900 focus-visible:ring-primary-500 placeholder:text-neutral-400"
                             />
                         </div>
 
                         <div className="col-span-2 space-y-3 mt-2">
-                            <Label className="text-slate-300">Evidences (Optional)</Label>
+                            <Label className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Evidences (Optional)</Label>
                             <div className="flex flex-col gap-3">
                                 <Input
                                     type="file"
                                     multiple
                                     onChange={handleFileChange}
-                                    className="bg-slate-950 border-slate-700 text-slate-300 file:bg-slate-800 file:text-slate-200 file:border-0 file:mr-4 file:px-4 file:py-2 file:rounded-md hover:file:bg-slate-700 transition-all cursor-pointer"
+                                    className="bg-white border-neutral-200 text-neutral-600 file:bg-primary-50 hover:file:bg-primary-100 file:text-primary-700 file:font-bold file:border-0 file:mr-4 file:px-4 file:py-2 file:rounded-md transition-all cursor-pointer h-11 pt-[6px]"
                                     accept="image/*,video/*,.pdf,.doc,.docx"
                                 />
 
                                 {evidenceFiles.length > 0 && (
                                     <div className="space-y-2 mt-2">
-                                        <p className="text-xs text-slate-400 font-medium">Selected files ({evidenceFiles.length}):</p>
+                                        <p className="text-xs text-neutral-500 font-bold">Selected files ({evidenceFiles.length}):</p>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                             {evidenceFiles.map((file, idx) => (
-                                                <div key={idx} className="flex items-center justify-between p-2 rounded border border-slate-700 bg-slate-800/50">
+                                                <div key={idx} className="flex items-center justify-between p-2 rounded-md border border-neutral-200 bg-neutral-50">
                                                     <div className="flex items-center gap-2 overflow-hidden">
-                                                        <FileText className="w-4 h-4 text-indigo-400 shrink-0" />
-                                                        <span className="text-xs text-slate-300 truncate" title={file.name}>
+                                                        <FileText className="w-4 h-4 text-primary-500 shrink-0" />
+                                                        <span className="text-xs font-medium text-neutral-700 truncate" title={file.name}>
                                                             {file.name}
                                                         </span>
                                                     </div>
                                                     <button
                                                         type="button"
                                                         onClick={() => removeFile(idx)}
-                                                        className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-rose-400 transition-colors shrink-0"
+                                                        className="p-1 rounded text-neutral-400 hover:bg-neutral-200 hover:text-destructive-semantic transition-colors shrink-0"
                                                         title="Remove file"
                                                     >
                                                         <X className="w-3.5 h-3.5" />
@@ -445,10 +445,10 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
                     </form>
                 </div>
 
-                <div className="p-6 border-t border-slate-800 bg-slate-900/50 shrink-0">
+                <div className="p-6 border-t border-neutral-100 bg-neutral-50 shrink-0 rounded-b-xl">
                     <div className="flex justify-end gap-3">
-                        <Button type="button" variant="ghost" className="text-slate-400 hover:text-white hover:bg-slate-800" onClick={() => handleOpenChange(false)}>Cancel</Button>
-                        <Button form="add-violation-form" type="submit" className="bg-rose-600 hover:bg-rose-700 text-white shadow-sm" disabled={isSubmitting || isLoadingData || studentValidationStatus !== 'valid'}>
+                        <Button type="button" variant="ghost" className="text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200 font-bold" onClick={() => handleOpenChange(false)}>Cancel</Button>
+                        <Button form="add-violation-form" type="submit" className="bg-destructive-semantic hover:bg-red-600 text-white font-bold shadow-md" disabled={isSubmitting || isLoadingData || studentValidationStatus !== 'valid'}>
                             {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                             Report Violation
                         </Button>

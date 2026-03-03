@@ -8,7 +8,7 @@ import StudRecords from "@/features/student-violations/pages/StudRecords";
 import StudViolations from "@/features/student-violations/pages/StudViolations";
 import GenerateReport from "@/features/student-violations/pages/GenerateReport";
 import Analytics from "@/features/student-violations/pages/Analytics";
-import Settings from "@/features/student-violations/pages/Settings"; // Add this import
+import Settings from "@/features/student-violations/pages/Settings";
 import ManageOffenses from "@/features/student-violations/pages/settings-pages/ManageOffenses";
 import ManageSanctions from "@/features/student-violations/pages/settings-pages/ManageSanctions";
 
