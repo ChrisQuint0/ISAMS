@@ -3,14 +3,13 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Monitor, CheckCircle2, User, Calendar, Clock, ArrowLeft, Loader2, ShieldAlert } from "lucide-react";
+import { Monitor, CheckCircle2, User, Calendar, Clock, ArrowLeft, Loader2, ShieldAlert, Laptop as LaptopIcon } from "lucide-react";
 
 export default function Success() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { studentId, scheduleId } = location.state || {};
   
-  // Retrieve the anchored lab identity so navigation back to Kiosk is safe
+  const { studentId, scheduleId, isLaptopUser } = location.state || {};
   const labId = location.state?.labId || sessionStorage.getItem('kiosk_labId') || "lab-1";
   const labName = location.state?.labName || sessionStorage.getItem('kiosk_labName') || "Lab 1";
   
@@ -21,15 +20,12 @@ export default function Success() {
   const [restrictionMessage, setRestrictionMessage] = useState(""); 
   const [assignedPc, setAssignedPc] = useState(null);
   const [countdown, setCountdown] = useState(0); 
+  const [isLaptopMode, setIsLaptopMode] = useState(false);
   
   const hasProcessed = useRef(false);
 
   const formatToAMPM = (date) => {
-    return date.toLocaleTimeString("en-US", { 
-      hour: "2-digit", 
-      minute: "2-digit", 
-      hour12: true 
-    });
+    return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
   };
 
   useEffect(() => {
@@ -40,17 +36,22 @@ export default function Success() {
       try {
         setLoading(true);
         const now = new Date();
-        const amPmTime = formatToAMPM(now);
-        setTimestamp(now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }) + " — " + amPmTime);
+        setTimestamp(now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }) + " — " + formatToAMPM(now));
 
-        // --- 1. IDENTITY LOOKUP ---
+        // 1. IDENTITY LOOKUP
         const { data: student, error: sError } = await supabase
-          .from('students_lists_lm').select('*').eq('student_no', studentId).maybeSingle();
+          .from('students_lists_lm')
+          .select('*, is_laptop_user') 
+          .eq('student_no', studentId)
+          .maybeSingle();
 
         if (sError || !student) throw new Error("Student not found");
         setStudentData(student);
 
-        // PC calculation formatting: "PC - 10"
+        // SYNC STATE: Enforce boolean logic for Laptop Users
+        const isLaptop = Boolean(isLaptopUser === true || student.is_laptop_user === true);
+        setIsLaptopMode(isLaptop); 
+
         const { data: sectionPeers } = await supabase
           .from('students_lists_lm').select('student_no')
           .eq('course', student.course).eq('year_level', student.year_level).eq('section_block', student.section_block)
@@ -58,10 +59,10 @@ export default function Success() {
 
         const rank = sectionPeers.findIndex(p => p.student_no === studentId);
         const pcNumber = rank !== -1 ? rank + 1 : 0;
-        setAssignedPc(`PC - ${pcNumber}`); 
+        
+        setAssignedPc(isLaptop ? "Laptop" : `PC - ${pcNumber}`); 
 
-        // --- 2. ATTENDANCE LOGIC ---
-        // Ensure we only find an open session for THIS specific class schedule
+        // 2. ATTENDANCE LOGIC
         const { data: activeLog } = await supabase
           .from('attendance_logs_lm')
           .select(`id, pc_no, lab_schedules_lm!inner (time_end, is_early_dismissal_active)`)
@@ -71,9 +72,6 @@ export default function Success() {
           .maybeSingle();
 
         if (activeLog) {
-            // ==========================================
-            // BRANCH A: TIMING OUT
-            // ==========================================
             const schedule = activeLog.lab_schedules_lm;
             const parseTime = (timeStr) => {
               const [timePart, modifier] = timeStr.toLowerCase().split(/(am|pm)/);
@@ -98,41 +96,28 @@ export default function Success() {
               setCountdown(5); 
             }
         } else {
-            // ==========================================
-            // BRANCH B: NEW TIME IN
-            // ==========================================
-            
             if (!scheduleId) {
               setAttendanceType("Restricted");
-              setRestrictionMessage("No active class session detected. Access is currently locked.");
+              setRestrictionMessage("No active class session detected.");
               setCountdown(8); 
               setLoading(false);
               return;
             }
 
-            // Execute Insertion directly. 
-            // The Postgres trigger will block it if sections don't match.
             const { error: insError } = await supabase
                 .from('attendance_logs_lm')
                 .insert([{ 
-                  student_no: studentId, 
-                  schedule_id: scheduleId, 
-                  time_in: now.toISOString(),
-                  pc_no: pcNumber.toString(),
-                  log_type: 'PC'
+                    student_no: studentId, 
+                    schedule_id: scheduleId, 
+                    time_in: now.toISOString(),
+                    pc_no: isLaptop ? null : pcNumber.toString(),  
+                    log_type: isLaptop ? 'Laptop' : 'PC' 
                 }]);
 
             if (insError) {
-                if (insError.code === '23505') {
-                    setAttendanceType("Restricted");
-                    setRestrictionMessage("Attendance already completed for this session.");
-                    setCountdown(8);
-                } else { 
-                    // This will display the custom Postgres Trigger error message
-                    setAttendanceType("Restricted");
-                    setRestrictionMessage(`${insError.message}`);
-                    setCountdown(8);
-                }
+                setAttendanceType("Restricted");
+                setRestrictionMessage(insError.code === '23505' ? "Attendance already completed for this session." : insError.message);
+                setCountdown(8);
             } else {
                 setAttendanceType("In");
                 setCountdown(5); 
@@ -147,10 +132,9 @@ export default function Success() {
     };
 
     if (studentId) processAttendance();
-    else navigate("/kiosk-mode");
-  }, [navigate, studentId, scheduleId, labId, labName]);
+    else setTimeout(() => navigate("/kiosk-mode"), 0);
+  }, [navigate, studentId, scheduleId, labId, labName, isLaptopUser]);
 
-  // BULLETPROOF TIMER
   useEffect(() => {
     let intervalId;
     if (!loading && countdown > 0) {
@@ -165,9 +149,7 @@ export default function Success() {
         });
       }, 1000);
     }
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
+    return () => clearInterval(intervalId);
   }, [loading, countdown, navigate, labId, labName]);
 
   if (loading) return (
@@ -207,12 +189,17 @@ export default function Success() {
                 {isRestricted ? <ShieldAlert className="w-14 h-14 text-rose-400" /> : <CheckCircle2 className="w-14 h-14 text-green-400 animate-in zoom-in duration-500" />}
               </div>
             </div>
+            
             <div className="space-y-2">
               <h2 className={`text-4xl font-black uppercase tracking-tighter ${isRestricted ? 'text-rose-500' : 'text-slate-100'}`}>
-                {isRestricted ? "Denied" : "Access Confirmed"}
+                {isRestricted ? "Denied" : attendanceType === "Out" ? "Session Complete" : "Access Confirmed"}
               </h2>
               <p className="text-slate-400 text-lg">
-                {isRestricted ? restrictionMessage : "Welcome to the laboratory!"}
+                {isRestricted 
+                  ? restrictionMessage 
+                  : attendanceType === "Out" 
+                    ? "You have successfully signed out of the laboratory." 
+                    : "Welcome to the laboratory!"}
               </p>
             </div>
           </div>
@@ -221,12 +208,16 @@ export default function Success() {
             <CardContent className="p-8 space-y-6 text-left">
               <div className="space-y-4">
                 <div className="flex items-start gap-6 pb-6 border-b border-slate-800">
-                  <div className={`flex items-center justify-center w-16 h-16 rounded-2xl ${isRestricted ? 'bg-rose-900/50 border-rose-800/50' : 'bg-blue-900/50 border-blue-800/50'} border`}>
-                    <User className={`w-8 h-8 ${isRestricted ? 'text-rose-400' : 'text-blue-400'}`} />
+                  <div className={`flex items-center justify-center w-16 h-16 rounded-2xl ${isRestricted ? 'bg-rose-900/50 border-rose-800/50' : isLaptopMode ? 'bg-purple-900/50 border-purple-800/50' : 'bg-blue-900/50 border-blue-800/50'} border`}>
+                    {isLaptopMode && !isRestricted ? <LaptopIcon className="w-8 h-8 text-purple-400" /> : <User className={`w-8 h-8 ${isRestricted ? 'text-rose-400' : 'text-blue-400'}`} />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Assigned Workstation</p>
-                    <h3 className="text-6xl font-black text-white tracking-tighter tabular-nums">{assignedPc || "PC - 00"}</h3>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">
+                      {isLaptopMode && !isRestricted ? "Device Mode" : "Assigned Workstation"}
+                    </p>
+                    <h3 className={`text-6xl font-black tracking-tighter tabular-nums ${isLaptopMode && !isRestricted ? "text-purple-400" : "text-white"}`}>
+                      {assignedPc}
+                    </h3>
                   </div>
                 </div>
 
@@ -255,7 +246,7 @@ export default function Success() {
                 <div className={`flex items-center gap-2 px-4 py-2 rounded-full border ${isRestricted ? 'bg-rose-900/30 border-rose-800/50' : 'bg-green-900/30 border-green-800/50'}`}>
                   <div className={`w-2 h-2 rounded-full ${isRestricted ? 'bg-rose-500' : 'bg-green-500'} animate-pulse`} />
                   <span className={`text-xs font-black uppercase tracking-widest ${isRestricted ? 'text-rose-400' : 'text-green-400'}`}>
-                    {isRestricted ? 'Denied' : attendanceType === "In" ? "Entering" : "Exiting"}
+                    {isRestricted ? 'Denied' : attendanceType === "In" ? (isLaptopMode ? "Laptop In" : "Entering") : "Exiting"}
                   </span>
                 </div>
               </div>
@@ -269,12 +260,6 @@ export default function Success() {
           </div>
         </div>
       </main>
-
-      <footer className="border-t border-slate-800 bg-slate-900/30 mt-auto">
-        <div className="max-w-7xl mx-auto px-6 py-6 text-xs text-slate-500 text-center uppercase tracking-[0.2em]">
-            ISAMS - College of Computer Studies © 2026
-        </div>
-      </footer>
     </div>
   );
 }
