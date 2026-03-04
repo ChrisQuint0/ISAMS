@@ -1,17 +1,32 @@
-
-import React from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   BarChart3, TrendingUp, Users, ShieldAlert,
-  ArrowUpRight, ArrowDownRight, Activity, FileWarning, Scale
+  ArrowUpRight, ArrowDownRight, Activity, FileWarning, Scale,
+  Loader2
 } from "lucide-react";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend, AreaChart, Area
+} from "recharts";
 
-
-// Shadcn UI Imports
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { supabase } from "@/lib/supabaseClient";
 
 
-const AnalyticsCard = ({ title, value, trend, isUp, icon: Icon, description }) => (
+// --- Color Constants ---
+const SEVERITY_COLORS = { Minor: "#f59e0b", Major: "#ef4444", Compliance: "#6366f1" };
+const STATUS_COLORS = {
+  Pending: "#f59e0b", "Under Investigation": "#3b82f6", Sanctioned: "#8b5cf6",
+  Resolved: "#10b981", Dismissed: "#6b7280"
+};
+const SANCTION_STATUS_COLORS = {
+  "Not Started": "#94a3b8", "In Progress": "#3b82f6", Completed: "#10b981", Overdue: "#ef4444"
+};
+const AREA_GRADIENT_ID = "violationTrendGradient";
+
+
+// --- Reusable Stat Card ---
+const StatCard = ({ title, value, icon: Icon, description, trend, isUp, isLoading }) => (
   <Card className="bg-white border-neutral-200 shadow-sm rounded-xl overflow-hidden relative group transition-all hover:border-primary-200 hover:shadow-md h-full flex flex-col">
     <CardContent className="p-5 flex-1 flex flex-col justify-between">
       <div>
@@ -22,11 +37,17 @@ const AnalyticsCard = ({ title, value, trend, isUp, icon: Icon, description }) =
           </div>
         </div>
         <div className="flex items-baseline gap-2 mb-4">
-          <h3 className="text-3xl font-bold text-neutral-900 tracking-tight leading-none">{value}</h3>
-          <div className={`flex items-center text-[12px] font-bold ${isUp ? 'text-success' : 'text-destructive-semantic'}`}>
-            {isUp ? <ArrowUpRight size={14} className="mr-0.5" /> : <ArrowDownRight size={14} className="mr-0.5" />}
-            {trend}
-          </div>
+          {isLoading ? (
+            <Loader2 className="h-7 w-7 animate-spin text-neutral-300" />
+          ) : (
+            <h3 className="text-3xl font-bold text-neutral-900 tracking-tight leading-none">{value}</h3>
+          )}
+          {trend !== undefined && !isLoading && (
+            <div className={`flex items-center text-[12px] font-bold ${isUp ? 'text-success' : 'text-destructive-semantic'}`}>
+              {isUp ? <ArrowUpRight size={14} className="mr-0.5" /> : <ArrowDownRight size={14} className="mr-0.5" />}
+              {trend}
+            </div>
+          )}
         </div>
       </div>
       <p className="text-xs text-neutral-500 font-medium">{description}</p>
@@ -35,89 +56,338 @@ const AnalyticsCard = ({ title, value, trend, isUp, icon: Icon, description }) =
 );
 
 
+// --- Custom Recharts Tooltip ---
+const CustomTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-white border border-neutral-200 rounded-lg shadow-lg p-3 text-xs">
+      <p className="font-bold text-neutral-900 mb-1">{label}</p>
+      {payload.map((entry, i) => (
+        <p key={i} style={{ color: entry.color || entry.fill }} className="font-semibold">
+          {entry.name}: {entry.value}
+        </p>
+      ))}
+    </div>
+  );
+};
+
+// --- Custom Pie Label ---
+const renderPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }) => {
+  if (percent < 0.05) return null;
+  const RADIAN = Math.PI / 180;
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+  return (
+    <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" className="text-[10px] font-bold">
+      {`${(percent * 100).toFixed(0)}%`}
+    </text>
+  );
+};
+
+
 const Analytics = () => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalViolations: 0, activeSanctions: 0,
+    studentsInvolved: 0, resolutionRate: 0
+  });
+  const [severityData, setSeverityData] = useState([]);
+  const [statusData, setStatusData] = useState([]);
+  const [topOffenses, setTopOffenses] = useState([]);
+  const [sanctionStatusData, setSanctionStatusData] = useState([]);
+  const [monthlyTrend, setMonthlyTrend] = useState([]);
+
+  useEffect(() => {
+    fetchAnalyticsData();
+  }, []);
+
+  const fetchAnalyticsData = async () => {
+    setIsLoading(true);
+    try {
+      // === 1. KPI Stat Cards ===
+      const { data: violations } = await supabase
+        .from("violations_sv")
+        .select("violation_id, student_number, status, incident_date, offense_type_id");
+
+      const { data: sanctions } = await supabase
+        .from("student_sanctions_sv")
+        .select("sanction_id, status");
+
+      const { data: offenseTypes } = await supabase
+        .from("offense_types_sv")
+        .select("offense_type_id, name, severity");
+
+      const vList = violations || [];
+      const sList = sanctions || [];
+      const oList = offenseTypes || [];
+
+      // Build offense lookup map
+      const offenseMap = {};
+      oList.forEach(o => { offenseMap[o.offense_type_id] = o; });
+
+      // KPIs
+      const totalViolations = vList.length;
+      const activeSanctions = sList.filter(s => s.status === "In Progress" || s.status === "Overdue").length;
+      const uniqueStudents = new Set(vList.map(v => v.student_number));
+      const studentsInvolved = uniqueStudents.size;
+      const resolvedCount = vList.filter(v => v.status === "Resolved").length;
+      const resolutionRate = totalViolations > 0 ? ((resolvedCount / totalViolations) * 100).toFixed(1) : 0;
+
+      setStats({ totalViolations, activeSanctions, studentsInvolved, resolutionRate });
+
+      // === 2. Violations by Severity ===
+      const severityCounts = { Minor: 0, Major: 0, Compliance: 0 };
+      vList.forEach(v => {
+        const offense = offenseMap[v.offense_type_id];
+        if (offense?.severity) severityCounts[offense.severity] = (severityCounts[offense.severity] || 0) + 1;
+      });
+      setSeverityData(
+        Object.entries(severityCounts).map(([name, count]) => ({ name, count, fill: SEVERITY_COLORS[name] }))
+      );
+
+      // === 3. Violation Status Breakdown ===
+      const statusCounts = {};
+      vList.forEach(v => { statusCounts[v.status] = (statusCounts[v.status] || 0) + 1; });
+      setStatusData(
+        Object.entries(statusCounts).map(([name, value]) => ({ name, value, fill: STATUS_COLORS[name] || "#94a3b8" }))
+      );
+
+      // === 4. Top Offense Types ===
+      const offenseCounts = {};
+      vList.forEach(v => {
+        const offense = offenseMap[v.offense_type_id];
+        if (offense) offenseCounts[offense.name] = (offenseCounts[offense.name] || 0) + 1;
+      });
+      const sorted = Object.entries(offenseCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6)
+        .map(([name, count]) => ({ name: name.length > 22 ? name.slice(0, 20) + "…" : name, count }));
+      setTopOffenses(sorted);
+
+      // === 5. Sanction Status Overview ===
+      const sanctionCounts = {};
+      sList.forEach(s => { sanctionCounts[s.status] = (sanctionCounts[s.status] || 0) + 1; });
+      setSanctionStatusData(
+        Object.entries(sanctionCounts).map(([name, value]) => ({ name, value, fill: SANCTION_STATUS_COLORS[name] || "#94a3b8" }))
+      );
+
+      // === 6. Monthly Violation Trend ===
+      const monthCounts = {};
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      vList.forEach(v => {
+        if (!v.incident_date) return;
+        const d = new Date(v.incident_date);
+        const key = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+        monthCounts[key] = (monthCounts[key] || 0) + 1;
+      });
+
+      // Sort chronologically & take last 12 months
+      const monthEntries = Object.entries(monthCounts)
+        .map(([name, violations]) => {
+          const parts = name.split(" ");
+          const monthIdx = monthNames.indexOf(parts[0]);
+          const year = parseInt(parts[1]);
+          return { name, violations, sortKey: year * 12 + monthIdx };
+        })
+        .sort((a, b) => a.sortKey - b.sortKey)
+        .slice(-12)
+        .map(({ name, violations }) => ({ name, violations }));
+      setMonthlyTrend(monthEntries);
+
+    } catch (err) {
+      console.error("Error fetching analytics data:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+
   return (
     <div className="space-y-8 flex flex-col h-full animate-in fade-in duration-500 text-left bg-neutral-50">
-      <header className="mb-8 text-left shrink-0">
+      <header className="mb-2 text-left shrink-0">
         <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Disciplinary Analytics</h1>
         <p className="text-neutral-500 text-sm font-medium mt-1">Real-time statistics on violations, sanctions, and student compliance</p>
       </header>
 
-
-      {/* QUICK ANALYTICS GRID: Mapped to Schema Entities */}
+      {/* === KPI STAT CARDS === */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <AnalyticsCard title="Total Violations" value="1,248" trend="+12%" isUp={false} icon={FileWarning} description="All reported incidents this academic year" />
-        <AnalyticsCard title="Active Sanctions" value="342" trend="-8%" isUp={true} icon={Scale} description="Students currently undergoing compliance" />
-        <AnalyticsCard title="Students Involved" value="856" trend="+5.4%" isUp={false} icon={Users} description="Unique students with recorded offenses" />
-        <AnalyticsCard title="Resolution Rate" value="82.4%" trend="+2.1%" isUp={true} icon={Activity} description="Violations successfully resolved and closed" />
+        <StatCard title="Total Violations" value={stats.totalViolations.toLocaleString()} icon={FileWarning} description="All reported incidents on record" isLoading={isLoading} />
+        <StatCard title="Active Sanctions" value={stats.activeSanctions.toLocaleString()} icon={Scale} description="Sanctions currently in progress or not started" isLoading={isLoading} />
+        <StatCard title="Students Involved" value={stats.studentsInvolved.toLocaleString()} icon={Users} description="Unique students with recorded offenses" isLoading={isLoading} />
+        <StatCard title="Resolution Rate" value={`${stats.resolutionRate}%`} icon={Activity} description="Violations successfully resolved and closed" isLoading={isLoading} />
       </div>
 
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-10">
-        {/* WEEKLY TREND CHART: Re-themed for light mode */}
+      {/* === CHARTS ROW 1: Severity Bar + Status Pie === */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Violations by Severity */}
         <Card className="lg:col-span-2 bg-white border-neutral-200 shadow-sm rounded-xl overflow-hidden flex flex-col">
           <CardHeader className="p-5 border-b border-neutral-100 bg-neutral-50/50">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-bold text-neutral-900 uppercase tracking-tight flex items-center gap-2">
-                <TrendingUp size={16} className="text-primary-600" /> Incident Frequency
-              </CardTitle>
-              <div className="flex gap-2">
-                <span className="text-[10px] bg-white border border-neutral-200 text-neutral-600 px-2 py-1 rounded font-bold uppercase tracking-wider shadow-sm">Minor</span>
-                <span className="text-[10px] bg-primary-50 border border-primary-200 text-primary-700 px-2 py-1 rounded font-bold uppercase tracking-wider shadow-sm">Major</span>
-              </div>
-            </div>
+            <CardTitle className="text-sm font-bold text-neutral-900 uppercase tracking-tight flex items-center gap-2">
+              <BarChart3 size={16} className="text-primary-600" /> Violations by Severity
+            </CardTitle>
           </CardHeader>
-          <CardContent className="p-8 flex-1 flex items-end justify-between gap-4 h-80">
-            {[40, 70, 45, 90, 65, 80, 50].map((h, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-3 h-full justify-end">
-                <div className="w-full bg-neutral-50/50 rounded-t-md h-full relative flex items-end justify-center overflow-hidden border border-neutral-100">
-                  <div
-                    className="w-full bg-gradient-to-t from-primary-600/60 to-primary-400/20 transition-all duration-500 hover:from-primary-500/80 group relative"
-                    style={{ height: `${h}%` }}
-                  >
-                    <div className="absolute -top-7 left-1/2 -translate-x-1/2 text-[10px] font-bold text-primary-600 opacity-0 group-hover:opacity-100 transition-opacity bg-white px-1.5 py-0.5 rounded border border-neutral-200 shadow-sm">
-                      {h}
-                    </div>
-                  </div>
-                </div>
-                <span className="text-[10px] font-bold text-neutral-500">Day {i+1}</span>
-              </div>
-            ))}
+          <CardContent className="p-6 flex-1 flex items-center justify-center" style={{ minHeight: 300 }}>
+            {isLoading ? (
+              <Loader2 className="h-8 w-8 animate-spin text-neutral-300" />
+            ) : severityData.length === 0 ? (
+              <p className="text-sm text-neutral-400 font-medium">No violation data available</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={severityData} barSize={48}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 12, fontWeight: 600, fill: "#6b7280" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(0,0,0,0.03)" }} />
+                  <Bar dataKey="count" name="Violations" radius={[6, 6, 0, 0]}>
+                    {severityData.map((entry, i) => (
+                      <Cell key={i} fill={entry.fill} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
-
-        {/* PRIORITY ALERTS: Mapped to Offense Severity and Status */}
+        {/* Violation Status Pie */}
         <Card className="bg-white border-neutral-200 shadow-sm rounded-xl overflow-hidden flex flex-col">
           <CardHeader className="p-5 border-b border-neutral-100 bg-neutral-50/50">
             <CardTitle className="text-sm font-bold text-neutral-900 uppercase tracking-tight flex items-center gap-2">
-              <ShieldAlert size={16} className="text-warning" /> Top Offense Types
+              <ShieldAlert size={16} className="text-warning" /> Status Breakdown
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-6 space-y-7 flex-1">
-            {[
-              { label: "Dress Code Violation", severity: "Minor", count: 324, color: "bg-warning", track: "bg-amber-100" },
-              { label: "Academic Dishonesty", severity: "Major", count: 156, color: "bg-destructive-semantic", track: "bg-red-100" },
-              { label: "Excessive Tardiness", count: 89, severity: "Minor", color: "bg-info", track: "bg-blue-100" },
-              { label: "Property Damage", count: 42, severity: "Major", color: "bg-purple-500", track: "bg-purple-100" },
-              { label: "ID Non-Compliance", count: 218, severity: "Compliance", color: "bg-neutral-500", track: "bg-neutral-200" },
-            ].map((item, i) => (
-              <div key={i} className="space-y-3">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <span className="text-sm font-bold text-neutral-800 tracking-tight block">{item.label}</span>
-                    <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">{item.severity}</span>
-                  </div>
-                  <span className="text-sm font-bold text-neutral-900 bg-neutral-100 border border-neutral-200 px-2 py-0.5 rounded-md">{item.count}</span>
-                </div>
-                <div className={`h-2.5 w-full ${item.track} rounded-full overflow-hidden`}>
-                  <div
-                    className={`h-full ${item.color} rounded-full transition-all duration-1000 shadow-inner`}
-                    style={{ width: `${(item.count / 400) * 100}%` }}
+          <CardContent className="p-6 flex-1 flex items-center justify-center" style={{ minHeight: 300 }}>
+            {isLoading ? (
+              <Loader2 className="h-8 w-8 animate-spin text-neutral-300" />
+            ) : statusData.length === 0 ? (
+              <p className="text-sm text-neutral-400 font-medium">No data available</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie
+                    data={statusData} dataKey="value" nameKey="name"
+                    cx="50%" cy="50%" outerRadius={95} innerRadius={45}
+                    labelLine={false} label={renderPieLabel}
+                    stroke="#fff" strokeWidth={2}
+                  >
+                    {statusData.map((entry, i) => (
+                      <Cell key={i} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend
+                    verticalAlign="bottom" iconType="circle" iconSize={8}
+                    formatter={(value) => <span className="text-[11px] font-semibold text-neutral-600 ml-1">{value}</span>}
                   />
-                </div>
-              </div>
-            ))}
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* === CHARTS ROW 2: Monthly Trend + Sanction Status === */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Monthly Violation Trend */}
+        <Card className="lg:col-span-2 bg-white border-neutral-200 shadow-sm rounded-xl overflow-hidden flex flex-col">
+          <CardHeader className="p-5 border-b border-neutral-100 bg-neutral-50/50">
+            <CardTitle className="text-sm font-bold text-neutral-900 uppercase tracking-tight flex items-center gap-2">
+              <TrendingUp size={16} className="text-primary-600" /> Monthly Violation Trend
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6 flex-1 flex items-center justify-center" style={{ minHeight: 300 }}>
+            {isLoading ? (
+              <Loader2 className="h-8 w-8 animate-spin text-neutral-300" />
+            ) : monthlyTrend.length === 0 ? (
+              <p className="text-sm text-neutral-400 font-medium">Not enough data for a trend</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                <AreaChart data={monthlyTrend}>
+                  <defs>
+                    <linearGradient id={AREA_GRADIENT_ID} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--primary-500)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="var(--primary-500)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Area
+                    type="monotone" dataKey="violations" name="Violations"
+                    stroke="var(--primary-600)" strokeWidth={2.5}
+                    fill={`url(#${AREA_GRADIENT_ID})`}
+                    dot={{ r: 4, fill: "var(--primary-600)", stroke: "#fff", strokeWidth: 2 }}
+                    activeDot={{ r: 6, fill: "var(--primary-600)", stroke: "#fff", strokeWidth: 2 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Sanction Status Overview */}
+        <Card className="bg-white border-neutral-200 shadow-sm rounded-xl overflow-hidden flex flex-col">
+          <CardHeader className="p-5 border-b border-neutral-100 bg-neutral-50/50">
+            <CardTitle className="text-sm font-bold text-neutral-900 uppercase tracking-tight flex items-center gap-2">
+              <Scale size={16} className="text-info" /> Sanction Status
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6 flex-1 flex items-center justify-center" style={{ minHeight: 300 }}>
+            {isLoading ? (
+              <Loader2 className="h-8 w-8 animate-spin text-neutral-300" />
+            ) : sanctionStatusData.length === 0 ? (
+              <p className="text-sm text-neutral-400 font-medium">No sanction data available</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie
+                    data={sanctionStatusData} dataKey="value" nameKey="name"
+                    cx="50%" cy="50%" outerRadius={95} innerRadius={45}
+                    labelLine={false} label={renderPieLabel}
+                    stroke="#fff" strokeWidth={2}
+                  >
+                    {sanctionStatusData.map((entry, i) => (
+                      <Cell key={i} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend
+                    verticalAlign="bottom" iconType="circle" iconSize={8}
+                    formatter={(value) => <span className="text-[11px] font-semibold text-neutral-600 ml-1">{value}</span>}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* === CHARTS ROW 3: Top Offense Types (full width) === */}
+      <div className="pb-6">
+        <Card className="bg-white border-neutral-200 shadow-sm rounded-xl overflow-hidden flex flex-col">
+          <CardHeader className="p-5 border-b border-neutral-100 bg-neutral-50/50">
+            <CardTitle className="text-sm font-bold text-neutral-900 uppercase tracking-tight flex items-center gap-2">
+              <ShieldAlert size={16} className="text-destructive-semantic" /> Top Offense Types
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6 flex-1 flex items-center justify-center" style={{ minHeight: 300 }}>
+            {isLoading ? (
+              <Loader2 className="h-8 w-8 animate-spin text-neutral-300" />
+            ) : topOffenses.length === 0 ? (
+              <p className="text-sm text-neutral-400 font-medium">No offense data available</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={Math.max(200, topOffenses.length * 52)}>
+                <BarChart data={topOffenses} layout="vertical" barSize={24} margin={{ left: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 12, fontWeight: 600, fill: "#374151" }} axisLine={false} tickLine={false} width={160} />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(0,0,0,0.03)" }} />
+                  <Bar dataKey="count" name="Violations" fill="var(--primary-600)" radius={[0, 6, 6, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
       </div>
