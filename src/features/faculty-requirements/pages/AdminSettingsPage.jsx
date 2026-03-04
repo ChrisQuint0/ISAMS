@@ -3,7 +3,7 @@ import {
     Save, Database, Terminal, Trash2, RefreshCw, Eye, Settings,
     Cpu, CheckCircle, AlertCircle, Play, Shield, FileText,
     Clock, Archive, HardDrive, Server, Activity,
-    Wifi, WifiOff, Globe, Lock, Unlock,
+    Wifi, WifiOff, Globe, Lock, Unlock, AlertTriangle,
     ChevronUp, ChevronDown, Plus, Folder, File as FileIcon, LayoutTemplate, Users, BookOpen, X
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -95,7 +95,7 @@ CourseFacultyEditor.displayName = 'CourseFacultyEditor';
 
 export default function AdminSettingsPage() {
     const {
-        loading, processing, error, success, setError, setSuccess,
+        loading, processing, setProcessing, error, success, setError, setSuccess,
         settings, testResult, clearTestResult,
         updateSetting, saveGroup, runTestOCR, refresh,
         docRequirements, addDocRequirement, updateDocRequirement, deleteDocRequirement,
@@ -302,13 +302,16 @@ export default function AdminSettingsPage() {
 
     const catalogCodeTaken = !!existingCatalogEntry;
     const canAddCatalog = catalogCodeValid && catalogNameValid && catalogSemValid && !catalogCodeTaken;
+    const [confirmCatalogOpen, setConfirmCatalogOpen] = useState(false);
 
     // ── Assign Faculty Modal state ─────────────────────────────────────────────
     const [assignModalOpen, setAssignModalOpen] = useState(false);
     const [newAssignment, setNewAssignment] = useState({ master_course_id: '', section: '', faculty_id: '' });
 
     const selectedCatalogEntry = masterCourseList.find(c => c.id === Number(newAssignment.master_course_id));
-    const assignmentValid = !!newAssignment.master_course_id && newAssignment.section.trim().length >= 1 && !!newAssignment.faculty_id;
+    const SECTION_PATTERN = /^[A-Z]+-\d+[A-Z]$/;  // e.g. BSIT-3A
+    const sectionFormatValid = SECTION_PATTERN.test(newAssignment.section.trim());
+    const assignmentValid = !!newAssignment.master_course_id && sectionFormatValid && !!newAssignment.faculty_id;
 
     // Guard 1: the section slot is already taken by someone
     const sectionTaken = assignmentValid && courseList.some(
@@ -424,23 +427,19 @@ export default function AdminSettingsPage() {
         {
             field: 'course_code',
             headerName: 'Code',
-            width: 110,
-            cellRenderer: params => (
-                <span className="font-mono text-primary-600 font-bold bg-primary-50/50 px-2 py-0.5">
-                    {params.value}
-                </span>
-            )
+            width: 120,
+            cellStyle: { fontFamily: 'monospace', color: 'var(--primary-600)', fontWeight: 700 },
         },
         {
             field: 'course_name',
             headerName: 'Course Name',
             flex: 2,
-            cellStyle: { fontWeight: 500 }
+            cellStyle: { fontWeight: 500 },
         },
         {
             field: 'semester',
             headerName: 'Semester',
-            width: 130,
+            width: 150,
             cellRenderer: params => <span className="text-neutral-500 text-xs font-medium">{params.value || '—'}</span>
         },
         {
@@ -448,8 +447,10 @@ export default function AdminSettingsPage() {
             headerName: 'Status',
             width: 120,
             editable: true,
+            singleClickEdit: false,
             cellEditor: 'agSelectCellEditor',
             cellEditorParams: { values: ['Active', 'Inactive'] },
+            suppressKeyboardEvent: (params) => params.editing && ['Tab', 'Enter', 'ArrowDown', 'ArrowUp'].includes(params.event.key),
             valueGetter: (params) => params.data.is_active ? 'Active' : 'Inactive',
             valueSetter: (params) => {
                 params.data.is_active = params.newValue === 'Active';
@@ -653,7 +654,6 @@ export default function AdminSettingsPage() {
         forbidden_keywords: '',
         allowed_extensions: '.pdf',
         max_file_size_mb: '',
-        min_word_count: 0
     });
     const [newKeyword, setNewKeyword] = useState('');
     const [newForbidden, setNewForbidden] = useState('');
@@ -789,7 +789,7 @@ export default function AdminSettingsPage() {
                         className="bg-primary-500 border-primary-500 text-neutral-50 hover:bg-primary-600 hover:text-neutral-50 shadow-sm"
                     >
                         <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                        Reload Settings
+                        Refresh Settings
                     </Button>
                 </div>
 
@@ -818,7 +818,7 @@ export default function AdminSettingsPage() {
                                 <div className="lg:col-span-2 space-y-6">
                                     <Card className="bg-white border-neutral-200 shadow-sm">
                                         <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
-                                            <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                            <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
                                                 <Globe className="h-4 w-4 text-primary-600" /> Global Defaults
                                             </CardTitle>
                                             <CardDescription className="text-neutral-500">Set default behaviors for new semesters</CardDescription>
@@ -901,7 +901,7 @@ export default function AdminSettingsPage() {
                                     {/* Google Drive Folder */}
                                     <Card className="bg-white border-neutral-200 shadow-sm">
                                         <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
-                                            <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                            <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
                                                 <HardDrive className="h-4 w-4 text-primary-600" /> GDrive Management
                                             </CardTitle>
                                             <CardDescription className="text-neutral-500">Provide one parent folder; we'll handle the sub-folders automatically.</CardDescription>
@@ -925,28 +925,16 @@ export default function AdminSettingsPage() {
                                                     />
                                                 </div>
 
-                                                {(mainGdriveLink || settings.gdrive_root_folder_id) && (
-                                                    <div className="bg-neutral-50 rounded-lg p-3 border border-neutral-200 space-y-2">
+                                                {(mainGdriveLink || settings.gdrive_main_folder_id) && (
+                                                    <div className="bg-neutral-50 rounded-lg p-3 border border-neutral-200">
                                                         <div className="flex justify-between items-center text-xs">
-                                                            <span className="text-neutral-500 italic">Target Infrastructure:</span>
-                                                            <span className="text-primary font-mono text-[10px] font-bold">
-                                                                {(() => {
-                                                                    const match = mainGdriveLink.match(/folders\/([a-zA-Z0-9_-]+)/);
-                                                                    return match ? match[1] : (settings.gdrive_main_folder_id || 'Not Set');
-                                                                })()}
-                                                            </span>
+                                                            <span className="text-neutral-500 font-medium italic">Root Folder ID</span>
                                                         </div>
-
                                                         {settings.gdrive_root_folder_id && (
-                                                            <div className="grid grid-cols-2 gap-4 pt-2 border-t border-neutral-200">
-                                                                <div className="space-y-1">
-                                                                    <p className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Official Vault</p>
-                                                                    <p className="text-[11px] text-success font-mono font-bold truncate">{settings.gdrive_root_folder_id}</p>
-                                                                </div>
-                                                                <div className="space-y-1">
-                                                                    <p className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Staging Sandbox</p>
-                                                                    <p className="text-[11px] text-warning font-mono font-bold truncate">{settings.gdrive_staging_folder_id}</p>
-                                                                </div>
+                                                            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-neutral-200">
+                                                                <span className="w-2 h-2 rounded-full bg-success shrink-0" />
+                                                                <p className="text-[11px] text-success font-mono font-bold truncate">{settings.gdrive_root_folder_id}</p>
+                                                                <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider ml-auto">Configured</span>
                                                             </div>
                                                         )}
                                                     </div>
@@ -998,7 +986,7 @@ export default function AdminSettingsPage() {
                                                         }
 
                                                         try {
-                                                            setSuccess("Initializing folders...");
+                                                            setProcessing(true);
                                                             const response = await fetch('/api/folders/init-isams', {
                                                                 method: 'POST',
                                                                 headers: { 'Content-Type': 'application/json' },
@@ -1010,14 +998,15 @@ export default function AdminSettingsPage() {
 
                                                             await saveGroup({
                                                                 gdrive_main_folder_id: mainId,
-                                                                gdrive_root_folder_id: data.vaultId,
-                                                                gdrive_staging_folder_id: data.sandboxId
-                                                            });
+                                                                gdrive_root_folder_id: mainId,
+                                                            }, { silent: true });
 
-                                                            setSuccess("GDrive Structure Initialized & Saved!");
+                                                            setSuccess("GDrive folder configured successfully!");
                                                             setIsGdriveUnlocked(false);
                                                         } catch (err) {
                                                             setError("Setup failed: " + err.message);
+                                                        } finally {
+                                                            setProcessing(false);
                                                         }
                                                     }}
                                                 >
@@ -1037,7 +1026,7 @@ export default function AdminSettingsPage() {
                                 <div className="space-y-6">
                                     <Card className="bg-white border-neutral-200 shadow-sm">
                                         <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
-                                            <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                            <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
                                                 <Server className="h-4 w-4 text-primary-600" /> System Status
                                             </CardTitle>
                                         </CardHeader>
@@ -1109,7 +1098,7 @@ export default function AdminSettingsPage() {
                             {/* ── Card 1: Course Catalog ──────────────────────────────── */}
                             <Card className="bg-white border-neutral-200 shadow-sm">
                                 <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
-                                    <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                    <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
                                         <BookOpen className="h-4 w-4 text-primary-600" /> Course Catalog
                                     </CardTitle>
                                     <CardDescription className="text-neutral-500">
@@ -1138,6 +1127,7 @@ export default function AdminSettingsPage() {
                                                     placeholder="e.g. Networking 1"
                                                     value={newCatalog.name}
                                                     onChange={e => setNewCatalog(p => ({ ...p, name: e.target.value }))}
+                                                    onBlur={e => setNewCatalog(p => ({ ...p, name: e.target.value.trim() }))}
                                                     disabled={!catalogCodeValid}
                                                     className="bg-white border-neutral-200 text-neutral-900 shadow-sm disabled:bg-neutral-100 disabled:text-neutral-400 focus-visible:ring-primary-500 focus-visible:border-primary-500"
                                                 />
@@ -1154,10 +1144,9 @@ export default function AdminSettingsPage() {
                                                         <SelectValue placeholder="Pick semester" />
                                                     </SelectTrigger>
                                                     <SelectContent className="bg-white border-neutral-200 text-neutral-900">
-                                                        <SelectItem value="1st Sem">1st Semester</SelectItem>
-                                                        <SelectItem value="2nd Sem">2nd Semester</SelectItem>
+                                                        <SelectItem value="1st Semester">1st Semester</SelectItem>
+                                                        <SelectItem value="2nd Semester">2nd Semester</SelectItem>
                                                         <SelectItem value="Summer">Summer</SelectItem>
-                                                        <SelectItem value="Mid-Year">Mid-Year</SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                             </div>
@@ -1166,10 +1155,7 @@ export default function AdminSettingsPage() {
                                                 <Button
                                                     className="w-full"
                                                     disabled={!canAddCatalog}
-                                                    onClick={async () => {
-                                                        const ok = await handleAddMasterCourse(newCatalog.code, newCatalog.name, newCatalog.semester);
-                                                        if (ok) setNewCatalog(p => ({ ...p, code: '', name: '' }));
-                                                    }}
+                                                    onClick={() => setConfirmCatalogOpen(true)}
                                                 >
                                                     <Plus className="h-4 w-4 mr-1" /> Add
                                                 </Button>
@@ -1183,6 +1169,59 @@ export default function AdminSettingsPage() {
                                             <p>{catalogConflictType} "{catalogConflictType === 'Code' ? newCatalog.code.toUpperCase() : newCatalog.name}" already exists in {existingCatalogEntry?.semester || 'another semester'}. Each course must be unique.</p>
                                         </div>
                                     )}
+
+                                    {/* ── Confirm Add Dialog ─────────────────────────────── */}
+                                    <Dialog open={confirmCatalogOpen} onOpenChange={setConfirmCatalogOpen}>
+                                        <DialogContent className="bg-white border-neutral-200 text-neutral-900 sm:max-w-[420px] shadow-xl">
+                                            <DialogHeader>
+                                                <DialogTitle className="text-neutral-900 font-bold flex items-center gap-2">
+                                                    <AlertCircle className="h-4 w-4 text-warning" />
+                                                    Confirm New Course
+                                                </DialogTitle>
+                                                <DialogDescription className="text-neutral-500 font-medium">
+                                                    Please review carefully before saving.
+                                                </DialogDescription>
+                                            </DialogHeader>
+
+                                            {/* Preview fields */}
+                                            <div className="space-y-3 py-2">
+                                                <div className="space-y-1">
+                                                    <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Course Code</p>
+                                                    <p className="font-mono font-bold text-primary-600 bg-primary-50 border border-primary-100 rounded-lg px-3 py-2 text-sm">{newCatalog.code}</p>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Course Name</p>
+                                                    <p className="font-semibold text-neutral-900 bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm">{newCatalog.name}</p>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Semester</p>
+                                                    <p className="font-semibold text-neutral-700 bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm">{newCatalog.semester}</p>
+                                                </div>
+                                            </div>
+
+                                            {/* Warning */}
+                                            <div className="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 mt-1">
+                                                <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                                                <p className="text-xs text-amber-800 font-medium">Check for spelling errors in the code and name. <span className="font-bold">Once added, this entry cannot be deleted</span> if it has active course assignments.</p>
+                                            </div>
+
+                                            <DialogFooter className="gap-2 mt-2">
+                                                <Button variant="outline" className="border-neutral-200 text-neutral-600" onClick={() => setConfirmCatalogOpen(false)}>
+                                                    Go Back & Review
+                                                </Button>
+                                                <Button
+                                                    className="bg-primary-600 hover:bg-primary-700 text-white font-bold"
+                                                    onClick={async () => {
+                                                        setConfirmCatalogOpen(false);
+                                                        const ok = await handleAddMasterCourse(newCatalog.code, newCatalog.name, newCatalog.semester);
+                                                        if (ok) setNewCatalog(p => ({ ...p, code: '', name: '', semester: '' }));
+                                                    }}
+                                                >
+                                                    Yes, Add Course
+                                                </Button>
+                                            </DialogFooter>
+                                        </DialogContent>
+                                    </Dialog>
 
                                     {/* Catalog grid (USING THE NEW DATATABLE WRAPPER) */}
                                     <DataTable
@@ -1201,7 +1240,7 @@ export default function AdminSettingsPage() {
                                 <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
                                     <div className="flex items-center justify-between">
                                         <div>
-                                            <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                            <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
                                                 <Users className="h-4 w-4 text-primary-600" /> Faculty Course Assignments
                                             </CardTitle>
                                             <CardDescription className="text-neutral-500 mt-1">
@@ -1306,7 +1345,7 @@ export default function AdminSettingsPage() {
                                                                                 Sec {asgn.section || '—'}
                                                                             </span>
 
-                                                                            <span className="text-[11px] text-neutral-500 font-medium w-14 text-right hidden sm:block">
+                                                                            <span className="text-[11px] text-neutral-500 font-medium w-21 text-right hidden sm:block">
                                                                                 {asgn.semester || '—'}
                                                                             </span>
 
@@ -1363,7 +1402,7 @@ export default function AdminSettingsPage() {
                                             Assign Faculty to Course
                                         </DialogTitle>
                                         <DialogDescription className="text-neutral-500">
-                                            Select a course from the catalog, pick a section letter, then choose the faculty member.
+                                            Select a course, set the section (e.g. <span className="font-mono font-semibold text-neutral-700">BSCS-3A</span>), then choose the faculty member.
                                         </DialogDescription>
                                     </DialogHeader>
 
@@ -1407,13 +1446,29 @@ export default function AdminSettingsPage() {
                                             <div className="space-y-1.5">
                                                 <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Section *</label>
                                                 <Input
-                                                    placeholder="A"
+                                                    placeholder="e.g. BSCS-3A"
                                                     value={newAssignment.section}
-                                                    onChange={e => setNewAssignment(p => ({ ...p, section: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 2) }))}
-                                                    maxLength={2}
+                                                    onChange={e => {
+                                                        // Normalize: strip spaces & dashes, uppercase, then re-insert dash between letters and digits
+                                                        const stripped = e.target.value.toUpperCase().replace(/[\s\-]+/g, '');
+                                                        const full = stripped.match(/^([A-Z]+)(\d+)([A-Z])$/);
+                                                        const partial = stripped.match(/^([A-Z]+)(\d.*)$/);
+                                                        const normalized = full
+                                                            ? `${full[1]}-${full[2]}${full[3]}`  // BSIT-3A
+                                                            : partial
+                                                                ? `${partial[1]}-${partial[2]}`  // BSIT-3 (still typing)
+                                                                : stripped;                       // BSIT (just letters so far)
+                                                        setNewAssignment(p => ({ ...p, section: normalized }));
+                                                    }}
                                                     disabled={!newAssignment.master_course_id}
-                                                    className="bg-white border-neutral-200 text-neutral-900 font-mono text-center disabled:bg-neutral-100 shadow-sm focus-visible:ring-primary-500"
+                                                    className="bg-white border-neutral-200 text-neutral-900 font-mono disabled:bg-neutral-100 shadow-sm focus-visible:ring-primary-500"
                                                 />
+                                                {newAssignment.section && !sectionFormatValid && (
+                                                    <p className="text-[10px] text-amber-600 font-medium flex items-center gap-1 mt-1">
+                                                        <AlertCircle className="h-3 w-3" />
+                                                        Complete format needed, e.g. <span className="font-mono font-bold">BSIT-3A</span>
+                                                    </p>
+                                                )}
                                             </div>
                                             <div className="col-span-2 space-y-1.5">
                                                 <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Faculty *</label>
@@ -1477,7 +1532,7 @@ export default function AdminSettingsPage() {
                         <TabsContent value="faculty" className="mt-0">
                             <Card className="bg-white border-neutral-200 shadow-sm">
                                 <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
-                                    <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                    <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
                                         <Users className="h-4 w-4 text-primary-600" /> Faculty Management
                                     </CardTitle>
                                     <CardDescription className="text-neutral-500">
@@ -1502,7 +1557,7 @@ export default function AdminSettingsPage() {
                                 <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
                                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                         <div>
-                                            <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                            <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
                                                 <Folder className="h-4 w-4 text-primary-600" /> Document Requirements
                                             </CardTitle>
                                             <CardDescription className="text-neutral-500">Manage required submissions and their target folders</CardDescription>
@@ -1697,7 +1752,7 @@ export default function AdminSettingsPage() {
                             <Card className="bg-white border-neutral-200 shadow-sm">
                                 <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                     <div>
-                                        <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                        <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
                                             <Shield className="h-4 w-4 text-primary-600" /> Certificates
                                         </CardTitle>
                                         <CardDescription className="text-neutral-500">Manage Clearance Certificates and visual calibration.</CardDescription>
@@ -1729,7 +1784,7 @@ export default function AdminSettingsPage() {
                             <Card className="bg-white border-neutral-200 shadow-sm">
                                 <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                     <div>
-                                        <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                        <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
                                             <LayoutTemplate className="h-4 w-4 text-primary-600" /> System Templates
                                         </CardTitle>
                                         <CardDescription className="text-neutral-500">Manage Syllabus, Grade Sheets, and General templates.</CardDescription>
@@ -1762,7 +1817,7 @@ export default function AdminSettingsPage() {
                         <TabsContent value="scheduling" className="mt-0">
                             <Card className="bg-white border-neutral-200 shadow-sm">
                                 <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
-                                    <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                    <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
                                         <Clock className="h-4 w-4 text-primary-600" /> Holiday Scheduling
                                     </CardTitle>
                                     <CardDescription className="text-neutral-500">Manage holidays to pause automated email reminders.</CardDescription>
@@ -1879,7 +1934,7 @@ export default function AdminSettingsPage() {
                                 <div className="md:col-span-1 space-y-2 self-start ">
                                     <Card className="bg-white border-neutral-200 shadow-sm flex flex-col max-h-[calc(100vh-120px)]">
                                         <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4 shrink-0">
-                                            <CardTitle className="text-sm text-neutral-900 flex items-center gap-2">
+                                            <CardTitle className="text-sm font-bold text-neutral-900 flex items-center gap-2">
                                                 <Folder className="h-4 w-4 text-primary-600" /> Document Types
                                             </CardTitle>
                                             <div className="text-xs text-neutral-500 font-medium">Select a document type to view its validation rules.</div>
@@ -1908,7 +1963,7 @@ export default function AdminSettingsPage() {
                                 <div className="md:col-span-3">
                                     <Card className="bg-white border-neutral-200 shadow-sm h-full">
                                         <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
-                                            <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                            <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
                                                 <Shield className="h-4 w-4 text-primary-600" />
                                                 Validation Rules: {docRequirements.find(d => d.id === selectedDocTypeId)?.name || 'Select a Document Type'}
                                             </CardTitle>
@@ -1979,21 +2034,6 @@ export default function AdminSettingsPage() {
                                                                 <p className="text-xs text-neutral-500 font-medium">Prevents upload spoofing (e.g. rejecting a document explicitly marked as "Draft").</p>
                                                             </div>
 
-                                                            {/* Minimum Word Count */}
-                                                            <div className="space-y-2 max-w-sm mt-2">
-                                                                <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Minimum Word Count</Label>
-                                                                <div className="flex items-center gap-3">
-                                                                    <Input
-                                                                        type="number"
-                                                                        min="0"
-                                                                        value={docRules.min_word_count ?? 0}
-                                                                        onChange={(e) => setDocRules({ ...docRules, min_word_count: e.target.value === '' ? '' : parseInt(e.target.value, 10) || 0 })}
-                                                                        className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 focus-visible:border-primary-500 shadow-sm font-mono text-lg w-32"
-                                                                    />
-                                                                    <span className="text-sm text-neutral-600 font-medium whitespace-nowrap">words minimum</span>
-                                                                </div>
-                                                                <p className="text-xs text-neutral-500 font-medium">Ensures documents have sufficient length, filtering out placeholder single-page uploads.</p>
-                                                            </div>
                                                         </div>
                                                     </div>
 
@@ -2051,21 +2091,21 @@ export default function AdminSettingsPage() {
                                 {/* Engine Config */}
                                 <Card className="bg-white border-neutral-200 shadow-sm">
                                     <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
-                                        <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
-                                            <Cpu className="h-4 w-4 text-primary-600" /> OCR Engine Configuration
+                                        <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
+                                            <Cpu className="h-4 w-4 text-primary-600" /> OCR Engine
                                         </CardTitle>
+                                        <CardDescription className="text-neutral-500">OCR Engine uses AI to extract text from documents.</CardDescription>
                                     </CardHeader>
                                     <CardContent className="pt-6 space-y-6">
                                         <div className="flex items-center justify-between p-4 rounded-xl bg-neutral-50 border border-neutral-200 shadow-sm">
                                             <div>
-                                                <Label className="text-neutral-900 font-bold text-sm">Enable Automated Validation</Label>
-                                                <p className="text-xs text-neutral-500 mt-1 font-medium">Master switch to run the extraction engine on new uploads.</p>
+                                                <Label className="text-neutral-900 font-bold text-sm">Automated Validation</Label>
+                                                <p className="text-xs text-neutral-500 mt-1 font-medium">Validation runs automatically on every upload. This cannot be disabled.</p>
                                             </div>
-                                            <Switch
-                                                checked={settings.ocr_enabled}
-                                                onCheckedChange={(c) => updateSetting('ocr_enabled', c)}
-                                                className="data-[state=checked]:bg-success shrink-0"
-                                            />
+                                            <span className="flex items-center gap-1.5 bg-success/10 border border-success/20 text-success text-xs font-bold px-3 py-1.5 rounded-full shrink-0">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
+                                                Always Active
+                                            </span>
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -2150,6 +2190,20 @@ export default function AdminSettingsPage() {
                                                     </div>
                                                 )}
 
+                                                {testResult.extractedText && (
+                                                    <div className="mb-4 text-xs font-mono">
+                                                        <div className="flex justify-between items-center mb-1.5">
+                                                            <span className="font-bold text-neutral-900">Raw Extracted Data:</span>
+                                                            <span className="text-neutral-500 font-medium">
+                                                                Words: {testResult.wordCount} | Chars: {testResult.extractedLength}
+                                                            </span>
+                                                        </div>
+                                                        <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-3 shadow-inner max-h-40 overflow-y-auto w-full break-normal whitespace-pre-wrap text-neutral-600">
+                                                            {testResult.extractedText}
+                                                        </div>
+                                                    </div>
+                                                )}
+
                                                 <div className="bg-white border border-neutral-200 rounded-lg p-3 shadow-inner">
                                                     <pre className={`text-xs font-mono overflow-auto max-h-64 whitespace-pre-wrap flex-1 ${testResult.success ? 'text-neutral-700' : 'text-destructive font-medium'}`}>
                                                         {testResult.success ? testResult.text : (testResult.error || testResult.text)}
@@ -2184,7 +2238,7 @@ export default function AdminSettingsPage() {
                         <TabsContent value="maintenance" className="mt-0">
                             <Card className="bg-destructive/5 border-destructive/20 shadow-none">
                                 <CardHeader className="border-b border-destructive/20 py-4 bg-white/50">
-                                    <CardTitle className="text-base text-destructive flex items-center gap-2 font-bold">
+                                    <CardTitle className="text-lg font-bold text-destructive flex items-center gap-2">
                                         <AlertCircle className="h-5 w-5" /> Danger Zone
                                     </CardTitle>
                                     <CardDescription className="text-destructive/70 font-medium">

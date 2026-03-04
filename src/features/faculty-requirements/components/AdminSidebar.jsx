@@ -79,7 +79,6 @@ export function AppSidebar() {
     { path: '/faculty-monitor', label: 'Faculty Monitor', icon: Users },
     { path: '/deadlines', label: 'Deadline Manager', icon: Calendar },
     { path: '/semester-management', label: 'Semester Manager', icon: Clock },
-    { path: '/validation', label: 'Validation Queue', icon: CheckSquare },
     { path: '/reports', label: 'Reports', icon: BarChart },
     { path: '/archive', label: 'Document Archive', icon: Database },
   ]

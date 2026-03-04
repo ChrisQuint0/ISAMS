@@ -9,45 +9,38 @@ export function useAdminSemesterManagement() {
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
 
-    // Active period settings
-    const [currentSettings, setCurrentSettings] = useState({
-        semester: '',
-        academic_year: ''
-    });
-
-    // Historical record list
+    const [currentSettings, setCurrentSettings] = useState({ semester: '', academic_year: '' });
     const [history, setHistory] = useState([]);
-
-    // List of faculty with pending work (for rollover warnings)
+    const [semesterStats, setSemesterStats] = useState([]);
     const [incompleteFaculty, setIncompleteFaculty] = useState([]);
 
     /**
-     * Primary data fetcher
+     * Primary data fetcher — loads all data in parallel
      */
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const [settings, historyData, incomplete] = await Promise.all([
+            const [settings, historyData, stats, incomplete] = await Promise.all([
                 semesterService.getSemesterSettings(),
                 semesterService.getSemesterHistory(),
+                semesterService.getSemesterStats(),
                 semesterService.getIncompleteFaculty()
             ]);
 
             setCurrentSettings(settings);
             setHistory(historyData);
+            setSemesterStats(stats);
             setIncompleteFaculty(incomplete);
         } catch (err) {
             console.error('[SemesterHook] Load failed:', err);
             setError("Failed to load semester management data.");
+            setTimeout(() => setError(null), 4000);
         } finally {
             setLoading(false);
         }
     }, []);
 
-    // Initial load
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+    useEffect(() => { fetchData(); }, [fetchData]);
 
     /**
      * Manually update active settings (e.g., typo fix)
@@ -61,13 +54,13 @@ export function useAdminSemesterManagement() {
             return true;
         } catch (err) {
             setError("Failed to update settings: " + err.message);
-            setTimeout(() => setError(null), 3000);
+            setTimeout(() => setError(null), 4000);
             return false;
         }
     };
 
     /**
-     * Execute Semester Rollover
+     * Execute the full Semester Rollover Protocol
      */
     const triggerRollover = async (nextSemester, nextYear) => {
         setLoading(true);
@@ -79,11 +72,10 @@ export function useAdminSemesterManagement() {
                 nextYear
             );
 
-            // Refresh all data after rollover
             await fetchData();
 
             setSuccess(resultMessage || "Semester rollover completed successfully.");
-            setTimeout(() => setSuccess(null), 5000);
+            setTimeout(() => setSuccess(null), 6000);
             return true;
         } catch (err) {
             console.error('[SemesterHook] Rollover failed:', err);
@@ -96,16 +88,13 @@ export function useAdminSemesterManagement() {
     };
 
     return {
-        loading,
-        error,
-        success,
+        loading, error, success, setError, setSuccess,
         currentSettings,
         history,
+        semesterStats,
         incompleteFaculty,
         updateSettings,
         triggerRollover,
         refresh: fetchData,
-        setError,
-        setSuccess
     };
 }

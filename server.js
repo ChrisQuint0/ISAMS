@@ -364,7 +364,13 @@ app.post("/api/validate-image", upload.array("files"), async (req, res) => {
       console.log(`[OCR] Starting local OCR for: ${file.originalname}`);
 
       try {
-        const { data: { text } } = await Tesseract.recognize(file.buffer, 'eng');
+        const worker = await Tesseract.createWorker('eng');
+        await worker.setParameters({
+          tessedit_pageseg_mode: Tesseract.PSM.SPARSE_TEXT,
+        });
+        const { data: { text } } = await worker.recognize(file.buffer);
+        await worker.terminate();
+
         extractedText += text + "\n\n";
       } catch (ocrErr) {
         console.error("[OCR ERROR] Tesseract failed on", file.originalname, ocrErr);
@@ -383,44 +389,42 @@ app.post("/api/validate-image", upload.array("files"), async (req, res) => {
 
     if (docError || !docType) throw new Error("Validation rules not found in Supabase");
 
-    const { data: mcSetting } = await supabaseAdmin
-      .from('systemsettings_fs')
-      .select('setting_value')
-      .eq('setting_key', `min_word_count_${doc_type_id}`)
-      .single();
-
-    const minWordCount = mcSetting?.setting_value ? parseInt(mcSetting.setting_value, 10) : 0;
     const wordCount = extractedText.trim().split(/\s+/).filter(w => w.length > 0).length;
 
     // 3. Run Validation
     const missingKeywords = [];
     const foundForbidden = [];
 
+    const noSpaceText = normalizedText.replace(/\s+/g, '');
+
     if (docType.required_keywords && Array.isArray(docType.required_keywords)) {
       for (const keyword of docType.required_keywords) {
-        if (!normalizedText.includes(keyword.toLowerCase())) missingKeywords.push(keyword);
+        const kwLower = keyword.toLowerCase();
+        const kwNoSpace = kwLower.replace(/\s+/g, '');
+        if (!normalizedText.includes(kwLower) && !noSpaceText.includes(kwNoSpace)) {
+          missingKeywords.push(keyword);
+        }
       }
     }
-
     if (docType.forbidden_keywords && Array.isArray(docType.forbidden_keywords)) {
       for (const keyword of docType.forbidden_keywords) {
-        if (normalizedText.includes(keyword.toLowerCase())) foundForbidden.push(keyword);
+        const kwLower = keyword.toLowerCase();
+        const kwNoSpace = kwLower.replace(/\s+/g, '');
+        if (normalizedText.includes(kwLower) || noSpaceText.includes(kwNoSpace)) {
+          foundForbidden.push(keyword);
+        }
       }
     }
 
-    // 4. Check Word Count
+    // 4. Check if it passes
     let pass = missingKeywords.length === 0 && foundForbidden.length === 0;
     let error = null;
-
-    if (minWordCount > 0 && wordCount < minWordCount) {
-      pass = false;
-      error = `Validation Failed: Document contains ${wordCount} words, which is below the minimum required word count of ${minWordCount}.`;
-    }
 
     res.json({
       pass,
       error,
       extractedLength: extractedText.length,
+      extractedText: extractedText.trim(),
       wordCount: wordCount,
       missingKeywords,
       foundForbidden,
@@ -544,7 +548,7 @@ app.post("/api/folders/ensure", async (req, res) => {
   }
 });
 
-// Ensures "Official_Vault" and "Sandbox_Staging" exist inside a main folder
+// Verifies the main GDrive folder and returns it as the root (no sub-folders created)
 app.post("/api/folders/init-isams", async (req, res) => {
   try {
     const auth = await loadToken();
@@ -557,21 +561,19 @@ app.post("/api/folders/init-isams", async (req, res) => {
       return res.status(400).json({ error: "mainFolderId is required" });
     }
 
-    // 1. Ensure Vault exists
-    const vaultId = await getOrCreateFolder(drive, "Vault", mainFolderId);
-
-    // 2. Ensure Sandbox exists
-    const sandboxId = await getOrCreateFolder(drive, "Sandbox", mainFolderId);
+    // Verify the folder exists and is accessible
+    const { data: folder } = await drive.files.get({
+      fileId: mainFolderId,
+      fields: 'id, name',
+    });
 
     res.json({
       success: true,
-      vaultId,
-      sandboxId,
+      rootId: folder.id,
       mainFolderId
     });
   } catch (err) {
-    console.error("Error initializing ISAMS folders:", err);
-    // Provide more specific error info to frontend
+    console.error("Error initializing ISAMS folder:", err);
     res.status(500).json({
       error: err.message,
       detail: err.response?.data?.error || "Check GDrive permissions"

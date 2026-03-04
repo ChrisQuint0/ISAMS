@@ -45,7 +45,6 @@ export const settingsService = {
       // FIX: Added missing crucial system keys!
       gdrive_main_folder_id: settingsMap.gdrive_main_folder_id || '',
       gdrive_root_folder_id: settingsMap.gdrive_root_folder_id || '',
-      gdrive_staging_folder_id: settingsMap.gdrive_staging_folder_id || '',
       current_semester: settingsMap.current_semester || '',
       current_academic_year: settingsMap.current_academic_year || ''
     };
@@ -293,9 +292,13 @@ export const settingsService = {
       formData.append('doc_type_id', docTypeId);
 
       const startTime = performance.now();
+      const { data: { session } } = await supabase.auth.getSession();
 
       let { data, error } = await supabase.functions.invoke('document-parser', {
         body: formData,
+        headers: {
+          Authorization: session ? `Bearer ${session.access_token}` : undefined
+        }
       });
 
       const endTimeEdge = performance.now();
@@ -357,7 +360,10 @@ export const settingsService = {
         text: resultText,
         confidence: 100, // Edge function extraction doesn't rely on confidence heuristics like vision ML
         processing_time_ms: Math.round(endTime - startTime),
-        success: data.pass
+        success: data.pass,
+        extractedText: data.extractedText,
+        wordCount: data.wordCount,
+        extractedLength: data.extractedLength
       };
     } catch (err) {
       console.error("OCR Failed:", err);

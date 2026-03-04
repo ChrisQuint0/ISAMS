@@ -10,6 +10,8 @@ const pdfParse = pdfParseModule.default || pdfParseModule;
 import * as mammoth from "mammoth";
 // @ts-ignore: SheetJS npm types are missing for this version
 import * as xlsx from "xlsx";
+// @ts-ignore: JSZip for pptx extraction
+import JSZip from "jszip";
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -35,7 +37,7 @@ serve(async (req: Request) => {
             return new Response(JSON.stringify({ error: "Missing doc_type_id." }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
 
-        // 1. Fetch Validation Rules from Database (Bypassing RLS with Service Role Key)
+        // 1. Fetch Validation Rules from Database (bypassing RLS with Service Role Key)
         const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
         const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
@@ -50,15 +52,6 @@ serve(async (req: Request) => {
             .select('required_keywords, forbidden_keywords, allowed_extensions, max_file_size_mb')
             .eq('doc_type_id', docTypeId)
             .single();
-
-        // Workaround: The system stores min_word_count inside system_settings_fs, not the document rule table.
-        const { data: mcSetting } = await supabase
-            .from('systemsettings_fs')
-            .select('setting_value')
-            .eq('setting_key', `min_word_count_${docTypeId}`)
-            .single();
-
-        const minWordCount = mcSetting?.setting_value ? parseInt(mcSetting.setting_value, 10) : 0;
 
         if (docError || !docType) {
             return new Response(JSON.stringify({ error: "Invalid document type or rules not found." }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -76,7 +69,7 @@ serve(async (req: Request) => {
 
             const fileName = file.name.toLowerCase();
             const fileExtension = fileName.substring(fileName.lastIndexOf('.'));
-            lastExtension = fileExtension; // keep track of the last extension for analytics UI
+            lastExtension = fileExtension;
 
             // INDIVIDUAL EXTENSION VALIDATION
             if (docType.allowed_extensions && docType.allowed_extensions.length > 0) {
@@ -104,9 +97,34 @@ serve(async (req: Request) => {
                     extractedText = pdfData.text;
 
                 } else if (fileExtension === '.docx') {
-                    // We cast to 'any' to satisfy the Node 'Buffer' type expectation in TypeScript
                     const result = await mammoth.extractRawText({ buffer: buffer as any });
                     extractedText = result.value;
+
+                } else if (fileExtension === '.pptx') {
+                    // PPTX is a ZIP archive of XML files — extract text from each slide
+                    try {
+                        const zip = await JSZip.loadAsync(buffer);
+                        const slideTexts: string[] = [];
+                        const slideFiles = Object.keys(zip.files).filter(name =>
+                            name.startsWith('ppt/slides/slide') && name.endsWith('.xml')
+                        );
+                        for (const slideFile of slideFiles) {
+                            const slideXml = await zip.files[slideFile].async('string');
+                            // Strip XML tags and decode basic entities
+                            const text = slideXml
+                                .replace(/<[^>]+>/g, ' ')
+                                .replace(/&amp;/g, '&')
+                                .replace(/&lt;/g, '<')
+                                .replace(/&gt;/g, '>')
+                                .replace(/&quot;/g, '"')
+                                .replace(/\s+/g, ' ')
+                                .trim();
+                            if (text) slideTexts.push(text);
+                        }
+                        extractedText = slideTexts.join('\n\n');
+                    } catch (_zipErr) {
+                        extractedText = ""; // Treat as empty if ZIP parsing fails
+                    }
 
                 } else if (fileExtension === '.xlsx') {
                     const workbook = xlsx.read(buffer, { type: 'buffer' });
@@ -121,6 +139,7 @@ serve(async (req: Request) => {
                 } else if (fileExtension === '.txt' || fileExtension === '.csv' || fileExtension === '.json') {
                     const decoder = new TextDecoder();
                     extractedText = decoder.decode(buffer);
+
                 } else if (['.png', '.jpg', '.jpeg', '.webp'].includes(fileExtension)) {
                     return new Response(JSON.stringify({
                         pass: null,
@@ -128,6 +147,7 @@ serve(async (req: Request) => {
                         error: `Image detected (${fileName}). Routing to secure internal Express server for OCR processing.`,
                         processedFiles
                     }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
                 } else {
                     extractedText = ""; // Other unsupported files
                 }
@@ -154,56 +174,41 @@ serve(async (req: Request) => {
             }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
 
-
         const normalizedExtractedText = combinedExtractedText.toLowerCase();
+        const noSpaceText = normalizedExtractedText.replace(/\s+/g, '');
 
         // 4. Validate Keywords COLLECTIVELY
         const missingKeywords: string[] = [];
         const foundForbidden: string[] = [];
 
-        // Check Required
         if (docType.required_keywords && Array.isArray(docType.required_keywords)) {
             for (const keyword of docType.required_keywords) {
-                const lowerKeyword = keyword.toLowerCase();
-                if (!normalizedExtractedText.includes(lowerKeyword)) {
+                const kwLower = keyword.toLowerCase();
+                const kwNoSpace = kwLower.replace(/\s+/g, '');
+                if (!normalizedExtractedText.includes(kwLower) && !noSpaceText.includes(kwNoSpace)) {
                     missingKeywords.push(keyword);
                 }
             }
         }
 
-        // Check Forbidden
         if (docType.forbidden_keywords && Array.isArray(docType.forbidden_keywords)) {
             for (const keyword of docType.forbidden_keywords) {
-                const lowerKeyword = keyword.toLowerCase();
-                if (normalizedExtractedText.includes(lowerKeyword)) {
+                const kwLower = keyword.toLowerCase();
+                const kwNoSpace = kwLower.replace(/\s+/g, '');
+                if (normalizedExtractedText.includes(kwLower) || noSpaceText.includes(kwNoSpace)) {
                     foundForbidden.push(keyword);
                 }
             }
         }
 
         const wordCount = combinedExtractedText.trim().split(/\s+/).length;
-
-        // Check Word Count FIRST BEFORE keywords
-        if (minWordCount > 0) {
-            if (wordCount < minWordCount) {
-                return new Response(JSON.stringify({
-                    pass: false,
-                    error: `Validation Failed: Document batch contains ${wordCount} words, which is below the minimum required word count of ${minWordCount}.`,
-                    extractedLength: combinedExtractedText.length,
-                    wordCount: wordCount,
-                    analyzedExtension: files.length > 1 ? 'batch_multiple' : lastExtension,
-                    processedFiles
-                }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-            }
-        }
-
-        // Check if it passes strictly
         const passesRules = missingKeywords.length === 0 && foundForbidden.length === 0;
 
         return new Response(
             JSON.stringify({
                 pass: passesRules,
                 extractedLength: combinedExtractedText.length,
+                extractedText: combinedExtractedText.trim(),
                 wordCount: combinedExtractedText.trim().length > 0 ? wordCount : 0,
                 missingKeywords,
                 foundForbidden,

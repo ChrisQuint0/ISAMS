@@ -24,7 +24,7 @@ export const semesterService = {
     },
 
     /**
-     * Update active semester/academic year settings
+     * Update active semester/academic year settings via upsert RPC
      */
     updateSemesterSettings: async (settings) => {
         const promises = [];
@@ -43,41 +43,56 @@ export const semesterService = {
     },
 
     /**
-     * Derive semi-historical list of semesters from existing courses
+     * Fetch semester history from the dedicated semester_history_fs table.
+     * Also injects the currently active semester if not already recorded.
      */
     getSemesterHistory: async () => {
-        // We pull from courses_fs to see which semesters have been active
-        const { data, error } = await supabase
-            .from('courses_fs')
-            .select('semester, academic_year')
+        // Fetch all recorded semester history
+        const { data: histData, error: histError } = await supabase
+            .from('semester_history_fs')
+            .select('academic_year, semester, status, closed_at')
             .order('academic_year', { ascending: false })
             .order('semester', { ascending: false });
+        if (histError) throw histError;
 
-        if (error) throw error;
+        // Always inject the current active semester from settings
+        const { data: settingsData } = await supabase
+            .from('systemsettings_fs')
+            .select('setting_key, setting_value')
+            .in('setting_key', ['current_semester', 'current_academic_year']);
 
-        // Filter unique pairs to build the history list
-        const unique = [];
-        const seen = new Set();
-        (data || []).forEach(item => {
-            if (!item.semester || !item.academic_year) return;
-            const key = `${item.semester}|${item.academic_year}`;
-            if (!seen.has(key)) {
-                seen.add(key);
-                unique.push({
-                    semester: item.semester,
-                    academic_year: item.academic_year
-                });
-            }
-        });
+        const settingsMap = (settingsData || []).reduce((acc, r) => {
+            acc[r.setting_key] = r.setting_value;
+            return acc;
+        }, {});
 
-        return unique;
+        const activeAY = settingsMap['current_academic_year'];
+        const activeSem = settingsMap['current_semester'];
+
+        const rows = histData || [];
+
+        // Prepend active semester if it's not already in history
+        const alreadyRecorded = rows.some(r => r.academic_year === activeAY && r.semester === activeSem);
+        if (activeAY && activeSem && !alreadyRecorded) {
+            rows.unshift({ academic_year: activeAY, semester: activeSem, status: 'ACTIVE', closed_at: null });
+        }
+
+        return rows;
     },
 
     /**
-     * Get list of faculty names who have haven't reached 100% completion
+     * Fetch per-semester aggregated stats (faculty count, submissions, completion rate)
+     */
+    getSemesterStats: async () => {
+        const { data, error } = await supabase.rpc('get_semester_stats_fs');
+        if (error) throw error;
+        return data || [];
+    },
+
+    /**
+     * Get list of faculty names who haven't reached 100% completion (for rollover warning)
      */
     getIncompleteFaculty: async () => {
-        // Using the management RPC which calculates completion_rate
         const { data, error } = await supabase.rpc('get_faculty_management_fs');
         if (error) throw error;
 
@@ -87,27 +102,21 @@ export const semesterService = {
     },
 
     /**
-     * Triggers the archival of current semester and updates settings to the next period
+     * Full Semester Rollover Protocol:
+     *  1. Runs trigger_semester_rollover_fs (marks incompletes, archives, wipes holidays/notifications/deadlines)
+     *  2. Updates system settings to the next period
      */
     rolloverSemester: async (currentSemester, currentYear, nextSemester, nextYear) => {
-        // 1. Archive current semester submissions
-        const { data, error } = await supabase.rpc('reset_semester_fs', {
-            p_target_semester: currentSemester,
-            p_target_year: currentYear
+        // Trigger the atomic rollover RPC — it handles archiving, wiping, AND
+        // updating system settings to the next period all in one transaction.
+        const { data, error } = await supabase.rpc('trigger_semester_rollover_fs', {
+            p_current_semester: currentSemester,
+            p_current_year: currentYear,
+            p_next_semester: nextSemester,
+            p_next_year: nextYear,
         });
 
         if (error) throw error;
-
-        // 2. Update settings to the new period
-        await semesterService.updateSemesterSettings({
-            semester: nextSemester,
-            academic_year: nextYear
-        });
-
-        // 3. Clear deadlines for the new semester (Deadlines are semester-specific)
-        // We don't have a specific "clear deadlines" RPC that ignores safety, 
-        // but the system design implies deadlines are created fresh per semester.
-
-        return data; // Returns the success message from reset_semester_fs
+        return data; // Returns the summary message from the RPC
     }
 };

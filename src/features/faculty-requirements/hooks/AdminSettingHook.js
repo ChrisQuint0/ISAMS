@@ -494,7 +494,7 @@ export function useAdminSettings() {
   };
 
   // NEW: Save a group of settings (For "Save" buttons)
-  const saveGroup = async (settingsObj) => {
+  const saveGroup = async (settingsObj, options = {}) => {
     setLoading(true);
     setSuccess(null);
     try {
@@ -504,8 +504,10 @@ export function useAdminSettings() {
       );
       await Promise.all(promises);
 
-      setSuccess("Settings saved successfully.");
-      setTimeout(() => setSuccess(null), 3000);
+      if (!options.silent) {
+        setSuccess("Settings saved successfully.");
+        setTimeout(() => setSuccess(null), 3000);
+      }
       await fetchData(); // Refresh to be sure
     } catch (err) {
       setError("Failed to save settings group.");
@@ -516,10 +518,6 @@ export function useAdminSettings() {
   };
 
   const runTestOCR = async (file, docTypeId) => {
-    if (!settings.ocr_enabled) {
-      setTestResult({ success: false, text: "Cant validate the file, Master Switch is Off", error: "Cant validate the file, Master Switch is Off" });
-      return;
-    }
     setProcessing(true);
     setTestResult(null);
     try {
@@ -536,7 +534,7 @@ export function useAdminSettings() {
 
 
   return {
-    loading, processing, error, success, setError, setSuccess,
+    loading, processing, setProcessing, error, success, setError, setSuccess,
     settings, testResult,
     clearTestResult: () => setTestResult(null),
     updateSetting, saveGroup,
