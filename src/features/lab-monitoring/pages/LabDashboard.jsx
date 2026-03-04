@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { useOutletContext, useLocation } from "react-router-dom";
 import {
     ShieldAlert, CheckCircle, Users, Activity,
     Monitor, Clock, Zap, BarChart3, Wrench, ScanBarcode,
@@ -24,28 +23,20 @@ import {
 } from "@/components/ui/dialog";
 
 export default function LabDashboard() {
-    const location = useLocation();
-    const context = useOutletContext() || {};
-    
-    // Retrieve BOTH labId and labName, with Session Storage as the ultimate backup
-    const labId = location.state?.labId || context.labId || sessionStorage.getItem('active_lab_id') || "lab-1";
-    const labName = location.state?.labName || context.labName || sessionStorage.getItem('active_lab_name') || "Lab 1"; 
+    const labId = sessionStorage.getItem('active_lab_id') || "lab-1";
+    const labName = sessionStorage.getItem('active_lab_name') || "Lab 1"; 
 
-    // Keep memory updated
-    useEffect(() => {
-        sessionStorage.setItem('active_lab_id', labId);
-        sessionStorage.setItem('active_lab_name', labName);
-    }, [labId, labName]);
+    const isDefense = labName?.toLowerCase().includes('defense');
+    const CAPACITY = isDefense ? 20 : 40; 
+    
+    // Formatter converts "Lab 2" to "Computer Laboratory 2"
+    const displayTitle = isDefense 
+        ? `${labName} Room` 
+        : labName.replace(/^(Computer\s*)?Lab\s/i, 'Computer Laboratory ');
 
     const { clock, currentClass, metrics, activities, loading } = useLabDashboard(labName);
     const [isDismissed, setIsDismissed] = useState(false);
-    
-    // NEW: State to control the confirmation dialog
     const [dismissDialogOpen, setDismissDialogOpen] = useState(false);
-
-    // Dynamic configuration
-    const isDefense = labName?.toLowerCase().includes('defense');
-    const CAPACITY = isDefense ? 20 : 40; 
 
     useEffect(() => {
         if (currentClass) {
@@ -55,17 +46,14 @@ export default function LabDashboard() {
         }
     }, [currentClass]);
 
-    // NEW: The actual dismissal logic is now safely wrapped inside this confirmation function
     const confirmDismiss = async () => {
         if (!currentClass) return;
 
         const nextStatus = !isDismissed;
         
-        // Optimistic UI Update & Close Dialog
         setIsDismissed(nextStatus);
         setDismissDialogOpen(false);
 
-        // Update Database
         const { error } = await supabase
             .from('lab_schedules_lm')
             .update({ is_early_dismissal_active: nextStatus })
@@ -73,7 +61,6 @@ export default function LabDashboard() {
 
         if (error) {
             console.error("Dismissal update failed:", error);
-            // Rollback UI state if DB update fails
             setIsDismissed(!nextStatus);
         }
     };
@@ -126,15 +113,14 @@ export default function LabDashboard() {
     return (
         <div className="p-8 bg-[#020617] min-h-screen text-slate-100 font-sans transition-colors duration-500">
 
-            {/* Header Section */}
             <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8">
                 <div className="space-y-0.5">
                     <div className="flex items-center gap-3 flex-wrap">
+                        {/* APPLIED THE UI FORMATTER HERE */}
                         <h1 className="text-2xl font-bold text-white tracking-tight">
-                            {isDefense ? `${labName} Room` : `Computer ${labName}`} — Dashboard
+                            {displayTitle} — Dashboard
                         </h1>
                         
-                        {/* FIX: Removed the aggressive animate-pulse from the badge */}
                         <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border flex items-center gap-1.5 ${
                             isDismissed ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-rose-500/10 text-rose-500 border-rose-500/20"
                         }`}>
@@ -169,7 +155,6 @@ export default function LabDashboard() {
                         </span>
                     </div>
 
-                    {/* FIX: Opens Dialog instead of instantly dismissing, and removed animate-pulse */}
                     <button
                         onClick={() => setDismissDialogOpen(true)} 
                         disabled={!currentClass}
@@ -185,7 +170,6 @@ export default function LabDashboard() {
                 </div>
             </div>
 
-            {/* Metrics Section */}
             <section className="mb-6">
                 <div className="grid grid-cols-12 gap-4">
                     <div className="col-span-12 lg:col-span-7 grid grid-cols-2 gap-3">
@@ -235,7 +219,6 @@ export default function LabDashboard() {
                 </div>
             </section>
 
-            {/* Overall Fleet Status Bar */}
             <section className="mb-6">
                 <div className="w-full bg-[#1E293B] border border-[#334155] rounded-2xl p-5 shadow-xl">
                     <div className="flex-1 space-y-3">
@@ -255,7 +238,6 @@ export default function LabDashboard() {
                 </div>
             </section>
 
-            {/* Bottom Grid */}
             <div className="grid grid-cols-12 gap-5 h-[40vh]">
                 <div className="col-span-12 lg:col-span-8 bg-[#1E293B] border border-[#334155] rounded-2xl p-4 shadow-xl flex flex-col overflow-hidden">
                     <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 flex gap-2"><BarChart3 size={12} className="text-sky-500" /> Occupancy Trend Analysis</h2>
@@ -272,9 +254,9 @@ export default function LabDashboard() {
                                 time={new Date(log.time_out ? log.time_out : log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} 
                                 text={log.time_out ? "Timed Out" : "Timed In"} 
                                 detail={`${log.students?.full_name || "Unknown Student"} (${
-                                    log.log_type === 'PC' 
-                                    ? (log.pc_no ? `PC - ${log.pc_no}` : 'PC Station') 
-                                    : 'Laptop'
+                                    log.log_type === 'Laptop' 
+                                    ? 'Laptop' 
+                                    : (log.pc_no ? `PC - ${log.pc_no}` : 'PC Station')
                                 })`} 
                             />
                         )) : (
@@ -284,7 +266,6 @@ export default function LabDashboard() {
                 </div>
             </div>
 
-            {/* Security Confirmation Dialog */}
             <Dialog open={dismissDialogOpen} onOpenChange={setDismissDialogOpen}>
                 <DialogContent className="bg-slate-900 border-slate-800 text-slate-100 sm:max-w-md">
                     <DialogHeader>

@@ -11,24 +11,17 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 
-const labNames = {
-  "lab-1": "Computer Laboratory 1",
-  "lab-2": "Computer Laboratory 2",
-  "lab-3": "Computer Laboratory 3",
-  "lab-4": "Computer Laboratory 4",
-};
-
 export default function LabLayout() {
   const location = useLocation();
-  const [labId, setLabId] = useState(() => location.state?.labId || "lab-1");
 
+  const currentLabId = location.state?.labId || sessionStorage.getItem('active_lab_id') || "lab-1";
+  const currentLabName = location.state?.labName || sessionStorage.getItem('active_lab_name') || "Lab 1";
+
+  // Keep session storage perfectly in sync
   useEffect(() => {
-    if (location.state?.labId) {
-      setLabId(location.state.labId);
-    }
-  }, [location.state?.labId]);
-
-  const labName = labNames[labId] || "Computer Laboratory";
+    sessionStorage.setItem('active_lab_id', currentLabId);
+    sessionStorage.setItem('active_lab_name', currentLabName);
+  }, [currentLabId, currentLabName]);
 
   const routeTitles = {
     "/lab-dashboard": "Dashboard",
@@ -50,10 +43,13 @@ export default function LabLayout() {
     return "Laboratory Management";
   };
 
+  // FORMATTER (Converts "Lab 2" or "Computer Lab 2" -> "Computer Laboratory 2")
+  const breadcrumbLabName = currentLabName.replace(/^(Computer\s*)?Lab\s/i, 'Computer Laboratory ');
+
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-slate-950">
-        <LabSidebar labId={labId} labName={labName} />
+        <LabSidebar labId={currentLabId} labName={currentLabName} />
 
         <div className="flex-1 flex flex-col">
           <header className="flex h-14 items-center gap-4 border-b border-slate-800 bg-slate-900/50 px-6 backdrop-blur-sm">
@@ -65,13 +61,13 @@ export default function LabLayout() {
               <BreadcrumbList>
                 <BreadcrumbItem>
                   <BreadcrumbLink asChild className="text-slate-500 hover:text-slate-300">
-                    <Link to="/lab-monitoring">Labs</Link>
+                    <Link to="/lab-monitoring">Computer Laboratories</Link>
                   </BreadcrumbLink>
                 </BreadcrumbItem>
                 <BreadcrumbSeparator className="text-slate-700" />
                 <BreadcrumbItem>
                   <BreadcrumbLink asChild className="text-slate-500 hover:text-slate-300">
-                    <Link to="/lab-monitoring">{labName}</Link>
+                    <Link to="/lab-dashboard">{breadcrumbLabName}</Link>
                   </BreadcrumbLink>
                 </BreadcrumbItem>
                 <BreadcrumbSeparator className="text-slate-700" />
@@ -85,7 +81,7 @@ export default function LabLayout() {
           </header>
 
           <main className="flex-1">
-            <Outlet context={{ labId, labName }} />
+            <Outlet context={{ labId: currentLabId, labName: currentLabName }} />
           </main>
         </div>
       </div>
