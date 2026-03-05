@@ -7,7 +7,6 @@ import AdminDashboardPage from "@/features/faculty-requirements/pages/AdminDashb
 import AdminArchivePage from "@/features/faculty-requirements/pages/AdminArchivePage";
 import AdminFacultyMonitorPage from "@/features/faculty-requirements/pages/AdminFacultyMonitorPage";
 import AdminDeadlinePage from "@/features/faculty-requirements/pages/AdminDeadlinePage";
-import AdminValidationPage from "@/features/faculty-requirements/pages/AdminValidationPage";
 import AdminReportsPage from "@/features/faculty-requirements/pages/AdminReportsPage";
 import AdminSettingsPage from "@/features/faculty-requirements/pages/AdminSettingsPage";
 import AdminSemesterManagementPage from "@/features/faculty-requirements/pages/AdminSemesterManagementPage";
@@ -24,7 +23,7 @@ import FacultySettingsPage from "@/features/faculty-requirements/pages/FacultySe
 export const FacultyRequirementsRoutes = (ProtectedRoute) => {
     return (
         <>
-            {/* 1. ENTRY GUARD: Redirects user based on RBAC database table */}
+            {/* 1. ENTRY GUARD */}
             <Route
                 path="/faculty-requirements"
                 element={
@@ -45,7 +44,6 @@ export const FacultyRequirementsRoutes = (ProtectedRoute) => {
                 <Route path="/admin-dashboard" element={<AdminDashboardPage />} />
                 <Route path="/faculty-monitor" element={<AdminFacultyMonitorPage />} />
                 <Route path="/deadlines" element={<AdminDeadlinePage />} />
-                <Route path="/validation" element={<AdminValidationPage />} />
                 <Route path="/reports" element={<AdminReportsPage />} />
                 <Route path="/settings" element={<AdminSettingsPage />} />
                 <Route path="/semester-management" element={<AdminSemesterManagementPage />} />

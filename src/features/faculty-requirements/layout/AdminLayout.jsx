@@ -6,7 +6,7 @@ import { AppSidebar } from "@/features/faculty-requirements/components/AdminSide
 export default function AdminLayout() {
   const location = useLocation();
 
-  // Simple title mapping to keep it clean like your classmate's
+  // Simple title mapping
   const getPageTitle = () => {
     const titles = {
       "/admin-dashboard": "Dashboard",
@@ -23,7 +23,7 @@ export default function AdminLayout() {
 
   return (
     <SidebarProvider>
-      {/* Container with neutral-50 background for an institutional look */}
+      {/* Container with neutral-50 background */}
       <div className="flex min-h-screen w-full bg-neutral-50">
         <AppSidebar />
 

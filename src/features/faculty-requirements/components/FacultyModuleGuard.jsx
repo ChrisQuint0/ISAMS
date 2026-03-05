@@ -4,12 +4,12 @@ import { useAuth } from "@/features/auth/hooks/useAuth";
 import { supabase } from "@/lib/supabaseClient";
 import { ShieldX, Mail, RefreshCw, Lock } from "lucide-react";
 
-// ─── Inactive Account Screen ────────────────────────────────────────────────
+// Inactive Account Screen
 function InactiveAccountScreen({ email }) {
     return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 relative overflow-hidden">
 
-            {/* Animated background — same pulse-blob pattern as the global ISAMS login page */}
+            {/* Background */}
             <div className="absolute inset-0 overflow-hidden">
                 <div className="absolute top-1/4 -left-48 w-96 h-96 bg-red-500/20 rounded-full blur-3xl animate-pulse" />
                 <div
@@ -91,7 +91,7 @@ function InactiveAccountScreen({ email }) {
     );
 }
 
-// ─── Guard Component ─────────────────────────────────────────────────────────
+// Guard Component
 export default function FacultyModuleGuard() {
     const { user } = useAuth();
     const [accessData, setAccessData] = useState(null);
@@ -103,7 +103,7 @@ export default function FacultyModuleGuard() {
             if (!user?.id) return;
 
             try {
-                // Step 1: Check RBAC permissions
+                // Check RBAC permissions
                 const { data: rbac, error: rbacError } = await supabase
                     .from("user_rbac")
                     .select("facsub, facsub_role")
@@ -113,7 +113,7 @@ export default function FacultyModuleGuard() {
                 if (rbacError) throw rbacError;
                 setAccessData(rbac);
 
-                // Step 2: If they are faculty, also check is_active in faculty_fs
+                // If they are faculty, also check is_active in faculty_fs
                 if (rbac?.facsub && rbac?.facsub_role?.toLowerCase() === "faculty") {
                     const { data: facultyRow } = await supabase
                         .from("faculty_fs")
@@ -135,7 +135,7 @@ export default function FacultyModuleGuard() {
         checkModuleAccess();
     }, [user]);
 
-    // 1. Invisible loading state — no white flash while querying Supabase
+    // Invisible loading state
     if (loading) {
         return (
             <div className="bg-slate-950 h-screen w-screen"
@@ -143,23 +143,23 @@ export default function FacultyModuleGuard() {
         );
     }
 
-    // 2. No module access at all → back to main dashboard
+    // No module access at all > back to main dashboard
     if (!accessData?.facsub) {
         return <Navigate to="/dashboard" replace />;
     }
 
-    // 3. Faculty-specific: show inactive screen if account is suspended
+    // Faculty-specific: show inactive screen if account is suspended
     if (accessData.facsub_role?.toLowerCase() === "faculty" && !isActive) {
         return <InactiveAccountScreen email={user?.email} />;
     }
 
-    // 4. Route by role
+    // Route by role
     if (accessData.facsub_role?.toLowerCase() === "admin") {
         return <Navigate to="/admin-dashboard" replace />;
     } else if (accessData.facsub_role?.toLowerCase() === "faculty") {
         return <Navigate to="/faculty-requirements/dashboard" replace />;
     }
 
-    // 5. Fallback
+    // Fallback
     return <Navigate to="/dashboard" replace />;
 }

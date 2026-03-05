@@ -104,54 +104,32 @@ export const FacultySubmissionService = {
                 .single();
 
             // 4. Resolve the current AY and semester from system settings (use passed-in or fetch)
-            // 4.a Get ocr_enabled and staging_folder_id while we are at it
             let currentAY = academicYear;
             let currentSemester = semester;
-            let ocrEnabled = true;
-            let stagingFolderId = '';
 
             const { data: settings } = await supabase
                 .from('systemsettings_fs')
                 .select('setting_key, setting_value')
-                .in('setting_key', ['current_semester', 'current_academic_year', 'ocr_enabled', 'gdrive_staging_folder_id']);
+                .in('setting_key', ['current_semester', 'current_academic_year']);
 
             if (!currentSemester) currentSemester = settings?.find(s => s.setting_key === 'current_semester')?.setting_value;
             if (!currentAY) currentAY = settings?.find(s => s.setting_key === 'current_academic_year')?.setting_value;
-            ocrEnabled = settings?.find(s => s.setting_key === 'ocr_enabled')?.setting_value !== 'false';
-            stagingFolderId = settings?.find(s => s.setting_key === 'gdrive_staging_folder_id')?.setting_value;
 
-            // 5. Upload to Google Drive
+            // 5. Upload to Google Drive — always use main folder hierarchy
             const folderLink = await getFolderLink();
             const rootFolderId = getFolderId(folderLink);
             if (!rootFolderId) throw new Error('Google Drive folder not configured. Please set it in Admin Settings.');
 
-            let targetFolderId = '';
-            let isStaged = false;
-
-            if (!ocrEnabled && stagingFolderId) {
-                // anti-clutter: route to staging
-                targetFolderId = stagingFolderId;
-                isStaged = true;
-
-                // Hierarchical staging: Root > Staging > AY
-                if (currentAY) {
-                    const { ensureFolderStructure } = await import('./gdriveSettings');
-                    targetFolderId = await ensureFolderStructure(stagingFolderId, {
-                        academicYear: `Pending_Submissions_${currentAY.replace(/[^a-zA-Z0-9]/g, '_')}`
-                    });
-                }
-            } else {
-                // Normal path: Root > AY > Sem > Faculty > Course > DocType
-                const { ensureFolderStructure } = await import('./gdriveSettings');
-                targetFolderId = await ensureFolderStructure(rootFolderId, {
-                    academicYear: currentAY,
-                    semester: currentSemester,
-                    facultyName,
-                    courseCode: course?.course_code,
-                    section: course?.section,
-                    docTypeName: docType?.type_name,
-                });
-            }
+            // Root > AY > Semester > Faculty > Course-Section > DocType
+            const { ensureFolderStructure } = await import('./gdriveSettings');
+            const targetFolderId = await ensureFolderStructure(rootFolderId, {
+                academicYear: currentAY,
+                semester: currentSemester,
+                facultyName,
+                courseCode: course?.course_code,
+                section: course?.section,
+                docTypeName: docType?.type_name,
+            });
 
             // 5.b Standardize Filename: {CourseCode}_{LastName}_{FirstName}_{DocType}.{extension}
             const cleanLastName = (faculty.last_name || '').replace(/\s+/g, '_');

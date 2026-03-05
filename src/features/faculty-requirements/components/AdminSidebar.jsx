@@ -51,7 +51,6 @@ export function AppSidebar() {
         const { data: { session } } = await supabase.auth.getSession()
         if (!session?.user) return
 
-        // Try to get name from faculty_fs table first
         const { data } = await supabase
           .from('faculty_fs')
           .select('first_name, last_name')
@@ -61,7 +60,6 @@ export function AppSidebar() {
         if (data?.first_name) {
           setAdminName(`${data.first_name} ${data.last_name}`.trim())
         } else {
-          // Fallback to auth metadata — build full name
           const meta = session.user.user_metadata
           const name = meta?.full_name || meta?.name ||
             (meta?.first_name ? `${meta.first_name} ${meta.last_name || ''}`.trim() : null)
@@ -74,12 +72,12 @@ export function AppSidebar() {
     fetchAdminName()
   }, [])
 
+  // Navigation items for the sidebar
   const navItems = [
     { path: '/admin-dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/faculty-monitor', label: 'Faculty Monitor', icon: Users },
     { path: '/deadlines', label: 'Deadline Manager', icon: Calendar },
     { path: '/semester-management', label: 'Semester Manager', icon: Clock },
-    { path: '/validation', label: 'Validation Queue', icon: CheckSquare },
     { path: '/reports', label: 'Reports', icon: BarChart },
     { path: '/archive', label: 'Document Archive', icon: Database },
   ]
@@ -93,12 +91,9 @@ export function AppSidebar() {
               size="lg"
               className="data-[state=open]:bg-neutral-100 data-[state=open]:text-neutral-900 hover:bg-neutral-100"
             >
-              {/* Icon Container */}
               <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-gradient-primary text-white shadow-lg shadow-emerald-900/20">
                 <Shield className="size-4" />
               </div>
-
-              {/* Text Container */}
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-bold text-neutral-900">
                   Admin Portal

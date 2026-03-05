@@ -19,11 +19,10 @@ export function useAdminSettings() {
   const [testResult, setTestResult] = useState(null);
   const [availableSystemUsers, setAvailableSystemUsers] = useState([]);
 
-  // --- Document Requirement Handlers ---
+  // Document Requirement Handler
   const addDocRequirement = async (req) => {
     setLoading(true);
     try {
-      // Enforcement: Check for existing name or folder (case-insensitive)
       const isDuplicateName = docRequirements.some(d => d.name.toLowerCase().trim() === req.name.toLowerCase().trim());
       const isDuplicateFolder = docRequirements.some(d => d.folder.toLowerCase().trim() === req.folder.toLowerCase().trim());
 
@@ -52,20 +51,16 @@ export function useAdminSettings() {
   };
 
   const updateDocRequirement = async (id, updates) => {
-    // 1. Find the item
     const item = docRequirements.find(d => d.id === id);
     if (!item) return;
 
-    // 2. Optimistic Update
     setDocRequirements(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d));
 
-    // 3. Persist
     try {
       await settingsService.upsertDocType({ ...item, ...updates });
     } catch (err) {
       setError("Failed to update requirement.");
       setTimeout(() => setError(null), 3000);
-      // Revert
       setDocRequirements(prev => prev.map(d => d.id === id ? item : d));
     }
   };
@@ -110,13 +105,13 @@ export function useAdminSettings() {
     }
   };
 
-  // --- Template Handlers ---
+  // Template Handlers
   const addTemplate = async (file, title, description, systemCategory, academicYear, semester, courseCode = null, courseName = null) => {
     if (!file) return;
     setLoading(true);
     try {
       await settingsService.addTemplate(file, title, description, systemCategory, academicYear, semester, courseCode, courseName);
-      await fetchData(); // Refresh list
+      await fetchData();
       setSuccess("Template uploaded successfully.");
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -158,6 +153,7 @@ export function useAdminSettings() {
     }
   };
 
+  // Template Coordinate Handlers
   const updateTemplateCoordinates = async (id, x, y) => {
     try {
       await settingsService.updateTemplateCoordinates(id, x, y);
@@ -170,14 +166,11 @@ export function useAdminSettings() {
     }
   };
 
+  // Faculty Management Handlers
   const handleUpdateFacultyField = async (facultyId, field, value, oldValue) => {
-    // 1. Find the original row (for user_id lookup only).
-    //    NOTE: Do NOT use original[field] for "nothing changed" guard — AG Grid's valueSetter
-    //    mutates params.data in-place before this runs, making original[field] === value always true.
-    //    We use oldValue from the AG Grid event instead.
     const original = facultyList.find(f => f.faculty_id === facultyId);
     if (!original) return;
-    if (oldValue === value) return; // skip if truly no change
+    if (oldValue === value) return;
 
     if (!original.user_id) {
       setError('Cannot update: this faculty record has no linked auth user.');
@@ -185,28 +178,23 @@ export function useAdminSettings() {
       return;
     }
 
-    // 2. Optimistic update: create a NEW object via spread so AG Grid gets a fresh reference.
-    //    This is safe because it doesn't call fetchData() which would overwrite OTHER rows'
-    //    in-progress edits — the root cause of the "value bleeds to next row" race condition.
     setFacultyList(prev => prev.map(f =>
       f.faculty_id === facultyId ? { ...f, [field]: value } : f
     ));
 
-    // 3. Persist via RPC
     try {
       await settingsService.updateFacultyManagement(original.user_id, field, value);
       setSuccess('✓ Saved');
       setTimeout(() => setSuccess(null), 1500);
-      // No fetchData() here — avoids overwriting adjacent rows' pending edits
     } catch (err) {
       console.error('updateFacultyManagement failed:', { facultyId, field, value, err });
       setError('Failed to update: ' + err.message);
       setTimeout(() => setError(null), 4000);
-      await fetchData(); // Refetch only on error to revert the optimistic update
+      await fetchData();
     }
   };
 
-  // --- Course Catalog Handlers ---
+  // Course Catalog Handlers
   const handleAddMasterCourse = async (code, name, semester) => {
     try {
       await settingsService.upsertMasterCourse(code, name, semester);
@@ -244,10 +232,9 @@ export function useAdminSettings() {
       c.id === courseId ? { ...c, [field]: value } : c
     ));
 
-    // Real-time synchronization for assignments list (courseList)
+    // Real-time synchronization for assignments list
     setCourseList(prev => prev.map(c => {
       if (c.master_course_id === courseId) {
-        // Map master field names to assignment property names
         if (field === 'is_active') return { ...c, master_is_active: value };
         if (field === 'course_name') return { ...c, course_name: value };
         if (field === 'course_code') return { ...c, course_code: value };
@@ -256,8 +243,6 @@ export function useAdminSettings() {
     }));
 
     try {
-      // Use existing upsertMasterCourse RPC but only change what's needed
-      // Note: upsert_master_course_fs(code, name, semester, id, is_active)
       await settingsService.upsertMasterCourse(
         field === 'course_code' ? value : original.course_code,
         field === 'course_name' ? value : original.course_name,
@@ -275,7 +260,7 @@ export function useAdminSettings() {
     }
   };
 
-  // --- Course Assignment Handlers ---
+  // Course Assignment Handlers
   const handleAddCourse = async (courseData) => {
     setLoading(true);
     try {
@@ -309,12 +294,12 @@ export function useAdminSettings() {
     }
   };
 
-  // --- Holiday Handlers ---
+  // Holiday Handlers
   const handleAddHoliday = async (holiday) => {
     setLoading(true);
     try {
       await settingsService.upsertHoliday(holiday);
-      await fetchData(); // Refresh list
+      await fetchData();
       setSuccess("Holiday saved.");
       setTimeout(() => setSuccess(null), 3000);
       return true;
@@ -356,7 +341,6 @@ export function useAdminSettings() {
       let currentDate = new Date(start);
 
       while (currentDate <= end) {
-        // Format as YYYY-MM-DD local time to avoid timezone drift
         const formattedDate = currentDate.toLocaleDateString('en-CA');
 
         promises.push(
@@ -370,7 +354,7 @@ export function useAdminSettings() {
       }
 
       await Promise.all(promises);
-      await fetchData(); // Refresh list only once after all inserts
+      await fetchData();
       setSuccess(`Successfully scheduled ${promises.length} holiday day(s).`);
       setTimeout(() => setSuccess(null), 3000);
       return true;
@@ -402,7 +386,6 @@ export function useAdminSettings() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      // DEBUG: Log each call to see which one fails
       const settingsPromise = settingsService.getAllSettings().catch(e => { console.error("Failed: settings", e); throw e; });
       const docsPromise = settingsService.getDocTypes().catch(e => { console.error("Failed: docs", e); throw e; });
       const facultyPromise = settingsService.getFaculty().catch(e => { console.error("Failed: faculty", e); throw e; });
@@ -420,8 +403,6 @@ export function useAdminSettings() {
         settingsService.getUnassignedSystemFaculty()
       ]);
 
-      // ... rest of your code ...
-
       setSettings(allSettings);
       setFacultyList(faculty.sort((a, b) => (a.last_name ?? '').localeCompare(b.last_name ?? '')));
       setCourseList(courses || []);
@@ -429,7 +410,6 @@ export function useAdminSettings() {
       setSystemHealth(health);
       setHolidays(holidayList || []);
       setAvailableSystemUsers(unassigned || []);
-      // Map DB Document Types to UI shape
       setDocRequirements(docs.map(d => ({
         id: d.doc_type_id,
         name: d.type_name,
@@ -452,7 +432,7 @@ export function useAdminSettings() {
         updated: new Date(t.created_at).toLocaleDateString(),
         x_coord: t.x_coord,
         y_coord: t.y_coord,
-        file_url: t.file_url // For NameCalibratorModal rendering
+        file_url: t.file_url
       })));
 
     } catch (err) {
@@ -468,7 +448,7 @@ export function useAdminSettings() {
     fetchData();
   }, [fetchData]);
 
-  // Realtime: auto-refresh faculty list when user_rbac changes (e.g. permission granted in Global Dashboard)
+  // Realtime: auto-refresh faculty list when user_rbac changes
   useEffect(() => {
     const channel = supabase
       .channel('admin-faculty-rbac-watch')
@@ -493,20 +473,21 @@ export function useAdminSettings() {
     }
   };
 
-  // NEW: Save a group of settings (For "Save" buttons)
-  const saveGroup = async (settingsObj) => {
+  // Save a group of settings (For "Save" buttons)
+  const saveGroup = async (settingsObj, options = {}) => {
     setLoading(true);
     setSuccess(null);
     try {
-      // Loop through object and save each key
       const promises = Object.entries(settingsObj).map(([key, value]) =>
         settingsService.saveSetting(key, value)
       );
       await Promise.all(promises);
 
-      setSuccess("Settings saved successfully.");
-      setTimeout(() => setSuccess(null), 3000);
-      await fetchData(); // Refresh to be sure
+      if (!options.silent) {
+        setSuccess("Settings saved successfully.");
+        setTimeout(() => setSuccess(null), 3000);
+      }
+      await fetchData();
     } catch (err) {
       setError("Failed to save settings group.");
       setTimeout(() => setError(null), 3000);
@@ -516,10 +497,6 @@ export function useAdminSettings() {
   };
 
   const runTestOCR = async (file, docTypeId) => {
-    if (!settings.ocr_enabled) {
-      setTestResult({ success: false, text: "Cant validate the file, Master Switch is Off", error: "Cant validate the file, Master Switch is Off" });
-      return;
-    }
     setProcessing(true);
     setTestResult(null);
     try {
@@ -533,10 +510,8 @@ export function useAdminSettings() {
     }
   };
 
-
-
   return {
-    loading, processing, error, success, setError, setSuccess,
+    loading, processing, setProcessing, error, success, setError, setSuccess,
     settings, testResult,
     clearTestResult: () => setTestResult(null),
     updateSetting, saveGroup,

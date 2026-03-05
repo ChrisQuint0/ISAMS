@@ -3,7 +3,7 @@ import {
     Save, Database, Terminal, Trash2, RefreshCw, Eye, Settings,
     Cpu, CheckCircle, AlertCircle, Play, Shield, FileText,
     Clock, Archive, HardDrive, Server, Activity,
-    Wifi, WifiOff, Globe, Lock, Unlock,
+    Wifi, WifiOff, Globe, Lock, Unlock, AlertTriangle,
     ChevronUp, ChevronDown, Plus, Folder, File as FileIcon, LayoutTemplate, Users, BookOpen, X
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -23,11 +23,9 @@ import {
 } from "@/components/ui/dialog";
 import { ToastProvider, useToast } from "@/components/ui/toast/toaster";
 
-// AG Grid
 import { AgGridReact } from 'ag-grid-react';
 import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-community';
 
-// Hook
 import { useAdminSettings } from '../hooks/AdminSettingHook';
 import { useAdminSemesterManagement } from '../hooks/AdminSemesterManagementHook';
 import { settingsService } from '../services/AdminSettingService';
@@ -38,6 +36,7 @@ import { saveAs } from 'file-saver';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
+// Toast Handler
 const AdminToastHandler = ({ success, error }) => {
     const { addToast } = useToast();
 
@@ -56,19 +55,17 @@ const AdminToastHandler = ({ success, error }) => {
     return null;
 };
 
-// CourseFacultyEditor — custom AG Grid cell editor for the Faculty column.
-// Defined OUTSIDE the component so it doesn't remount on each render.
+// CourseFacultyEditor
 const CourseFacultyEditor = React.forwardRef(({ value: initialValue, facultyList = [], stopEditing }, ref) => {
-    const valRef = React.useRef(initialValue || '');   // sync — read by getValue()
-    const [val, setVal] = React.useState(initialValue || ''); // for controlled <select>
+    const valRef = React.useRef(initialValue || '');
+    const [val, setVal] = React.useState(initialValue || '');
     React.useImperativeHandle(ref, () => ({
         getValue: () => valRef.current === '' ? null : valRef.current,
         isPopup: () => true,
     }));
     const handleChange = (e) => {
-        valRef.current = e.target.value;   // update ref synchronously first
+        valRef.current = e.target.value;
         setVal(e.target.value);
-        // stopEditing fires after the ref is set, so getValue() returns the new value
         setTimeout(() => stopEditing && stopEditing(), 0);
     };
     return (
@@ -95,7 +92,7 @@ CourseFacultyEditor.displayName = 'CourseFacultyEditor';
 
 export default function AdminSettingsPage() {
     const {
-        loading, processing, error, success, setError, setSuccess,
+        loading, processing, setProcessing, error, success, setError, setSuccess,
         settings, testResult, clearTestResult,
         updateSetting, saveGroup, runTestOCR, refresh,
         docRequirements, addDocRequirement, updateDocRequirement, deleteDocRequirement,
@@ -115,12 +112,9 @@ export default function AdminSettingsPage() {
     const [newReq, setNewReq] = useState({ name: '', folder: '', required: true });
     const [newHoliday, setNewHoliday] = useState({ startDate: '', endDate: '', description: '' });
     const todayStr = useMemo(() => new Date().toLocaleDateString('en-CA'), []);
-
-    // Validation: Check if start date is in the past
     const holidayIsPast = newHoliday.startDate && newHoliday.startDate < todayStr;
     const holidayEndDateInvalid = newHoliday.startDate && newHoliday.endDate && newHoliday.endDate < newHoliday.startDate;
 
-    // Check if specific Start/End dates are occupied
     const holidayStartDateOccupied = useMemo(() =>
         newHoliday.startDate && holidays.some(h => (h.holiday_date || h.date) === newHoliday.startDate),
         [newHoliday.startDate, holidays]
@@ -138,7 +132,6 @@ export default function AdminSettingsPage() {
         return holidays.some(h => (h.description || '').toLowerCase().trim() === newHoliday.description.toLowerCase().trim());
     }, [newHoliday.description, holidays]);
 
-    // Calculate occupied dates in the selected range
     const holidayOccupiedDates = useMemo(() => {
         if (!newHoliday.startDate || holidayIsPast) return [];
         const start = new Date(newHoliday.startDate);
@@ -188,9 +181,9 @@ export default function AdminSettingsPage() {
     const canAddDocType = newReq.name.trim() && newReq.folder.trim() && !isDuplicateRequirement && !isDuplicateFolder;
     const [pendingHolidayDeleteId, setPendingHolidayDeleteId] = useState(null);
 
-    // ── Template Hub state ──────────────────────────────────────────────
+    // Template Hub state
     const [isTemplateModalOpen, setTemplateModalOpen] = useState(false);
-    const [modalMode, setModalMode] = useState('SYSTEM'); // 'SYSTEM' or 'CERTIFICATE'
+    const [modalMode, setModalMode] = useState('SYSTEM');
     const [isUploadingTemplate, setIsUploadingTemplate] = useState(false);
     const [newTemplate, setNewTemplate] = useState({
         file: null, title: '', description: '', systemCategory: '', academicYear: '', semester: '',
@@ -204,7 +197,7 @@ export default function AdminSettingsPage() {
                 ...prev,
                 academicYear: currentSettings.academic_year,
                 semester: currentSettings.semester,
-                courseCode: prev.courseCode || '', // Keep manual selection if any
+                courseCode: prev.courseCode || '',
                 courseName: prev.courseName || ''
             }));
         }
@@ -232,14 +225,13 @@ export default function AdminSettingsPage() {
         },
         {
             headerName: 'Actions',
-            width: 170, // Increased width to safely hold both buttons without wrapping
+            width: 170,
             sortable: false,
             filter: false,
             cellRenderer: (params) => {
                 const id = params.data.holiday_id || params.data.id;
                 if (pendingHolidayDeleteId === id) {
                     return (
-                        // Removed the animation classes so it doesn't bounce on AG Grid remounts
                         <div className="flex items-center gap-1 mt-1.5">
                             <Button
                                 size="xs"
@@ -275,17 +267,17 @@ export default function AdminSettingsPage() {
         }
     ], [handleDeleteHoliday, pendingHolidayDeleteId]);
 
-    // ── Name Calibrator state ──────────────────────────────────────────────
+    // Name Calibrator state
     const [isCalibratorOpen, setIsCalibratorOpen] = useState(false);
     const [selectedTemplateForCalibration, setSelectedTemplateForCalibration] = useState(null);
 
-    // ── Course Catalog form state ──────────────────────────────────────────────
+    // Course Catalog form state
     const [newCatalog, setNewCatalog] = useState({ code: '', name: '', semester: '' });
     const catalogCodeValid = newCatalog.code.trim().length >= 3;
     const catalogNameValid = newCatalog.name.trim().length > 0;
     const catalogSemValid = !!newCatalog.semester;
 
-    // Global Duplicate: same code OR name already in catalog in ANY semester
+    // Duplication hanlder for the master courses
     const existingCatalogEntry = useMemo(() => {
         if (!catalogCodeValid && !catalogNameValid) return null;
         return masterCourseList.find(c =>
@@ -302,20 +294,23 @@ export default function AdminSettingsPage() {
 
     const catalogCodeTaken = !!existingCatalogEntry;
     const canAddCatalog = catalogCodeValid && catalogNameValid && catalogSemValid && !catalogCodeTaken;
+    const [confirmCatalogOpen, setConfirmCatalogOpen] = useState(false);
 
-    // ── Assign Faculty Modal state ─────────────────────────────────────────────
+    // Assign Faculty Modal state
     const [assignModalOpen, setAssignModalOpen] = useState(false);
     const [newAssignment, setNewAssignment] = useState({ master_course_id: '', section: '', faculty_id: '' });
 
     const selectedCatalogEntry = masterCourseList.find(c => c.id === Number(newAssignment.master_course_id));
-    const assignmentValid = !!newAssignment.master_course_id && newAssignment.section.trim().length >= 1 && !!newAssignment.faculty_id;
+    const SECTION_PATTERN = /^[A-Z]+-\d+[A-Z]$/;  // e.g. BSIT-3A
+    const sectionFormatValid = SECTION_PATTERN.test(newAssignment.section.trim());
+    const assignmentValid = !!newAssignment.master_course_id && sectionFormatValid && !!newAssignment.faculty_id;
 
-    // Guard 1: the section slot is already taken by someone
+    // The section slot is already taken by someone
     const sectionTaken = assignmentValid && courseList.some(
         c => Number(c.master_course_id) === Number(newAssignment.master_course_id) &&
             (c.section || '').toUpperCase() === newAssignment.section.trim().toUpperCase()
     );
-    // Guard 2: this exact faculty+course+section combo already exists
+    // This exact faculty, section, course combo already exists
     const facultyAlreadyOnSection = assignmentValid && courseList.some(
         c => Number(c.master_course_id) === Number(newAssignment.master_course_id) &&
             (c.section || '').toUpperCase() === newAssignment.section.trim().toUpperCase() &&
@@ -329,7 +324,7 @@ export default function AdminSettingsPage() {
     };
     const closeAssignModal = () => setAssignModalOpen(false);
 
-    // Group courseList by faculty_id so we can render one card per teacher
+    // Group courses by faculty_id
     const facultyGroups = useMemo(() => {
         const map = new Map();
         courseList.forEach(c => {
@@ -346,12 +341,11 @@ export default function AdminSettingsPage() {
             }
             map.get(fid).assignments.push(c);
         });
-        // Sort by last name
         return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
     }, [courseList, facultyList]);
 
 
-    // AG Grid: column definitions for Faculty tab
+    // Column definitions for faculty tab
     const facultyColumnDefs = useMemo(() => [
         {
             field: 'emp_id',
@@ -419,28 +413,24 @@ export default function AdminSettingsPage() {
     ], []);
 
 
-    // AG Grid: column definitions for Course Catalog
+    // Column definitions for catalog tab
     const catalogColumnDefs = useMemo(() => [
         {
             field: 'course_code',
             headerName: 'Code',
-            width: 110,
-            cellRenderer: params => (
-                <span className="font-mono text-primary-600 font-bold bg-primary-50/50 px-2 py-0.5">
-                    {params.value}
-                </span>
-            )
+            width: 120,
+            cellStyle: { fontFamily: 'monospace', color: 'var(--primary-600)', fontWeight: 700 },
         },
         {
             field: 'course_name',
             headerName: 'Course Name',
             flex: 2,
-            cellStyle: { fontWeight: 500 }
+            cellStyle: { fontWeight: 500 },
         },
         {
             field: 'semester',
             headerName: 'Semester',
-            width: 130,
+            width: 150,
             cellRenderer: params => <span className="text-neutral-500 text-xs font-medium">{params.value || '—'}</span>
         },
         {
@@ -448,8 +438,10 @@ export default function AdminSettingsPage() {
             headerName: 'Status',
             width: 120,
             editable: true,
+            singleClickEdit: false,
             cellEditor: 'agSelectCellEditor',
             cellEditorParams: { values: ['Active', 'Inactive'] },
+            suppressKeyboardEvent: (params) => params.editing && ['Tab', 'Enter', 'ArrowDown', 'ArrowUp'].includes(params.event.key),
             valueGetter: (params) => params.data.is_active ? 'Active' : 'Inactive',
             valueSetter: (params) => {
                 params.data.is_active = params.newValue === 'Active';
@@ -480,7 +472,7 @@ export default function AdminSettingsPage() {
         handleUpdateMasterCourseField(data.id, field, value, oldValue);
     };
 
-    // AG Grid: column definitions for Templates tab
+    // Column definitions for certificate template tab
     const certificateColumnDefs = useMemo(() => [
         {
             field: 'name',
@@ -534,6 +526,7 @@ export default function AdminSettingsPage() {
         }
     ], [archiveTemplate]);
 
+    // Column definitions for general in templates
     const generalColumnDefs = useMemo(() => [
         {
             field: 'name',
@@ -578,7 +571,6 @@ export default function AdminSettingsPage() {
         }
     ], [archiveTemplate]);
 
-
     // Uptime tracking
     const [uptimeSeconds, setUptimeSeconds] = useState(0);
     React.useEffect(() => {
@@ -593,6 +585,7 @@ export default function AdminSettingsPage() {
         return () => clearInterval(tick);
     }, []);
 
+    // Format uptime
     const formatUptime = (secs) => {
         const h = Math.floor(secs / 3600);
         const m = Math.floor((secs % 3600) / 60);
@@ -603,17 +596,14 @@ export default function AdminSettingsPage() {
     };
 
     // Course Form State
-    // Course Form State - Initialize dropdowns as undefined! (Department removed)
     const [newCourse, setNewCourse] = useState({
         code: '', name: '', section: '', semester: '', academic_year: '', faculty_id: '',
     });
-
 
     // Regex validators / sanitizers
     const sanitizeCode = (val) => val.toUpperCase().replace(/[^A-Z0-9]/g, '');
     const sanitizeName = (val) => val.replace(/[^A-Za-z0-9 ]/g, '');
     const sanitizeSection = (val) => val.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 2);
-
 
     // Sequential unlock derived booleans
     const codeValid = newCourse.code.length >= 3;
@@ -622,7 +612,7 @@ export default function AdminSettingsPage() {
     const facultyValid = !!newCourse.faculty_id;
     const semValid = (newCourse.semester || '').trim().length > 0;
 
-    // Duplicate guard: block add if (code + section + semester) already exists
+    // Duplicate lock add if (code + section + semester) already exists
     const isDuplicate = semValid && courseList.some(
         c => c.course_code === newCourse.code &&
             (c.section || '').toUpperCase() === newCourse.section.toUpperCase() &&
@@ -635,7 +625,7 @@ export default function AdminSettingsPage() {
     const resetAll = () => setNewCourse({ code: '', name: '', section: '', semester: '', academic_year: '', faculty_id: '' });
     const resetSectionOnly = () => setNewCourse(prev => ({ ...prev, section: '', faculty_id: '', semester: '' }));
 
-    // -- State for General Settings --
+    // State for General Settings
     const [deadlineDays, setDeadlineDays] = useState('');
     const [graceDays, setGraceDays] = useState('');
     const [mainGdriveLink, setMainGdriveLink] = useState('');
@@ -643,17 +633,13 @@ export default function AdminSettingsPage() {
     const [archiveRetention, setArchiveRetention] = useState('5years');
     const [isGdriveUnlocked, setIsGdriveUnlocked] = useState(false);
 
-    // -- UI STATE FOR NON-OCR SETTINGS --
-    // (Removed global valRules, now per Document Type)
-
-    // ── Validation Rules State ─────────────────────────────────────────────
+    // Validation Rules State
     const [selectedDocTypeId, setSelectedDocTypeId] = useState(null);
     const [docRules, setDocRules] = useState({
         required_keywords: '',
         forbidden_keywords: '',
         allowed_extensions: '.pdf',
         max_file_size_mb: '',
-        min_word_count: 0
     });
     const [newKeyword, setNewKeyword] = useState('');
     const [newForbidden, setNewForbidden] = useState('');
@@ -712,8 +698,7 @@ export default function AdminSettingsPage() {
             setAutoReminders(settings.general_auto_reminders || '3days');
             setArchiveRetention(settings.general_archive_retention || '5years');
 
-            // GDrive: stored as folder ID in DB — reconstruct display URL only if it's a raw ID
-            const mainId = settings.gdrive_main_folder_id || '';
+            const mainId = settings.gdrive_root_folder_id || '';
             const isRawMainId = mainId && !mainId.includes('/');
             setMainGdriveLink(isRawMainId ? `https://drive.google.com/drive/folders/${mainId}` : mainId);
         }
@@ -744,6 +729,7 @@ export default function AdminSettingsPage() {
         setIsDangerModalOpen(true);
     };
 
+    // Execute Danger Action
     const executeDangerAction = async () => {
         const { actionType, payload } = dangerModalConfig;
         let func = null;
@@ -770,7 +756,6 @@ export default function AdminSettingsPage() {
         }
     };
 
-
     return (
         <ToastProvider>
             <AdminToastHandler success={success} error={error} />
@@ -789,11 +774,11 @@ export default function AdminSettingsPage() {
                         className="bg-primary-500 border-primary-500 text-neutral-50 hover:bg-primary-600 hover:text-neutral-50 shadow-sm"
                     >
                         <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                        Reload Settings
+                        Refresh Settings
                     </Button>
                 </div>
 
-                {/* TABS ORGANIZATION */}
+                {/* Tabs */}
                 <Tabs defaultValue="general" className="flex-1 flex flex-col min-h-0 space-y-6">
                     <div className="shrink-0 border-b border-neutral-200 pb-0">
                         <TabsList className="bg-transparent p-0 h-auto space-x-6 w-full justify-start rounded-none border-none">
@@ -802,7 +787,7 @@ export default function AdminSettingsPage() {
                             <TabItem value="faculty" label="Faculty" icon={Users} />
                             <TabItem value="doc_types" label="Document Types" icon={Folder} />
                             <TabItem value="validation" label="Validation Rules" icon={Shield} />
-                            <TabItem value="ocr" label="OCR & AI" icon={Cpu} />
+                            <TabItem value="ocr" label="OCR" icon={Cpu} />
                             <TabItem value="templates" label="Templates" icon={LayoutTemplate} />
                             <TabItem value="scheduling" label="Scheduling" icon={Clock} />
                             <TabItem value="maintenance" label="Maintenance" icon={Database} />
@@ -810,7 +795,7 @@ export default function AdminSettingsPage() {
                     </div>
 
                     <div className="flex-1 overflow-auto pr-2">
-                        {/* TAB 1: GENERAL PREFERENCES & INFO */}
+                        {/* TAB: GENERAL PREFERENCES & INFO */}
                         <TabsContent value="general" className="mt-0 space-y-6">
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -818,7 +803,7 @@ export default function AdminSettingsPage() {
                                 <div className="lg:col-span-2 space-y-6">
                                     <Card className="bg-white border-neutral-200 shadow-sm">
                                         <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
-                                            <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                            <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
                                                 <Globe className="h-4 w-4 text-primary-600" /> Global Defaults
                                             </CardTitle>
                                             <CardDescription className="text-neutral-500">Set default behaviors for new semesters</CardDescription>
@@ -901,7 +886,7 @@ export default function AdminSettingsPage() {
                                     {/* Google Drive Folder */}
                                     <Card className="bg-white border-neutral-200 shadow-sm">
                                         <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
-                                            <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                            <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
                                                 <HardDrive className="h-4 w-4 text-primary-600" /> GDrive Management
                                             </CardTitle>
                                             <CardDescription className="text-neutral-500">Provide one parent folder; we'll handle the sub-folders automatically.</CardDescription>
@@ -911,7 +896,7 @@ export default function AdminSettingsPage() {
                                                 <div className="space-y-2">
                                                     <Label className="text-xs font-semibold text-neutral-500 uppercase flex items-center gap-2">
                                                         Main ISAMS GDrive Folder Link
-                                                        {settings.gdrive_main_folder_id && (
+                                                        {settings.gdrive_root_folder_id && (
                                                             <Badge variant="outline" className="text-[10px] h-4 bg-success/10 text-success border-success/20 py-0">Connected</Badge>
                                                         )}
                                                     </Label>
@@ -920,33 +905,21 @@ export default function AdminSettingsPage() {
                                                         placeholder="https://drive.google.com/drive/folders/..."
                                                         value={mainGdriveLink}
                                                         onChange={(e) => setMainGdriveLink(e.target.value)}
-                                                        disabled={!!settings.gdrive_main_folder_id && !isGdriveUnlocked}
-                                                        className={`bg-white border-neutral-200 text-neutral-900 focus-visible:border-primary focus-visible:ring-primary/20 h-10 shadow-sm ${!!settings.gdrive_main_folder_id && !isGdriveUnlocked ? 'bg-neutral-50 text-neutral-500 cursor-not-allowed' : ''}`}
+                                                        disabled={!!settings.gdrive_root_folder_id && !isGdriveUnlocked}
+                                                        className={`bg-white border-neutral-200 text-neutral-900 focus-visible:border-primary focus-visible:ring-primary/20 h-10 shadow-sm ${!!settings.gdrive_root_folder_id && !isGdriveUnlocked ? 'bg-neutral-50 text-neutral-500 cursor-not-allowed' : ''}`}
                                                     />
                                                 </div>
 
                                                 {(mainGdriveLink || settings.gdrive_root_folder_id) && (
-                                                    <div className="bg-neutral-50 rounded-lg p-3 border border-neutral-200 space-y-2">
+                                                    <div className="bg-neutral-50 rounded-lg p-3 border border-neutral-200">
                                                         <div className="flex justify-between items-center text-xs">
-                                                            <span className="text-neutral-500 italic">Target Infrastructure:</span>
-                                                            <span className="text-primary font-mono text-[10px] font-bold">
-                                                                {(() => {
-                                                                    const match = mainGdriveLink.match(/folders\/([a-zA-Z0-9_-]+)/);
-                                                                    return match ? match[1] : (settings.gdrive_main_folder_id || 'Not Set');
-                                                                })()}
-                                                            </span>
+                                                            <span className="text-neutral-500 font-medium italic">Root Folder ID</span>
                                                         </div>
-
                                                         {settings.gdrive_root_folder_id && (
-                                                            <div className="grid grid-cols-2 gap-4 pt-2 border-t border-neutral-200">
-                                                                <div className="space-y-1">
-                                                                    <p className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Official Vault</p>
-                                                                    <p className="text-[11px] text-success font-mono font-bold truncate">{settings.gdrive_root_folder_id}</p>
-                                                                </div>
-                                                                <div className="space-y-1">
-                                                                    <p className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Staging Sandbox</p>
-                                                                    <p className="text-[11px] text-warning font-mono font-bold truncate">{settings.gdrive_staging_folder_id}</p>
-                                                                </div>
+                                                            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-neutral-200">
+                                                                <span className="w-2 h-2 rounded-full bg-success shrink-0 animate-pulse" />
+                                                                <p className="text-[11px] text-success font-mono font-bold truncate">{settings.gdrive_root_folder_id}</p>
+                                                                <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider ml-auto">Configured</span>
                                                             </div>
                                                         )}
                                                     </div>
@@ -964,7 +937,7 @@ export default function AdminSettingsPage() {
                                                         <RefreshCw className="mr-2 h-3 w-3" /> Refresh Auth
                                                     </Button>
 
-                                                    {settings.gdrive_main_folder_id && (
+                                                    {settings.gdrive_root_folder_id && (
                                                         <Button
                                                             size="sm"
                                                             variant="ghost"
@@ -998,7 +971,7 @@ export default function AdminSettingsPage() {
                                                         }
 
                                                         try {
-                                                            setSuccess("Initializing folders...");
+                                                            setProcessing(true);
                                                             const response = await fetch('/api/folders/init-isams', {
                                                                 method: 'POST',
                                                                 headers: { 'Content-Type': 'application/json' },
@@ -1009,15 +982,15 @@ export default function AdminSettingsPage() {
                                                             if (!response.ok) throw new Error(data.error);
 
                                                             await saveGroup({
-                                                                gdrive_main_folder_id: mainId,
-                                                                gdrive_root_folder_id: data.vaultId,
-                                                                gdrive_staging_folder_id: data.sandboxId
-                                                            });
+                                                                gdrive_root_folder_id: mainId,
+                                                            }, { silent: true });
 
-                                                            setSuccess("GDrive Structure Initialized & Saved!");
+                                                            setSuccess("GDrive folder configured successfully!");
                                                             setIsGdriveUnlocked(false);
                                                         } catch (err) {
                                                             setError("Setup failed: " + err.message);
+                                                        } finally {
+                                                            setProcessing(false);
                                                         }
                                                     }}
                                                 >
@@ -1037,7 +1010,7 @@ export default function AdminSettingsPage() {
                                 <div className="space-y-6">
                                     <Card className="bg-white border-neutral-200 shadow-sm">
                                         <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
-                                            <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                            <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
                                                 <Server className="h-4 w-4 text-primary-600" /> System Status
                                             </CardTitle>
                                         </CardHeader>
@@ -1106,10 +1079,10 @@ export default function AdminSettingsPage() {
                         {/* TAB: COURSE MANAGEMENT */}
                         <TabsContent value="courses" className="mt-0 space-y-6">
 
-                            {/* ── Card 1: Course Catalog ──────────────────────────────── */}
+                            {/* Card 1: Course Catalog */}
                             <Card className="bg-white border-neutral-200 shadow-sm">
                                 <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
-                                    <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                    <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
                                         <BookOpen className="h-4 w-4 text-primary-600" /> Course Catalog
                                     </CardTitle>
                                     <CardDescription className="text-neutral-500">
@@ -1138,6 +1111,7 @@ export default function AdminSettingsPage() {
                                                     placeholder="e.g. Networking 1"
                                                     value={newCatalog.name}
                                                     onChange={e => setNewCatalog(p => ({ ...p, name: e.target.value }))}
+                                                    onBlur={e => setNewCatalog(p => ({ ...p, name: e.target.value.trim() }))}
                                                     disabled={!catalogCodeValid}
                                                     className="bg-white border-neutral-200 text-neutral-900 shadow-sm disabled:bg-neutral-100 disabled:text-neutral-400 focus-visible:ring-primary-500 focus-visible:border-primary-500"
                                                 />
@@ -1154,10 +1128,9 @@ export default function AdminSettingsPage() {
                                                         <SelectValue placeholder="Pick semester" />
                                                     </SelectTrigger>
                                                     <SelectContent className="bg-white border-neutral-200 text-neutral-900">
-                                                        <SelectItem value="1st Sem">1st Semester</SelectItem>
-                                                        <SelectItem value="2nd Sem">2nd Semester</SelectItem>
+                                                        <SelectItem value="1st Semester">1st Semester</SelectItem>
+                                                        <SelectItem value="2nd Semester">2nd Semester</SelectItem>
                                                         <SelectItem value="Summer">Summer</SelectItem>
-                                                        <SelectItem value="Mid-Year">Mid-Year</SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                             </div>
@@ -1166,10 +1139,7 @@ export default function AdminSettingsPage() {
                                                 <Button
                                                     className="w-full"
                                                     disabled={!canAddCatalog}
-                                                    onClick={async () => {
-                                                        const ok = await handleAddMasterCourse(newCatalog.code, newCatalog.name, newCatalog.semester);
-                                                        if (ok) setNewCatalog(p => ({ ...p, code: '', name: '' }));
-                                                    }}
+                                                    onClick={() => setConfirmCatalogOpen(true)}
                                                 >
                                                     <Plus className="h-4 w-4 mr-1" /> Add
                                                 </Button>
@@ -1184,7 +1154,60 @@ export default function AdminSettingsPage() {
                                         </div>
                                     )}
 
-                                    {/* Catalog grid (USING THE NEW DATATABLE WRAPPER) */}
+                                    {/* Confirm Add Dialog */}
+                                    <Dialog open={confirmCatalogOpen} onOpenChange={setConfirmCatalogOpen}>
+                                        <DialogContent className="bg-white border-neutral-200 text-neutral-900 sm:max-w-[420px] shadow-xl">
+                                            <DialogHeader>
+                                                <DialogTitle className="text-neutral-900 font-bold flex items-center gap-2">
+                                                    <AlertCircle className="h-4 w-4 text-warning" />
+                                                    Confirm New Course
+                                                </DialogTitle>
+                                                <DialogDescription className="text-neutral-500 font-medium">
+                                                    Please review carefully before saving.
+                                                </DialogDescription>
+                                            </DialogHeader>
+
+                                            {/* Preview fields */}
+                                            <div className="space-y-3 py-2">
+                                                <div className="space-y-1">
+                                                    <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Course Code</p>
+                                                    <p className="font-mono font-bold text-primary-600 bg-primary-50 border border-primary-100 rounded-lg px-3 py-2 text-sm">{newCatalog.code}</p>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Course Name</p>
+                                                    <p className="font-semibold text-neutral-900 bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm">{newCatalog.name}</p>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Semester</p>
+                                                    <p className="font-semibold text-neutral-700 bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm">{newCatalog.semester}</p>
+                                                </div>
+                                            </div>
+
+                                            {/* Warning */}
+                                            <div className="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 mt-1">
+                                                <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                                                <p className="text-xs text-amber-800 font-medium">Check for spelling errors in the code and name. <span className="font-bold">Once added, this entry cannot be deleted</span> if it has active course assignments.</p>
+                                            </div>
+
+                                            <DialogFooter className="gap-2 mt-2">
+                                                <Button variant="outline" className="border-neutral-200 text-neutral-600" onClick={() => setConfirmCatalogOpen(false)}>
+                                                    Go Back & Review
+                                                </Button>
+                                                <Button
+                                                    className="bg-primary-600 hover:bg-primary-700 text-white font-bold"
+                                                    onClick={async () => {
+                                                        setConfirmCatalogOpen(false);
+                                                        const ok = await handleAddMasterCourse(newCatalog.code, newCatalog.name, newCatalog.semester);
+                                                        if (ok) setNewCatalog(p => ({ ...p, code: '', name: '', semester: '' }));
+                                                    }}
+                                                >
+                                                    Yes, Add Course
+                                                </Button>
+                                            </DialogFooter>
+                                        </DialogContent>
+                                    </Dialog>
+
+                                    {/* Catalog grid */}
                                     <DataTable
                                         rowData={masterCourseList}
                                         columnDefs={catalogColumnDefs}
@@ -1196,12 +1219,12 @@ export default function AdminSettingsPage() {
                                 </CardContent>
                             </Card>
 
-                            {/* ── Card 2: Faculty Course Assignments ───────────────────── */}
+                            {/* Card 2: Faculty Course Assignments */}
                             <Card className="bg-white border-neutral-200 shadow-sm">
                                 <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
                                     <div className="flex items-center justify-between">
                                         <div>
-                                            <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                            <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
                                                 <Users className="h-4 w-4 text-primary-600" /> Faculty Course Assignments
                                             </CardTitle>
                                             <CardDescription className="text-neutral-500 mt-1">
@@ -1268,7 +1291,6 @@ export default function AdminSettingsPage() {
                                                         {/* Course rows */}
                                                         <div className="divide-y divide-neutral-100">
                                                             {group.assignments.map(asgn => {
-                                                                // Cross-reference with master catalog to check if the course is active
                                                                 const masterCourse = masterCourseList.find(
                                                                     mc => mc.id === asgn.master_course_id || mc.course_code === asgn.course_code
                                                                 );
@@ -1306,7 +1328,7 @@ export default function AdminSettingsPage() {
                                                                                 Sec {asgn.section || '—'}
                                                                             </span>
 
-                                                                            <span className="text-[11px] text-neutral-500 font-medium w-14 text-right hidden sm:block">
+                                                                            <span className="text-[11px] text-neutral-500 font-medium w-21 text-right hidden sm:block">
                                                                                 {asgn.semester || '—'}
                                                                             </span>
 
@@ -1354,7 +1376,7 @@ export default function AdminSettingsPage() {
                                 </CardContent>
                             </Card>
 
-                            {/* ── Assign Faculty Modal ────*/}
+                            {/* Assign Faculty Modal */}
                             <Dialog open={assignModalOpen} onOpenChange={setAssignModalOpen}>
                                 <DialogContent className="bg-white border-neutral-200 text-neutral-900 max-w-lg shadow-xl" showCloseButton={false}>
                                     <DialogHeader>
@@ -1363,7 +1385,7 @@ export default function AdminSettingsPage() {
                                             Assign Faculty to Course
                                         </DialogTitle>
                                         <DialogDescription className="text-neutral-500">
-                                            Select a course from the catalog, pick a section letter, then choose the faculty member.
+                                            Select a course, set the section (e.g. <span className="font-mono font-semibold text-neutral-700">BSCS-3A</span>), then choose the faculty member.
                                         </DialogDescription>
                                     </DialogHeader>
 
@@ -1407,13 +1429,28 @@ export default function AdminSettingsPage() {
                                             <div className="space-y-1.5">
                                                 <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Section *</label>
                                                 <Input
-                                                    placeholder="A"
+                                                    placeholder="e.g. BSCS-3A"
                                                     value={newAssignment.section}
-                                                    onChange={e => setNewAssignment(p => ({ ...p, section: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 2) }))}
-                                                    maxLength={2}
+                                                    onChange={e => {
+                                                        const stripped = e.target.value.toUpperCase().replace(/[\s\-]+/g, '');
+                                                        const full = stripped.match(/^([A-Z]+)(\d+)([A-Z])$/);
+                                                        const partial = stripped.match(/^([A-Z]+)(\d.*)$/);
+                                                        const normalized = full
+                                                            ? `${full[1]}-${full[2]}${full[3]}`
+                                                            : partial
+                                                                ? `${partial[1]}-${partial[2]}`
+                                                                : stripped;
+                                                        setNewAssignment(p => ({ ...p, section: normalized }));
+                                                    }}
                                                     disabled={!newAssignment.master_course_id}
-                                                    className="bg-white border-neutral-200 text-neutral-900 font-mono text-center disabled:bg-neutral-100 shadow-sm focus-visible:ring-primary-500"
+                                                    className="bg-white border-neutral-200 text-neutral-900 font-mono disabled:bg-neutral-100 shadow-sm focus-visible:ring-primary-500"
                                                 />
+                                                {newAssignment.section && !sectionFormatValid && (
+                                                    <p className="text-[10px] text-amber-600 font-medium flex items-center gap-1 mt-1">
+                                                        <AlertCircle className="h-3 w-3" />
+                                                        Complete format needed, e.g. <span className="font-mono font-bold">BSIT-3A</span>
+                                                    </p>
+                                                )}
                                             </div>
                                             <div className="col-span-2 space-y-1.5">
                                                 <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Faculty *</label>
@@ -1477,7 +1514,7 @@ export default function AdminSettingsPage() {
                         <TabsContent value="faculty" className="mt-0">
                             <Card className="bg-white border-neutral-200 shadow-sm">
                                 <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
-                                    <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                    <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
                                         <Users className="h-4 w-4 text-primary-600" /> Faculty Management
                                     </CardTitle>
                                     <CardDescription className="text-neutral-500">
@@ -1502,7 +1539,7 @@ export default function AdminSettingsPage() {
                                 <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
                                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                         <div>
-                                            <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                            <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
                                                 <Folder className="h-4 w-4 text-primary-600" /> Document Requirements
                                             </CardTitle>
                                             <CardDescription className="text-neutral-500">Manage required submissions and their target folders</CardDescription>
@@ -1697,7 +1734,7 @@ export default function AdminSettingsPage() {
                             <Card className="bg-white border-neutral-200 shadow-sm">
                                 <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                     <div>
-                                        <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                        <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
                                             <Shield className="h-4 w-4 text-primary-600" /> Certificates
                                         </CardTitle>
                                         <CardDescription className="text-neutral-500">Manage Clearance Certificates and visual calibration.</CardDescription>
@@ -1729,7 +1766,7 @@ export default function AdminSettingsPage() {
                             <Card className="bg-white border-neutral-200 shadow-sm">
                                 <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                     <div>
-                                        <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                        <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
                                             <LayoutTemplate className="h-4 w-4 text-primary-600" /> System Templates
                                         </CardTitle>
                                         <CardDescription className="text-neutral-500">Manage Syllabus, Grade Sheets, and General templates.</CardDescription>
@@ -1762,7 +1799,7 @@ export default function AdminSettingsPage() {
                         <TabsContent value="scheduling" className="mt-0">
                             <Card className="bg-white border-neutral-200 shadow-sm">
                                 <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
-                                    <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                    <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
                                         <Clock className="h-4 w-4 text-primary-600" /> Holiday Scheduling
                                     </CardTitle>
                                     <CardDescription className="text-neutral-500">Manage holidays to pause automated email reminders.</CardDescription>
@@ -1879,7 +1916,7 @@ export default function AdminSettingsPage() {
                                 <div className="md:col-span-1 space-y-2 self-start ">
                                     <Card className="bg-white border-neutral-200 shadow-sm flex flex-col max-h-[calc(100vh-120px)]">
                                         <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4 shrink-0">
-                                            <CardTitle className="text-sm text-neutral-900 flex items-center gap-2">
+                                            <CardTitle className="text-sm font-bold text-neutral-900 flex items-center gap-2">
                                                 <Folder className="h-4 w-4 text-primary-600" /> Document Types
                                             </CardTitle>
                                             <div className="text-xs text-neutral-500 font-medium">Select a document type to view its validation rules.</div>
@@ -1908,7 +1945,7 @@ export default function AdminSettingsPage() {
                                 <div className="md:col-span-3">
                                     <Card className="bg-white border-neutral-200 shadow-sm h-full">
                                         <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
-                                            <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
+                                            <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
                                                 <Shield className="h-4 w-4 text-primary-600" />
                                                 Validation Rules: {docRequirements.find(d => d.id === selectedDocTypeId)?.name || 'Select a Document Type'}
                                             </CardTitle>
@@ -1979,21 +2016,6 @@ export default function AdminSettingsPage() {
                                                                 <p className="text-xs text-neutral-500 font-medium">Prevents upload spoofing (e.g. rejecting a document explicitly marked as "Draft").</p>
                                                             </div>
 
-                                                            {/* Minimum Word Count */}
-                                                            <div className="space-y-2 max-w-sm mt-2">
-                                                                <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Minimum Word Count</Label>
-                                                                <div className="flex items-center gap-3">
-                                                                    <Input
-                                                                        type="number"
-                                                                        min="0"
-                                                                        value={docRules.min_word_count ?? 0}
-                                                                        onChange={(e) => setDocRules({ ...docRules, min_word_count: e.target.value === '' ? '' : parseInt(e.target.value, 10) || 0 })}
-                                                                        className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 focus-visible:border-primary-500 shadow-sm font-mono text-lg w-32"
-                                                                    />
-                                                                    <span className="text-sm text-neutral-600 font-medium whitespace-nowrap">words minimum</span>
-                                                                </div>
-                                                                <p className="text-xs text-neutral-500 font-medium">Ensures documents have sufficient length, filtering out placeholder single-page uploads.</p>
-                                                            </div>
                                                         </div>
                                                     </div>
 
@@ -2051,22 +2073,166 @@ export default function AdminSettingsPage() {
                                 {/* Engine Config */}
                                 <Card className="bg-white border-neutral-200 shadow-sm">
                                     <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
-                                        <CardTitle className="text-base text-neutral-900 flex items-center gap-2">
-                                            <Cpu className="h-4 w-4 text-primary-600" /> OCR Engine Configuration
+                                        <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
+                                            <Cpu className="h-4 w-4 text-primary-600" /> OCR Engine
                                         </CardTitle>
+                                        <CardDescription className="text-neutral-500">OCR Engine uses AI to extract text from documents. Files are routed to the optimal engine based on their type.</CardDescription>
                                     </CardHeader>
-                                    <CardContent className="pt-6 space-y-6">
-                                        <div className="flex items-center justify-between p-4 rounded-xl bg-neutral-50 border border-neutral-200 shadow-sm">
-                                            <div>
-                                                <Label className="text-neutral-900 font-bold text-sm">Enable Automated Validation</Label>
-                                                <p className="text-xs text-neutral-500 mt-1 font-medium">Master switch to run the extraction engine on new uploads.</p>
-                                            </div>
-                                            <Switch
-                                                checked={settings.ocr_enabled}
-                                                onCheckedChange={(c) => updateSetting('ocr_enabled', c)}
-                                                className="data-[state=checked]:bg-success shrink-0"
-                                            />
+                                    <CardContent className="pt-6 space-y-4">
+
+                                        {/* Split-Load Architecture Label */}
+                                        <div className="flex items-center gap-2">
+                                            <Activity className="h-4 w-4 text-primary-600 shrink-0" />
+                                            <span className="text-sm font-bold text-neutral-900">Split-Load Engine Status</span>
+                                            <span className="flex items-center gap-1.5 bg-success/10 border border-success/20 text-success text-[10px] font-bold px-2.5 py-1 rounded-full ml-auto">
+                                                2 Engines Active
+                                            </span>
                                         </div>
+
+                                        {/* Two Engine Cards */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                                            {/* Engine 1 — Supabase Edge Function */}
+                                            <div className="rounded-xl border border-primary-500/30 bg-primary-500/5 p-4 space-y-3 shadow-sm">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="p-1.5 rounded-md bg-primary-500/10 border border-primary-500/30">
+                                                            <Server className="h-3.5 w-3.5 text-primary-600" />
+                                                        </div>
+                                                        <span className="text-sm font-bold text-neutral-900">Primary Bot</span>
+                                                    </div>
+                                                    <span className="flex items-center gap-1.5 bg-success/10 border border-success/20 text-success text-[10px] font-bold px-2.5 py-1 rounded-full">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
+                                                        Online
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs font-bold text-primary-600">Supabase Edge Function</p>
+                                                    <p className="text-[11px] text-neutral-500 font-medium mt-0.5 leading-relaxed">
+                                                        Cloud-hosted parser running <span className="font-bold text-neutral-700">pdf-parse</span> &amp; <span className="font-bold text-neutral-700">mammoth</span>. Extracts text from text-native documents in RAM — no disk writes, no data retention.
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Handles File Types</p>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {['.pdf', '.docx', '.pptx', '.xlsx', '.txt', '.csv', '.json'].map(ext => (
+                                                            <span key={ext} className="text-[10px] font-bold font-mono text-primary-600 bg-primary-500/10 border border-primary-500/30 px-1.5 py-0.5 rounded">{ext}</span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <div className="pt-1 border-t border-primary-500/20">
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <div>
+                                                            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Execution</p>
+                                                            <p className="text-xs font-bold text-neutral-800 mt-0.5">Cloud (Deno)</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Invocation</p>
+                                                            <p className="text-xs font-bold text-neutral-800 mt-0.5">document-parser</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Auth</p>
+                                                            <p className="text-xs font-bold text-neutral-800 mt-0.5">Service Role Key</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Avg. Latency</p>
+                                                            <p className="text-xs font-bold text-neutral-800 mt-0.5">~300–800 ms</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Engine 2 — Local Express Bridge */}
+                                            <div className="rounded-xl border border-warning/30 bg-warning/5 p-4 space-y-3 shadow-sm">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="p-1.5 rounded-md bg-warning/10 border border-warning/30">
+                                                            <HardDrive className="h-3.5 w-3.5 text-warning" />
+                                                        </div>
+                                                        <span className="text-sm font-bold text-neutral-900">Image Bot</span>
+                                                    </div>
+                                                    <span className="flex items-center gap-1.5 bg-warning/10 border border-warning/30 text-warning text-[10px] font-bold px-2.5 py-1 rounded-full">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-warning animate-pulse" />
+                                                        Local Bridge
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs font-bold text-warning">Local Express Server</p>
+                                                    <p className="text-[11px] text-neutral-500 font-medium mt-0.5 leading-relaxed">
+                                                        Local <span className="font-bold text-neutral-700">server.js</span> running <span className="font-bold text-neutral-700">Tesseract.js</span> for image-based OCR. Routed here when the Primary Bot returns a <span className="font-mono text-neutral-700 text-[10px] bg-neutral-100 px-1 py-0.5 rounded border">need_local_ocr</span> flag.
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Handles File Types</p>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {['.png', '.jpg', '.jpeg', '.webp'].map(ext => (
+                                                            <span key={ext} className="text-[10px] font-bold font-mono text-warning bg-warning/10 border border-warning/30 px-1.5 py-0.5 rounded">{ext}</span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <div className="pt-1 border-t border-warning/20">
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <div>
+                                                            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Execution</p>
+                                                            <p className="text-xs font-bold text-neutral-800 mt-0.5">Local Machine</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Endpoint</p>
+                                                            <p className="text-xs font-bold text-neutral-800 mt-0.5 font-mono">/api/validate-image</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Secrets</p>
+                                                            <p className="text-xs font-bold text-neutral-800 mt-0.5">.env.local only</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Avg. Latency</p>
+                                                            <p className="text-xs font-bold text-neutral-800 mt-0.5">~1–3 s</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Split-Load Flow Diagram */}
+                                        <div className="mt-2 rounded-xl border border-neutral-200 bg-neutral-50 p-4 shadow-sm">
+                                            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-3 flex items-center justify-center gap-1.5">
+                                                Upload Routing Flow
+                                            </p>
+                                            <div className="flex flex-col sm:flex-row items-center justify-center gap-2 text-xs font-medium flex-wrap">
+                                                {/* Step 1 */}
+                                                <div className="flex flex-col items-center text-center gap-1 shrink-0">
+                                                    <div className="w-8 h-8 rounded-full bg-neutral-200 border border-neutral-300 flex items-center justify-center text-[10px] font-black text-neutral-600">1</div>
+                                                    <span className="text-[10px] text-neutral-600 font-bold leading-tight max-w-[70px]">Size &amp; Type Pre-Check</span>
+                                                </div>
+                                                <span className="text-neutral-300 font-bold text-base hidden sm:block">→</span>
+                                                {/* Step 2 */}
+                                                <div className="flex flex-col items-center text-center gap-1 shrink-0">
+                                                    <div className="w-8 h-8 rounded-full bg-primary-100 border border-primary-300 flex items-center justify-center text-[10px] font-black text-primary-700">2</div>
+                                                    <span className="text-[10px] text-primary-700 font-bold leading-tight max-w-[70px]">Edge Function (Primary)</span>
+                                                </div>
+                                                <span className="text-neutral-300 font-bold text-base hidden sm:block">→</span>
+                                                {/* Step 3 — branch */}
+                                                <div className="flex flex-col items-center text-center gap-1 shrink-0">
+                                                    <div className="w-8 h-8 rounded-full bg-warning/20 border border-warning/40 flex items-center justify-center text-[10px] font-black text-warning">3?</div>
+                                                    <span className="text-[10px] text-warning font-bold leading-tight max-w-[80px]">Image? → Local Bridge</span>
+                                                </div>
+                                                <span className="text-neutral-300 font-bold text-base hidden sm:block">→</span>
+                                                {/* Step 4 — pass/fail */}
+                                                <div className="flex flex-col items-center text-center gap-1 shrink-0">
+                                                    <div className="w-8 h-8 rounded-full bg-success/10 border border-success/30 flex items-center justify-center text-[10px] font-black text-success">✓</div>
+                                                    <span className="text-[10px] text-success font-bold leading-tight max-w-[70px]">Pass → GDrive Upload</span>
+                                                </div>
+                                                <span className="text-neutral-300 font-bold text-base hidden sm:block">/</span>
+                                                <div className="flex flex-col items-center text-center gap-1 shrink-0">
+                                                    <div className="w-8 h-8 rounded-full bg-destructive/10 border border-destructive/30 flex items-center justify-center text-[10px] font-black text-destructive">✕</div>
+                                                    <span className="text-[10px] text-destructive font-bold leading-tight max-w-[70px]">Fail → Rejected</span>
+                                                </div>
+                                            </div>
+                                            <p className="text-[10px] text-neutral-400 font-medium mt-3 leading-relaxed text-center">
+                                                Documents rejected at any step <strong className="text-neutral-600">never touch Google Drive</strong>. The faculty receives an instant inline error describing exactly which keyword or rule caused the failure.
+                                            </p>
+                                        </div>
+
                                     </CardContent>
                                 </Card>
 
@@ -2150,6 +2316,20 @@ export default function AdminSettingsPage() {
                                                     </div>
                                                 )}
 
+                                                {testResult.extractedText && (
+                                                    <div className="mb-4 text-xs font-mono">
+                                                        <div className="flex justify-between items-center mb-1.5">
+                                                            <span className="font-bold text-neutral-900">Raw Extracted Data:</span>
+                                                            <span className="text-neutral-500 font-medium">
+                                                                Words: {testResult.wordCount} | Chars: {testResult.extractedLength}
+                                                            </span>
+                                                        </div>
+                                                        <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-3 shadow-inner max-h-40 overflow-y-auto w-full break-normal whitespace-pre-wrap text-neutral-600">
+                                                            {testResult.extractedText}
+                                                        </div>
+                                                    </div>
+                                                )}
+
                                                 <div className="bg-white border border-neutral-200 rounded-lg p-3 shadow-inner">
                                                     <pre className={`text-xs font-mono overflow-auto max-h-64 whitespace-pre-wrap flex-1 ${testResult.success ? 'text-neutral-700' : 'text-destructive font-medium'}`}>
                                                         {testResult.success ? testResult.text : (testResult.error || testResult.text)}
@@ -2180,11 +2360,11 @@ export default function AdminSettingsPage() {
                             </div>
                         </TabsContent>
 
-                        {/* TAB 4: MAINTENANCE / DANGER ZONE */}
+                        {/* TAB: MAINTENANCE / DANGER ZONE */}
                         <TabsContent value="maintenance" className="mt-0">
                             <Card className="bg-destructive/5 border-destructive/20 shadow-none">
                                 <CardHeader className="border-b border-destructive/20 py-4 bg-white/50">
-                                    <CardTitle className="text-base text-destructive flex items-center gap-2 font-bold">
+                                    <CardTitle className="text-lg font-bold text-destructive flex items-center gap-2">
                                         <AlertCircle className="h-5 w-5" /> Danger Zone
                                     </CardTitle>
                                     <CardDescription className="text-destructive/70 font-medium">
@@ -2420,7 +2600,7 @@ export default function AdminSettingsPage() {
     );
 }
 
-// --- Sub-components ---
+// Sub-components
 
 const TabItem = ({ value, label, icon: Icon }) => (
     <TabsTrigger

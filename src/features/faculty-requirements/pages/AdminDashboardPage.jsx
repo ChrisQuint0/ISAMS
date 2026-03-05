@@ -234,15 +234,6 @@ export default function AdminDashboardPage() {
           border="border-neutral-200"
         />
         <StatCard
-          title="Validation Queue"
-          value={stats.validation_queue}
-          sub="Items requiring dean audit"
-          icon={AlertTriangle}
-          color="text-warning"
-          bg="bg-white"
-          border="border-neutral-200"
-        />
-        <StatCard
           title="On-Time Rate"
           value={`${stats.on_time_rate}%`}
           sub="+5% from last academic semester"
@@ -308,14 +299,6 @@ export default function AdminDashboardPage() {
                 sub="Modify academic dates"
                 onClick={() => navigate('/deadlines')}
                 color="text-primary-600"
-                bg="hover:bg-neutral-50"
-              />
-              <ActionButton
-                icon={CheckCircle}
-                label="Review Queue"
-                sub={`${stats.validation_queue} Pending items`}
-                onClick={() => navigate('/validation')}
-                color="text-info"
                 bg="hover:bg-neutral-50"
               />
               <ActionButton
