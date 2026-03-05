@@ -33,7 +33,7 @@ export function useLabDashboard(labName) {
                 .eq('db_name', labName)
                 .maybeSingle();
 
-            // 2. Fetch Active Schedule (Synchronized with your manual edits)
+            // 2. Fetch Active Schedule
             const { data: schedule } = await supabase
                 .from('lab_schedules_lm')
                 .select('*')
@@ -45,7 +45,7 @@ export function useLabDashboard(labName) {
             
             setCurrentClass(schedule);
 
-            // 3. Fetch Occupants
+            // 3. Fetch Real-time Occupants filtered by device type
             const { data: activeLogs } = await supabase
                 .from('attendance_logs_lm')
                 .select('log_type, lab_schedules_lm!inner(room)')
@@ -56,7 +56,14 @@ export function useLabDashboard(labName) {
             const laptopCount = activeLogs?.filter(l => l.log_type === 'Laptop').length || 0;
             const currentTotal = pcCount + laptopCount;
 
-            // 4. Trend Logic
+            // 4. Fetch real Hardware Maintenance Flags from pc_stations_lm table
+            const { count: maintenanceCount } = await supabase
+                .from('pc_stations_lm')
+                .select('*', { count: 'exact', head: true })
+                .eq('room', labName)
+                .eq('status', 'Maintenance');
+
+            // 5. Trend Logic
             const { count: pastTotal } = await supabase
                 .from('attendance_logs_lm')
                 .select('id, lab_schedules_lm!inner(room)', { count: 'exact', head: true })
@@ -67,7 +74,7 @@ export function useLabDashboard(labName) {
             const diff = currentTotal - (pastTotal || 0);
             const trendVal = pastTotal > 0 ? ((diff / pastTotal) * 100).toFixed(1) : (diff > 0 ? 100 : 0);
 
-            // 5. Daily Metrics
+            // 6. Daily Scan Count
             const { count: scanCount } = await supabase
                 .from('attendance_logs_lm')
                 .select('id, lab_schedules_lm!inner(room)', { count: 'exact', head: true })
@@ -77,7 +84,7 @@ export function useLabDashboard(labName) {
             setMetrics({
                 activeOccupancy: currentTotal,
                 totalScansToday: scanCount || 0,
-                flaggedPCs: 0, 
+                flaggedPCs: maintenanceCount || 0,
                 pcUsers: pcCount,
                 laptopUsers: laptopCount,
                 occupancyTrend: Math.abs(trendVal).toString(),
@@ -85,7 +92,7 @@ export function useLabDashboard(labName) {
                 maxCapacity: labSettings?.seat_count || 40 
             });
 
-            // 6. Audit Feed
+            // 7. Audit Feed
             const { data: latestLogs } = await supabase
                 .from('attendance_logs_lm')
                 .select('*, students:students_lists_lm(full_name), lab_schedules_lm!inner(room)')
@@ -98,24 +105,19 @@ export function useLabDashboard(labName) {
         finally { setLoading(false); }
     };
 
-    // System Clock
     useEffect(() => {
         const timer = setInterval(() => setClock(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
 
-    // Realtime Integration
     useEffect(() => {
         setLoading(true);
         fetchLiveDashboard();
 
         const sub = supabase.channel(`dashboard-live-${labName}`)
-            // Listen for Scans
             .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_logs_lm' }, fetchLiveDashboard)
-            // Listen for Schedule Edits
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'pc_stations_lm' }, fetchLiveDashboard)
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lab_schedules_lm' }, fetchLiveDashboard)
-            // Listen for Student List changes
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'students_lists_lm' }, fetchLiveDashboard)
             .subscribe();
 
         return () => supabase.removeChannel(sub);
