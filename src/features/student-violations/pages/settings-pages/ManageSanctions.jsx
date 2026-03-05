@@ -15,19 +15,19 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 
 // Custom theme using AG Grid v33+ Theming API with Quartz theme for a clean institutional look
 const customTheme = themeQuartz.withParams({
-  accentColor: 'var(--warning)',
-  backgroundColor: 'var(--neutral-50)',
-  foregroundColor: 'var(--neutral-900)',
-  borderColor: 'var(--neutral-200)',
-  headerBackgroundColor: 'var(--neutral-100)',
-  headerTextColor: 'var(--neutral-900)',
-  oddRowBackgroundColor: '#ffffff',
-  rowHoverColor: 'var(--neutral-100)',
-  selectedRowBackgroundColor: 'color-mix(in srgb, var(--warning) 10%, transparent)',
-  rowHeight: 48,
-  headerHeight: 40,
-  headerFontWeight: '700',
-  fontSize: '13px',
+    accentColor: 'var(--warning)',
+    backgroundColor: 'var(--neutral-50)',
+    foregroundColor: 'var(--neutral-900)',
+    borderColor: 'var(--neutral-200)',
+    headerBackgroundColor: 'var(--neutral-100)',
+    headerTextColor: 'var(--neutral-900)',
+    oddRowBackgroundColor: '#ffffff',
+    rowHoverColor: 'var(--neutral-100)',
+    selectedRowBackgroundColor: 'color-mix(in srgb, var(--warning) 10%, transparent)',
+    rowHeight: 48,
+    headerHeight: 40,
+    headerFontWeight: '700',
+    fontSize: '13px',
 });
 
 const ManageSanctions = () => {
@@ -95,10 +95,6 @@ const ManageSanctions = () => {
 
     const columnDefs = useMemo(() => [
         {
-            headerName: "Severity",
-            field: "severity",
-            flex: 1,
-            filter: true,
             headerName: "Severity",
             field: "severity",
             flex: 1,
