@@ -43,7 +43,6 @@ export const settingsService = {
       val_allowed_extensions: settingsMap.val_allowed_extensions || '.pdf, .docx, .xlsx',
 
       // FIX: Added missing crucial system keys!
-      gdrive_main_folder_id: settingsMap.gdrive_main_folder_id || '',
       gdrive_root_folder_id: settingsMap.gdrive_root_folder_id || '',
       current_semester: settingsMap.current_semester || '',
       current_academic_year: settingsMap.current_academic_year || ''
@@ -108,7 +107,6 @@ export const settingsService = {
    * Get Validation Rules for a specific Document Type
    */
   getDocTypeValidation: async (docTypeId) => {
-    // 1. Get column rules from documenttypes_fs
     const { data: docType, error: docError } = await supabase
       .from('documenttypes_fs')
       .select('required_keywords, forbidden_keywords, allowed_extensions, max_file_size_mb')
@@ -117,21 +115,11 @@ export const settingsService = {
 
     if (docError) throw docError;
 
-    // 2. Get min_word_count from systemsettings_fs (workaround since it's missing from doc table)
-    const { data: systemSetting, error: sysError } = await supabase
-      .from('systemsettings_fs')
-      .select('setting_value')
-      .eq('setting_key', `min_word_count_${docTypeId}`)
-      .maybeSingle();
-
-    if (sysError && sysError.code !== 'PGRST116') throw sysError;
-
     return {
       required_keywords: docType.required_keywords || [],
       forbidden_keywords: docType.forbidden_keywords || [],
       allowed_extensions: docType.allowed_extensions || ['.pdf'],
       max_file_size_mb: docType.max_file_size_mb || 10,
-      min_word_count: systemSetting?.setting_value ? parseInt(systemSetting.setting_value) : 0,
     };
   },
 
@@ -139,7 +127,6 @@ export const settingsService = {
    * Update Validation Rules for a specific Document Type
    */
   updateDocTypeRules: async (docTypeId, rules) => {
-    // 1. Update columns in documenttypes_fs
     const { error: docError } = await supabase
       .from('documenttypes_fs')
       .update({
@@ -151,14 +138,6 @@ export const settingsService = {
       .eq('doc_type_id', docTypeId);
 
     if (docError) throw docError;
-
-    // 2. Upsert min_word_count to systemsettings_fs via RPC
-    const { error: sysError } = await supabase.rpc('upsert_setting_fs', {
-      p_key: `min_word_count_${docTypeId}`,
-      p_value: String(rules.min_word_count || 0)
-    });
-
-    if (sysError) throw sysError;
   },
 
   /**

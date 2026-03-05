@@ -713,7 +713,7 @@ export default function AdminSettingsPage() {
             setArchiveRetention(settings.general_archive_retention || '5years');
 
             // GDrive: stored as folder ID in DB — reconstruct display URL only if it's a raw ID
-            const mainId = settings.gdrive_main_folder_id || '';
+            const mainId = settings.gdrive_root_folder_id || '';
             const isRawMainId = mainId && !mainId.includes('/');
             setMainGdriveLink(isRawMainId ? `https://drive.google.com/drive/folders/${mainId}` : mainId);
         }
@@ -802,7 +802,7 @@ export default function AdminSettingsPage() {
                             <TabItem value="faculty" label="Faculty" icon={Users} />
                             <TabItem value="doc_types" label="Document Types" icon={Folder} />
                             <TabItem value="validation" label="Validation Rules" icon={Shield} />
-                            <TabItem value="ocr" label="OCR & AI" icon={Cpu} />
+                            <TabItem value="ocr" label="OCR" icon={Cpu} />
                             <TabItem value="templates" label="Templates" icon={LayoutTemplate} />
                             <TabItem value="scheduling" label="Scheduling" icon={Clock} />
                             <TabItem value="maintenance" label="Maintenance" icon={Database} />
@@ -911,7 +911,7 @@ export default function AdminSettingsPage() {
                                                 <div className="space-y-2">
                                                     <Label className="text-xs font-semibold text-neutral-500 uppercase flex items-center gap-2">
                                                         Main ISAMS GDrive Folder Link
-                                                        {settings.gdrive_main_folder_id && (
+                                                        {settings.gdrive_root_folder_id && (
                                                             <Badge variant="outline" className="text-[10px] h-4 bg-success/10 text-success border-success/20 py-0">Connected</Badge>
                                                         )}
                                                     </Label>
@@ -920,19 +920,19 @@ export default function AdminSettingsPage() {
                                                         placeholder="https://drive.google.com/drive/folders/..."
                                                         value={mainGdriveLink}
                                                         onChange={(e) => setMainGdriveLink(e.target.value)}
-                                                        disabled={!!settings.gdrive_main_folder_id && !isGdriveUnlocked}
-                                                        className={`bg-white border-neutral-200 text-neutral-900 focus-visible:border-primary focus-visible:ring-primary/20 h-10 shadow-sm ${!!settings.gdrive_main_folder_id && !isGdriveUnlocked ? 'bg-neutral-50 text-neutral-500 cursor-not-allowed' : ''}`}
+                                                        disabled={!!settings.gdrive_root_folder_id && !isGdriveUnlocked}
+                                                        className={`bg-white border-neutral-200 text-neutral-900 focus-visible:border-primary focus-visible:ring-primary/20 h-10 shadow-sm ${!!settings.gdrive_root_folder_id && !isGdriveUnlocked ? 'bg-neutral-50 text-neutral-500 cursor-not-allowed' : ''}`}
                                                     />
                                                 </div>
 
-                                                {(mainGdriveLink || settings.gdrive_main_folder_id) && (
+                                                {(mainGdriveLink || settings.gdrive_root_folder_id) && (
                                                     <div className="bg-neutral-50 rounded-lg p-3 border border-neutral-200">
                                                         <div className="flex justify-between items-center text-xs">
                                                             <span className="text-neutral-500 font-medium italic">Root Folder ID</span>
                                                         </div>
                                                         {settings.gdrive_root_folder_id && (
                                                             <div className="flex items-center gap-2 mt-2 pt-2 border-t border-neutral-200">
-                                                                <span className="w-2 h-2 rounded-full bg-success shrink-0" />
+                                                                <span className="w-2 h-2 rounded-full bg-success shrink-0 animate-pulse" />
                                                                 <p className="text-[11px] text-success font-mono font-bold truncate">{settings.gdrive_root_folder_id}</p>
                                                                 <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider ml-auto">Configured</span>
                                                             </div>
@@ -952,7 +952,7 @@ export default function AdminSettingsPage() {
                                                         <RefreshCw className="mr-2 h-3 w-3" /> Refresh Auth
                                                     </Button>
 
-                                                    {settings.gdrive_main_folder_id && (
+                                                    {settings.gdrive_root_folder_id && (
                                                         <Button
                                                             size="sm"
                                                             variant="ghost"
@@ -997,7 +997,6 @@ export default function AdminSettingsPage() {
                                                             if (!response.ok) throw new Error(data.error);
 
                                                             await saveGroup({
-                                                                gdrive_main_folder_id: mainId,
                                                                 gdrive_root_folder_id: mainId,
                                                             }, { silent: true });
 
@@ -2094,19 +2093,163 @@ export default function AdminSettingsPage() {
                                         <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
                                             <Cpu className="h-4 w-4 text-primary-600" /> OCR Engine
                                         </CardTitle>
-                                        <CardDescription className="text-neutral-500">OCR Engine uses AI to extract text from documents.</CardDescription>
+                                        <CardDescription className="text-neutral-500">OCR Engine uses AI to extract text from documents. Files are routed to the optimal engine based on their type.</CardDescription>
                                     </CardHeader>
-                                    <CardContent className="pt-6 space-y-6">
-                                        <div className="flex items-center justify-between p-4 rounded-xl bg-neutral-50 border border-neutral-200 shadow-sm">
-                                            <div>
-                                                <Label className="text-neutral-900 font-bold text-sm">Automated Validation</Label>
-                                                <p className="text-xs text-neutral-500 mt-1 font-medium">Validation runs automatically on every upload. This cannot be disabled.</p>
-                                            </div>
-                                            <span className="flex items-center gap-1.5 bg-success/10 border border-success/20 text-success text-xs font-bold px-3 py-1.5 rounded-full shrink-0">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
-                                                Always Active
+                                    <CardContent className="pt-6 space-y-4">
+
+                                        {/* Split-Load Architecture Label */}
+                                        <div className="flex items-center gap-2">
+                                            <Activity className="h-4 w-4 text-primary-600 shrink-0" />
+                                            <span className="text-sm font-bold text-neutral-900">Split-Load Engine Status</span>
+                                            <span className="flex items-center gap-1.5 bg-success/10 border border-success/20 text-success text-[10px] font-bold px-2.5 py-1 rounded-full ml-auto">
+                                                2 Engines Active
                                             </span>
                                         </div>
+
+                                        {/* Two Engine Cards */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                                            {/* Engine 1 — Supabase Edge Function */}
+                                            <div className="rounded-xl border border-primary-500/30 bg-primary-500/5 p-4 space-y-3 shadow-sm">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="p-1.5 rounded-md bg-primary-500/10 border border-primary-500/30">
+                                                            <Server className="h-3.5 w-3.5 text-primary-600" />
+                                                        </div>
+                                                        <span className="text-sm font-bold text-neutral-900">Primary Bot</span>
+                                                    </div>
+                                                    <span className="flex items-center gap-1.5 bg-success/10 border border-success/20 text-success text-[10px] font-bold px-2.5 py-1 rounded-full">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
+                                                        Online
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs font-bold text-primary-600">Supabase Edge Function</p>
+                                                    <p className="text-[11px] text-neutral-500 font-medium mt-0.5 leading-relaxed">
+                                                        Cloud-hosted parser running <span className="font-bold text-neutral-700">pdf-parse</span> &amp; <span className="font-bold text-neutral-700">mammoth</span>. Extracts text from text-native documents in RAM — no disk writes, no data retention.
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Handles File Types</p>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {['.pdf', '.docx', '.pptx', '.xlsx', '.txt', '.csv', '.json'].map(ext => (
+                                                            <span key={ext} className="text-[10px] font-bold font-mono text-primary-600 bg-primary-500/10 border border-primary-500/30 px-1.5 py-0.5 rounded">{ext}</span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <div className="pt-1 border-t border-primary-500/20">
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <div>
+                                                            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Execution</p>
+                                                            <p className="text-xs font-bold text-neutral-800 mt-0.5">Cloud (Deno)</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Invocation</p>
+                                                            <p className="text-xs font-bold text-neutral-800 mt-0.5">document-parser</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Auth</p>
+                                                            <p className="text-xs font-bold text-neutral-800 mt-0.5">Service Role Key</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Avg. Latency</p>
+                                                            <p className="text-xs font-bold text-neutral-800 mt-0.5">~300–800 ms</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Engine 2 — Local Express Bridge */}
+                                            <div className="rounded-xl border border-warning/30 bg-warning/5 p-4 space-y-3 shadow-sm">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="p-1.5 rounded-md bg-warning/10 border border-warning/30">
+                                                            <HardDrive className="h-3.5 w-3.5 text-warning" />
+                                                        </div>
+                                                        <span className="text-sm font-bold text-neutral-900">Image Bot</span>
+                                                    </div>
+                                                    <span className="flex items-center gap-1.5 bg-warning/10 border border-warning/30 text-warning text-[10px] font-bold px-2.5 py-1 rounded-full">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-warning animate-pulse" />
+                                                        Local Bridge
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs font-bold text-warning">Local Express Server</p>
+                                                    <p className="text-[11px] text-neutral-500 font-medium mt-0.5 leading-relaxed">
+                                                        Local <span className="font-bold text-neutral-700">server.js</span> running <span className="font-bold text-neutral-700">Tesseract.js</span> for image-based OCR. Routed here when the Primary Bot returns a <span className="font-mono text-neutral-700 text-[10px] bg-neutral-100 px-1 py-0.5 rounded border">need_local_ocr</span> flag.
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Handles File Types</p>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {['.png', '.jpg', '.jpeg', '.webp'].map(ext => (
+                                                            <span key={ext} className="text-[10px] font-bold font-mono text-warning bg-warning/10 border border-warning/30 px-1.5 py-0.5 rounded">{ext}</span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <div className="pt-1 border-t border-warning/20">
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <div>
+                                                            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Execution</p>
+                                                            <p className="text-xs font-bold text-neutral-800 mt-0.5">Local Machine</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Endpoint</p>
+                                                            <p className="text-xs font-bold text-neutral-800 mt-0.5 font-mono">/api/validate-image</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Secrets</p>
+                                                            <p className="text-xs font-bold text-neutral-800 mt-0.5">.env.local only</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Avg. Latency</p>
+                                                            <p className="text-xs font-bold text-neutral-800 mt-0.5">~1–3 s</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Split-Load Flow Diagram */}
+                                        <div className="mt-2 rounded-xl border border-neutral-200 bg-neutral-50 p-4 shadow-sm">
+                                            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-3 flex items-center justify-center gap-1.5">
+                                                Upload Routing Flow
+                                            </p>
+                                            <div className="flex flex-col sm:flex-row items-center justify-center gap-2 text-xs font-medium flex-wrap">
+                                                {/* Step 1 */}
+                                                <div className="flex flex-col items-center text-center gap-1 shrink-0">
+                                                    <div className="w-8 h-8 rounded-full bg-neutral-200 border border-neutral-300 flex items-center justify-center text-[10px] font-black text-neutral-600">1</div>
+                                                    <span className="text-[10px] text-neutral-600 font-bold leading-tight max-w-[70px]">Size &amp; Type Pre-Check</span>
+                                                </div>
+                                                <span className="text-neutral-300 font-bold text-base hidden sm:block">→</span>
+                                                {/* Step 2 */}
+                                                <div className="flex flex-col items-center text-center gap-1 shrink-0">
+                                                    <div className="w-8 h-8 rounded-full bg-primary-100 border border-primary-300 flex items-center justify-center text-[10px] font-black text-primary-700">2</div>
+                                                    <span className="text-[10px] text-primary-700 font-bold leading-tight max-w-[70px]">Edge Function (Primary)</span>
+                                                </div>
+                                                <span className="text-neutral-300 font-bold text-base hidden sm:block">→</span>
+                                                {/* Step 3 — branch */}
+                                                <div className="flex flex-col items-center text-center gap-1 shrink-0">
+                                                    <div className="w-8 h-8 rounded-full bg-warning/20 border border-warning/40 flex items-center justify-center text-[10px] font-black text-warning">3?</div>
+                                                    <span className="text-[10px] text-warning font-bold leading-tight max-w-[80px]">Image? → Local Bridge</span>
+                                                </div>
+                                                <span className="text-neutral-300 font-bold text-base hidden sm:block">→</span>
+                                                {/* Step 4 — pass/fail */}
+                                                <div className="flex flex-col items-center text-center gap-1 shrink-0">
+                                                    <div className="w-8 h-8 rounded-full bg-success/10 border border-success/30 flex items-center justify-center text-[10px] font-black text-success">✓</div>
+                                                    <span className="text-[10px] text-success font-bold leading-tight max-w-[70px]">Pass → GDrive Upload</span>
+                                                </div>
+                                                <span className="text-neutral-300 font-bold text-base hidden sm:block">/</span>
+                                                <div className="flex flex-col items-center text-center gap-1 shrink-0">
+                                                    <div className="w-8 h-8 rounded-full bg-destructive/10 border border-destructive/30 flex items-center justify-center text-[10px] font-black text-destructive">✕</div>
+                                                    <span className="text-[10px] text-destructive font-bold leading-tight max-w-[70px]">Fail → Rejected</span>
+                                                </div>
+                                            </div>
+                                            <p className="text-[10px] text-neutral-400 font-medium mt-3 leading-relaxed text-center">
+                                                Documents rejected at any step <strong className="text-neutral-600">never touch Google Drive</strong>. The faculty receives an instant inline error describing exactly which keyword or rule caused the failure.
+                                            </p>
+                                        </div>
+
                                     </CardContent>
                                 </Card>
 
