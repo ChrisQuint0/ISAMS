@@ -19,7 +19,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { DataTable } from "@/components/DataTable";
 import { ToastProvider, useToast } from "@/components/ui/toast/toaster";
 
-// ─── Toast bridge ────────────────────────────────────────────────────────────
+// Toast bridge
 const SemesterToastHandler = ({ success, error }) => {
     const { addToast } = useToast();
     useEffect(() => {
@@ -31,7 +31,7 @@ const SemesterToastHandler = ({ success, error }) => {
     return null;
 };
 
-// ─── Academic Year & Semester Validation Utilities ─────────────────────────
+// Academic Year & Semester Validation Utilities
 const AY_REGEX = /^\d{4}-\d{4}$/;
 
 // Returns an error string or null if valid
@@ -40,28 +40,25 @@ function validateAcademicYear(ay) {
     if (!AY_REGEX.test(ay.trim())) return 'Must be in YYYY-YYYY format (e.g. 2025-2026).';
     const [y1, y2] = ay.trim().split('-').map(Number);
     if (y2 !== y1 + 1) return `Second year must be exactly one more than the first (e.g. ${y1}-${y1 + 1}).`;
-    const currentYear = new Date().getFullYear(); // 2026
-    const minStartYear = currentYear - 1;          // 2025 → minimum AY is 2025-2026
+    const currentYear = new Date().getFullYear();
+    const minStartYear = currentYear - 1;
     if (y1 < minStartYear) return `Academic year cannot be earlier than ${minStartYear}-${minStartYear + 1}.`;
     return null;
 }
 
-// Semester order within an AY: 1st → 2nd → Summer → (next AY) 1st
+// Semester order within an AY
 const SEM_ORDER = ['1st Semester', '2nd Semester', 'Summer'];
 
-// Given current semester + AY, return the valid next configuration(s)
 function getNextSemesterOptions(currentSemester, currentAY) {
     const idx = SEM_ORDER.indexOf(currentSemester);
     if (idx === -1) return { semesters: SEM_ORDER, suggestedAY: currentAY };
 
     if (idx < SEM_ORDER.length - 1) {
-        // Still within the same AY (1st→2nd, 2nd→Summer)
         return {
             semesters: SEM_ORDER.slice(idx + 1),
             suggestedAY: currentAY,
         };
     } else {
-        // After Summer → 1st Semester of next AY
         const suggestedAY = (() => {
             if (!currentAY || !AY_REGEX.test(currentAY)) return '';
             const [, y2] = currentAY.split('-').map(Number);
@@ -74,7 +71,7 @@ function getNextSemesterOptions(currentSemester, currentAY) {
     }
 }
 
-// ─── What resets / What is preserved info ────────────────────────────────────
+// What resets / What is preserved info
 const RESETS = [
     { icon: CalendarOff, label: 'All holiday blocks' },
     { icon: Bell, label: 'All notifications' },
@@ -90,29 +87,6 @@ const PRESERVED = [
     { icon: BarChart2, label: 'Google Drive files & sub-folders' },
 ];
 
-
-// ─── Dummy data for preview (used when DB has no history yet) ────────────────
-const DUMMY_HISTORY = [
-    { academic_year: '2025-2026', semester: '2nd Semester' },
-    { academic_year: '2025-2026', semester: '1st Semester' },
-    { academic_year: '2024-2025', semester: 'Summer' },
-    { academic_year: '2024-2025', semester: '2nd Semester' },
-    { academic_year: '2024-2025', semester: '1st Semester' },
-    { academic_year: '2023-2024', semester: 'Summer' },
-    { academic_year: '2023-2024', semester: '2nd Semester' },
-    { academic_year: '2023-2024', semester: '1st Semester' },
-];
-const DUMMY_STATS = {
-    '2025-2026|2nd Semester': { total_faculty: 42, total_submissions: 116, completion_rate: 68.5 },
-    '2025-2026|1st Semester': { total_faculty: 42, total_submissions: 189, completion_rate: 91.2 },
-    '2024-2025|Summer': { total_faculty: 18, total_submissions: 54, completion_rate: 100 },
-    '2024-2025|2nd Semester': { total_faculty: 39, total_submissions: 172, completion_rate: 94.8 },
-    '2024-2025|1st Semester': { total_faculty: 39, total_submissions: 165, completion_rate: 88.7 },
-    '2023-2024|Summer': { total_faculty: 15, total_submissions: 45, completion_rate: 100 },
-    '2023-2024|2nd Semester': { total_faculty: 36, total_submissions: 142, completion_rate: 97.3 },
-    '2023-2024|1st Semester': { total_faculty: 36, total_submissions: 138, completion_rate: 83.4 },
-};
-
 export default function AdminSemesterManagementPage() {
     const {
         loading, currentSettings, history, semesterStats, incompleteFaculty,
@@ -120,20 +94,14 @@ export default function AdminSemesterManagementPage() {
         setError, setSuccess
     } = useAdminSemesterManagement();
 
-    // ── Manual Edit state ────────────────────────────────────────────────────
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editFormData, setEditFormData] = useState({ semester: '', academic_year: '' });
-
-    // ── Rollover state ───────────────────────────────────────────────────────
     const [isRolloverModalOpen, setIsRolloverModalOpen] = useState(false);
     const [rolloverStep, setRolloverStep] = useState(1);
     const [rolloverFormData, setRolloverFormData] = useState({ nextSemester: '', nextYear: '' });
     const [confirmValue, setConfirmValue] = useState('');
-
-    // ── Validation: Manual Edit AY ───────────────────────────────────────────
     const editAYError = useMemo(() => validateAcademicYear(editFormData.academic_year), [editFormData.academic_year]);
 
-    // Block override to a semester already marked COMPLETED in history
     const isCompletedPeriod = useMemo(() => {
         if (!editFormData.semester || !editFormData.academic_year) return false;
         return (history || []).some(
@@ -145,16 +113,13 @@ export default function AdminSemesterManagementPage() {
 
     const canSaveEdit = !editAYError && !!editFormData.semester && !isCompletedPeriod;
 
-    // ── Validation: Rollover next semester options ───────────────────────────
     const nextOptions = useMemo(
         () => getNextSemesterOptions(currentSettings.semester, currentSettings.academic_year),
         [currentSettings.semester, currentSettings.academic_year]
     );
 
-    // AY validation for the rollover form
     const rolloverAYError = useMemo(() => validateAcademicYear(rolloverFormData.nextYear), [rolloverFormData.nextYear]);
 
-    // Warn if admin picks a semester not in the valid list
     const rolloverSemError = useMemo(() => {
         if (!rolloverFormData.nextSemester) return null;
         if (!nextOptions.semesters.includes(rolloverFormData.nextSemester)) {
@@ -169,14 +134,12 @@ export default function AdminSemesterManagementPage() {
         !rolloverAYError &&
         !rolloverSemError;
 
-    // Auto-fill edit form
     useEffect(() => {
         if (isEditModalOpen) {
             setEditFormData({ semester: currentSettings.semester, academic_year: currentSettings.academic_year });
         }
     }, [isEditModalOpen, currentSettings]);
 
-    // Reset rollover form fully when dialog closes
     const handleRolloverOpenChange = (open) => {
         if (!open) {
             setRolloverStep(1);
@@ -186,7 +149,6 @@ export default function AdminSemesterManagementPage() {
         setIsRolloverModalOpen(open);
     };
 
-    // Open rollover modal — pre-suggest the next semester/year
     const handleOpenRollover = () => {
         setRolloverStep(1);
         setRolloverFormData({
@@ -212,7 +174,6 @@ export default function AdminSemesterManagementPage() {
         if (ok) handleRolloverOpenChange(false);
     };
 
-    // ── Stats lookup by semester key ─────────────────────────────────
     const statsMap = useMemo(() => {
         const map = {};
         (semesterStats || []).forEach(s => {
@@ -222,7 +183,6 @@ export default function AdminSemesterManagementPage() {
     }, [semesterStats]);
 
 
-    // ── History DataTable column definitions ─────────────────────────────────
     const columnDefs = useMemo(() => [
         {
             field: 'academic_year',
@@ -286,7 +246,6 @@ export default function AdminSemesterManagementPage() {
             <SemesterToastHandler success={success} error={error} />
             <div className="space-y-6 flex flex-col h-full bg-neutral-50/30">
 
-                {/* ── Header ────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
                         <h1 className="text-2xl font-bold text-neutral-900">Semester Management</h1>
@@ -304,10 +263,8 @@ export default function AdminSemesterManagementPage() {
                     </Button>
                 </div>
 
-                {/* ── Active Period + Rollover Cards ────────────────────── */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-                    {/* Active Period */}
                     <Card className="bg-white border-neutral-200 shadow-sm overflow-hidden">
                         <CardHeader className="bg-neutral-50/50 border-b border-neutral-100">
                             <div className="flex justify-between items-center py-4">
@@ -421,7 +378,7 @@ export default function AdminSemesterManagementPage() {
                     </Card>
                 </div>
 
-                {/* ── History Table ──────────────────────────────────────── */}
+                {/* History Table */}
                 <Card className="bg-white border-neutral-200 shadow-sm">
                     <CardHeader className="border-b border-neutral-100 bg-neutral-50/50">
                         <div className="flex justify-between items-center">
@@ -446,9 +403,7 @@ export default function AdminSemesterManagementPage() {
                     </CardContent>
                 </Card>
 
-                {/* ══════════════════════════════════════════════════════════
-                    MANUAL EDIT MODAL
-                ══════════════════════════════════════════════════════════ */}
+                {/* Manual Edit Modal */}
                 <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
                     <DialogContent className="bg-white border-neutral-200 text-neutral-900 sm:max-w-[425px] shadow-xl">
                         <DialogHeader>
@@ -458,7 +413,7 @@ export default function AdminSemesterManagementPage() {
                             </DialogDescription>
                         </DialogHeader>
 
-                        {/* ⚠️ Warning Banner */}
+                        {/* Warning Banner */}
                         <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 mt-1">
                             <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                             <div className="text-xs text-amber-800">
@@ -527,9 +482,7 @@ export default function AdminSemesterManagementPage() {
                     </DialogContent>
                 </Dialog>
 
-                {/* ══════════════════════════════════════════════════════════
-                    ROLLOVER PROTOCOL MODAL
-                ══════════════════════════════════════════════════════════ */}
+                {/* Rollover Protocol Modal */}
                 <Dialog open={isRolloverModalOpen} onOpenChange={handleRolloverOpenChange}>
                     <DialogContent className="sm:max-w-[560px] bg-white px-0 pt-0 overflow-hidden border-neutral-200 shadow-2xl">
 
@@ -555,7 +508,7 @@ export default function AdminSemesterManagementPage() {
 
                         <div className="p-6 pt-4 space-y-5">
 
-                            {/* ── STEP 1: Incomplete Faculty Review ──── */}
+                            {/* Incomplete Faculty Review */}
                             {rolloverStep === 1 && (
                                 <div className="space-y-4">
                                     <Alert className="bg-warning/5 border border-warning/20 shadow-sm">
@@ -600,7 +553,7 @@ export default function AdminSemesterManagementPage() {
                                 </div>
                             )}
 
-                            {/* ── STEP 2: Configure Next Period ────────── */}
+                            {/* Configure Next Period */}
                             {rolloverStep === 2 && (
                                 <div className="space-y-5">
                                     {/* Current → New period banner */}
@@ -696,7 +649,7 @@ export default function AdminSemesterManagementPage() {
                                 </div>
                             )}
 
-                            {/* ── STEP 3: Final Confirmation ──────────── */}
+                            {/* Final Confirmation */}
                             {rolloverStep === 3 && (
                                 <div className="space-y-5 text-center py-2">
                                     <div className="inline-block p-4 bg-destructive/10 rounded-full border border-destructive/20">

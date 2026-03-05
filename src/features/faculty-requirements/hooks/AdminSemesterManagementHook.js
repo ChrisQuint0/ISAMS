@@ -1,9 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { semesterService } from '../services/AdminSemesterManagementService';
 
-/**
- * Hook to manage Admin Semester Management state and operations
- */
+// Hook to manage Admin Semester Management state and operations
 export function useAdminSemesterManagement() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -14,9 +12,7 @@ export function useAdminSemesterManagement() {
     const [semesterStats, setSemesterStats] = useState([]);
     const [incompleteFaculty, setIncompleteFaculty] = useState([]);
 
-    /**
-     * Primary data fetcher — loads all data in parallel
-     */
+    // Primary data fetcher
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
@@ -42,9 +38,7 @@ export function useAdminSemesterManagement() {
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
-    /**
-     * Manually update active settings (e.g., typo fix)
-     */
+    // Manually update active settings
     const updateSettings = async (newSettings) => {
         try {
             await semesterService.updateSemesterSettings(newSettings);
@@ -59,9 +53,7 @@ export function useAdminSemesterManagement() {
         }
     };
 
-    /**
-     * Execute the full Semester Rollover Protocol
-     */
+    // Execute the full Semester Rollover Protocol
     const triggerRollover = async (nextSemester, nextYear) => {
         setLoading(true);
         try {

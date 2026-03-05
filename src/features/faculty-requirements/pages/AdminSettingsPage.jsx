@@ -23,11 +23,9 @@ import {
 } from "@/components/ui/dialog";
 import { ToastProvider, useToast } from "@/components/ui/toast/toaster";
 
-// AG Grid
 import { AgGridReact } from 'ag-grid-react';
 import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-community';
 
-// Hook
 import { useAdminSettings } from '../hooks/AdminSettingHook';
 import { useAdminSemesterManagement } from '../hooks/AdminSemesterManagementHook';
 import { settingsService } from '../services/AdminSettingService';
@@ -38,6 +36,7 @@ import { saveAs } from 'file-saver';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
+// Toast Handler
 const AdminToastHandler = ({ success, error }) => {
     const { addToast } = useToast();
 
@@ -56,19 +55,17 @@ const AdminToastHandler = ({ success, error }) => {
     return null;
 };
 
-// CourseFacultyEditor — custom AG Grid cell editor for the Faculty column.
-// Defined OUTSIDE the component so it doesn't remount on each render.
+// CourseFacultyEditor
 const CourseFacultyEditor = React.forwardRef(({ value: initialValue, facultyList = [], stopEditing }, ref) => {
-    const valRef = React.useRef(initialValue || '');   // sync — read by getValue()
-    const [val, setVal] = React.useState(initialValue || ''); // for controlled <select>
+    const valRef = React.useRef(initialValue || '');
+    const [val, setVal] = React.useState(initialValue || '');
     React.useImperativeHandle(ref, () => ({
         getValue: () => valRef.current === '' ? null : valRef.current,
         isPopup: () => true,
     }));
     const handleChange = (e) => {
-        valRef.current = e.target.value;   // update ref synchronously first
+        valRef.current = e.target.value;
         setVal(e.target.value);
-        // stopEditing fires after the ref is set, so getValue() returns the new value
         setTimeout(() => stopEditing && stopEditing(), 0);
     };
     return (
@@ -115,12 +112,9 @@ export default function AdminSettingsPage() {
     const [newReq, setNewReq] = useState({ name: '', folder: '', required: true });
     const [newHoliday, setNewHoliday] = useState({ startDate: '', endDate: '', description: '' });
     const todayStr = useMemo(() => new Date().toLocaleDateString('en-CA'), []);
-
-    // Validation: Check if start date is in the past
     const holidayIsPast = newHoliday.startDate && newHoliday.startDate < todayStr;
     const holidayEndDateInvalid = newHoliday.startDate && newHoliday.endDate && newHoliday.endDate < newHoliday.startDate;
 
-    // Check if specific Start/End dates are occupied
     const holidayStartDateOccupied = useMemo(() =>
         newHoliday.startDate && holidays.some(h => (h.holiday_date || h.date) === newHoliday.startDate),
         [newHoliday.startDate, holidays]
@@ -138,7 +132,6 @@ export default function AdminSettingsPage() {
         return holidays.some(h => (h.description || '').toLowerCase().trim() === newHoliday.description.toLowerCase().trim());
     }, [newHoliday.description, holidays]);
 
-    // Calculate occupied dates in the selected range
     const holidayOccupiedDates = useMemo(() => {
         if (!newHoliday.startDate || holidayIsPast) return [];
         const start = new Date(newHoliday.startDate);
@@ -188,9 +181,9 @@ export default function AdminSettingsPage() {
     const canAddDocType = newReq.name.trim() && newReq.folder.trim() && !isDuplicateRequirement && !isDuplicateFolder;
     const [pendingHolidayDeleteId, setPendingHolidayDeleteId] = useState(null);
 
-    // ── Template Hub state ──────────────────────────────────────────────
+    // Template Hub state
     const [isTemplateModalOpen, setTemplateModalOpen] = useState(false);
-    const [modalMode, setModalMode] = useState('SYSTEM'); // 'SYSTEM' or 'CERTIFICATE'
+    const [modalMode, setModalMode] = useState('SYSTEM');
     const [isUploadingTemplate, setIsUploadingTemplate] = useState(false);
     const [newTemplate, setNewTemplate] = useState({
         file: null, title: '', description: '', systemCategory: '', academicYear: '', semester: '',
@@ -204,7 +197,7 @@ export default function AdminSettingsPage() {
                 ...prev,
                 academicYear: currentSettings.academic_year,
                 semester: currentSettings.semester,
-                courseCode: prev.courseCode || '', // Keep manual selection if any
+                courseCode: prev.courseCode || '',
                 courseName: prev.courseName || ''
             }));
         }
@@ -232,14 +225,13 @@ export default function AdminSettingsPage() {
         },
         {
             headerName: 'Actions',
-            width: 170, // Increased width to safely hold both buttons without wrapping
+            width: 170,
             sortable: false,
             filter: false,
             cellRenderer: (params) => {
                 const id = params.data.holiday_id || params.data.id;
                 if (pendingHolidayDeleteId === id) {
                     return (
-                        // Removed the animation classes so it doesn't bounce on AG Grid remounts
                         <div className="flex items-center gap-1 mt-1.5">
                             <Button
                                 size="xs"
@@ -275,17 +267,17 @@ export default function AdminSettingsPage() {
         }
     ], [handleDeleteHoliday, pendingHolidayDeleteId]);
 
-    // ── Name Calibrator state ──────────────────────────────────────────────
+    // Name Calibrator state
     const [isCalibratorOpen, setIsCalibratorOpen] = useState(false);
     const [selectedTemplateForCalibration, setSelectedTemplateForCalibration] = useState(null);
 
-    // ── Course Catalog form state ──────────────────────────────────────────────
+    // Course Catalog form state
     const [newCatalog, setNewCatalog] = useState({ code: '', name: '', semester: '' });
     const catalogCodeValid = newCatalog.code.trim().length >= 3;
     const catalogNameValid = newCatalog.name.trim().length > 0;
     const catalogSemValid = !!newCatalog.semester;
 
-    // Global Duplicate: same code OR name already in catalog in ANY semester
+    // Duplication hanlder for the master courses
     const existingCatalogEntry = useMemo(() => {
         if (!catalogCodeValid && !catalogNameValid) return null;
         return masterCourseList.find(c =>
@@ -304,7 +296,7 @@ export default function AdminSettingsPage() {
     const canAddCatalog = catalogCodeValid && catalogNameValid && catalogSemValid && !catalogCodeTaken;
     const [confirmCatalogOpen, setConfirmCatalogOpen] = useState(false);
 
-    // ── Assign Faculty Modal state ─────────────────────────────────────────────
+    // Assign Faculty Modal state
     const [assignModalOpen, setAssignModalOpen] = useState(false);
     const [newAssignment, setNewAssignment] = useState({ master_course_id: '', section: '', faculty_id: '' });
 
@@ -313,12 +305,12 @@ export default function AdminSettingsPage() {
     const sectionFormatValid = SECTION_PATTERN.test(newAssignment.section.trim());
     const assignmentValid = !!newAssignment.master_course_id && sectionFormatValid && !!newAssignment.faculty_id;
 
-    // Guard 1: the section slot is already taken by someone
+    // The section slot is already taken by someone
     const sectionTaken = assignmentValid && courseList.some(
         c => Number(c.master_course_id) === Number(newAssignment.master_course_id) &&
             (c.section || '').toUpperCase() === newAssignment.section.trim().toUpperCase()
     );
-    // Guard 2: this exact faculty+course+section combo already exists
+    // This exact faculty, section, course combo already exists
     const facultyAlreadyOnSection = assignmentValid && courseList.some(
         c => Number(c.master_course_id) === Number(newAssignment.master_course_id) &&
             (c.section || '').toUpperCase() === newAssignment.section.trim().toUpperCase() &&
@@ -332,7 +324,7 @@ export default function AdminSettingsPage() {
     };
     const closeAssignModal = () => setAssignModalOpen(false);
 
-    // Group courseList by faculty_id so we can render one card per teacher
+    // Group courses by faculty_id
     const facultyGroups = useMemo(() => {
         const map = new Map();
         courseList.forEach(c => {
@@ -349,12 +341,11 @@ export default function AdminSettingsPage() {
             }
             map.get(fid).assignments.push(c);
         });
-        // Sort by last name
         return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
     }, [courseList, facultyList]);
 
 
-    // AG Grid: column definitions for Faculty tab
+    // Column definitions for faculty tab
     const facultyColumnDefs = useMemo(() => [
         {
             field: 'emp_id',
@@ -422,7 +413,7 @@ export default function AdminSettingsPage() {
     ], []);
 
 
-    // AG Grid: column definitions for Course Catalog
+    // Column definitions for catalog tab
     const catalogColumnDefs = useMemo(() => [
         {
             field: 'course_code',
@@ -481,7 +472,7 @@ export default function AdminSettingsPage() {
         handleUpdateMasterCourseField(data.id, field, value, oldValue);
     };
 
-    // AG Grid: column definitions for Templates tab
+    // Column definitions for certificate template tab
     const certificateColumnDefs = useMemo(() => [
         {
             field: 'name',
@@ -535,6 +526,7 @@ export default function AdminSettingsPage() {
         }
     ], [archiveTemplate]);
 
+    // Column definitions for general in templates
     const generalColumnDefs = useMemo(() => [
         {
             field: 'name',
@@ -579,7 +571,6 @@ export default function AdminSettingsPage() {
         }
     ], [archiveTemplate]);
 
-
     // Uptime tracking
     const [uptimeSeconds, setUptimeSeconds] = useState(0);
     React.useEffect(() => {
@@ -594,6 +585,7 @@ export default function AdminSettingsPage() {
         return () => clearInterval(tick);
     }, []);
 
+    // Format uptime
     const formatUptime = (secs) => {
         const h = Math.floor(secs / 3600);
         const m = Math.floor((secs % 3600) / 60);
@@ -604,17 +596,14 @@ export default function AdminSettingsPage() {
     };
 
     // Course Form State
-    // Course Form State - Initialize dropdowns as undefined! (Department removed)
     const [newCourse, setNewCourse] = useState({
         code: '', name: '', section: '', semester: '', academic_year: '', faculty_id: '',
     });
-
 
     // Regex validators / sanitizers
     const sanitizeCode = (val) => val.toUpperCase().replace(/[^A-Z0-9]/g, '');
     const sanitizeName = (val) => val.replace(/[^A-Za-z0-9 ]/g, '');
     const sanitizeSection = (val) => val.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 2);
-
 
     // Sequential unlock derived booleans
     const codeValid = newCourse.code.length >= 3;
@@ -623,7 +612,7 @@ export default function AdminSettingsPage() {
     const facultyValid = !!newCourse.faculty_id;
     const semValid = (newCourse.semester || '').trim().length > 0;
 
-    // Duplicate guard: block add if (code + section + semester) already exists
+    // Duplicate lock add if (code + section + semester) already exists
     const isDuplicate = semValid && courseList.some(
         c => c.course_code === newCourse.code &&
             (c.section || '').toUpperCase() === newCourse.section.toUpperCase() &&
@@ -636,7 +625,7 @@ export default function AdminSettingsPage() {
     const resetAll = () => setNewCourse({ code: '', name: '', section: '', semester: '', academic_year: '', faculty_id: '' });
     const resetSectionOnly = () => setNewCourse(prev => ({ ...prev, section: '', faculty_id: '', semester: '' }));
 
-    // -- State for General Settings --
+    // State for General Settings
     const [deadlineDays, setDeadlineDays] = useState('');
     const [graceDays, setGraceDays] = useState('');
     const [mainGdriveLink, setMainGdriveLink] = useState('');
@@ -644,10 +633,7 @@ export default function AdminSettingsPage() {
     const [archiveRetention, setArchiveRetention] = useState('5years');
     const [isGdriveUnlocked, setIsGdriveUnlocked] = useState(false);
 
-    // -- UI STATE FOR NON-OCR SETTINGS --
-    // (Removed global valRules, now per Document Type)
-
-    // ── Validation Rules State ─────────────────────────────────────────────
+    // Validation Rules State
     const [selectedDocTypeId, setSelectedDocTypeId] = useState(null);
     const [docRules, setDocRules] = useState({
         required_keywords: '',
@@ -712,7 +698,6 @@ export default function AdminSettingsPage() {
             setAutoReminders(settings.general_auto_reminders || '3days');
             setArchiveRetention(settings.general_archive_retention || '5years');
 
-            // GDrive: stored as folder ID in DB — reconstruct display URL only if it's a raw ID
             const mainId = settings.gdrive_root_folder_id || '';
             const isRawMainId = mainId && !mainId.includes('/');
             setMainGdriveLink(isRawMainId ? `https://drive.google.com/drive/folders/${mainId}` : mainId);
@@ -744,6 +729,7 @@ export default function AdminSettingsPage() {
         setIsDangerModalOpen(true);
     };
 
+    // Execute Danger Action
     const executeDangerAction = async () => {
         const { actionType, payload } = dangerModalConfig;
         let func = null;
@@ -770,7 +756,6 @@ export default function AdminSettingsPage() {
         }
     };
 
-
     return (
         <ToastProvider>
             <AdminToastHandler success={success} error={error} />
@@ -793,7 +778,7 @@ export default function AdminSettingsPage() {
                     </Button>
                 </div>
 
-                {/* TABS ORGANIZATION */}
+                {/* Tabs */}
                 <Tabs defaultValue="general" className="flex-1 flex flex-col min-h-0 space-y-6">
                     <div className="shrink-0 border-b border-neutral-200 pb-0">
                         <TabsList className="bg-transparent p-0 h-auto space-x-6 w-full justify-start rounded-none border-none">
@@ -810,7 +795,7 @@ export default function AdminSettingsPage() {
                     </div>
 
                     <div className="flex-1 overflow-auto pr-2">
-                        {/* TAB 1: GENERAL PREFERENCES & INFO */}
+                        {/* TAB: GENERAL PREFERENCES & INFO */}
                         <TabsContent value="general" className="mt-0 space-y-6">
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -1094,7 +1079,7 @@ export default function AdminSettingsPage() {
                         {/* TAB: COURSE MANAGEMENT */}
                         <TabsContent value="courses" className="mt-0 space-y-6">
 
-                            {/* ── Card 1: Course Catalog ──────────────────────────────── */}
+                            {/* Card 1: Course Catalog */}
                             <Card className="bg-white border-neutral-200 shadow-sm">
                                 <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
                                     <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
@@ -1169,7 +1154,7 @@ export default function AdminSettingsPage() {
                                         </div>
                                     )}
 
-                                    {/* ── Confirm Add Dialog ─────────────────────────────── */}
+                                    {/* Confirm Add Dialog */}
                                     <Dialog open={confirmCatalogOpen} onOpenChange={setConfirmCatalogOpen}>
                                         <DialogContent className="bg-white border-neutral-200 text-neutral-900 sm:max-w-[420px] shadow-xl">
                                             <DialogHeader>
@@ -1222,7 +1207,7 @@ export default function AdminSettingsPage() {
                                         </DialogContent>
                                     </Dialog>
 
-                                    {/* Catalog grid (USING THE NEW DATATABLE WRAPPER) */}
+                                    {/* Catalog grid */}
                                     <DataTable
                                         rowData={masterCourseList}
                                         columnDefs={catalogColumnDefs}
@@ -1234,7 +1219,7 @@ export default function AdminSettingsPage() {
                                 </CardContent>
                             </Card>
 
-                            {/* ── Card 2: Faculty Course Assignments ───────────────────── */}
+                            {/* Card 2: Faculty Course Assignments */}
                             <Card className="bg-white border-neutral-200 shadow-sm">
                                 <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
                                     <div className="flex items-center justify-between">
@@ -1306,7 +1291,6 @@ export default function AdminSettingsPage() {
                                                         {/* Course rows */}
                                                         <div className="divide-y divide-neutral-100">
                                                             {group.assignments.map(asgn => {
-                                                                // Cross-reference with master catalog to check if the course is active
                                                                 const masterCourse = masterCourseList.find(
                                                                     mc => mc.id === asgn.master_course_id || mc.course_code === asgn.course_code
                                                                 );
@@ -1392,7 +1376,7 @@ export default function AdminSettingsPage() {
                                 </CardContent>
                             </Card>
 
-                            {/* ── Assign Faculty Modal ────*/}
+                            {/* Assign Faculty Modal */}
                             <Dialog open={assignModalOpen} onOpenChange={setAssignModalOpen}>
                                 <DialogContent className="bg-white border-neutral-200 text-neutral-900 max-w-lg shadow-xl" showCloseButton={false}>
                                     <DialogHeader>
@@ -1448,15 +1432,14 @@ export default function AdminSettingsPage() {
                                                     placeholder="e.g. BSCS-3A"
                                                     value={newAssignment.section}
                                                     onChange={e => {
-                                                        // Normalize: strip spaces & dashes, uppercase, then re-insert dash between letters and digits
                                                         const stripped = e.target.value.toUpperCase().replace(/[\s\-]+/g, '');
                                                         const full = stripped.match(/^([A-Z]+)(\d+)([A-Z])$/);
                                                         const partial = stripped.match(/^([A-Z]+)(\d.*)$/);
                                                         const normalized = full
-                                                            ? `${full[1]}-${full[2]}${full[3]}`  // BSIT-3A
+                                                            ? `${full[1]}-${full[2]}${full[3]}`
                                                             : partial
-                                                                ? `${partial[1]}-${partial[2]}`  // BSIT-3 (still typing)
-                                                                : stripped;                       // BSIT (just letters so far)
+                                                                ? `${partial[1]}-${partial[2]}`
+                                                                : stripped;
                                                         setNewAssignment(p => ({ ...p, section: normalized }));
                                                     }}
                                                     disabled={!newAssignment.master_course_id}
@@ -2377,7 +2360,7 @@ export default function AdminSettingsPage() {
                             </div>
                         </TabsContent>
 
-                        {/* TAB 4: MAINTENANCE / DANGER ZONE */}
+                        {/* TAB: MAINTENANCE / DANGER ZONE */}
                         <TabsContent value="maintenance" className="mt-0">
                             <Card className="bg-destructive/5 border-destructive/20 shadow-none">
                                 <CardHeader className="border-b border-destructive/20 py-4 bg-white/50">
@@ -2617,7 +2600,7 @@ export default function AdminSettingsPage() {
     );
 }
 
-// --- Sub-components ---
+// Sub-components
 
 const TabItem = ({ value, label, icon: Icon }) => (
     <TabsTrigger

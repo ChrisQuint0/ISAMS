@@ -57,7 +57,7 @@ export function FacultySidebar() {
         if (data?.first_name) {
           setFacultyName(`${data.first_name} ${data.last_name}`.trim())
         } else {
-          // Fallback to auth metadata — build full name
+          // Fallback to auth metadata
           const meta = session.user.user_metadata
           const name = meta?.full_name || meta?.name ||
             (meta?.first_name ? `${meta.first_name} ${meta.last_name || ''}`.trim() : null)
@@ -70,6 +70,7 @@ export function FacultySidebar() {
     fetchFacultyName()
   }, [])
 
+  // Navigation items
   const navItems = [
     { path: '/faculty-requirements/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/faculty-requirements/submission', label: 'Submit Documents', icon: Upload },

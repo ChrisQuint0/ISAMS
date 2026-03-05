@@ -23,7 +23,7 @@ import FacultySettingsPage from "@/features/faculty-requirements/pages/FacultySe
 export const FacultyRequirementsRoutes = (ProtectedRoute) => {
     return (
         <>
-            {/* 1. ENTRY GUARD: Redirects user based on RBAC database table */}
+            {/* 1. ENTRY GUARD */}
             <Route
                 path="/faculty-requirements"
                 element={

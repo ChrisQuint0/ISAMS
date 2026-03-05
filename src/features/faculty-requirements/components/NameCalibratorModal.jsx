@@ -22,8 +22,8 @@ export default function NameCalibratorModal({ isOpen, onClose, template, onSave 
     useEffect(() => {
         if (template && isOpen) {
             setX(template.x_coord ?? 100);
-            setY(template.y_coord ?? 300); // Standard Y is usually from bottom in PDF, so 300 is a good default
-            setPreviewUrl(template.file_url); // Initial un-stamped PDF
+            setY(template.y_coord ?? 300);
+            setPreviewUrl(template.file_url);
         }
     }, [template, isOpen]);
 
@@ -45,7 +45,7 @@ export default function NameCalibratorModal({ isOpen, onClose, template, onSave 
             const sampleName = "JUAN DELA CRUZ";
             const textWidth = helveticaFont.widthOfTextAtSize(sampleName, fontSize);
 
-            // Draw the sample name using PLP Green (rgb mapping of #006b35)
+            // Draw the name
             firstPage.drawText(sampleName, {
                 x: Number(currentX),
                 y: Number(currentY),
@@ -54,7 +54,7 @@ export default function NameCalibratorModal({ isOpen, onClose, template, onSave 
                 color: rgb(0, 107 / 255, 53 / 255),
             });
 
-            // Draw a red bounding box for visual calibration
+            // Draw a red bounding box
             firstPage.drawRectangle({
                 x: Number(currentX) - 2,
                 y: Number(currentY) - 5,
@@ -64,7 +64,7 @@ export default function NameCalibratorModal({ isOpen, onClose, template, onSave 
                 borderWidth: 1,
             });
 
-            // Serialize the PDFDocument to bytes (a Uint8Array)
+            // Serialize the PDFDocument to bytes
             const pdfBytes = await pdfDoc.save();
             const blob = new Blob([pdfBytes], { type: 'application/pdf' });
 

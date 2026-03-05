@@ -3,38 +3,33 @@ import Tesseract from 'tesseract.js';
 import { saveAs } from 'file-saver';
 
 export const settingsService = {
-  /**
-   * Get ALL System Settings (OCR, General, Validation)
-   * Renamed from getOcrSettings to getAllSettings to reflect new scope
-   */
   getAllSettings: async () => {
-    // Fetch all settings from the table
     const { data, error } = await supabase
       .from('systemsettings_fs')
       .select('setting_key, setting_value');
 
     if (error) throw error;
 
-    // Convert array [{setting_key: 'x', setting_value: 'y'}] to object {x: y}
+    // Convert array
     const settingsMap = data.reduce((acc, curr) => {
       acc[curr.setting_key] = curr.setting_value;
       return acc;
     }, {});
 
-    // Return with defaults for missing keys (Matches your Tabs)
+    // Return with defaults for missing keys
     return {
-      // --- OCR Defaults ---
+      // OCR Defaults
       ocr_enabled: settingsMap.ocr_enabled === 'true',
       ocr_language: settingsMap.ocr_language || 'eng',
       ocr_confidence_threshold: parseInt(settingsMap.ocr_confidence_threshold || '80'),
 
-      // --- General Defaults ---
+      // General Defaults
       general_default_deadline: parseInt(settingsMap.general_default_deadline || '14'),
       general_grace_period: parseInt(settingsMap.general_grace_period || '3'),
       general_auto_reminders: settingsMap.general_auto_reminders || '3days',
       general_archive_retention: settingsMap.general_archive_retention || '5years',
 
-      // --- Validation Defaults ---
+      // Validation Defaults
       val_vision_mission: settingsMap.val_vision_mission === 'true',
       val_grading_system: settingsMap.val_grading_system === 'true',
       val_consultation_hours: settingsMap.val_consultation_hours === 'true',
@@ -42,16 +37,14 @@ export const settingsService = {
       val_max_file_size: parseInt(settingsMap.val_max_file_size || '10'),
       val_allowed_extensions: settingsMap.val_allowed_extensions || '.pdf, .docx, .xlsx',
 
-      // FIX: Added missing crucial system keys!
+      // Crucial System Keys
       gdrive_root_folder_id: settingsMap.gdrive_root_folder_id || '',
       current_semester: settingsMap.current_semester || '',
       current_academic_year: settingsMap.current_academic_year || ''
     };
   },
 
-  /**
-   * Get Document Types (Requirements)
-   */
+  // Get Document Types (Requirements)
   getDocTypes: async () => {
     const { data, error } = await supabase
       .from('documenttypes_fs')
@@ -61,19 +54,16 @@ export const settingsService = {
     return data;
   },
 
-  /**
-   * Upsert Document Type
-   */
+  // Upsert Document Type
   upsertDocType: async (docType) => {
     const payload = {
       type_name: docType.name || docType.type_name,
-      description: docType.folder || docType.description, // Map UI 'folder' to DB description/folder
+      description: docType.folder || docType.description,
       is_active: docType.is_active,
       required_by_default: docType.required
     };
 
     if (docType.id) {
-      // It's an UPDATE - Do not include doc_type_id in the payload!
       const { data, error } = await supabase
         .from('documenttypes_fs')
         .update(payload)
@@ -84,7 +74,6 @@ export const settingsService = {
       return data;
 
     } else {
-      // It's an INSERT
       const { data, error } = await supabase
         .from('documenttypes_fs')
         .insert(payload)
@@ -95,17 +84,13 @@ export const settingsService = {
     }
   },
 
-  /**
-   * Delete Document Type
-   */
+  // Delete Document Type
   deleteDocType: async (id) => {
     const { error } = await supabase.from('documenttypes_fs').delete().eq('doc_type_id', id);
     if (error) throw error;
   },
 
-  /**
-   * Get Validation Rules for a specific Document Type
-   */
+  // Get Validation Rules for a specific Document Type
   getDocTypeValidation: async (docTypeId) => {
     const { data: docType, error: docError } = await supabase
       .from('documenttypes_fs')
@@ -123,9 +108,7 @@ export const settingsService = {
     };
   },
 
-  /**
-   * Update Validation Rules for a specific Document Type
-   */
+  // Update Validation Rules for a specific Document Type
   updateDocTypeRules: async (docTypeId, rules) => {
     const { error: docError } = await supabase
       .from('documenttypes_fs')
@@ -140,9 +123,7 @@ export const settingsService = {
     if (docError) throw docError;
   },
 
-  /**
-   * Get Templates
-   */
+  // Get Templates
   getTemplates: async () => {
     const { data, error } = await supabase
       .from('templates_fs')
@@ -154,28 +135,25 @@ export const settingsService = {
     return data;
   },
 
+  // Add Template
   addTemplate: async (file, title, description, systemCategory, academicYear, semester, courseCode = null, courseName = null) => {
-    // 1. Enforce active rule: archive existing templates in the same category
     if (systemCategory) {
       const query = supabase
         .from('templates_fs')
         .update({ is_active_default: false })
         .eq('system_category', systemCategory)
-        .eq('is_active_default', true); // Only touch currently active ones
+        .eq('is_active_default', true);
 
-      // If it's a course-specific template, only archive templates for THAT course
       if (courseCode) {
         query.eq('course_code', courseCode);
       } else {
-        // If it's a general template (like a certificate), only archive templates that ALSO have no course code
         query.is('course_code', null);
       }
 
       await query;
     }
 
-    // 2. Upload to storage
-    // Format GDrive-like path: Root > System Templates > AY > Sem > Category > fileName
+    // Upload to storage
     const safeYear = academicYear ? academicYear.replace(/\s+/g, '') : 'General';
     const safeSem = semester ? semester.replace(/\s+/g, '') : 'General';
     const safeCat = systemCategory ? systemCategory : 'General';
@@ -193,7 +171,7 @@ export const settingsService = {
       .from('faculty_documents')
       .getPublicUrl(fileName);
 
-    // 3. Insert the new active template record
+    // Insert the new active template record
     const { data, error } = await supabase
       .from('templates_fs')
       .insert({
@@ -206,7 +184,7 @@ export const settingsService = {
         course_name: courseName || null,
         file_url: publicUrl,
         file_size_bytes: file.size,
-        is_active_default: true // Rule: New template becomes the active default
+        is_active_default: true
       })
       .select('*')
       .single();
@@ -216,7 +194,6 @@ export const settingsService = {
   },
 
   deleteTemplate: async (templateId) => {
-    // Note: We could also delete from storage, but for now just DB record
     const { error } = await supabase.from('templates_fs').delete().eq('template_id', templateId);
     if (error) throw error;
   },
@@ -237,9 +214,7 @@ export const settingsService = {
     if (error) throw error;
   },
 
-  /**
-   * Save a single setting (Generic)
-   */
+  // Save a single setting (Generic)
   saveSetting: async (key, value) => {
     const { error } = await supabase.rpc('upsert_setting_fs', {
       p_key: key,
@@ -248,10 +223,7 @@ export const settingsService = {
     if (error) throw error;
   },
 
-  /**
-   * OCR Queue & Processing (Existing Logic)
-   */
-
+  // OCR Queue & Processing (Existing Logic)
   runOCR: async (fileUrlOrBlob, docTypeId) => {
     try {
       if (!docTypeId) {
@@ -259,7 +231,7 @@ export const settingsService = {
       }
 
       if (!Array.isArray(fileUrlOrBlob)) {
-        fileUrlOrBlob = [fileUrlOrBlob]; // Ensure it's an array
+        fileUrlOrBlob = [fileUrlOrBlob];
       }
 
       if (fileUrlOrBlob.length === 0 || !(fileUrlOrBlob[0] instanceof File)) {
@@ -267,7 +239,7 @@ export const settingsService = {
       }
 
       const formData = new FormData();
-      fileUrlOrBlob.forEach(f => formData.append('files', f)); // Send all files as 'files'
+      fileUrlOrBlob.forEach(f => formData.append('files', f));
       formData.append('doc_type_id', docTypeId);
 
       const startTime = performance.now();
@@ -287,8 +259,7 @@ export const settingsService = {
         return { success: false, error: error.message || "Failed to invoke the parser." };
       }
 
-      // --- Split-Load Architecture Fallback ---
-      // If the Edge function says it's an image, we call our local server for private OCR
+      // Split-Load Architecture Fallback
       if (data && data.needsServerOcr) {
         console.log("[OCR] Image detected. Falling back to local Express server...");
         try {
@@ -313,7 +284,6 @@ export const settingsService = {
       }
 
       const endTime = performance.now();
-
       // The Edge function (or local fallback) returns { pass, extractedLength, wordCount, missingKeywords, foundForbidden, analyzedExtension, error? }
       if (data.error && data.pass === false) {
         return { success: false, error: data.error };
@@ -337,7 +307,7 @@ export const settingsService = {
 
       return {
         text: resultText,
-        confidence: 100, // Edge function extraction doesn't rely on confidence heuristics like vision ML
+        confidence: 100,
         processing_time_ms: Math.round(endTime - startTime),
         success: data.pass,
         extractedText: data.extractedText,
@@ -356,11 +326,8 @@ export const settingsService = {
     return data || [];
   },
 
-  /**
-   * --- Faculty Management ---
-   */
+  // Faculty Management
   getFaculty: async () => {
-    // Use the purpose-built RPC that joins auth.users + user_rbac + faculty_fs
     const { data, error } = await supabase.rpc('get_faculty_management_fs');
     if (error) throw error;
     return data || [];
@@ -386,9 +353,7 @@ export const settingsService = {
     if (error) throw error;
   },
 
-  /**
-   * --- Course Catalog (master) ---
-   */
+  // Course Catalog (master)
   getMasterCourses: async () => {
     const { data, error } = await supabase.rpc('get_master_courses_fs');
     if (error) throw error;
@@ -414,16 +379,14 @@ export const settingsService = {
     return data;
   },
 
-  /**
-   * --- Course Assignments (sections) ---
-   */
+  // Course Assignments (sections)
   getCourses: async () => {
     const { data, error } = await supabase.rpc('get_admin_courses_fs');
     if (error) throw error;
     return data;
   },
 
-  // Add an assignment — now uses master_course_id so semester/code/name are auto-resolved
+  // Add an assignment
   upsertCourse: async (course) => {
     const { data, error } = await supabase.rpc('upsert_course_fs', {
       p_master_course_id: course.master_course_id,
@@ -441,19 +404,14 @@ export const settingsService = {
     return data;
   },
 
-  /**
-   * Run System Backup
-   */
+  // Run System Backup
   getSystemHealth: async () => {
     const { data, error } = await supabase.rpc('get_system_health_fs');
     if (error) throw error;
     return data;
   },
 
-
-  /**
-   * Holiday Management
-   */
+  // Holiday Management
   getHolidays: async () => {
     const { data, error } = await supabase.rpc('get_holidays_fs');
     if (error) throw error;
@@ -476,9 +434,7 @@ export const settingsService = {
     if (data && data.success === false) throw new Error(data.message || "Failed to delete holiday");
   },
 
-  /**
-   * DANGER ZONE: Reset Semester
-   */
+  // DANGER ZONE: Reset Semester
   resetSemester: async (semester, year) => {
     const { data, error } = await supabase.rpc('reset_semester_fs', {
       p_target_semester: semester,
@@ -488,9 +444,7 @@ export const settingsService = {
     return data;
   },
 
-  /**
-   * DANGER ZONE: Purge Old Archives
-   */
+  // DANGER ZONE: Purge Old Archives
   purgeArchives: async (yearsToKeep = 5) => {
     const { data, error } = await supabase.rpc('purge_old_archives_fs', {
       p_retention_years: yearsToKeep

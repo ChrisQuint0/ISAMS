@@ -1,9 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 
 export const semesterService = {
-    /**
-     * Fetch current active semester and academic year settings
-     */
     getSemesterSettings: async () => {
         const { data, error } = await supabase
             .from('systemsettings_fs')
@@ -23,9 +20,7 @@ export const semesterService = {
         };
     },
 
-    /**
-     * Update active semester/academic year settings via upsert RPC
-     */
+    // Update active semester/academic year settings via upsert RPC
     updateSemesterSettings: async (settings) => {
         const promises = [];
         if (settings.semester) {
@@ -42,10 +37,8 @@ export const semesterService = {
         if (errors.length > 0) throw errors[0].error;
     },
 
-    /**
-     * Fetch semester history from the dedicated semester_history_fs table.
-     * Also injects the currently active semester if not already recorded.
-     */
+    // Fetch semester history from the dedicated semester_history_fs table.
+    // Also injects the currently active semester if not already recorded.
     getSemesterHistory: async () => {
         // Fetch all recorded semester history
         const { data: histData, error: histError } = await supabase
@@ -80,18 +73,14 @@ export const semesterService = {
         return rows;
     },
 
-    /**
-     * Fetch per-semester aggregated stats (faculty count, submissions, completion rate)
-     */
+    // Fetch per-semester aggregated stats (faculty count, submissions, completion rate)
     getSemesterStats: async () => {
         const { data, error } = await supabase.rpc('get_semester_stats_fs');
         if (error) throw error;
         return data || [];
     },
 
-    /**
-     * Get list of faculty names who haven't reached 100% completion (for rollover warning)
-     */
+    // Get list of faculty names who haven't reached 100% completion (for rollover warning)
     getIncompleteFaculty: async () => {
         const { data, error } = await supabase.rpc('get_faculty_management_fs');
         if (error) throw error;
@@ -101,14 +90,10 @@ export const semesterService = {
             .map(f => `${f.first_name} ${f.last_name}`);
     },
 
-    /**
-     * Full Semester Rollover Protocol:
-     *  1. Runs trigger_semester_rollover_fs (marks incompletes, archives, wipes holidays/notifications/deadlines)
-     *  2. Updates system settings to the next period
-     */
+    // Full Semester Rollover Protocol:
+    //  1. Runs trigger_semester_rollover_fs (marks incompletes, archives, wipes holidays/notifications/deadlines)
+    //  2. Updates system settings to the next period
     rolloverSemester: async (currentSemester, currentYear, nextSemester, nextYear) => {
-        // Trigger the atomic rollover RPC — it handles archiving, wiping, AND
-        // updating system settings to the next period all in one transaction.
         const { data, error } = await supabase.rpc('trigger_semester_rollover_fs', {
             p_current_semester: currentSemester,
             p_current_year: currentYear,
@@ -117,6 +102,6 @@ export const semesterService = {
         });
 
         if (error) throw error;
-        return data; // Returns the summary message from the RPC
+        return data;
     }
 };
