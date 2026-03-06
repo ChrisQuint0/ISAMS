@@ -161,7 +161,14 @@ export default function AdminSemesterManagementPage() {
 
     const handleManualSave = async () => {
         if (editAYError) return;
-        const ok = await updateSettings(editFormData);
+
+        // Trim labels to prevent whitespace mismatch in SQL queries
+        const trimmedSettings = {
+            semester: editFormData.semester?.trim(),
+            academic_year: editFormData.academic_year?.trim()
+        };
+
+        const ok = await updateSettings(trimmedSettings);
         if (ok) setIsEditModalOpen(false);
     };
 
@@ -363,7 +370,7 @@ export default function AdminSemesterManagementPage() {
                                     <AlertTriangle className="h-4 w-4 text-warning" />
                                     <AlertTitle className="font-bold text-warning">Nuclear Option</AlertTitle>
                                     <AlertDescription className="text-warning/80 text-xs font-medium mt-1">
-                                        Ensure all grades are finalized before proceeding. This cannot be undone.
+                                        Ensure all submissions are finalized before proceeding. This cannot be undone.
                                     </AlertDescription>
                                 </Alert>
                             </div>

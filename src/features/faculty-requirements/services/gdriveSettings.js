@@ -45,6 +45,9 @@ export const setFolderLink = (link) => {
 export const getFolderId = (link) => {
     if (!link) return null;
     try {
+        // If it's already just an ID (no slashes), return it directly
+        if (!link.includes('/')) return link;
+
         const match = link.match(/folders\/([a-zA-Z0-9_-]+)/);
         return match ? match[1] : null;
     } catch (e) {
@@ -115,7 +118,7 @@ export const ensureFolderStructure = async (rootFolderId, meta = {}) => {
     }
 
     const data = await res.json();
-    return data.targetFolderId;
+    return data.folderId;
 };
 
 /**

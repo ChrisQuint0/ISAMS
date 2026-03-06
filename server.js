@@ -319,9 +319,26 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
 
     // Get folderId from body, fallback to env var
     const folderId = req.body.folderId || GOOGLE_DRIVE_FOLDER_ID;
+    const fileName = req.file.originalname;
+
+    // 1. Check if a file with the same name already exists in this folder
+    const query = `name='${fileName.replace(/'/g, "\\'")}' and '${folderId}' in parents and trashed=false`;
+    const { data: existingFiles } = await drive.files.list({
+      q: query,
+      fields: "files(id, name)",
+      pageSize: 1,
+    });
+
+    // 2. If it exists, permanently delete it before uploading the new one
+    if (existingFiles.files && existingFiles.files.length > 0) {
+      console.log(`[GDrive] Found existing file "${fileName}", deleting ID: ${existingFiles.files[0].id} for overwrite.`);
+      await drive.files.delete({
+        fileId: existingFiles.files[0].id,
+      });
+    }
 
     const fileMetadata = {
-      name: req.file.originalname,
+      name: fileName,
       parents: [folderId], // Upload to specific folder
     };
     const media = {
@@ -332,7 +349,7 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
     const file = await drive.files.create({
       resource: fileMetadata,
       media: media,
-      fields: "id, name, webViewLink",
+      fields: "id, name, webViewLink, webContentLink",
     });
 
     res.json(file.data);

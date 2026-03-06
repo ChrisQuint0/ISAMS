@@ -25,9 +25,15 @@ const isAdmin = (rbac) => {
 };
 
 const isStudent = (rbac) => {
-  return !isAdmin(rbac);
+  if (!rbac) return true;
+  return (
+    !isAdmin(rbac) &&
+    rbac.facsub_role !== "faculty" &&
+    rbac.thesis_role !== "faculty" &&
+    rbac.labman_role !== "faculty" &&
+    rbac.studvio_role !== "faculty"
+  );
 };
-
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { user, rbac, signOut } = useAuth();

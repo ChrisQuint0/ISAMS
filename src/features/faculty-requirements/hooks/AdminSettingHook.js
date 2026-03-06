@@ -36,6 +36,7 @@ export function useAdminSettings() {
       await settingsService.upsertDocType({
         name: req.name,
         folder: req.folder,
+        description: req.description,
         is_active: true,
         required: req.required
       });

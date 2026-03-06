@@ -76,8 +76,11 @@ export default function AdminFacultyMonitorPage() {
             <div className="w-9 h-9 rounded-lg flex shrink-0 items-center justify-center font-bold text-xs bg-emerald-50 text-emerald-700 border border-emerald-100 shadow-sm">
               {getInitials(f.first_name, f.last_name)}
             </div>
-            <div className="flex flex-col justify-center leading-tight">
-              <span className="font-bold text-neutral-900 text-sm">
+            <div
+              className="flex flex-col justify-center leading-tight cursor-pointer hover:text-emerald-600 transition-colors group"
+              onClick={() => navigate(`/faculty/${f.faculty_id}`)}
+            >
+              <span className="font-bold text-neutral-900 text-sm group-hover:text-emerald-600">
                 {f.first_name} {f.last_name}
               </span>
               <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">
@@ -140,7 +143,7 @@ export default function AdminFacultyMonitorPage() {
     },
     {
       headerName: "Controls",
-      width: 120,
+      width: 160,
       sortable: false,
       filter: false,
       pinned: 'right',
@@ -150,13 +153,13 @@ export default function AdminFacultyMonitorPage() {
         return (
           <div className="flex items-center gap-1.5 h-full">
             <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-neutral-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+              variant="outline"
+              size="sm"
+              className="h-8 px-3 border-neutral-200 text-neutral-600 hover:text-emerald-600 hover:border-emerald-200 hover:bg-emerald-50 transition-all font-bold text-[10px] uppercase tracking-wider"
               onClick={() => navigate(`/faculty/${f.faculty_id}`)}
-              title="View Submissions"
             >
-              <Eye className="h-4 w-4" />
+              <Eye className="h-3.5 w-3.5 mr-1.5" />
+              Details
             </Button>
             <Button
               variant="ghost"

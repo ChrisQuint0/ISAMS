@@ -58,7 +58,8 @@ export const settingsService = {
   upsertDocType: async (docType) => {
     const payload = {
       type_name: docType.name || docType.type_name,
-      description: docType.folder || docType.description,
+      gdrive_folder_name: docType.folder || docType.gdrive_folder_name,
+      description: docType.description,
       is_active: docType.is_active,
       required_by_default: docType.required
     };
