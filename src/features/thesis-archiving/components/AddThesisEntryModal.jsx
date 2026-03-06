@@ -17,10 +17,13 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Plus, Edit, Upload, Check, X, Trash2, FileText, Bold, Italic, Heading1, Heading2, ChevronRight } from "lucide-react";
+import { Plus, Edit, Upload, Check, X, Trash2, FileText, Bold, Italic, Heading1, Heading2, ChevronRight, Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { thesisService } from "../services/thesisService";
+import { useToast } from "@/components/ui/toast/toaster";
+import { supabase } from "@/lib/supabaseClient";
 
-export default function AddThesisEntryModal({ open, onOpenChange }) {
+export default function AddThesisEntryModal({ open, onOpenChange, onSuccess }) {
     const [view, setView] = useState("form"); // "form" | "editor"
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
@@ -29,13 +32,40 @@ export default function AddThesisEntryModal({ open, onOpenChange }) {
         { firstName: "", lastName: "" },
         { firstName: "", lastName: "" },
     ]);
+    const [category, setCategory] = useState("");
+    const [categories, setCategories] = useState([]);
+    const [advisers, setAdvisers] = useState([]);
     const [year, setYear] = useState(new Date().getFullYear().toString());
     const [adviser, setAdviser] = useState("");
     const [file, setFile] = useState(null);
     const [abstract, setAbstract] = useState("");
     const [tempAbstract, setTempAbstract] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [fetchingData, setFetchingData] = useState(true);
+    const { addToast } = useToast();
+
+    const years = Array.from({ length: 11 }, (_, i) => (new Date().getFullYear() - i).toString());
+
     const fileInputRef = useRef(null);
     const editorRef = useRef(null);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const [cats, advs] = await Promise.all([
+                    thesisService.getCategories(),
+                    thesisService.getAdvisers()
+                ]);
+                setCategories(cats);
+                setAdvisers(advs);
+            } catch (error) {
+                console.error("Error fetching modal data:", error);
+            } finally {
+                setFetchingData(false);
+            }
+        };
+        fetchData();
+    }, []);
 
     const handleAddAuthor = () => {
         setAuthors([...authors, { firstName: "", lastName: "" }]);
@@ -59,17 +89,65 @@ export default function AddThesisEntryModal({ open, onOpenChange }) {
         }
     };
 
-    const handleSave = () => {
-        console.log({
-            title,
-            description,
-            authors,
-            year,
-            adviser,
-            abstract,
-            file: file?.name,
-        });
-        onOpenChange(false);
+    const handleSave = async () => {
+        if (!title || !description || !category || !adviser || !file) {
+            alert("Please fill in all required fields and upload a research PDF.");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            // 1. Upload to GDrive
+            const gdriveFile = await thesisService.uploadToDrive(file);
+
+            // 2. Save to Supabase
+            const { data: { user } } = await supabase.auth.getUser();
+
+            const entryData = {
+                title,
+                description,
+                abstract,
+                category_id: category,
+                adviser_id: adviser,
+                publication_year: parseInt(year),
+                research_type: "Thesis",
+                status: "archived", // Or as per workflow
+                added_by: user?.id
+            };
+
+            await thesisService.saveThesisEntry({
+                entry: entryData,
+                authors,
+                gdriveFile
+            });
+
+            addToast({
+                title: "Success",
+                description: "Thesis archived successfully!",
+                variant: "success"
+            });
+
+            if (onSuccess) onSuccess();
+
+            onOpenChange(false);
+            // Reset form
+            setTitle("");
+            setDescription("");
+            setAuthors([{ firstName: "", lastName: "" }]);
+            setAdviser("");
+            setCategory("");
+            setFile(null);
+            setAbstract("");
+        } catch (error) {
+            console.error("Save error:", error);
+            addToast({
+                title: "Error",
+                description: "Failed to save entry: " + error.message,
+                variant: "destructive"
+            });
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleEditAbstract = () => {
@@ -116,7 +194,6 @@ export default function AddThesisEntryModal({ open, onOpenChange }) {
         document.execCommand("insertText", false, text);
     };
 
-    const years = Array.from({ length: 10 }, (_, i) => (new Date().getFullYear() - i).toString());
 
     return (
         <>
@@ -272,6 +349,22 @@ export default function AddThesisEntryModal({ open, onOpenChange }) {
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-3">
                                             <Label className="text-sm font-medium text-slate-300">
+                                                Research Category <span className="text-rose-400">*</span>
+                                            </Label>
+                                            <Select value={category} onValueChange={setCategory}>
+                                                <SelectTrigger className="bg-slate-950/80 border-slate-800/70 text-slate-200 h-10 focus:ring-2 focus:ring-blue-500/40">
+                                                    <SelectValue placeholder={fetchingData ? "Loading..." : "Select Category"} />
+                                                </SelectTrigger>
+                                                <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
+                                                    {categories.map((cat) => (
+                                                        <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            <Label className="text-sm font-medium text-slate-300">
                                                 Publication Year <span className="text-rose-400">*</span>
                                             </Label>
                                             <Select value={year} onValueChange={setYear}>
@@ -285,22 +378,22 @@ export default function AddThesisEntryModal({ open, onOpenChange }) {
                                                 </SelectContent>
                                             </Select>
                                         </div>
+                                    </div>
 
-                                        <div className="space-y-3">
-                                            <Label className="text-sm font-medium text-slate-300">
-                                                Research Adviser <span className="text-rose-400">*</span>
-                                            </Label>
-                                            <Select value={adviser} onValueChange={setAdviser}>
-                                                <SelectTrigger className="bg-slate-950/80 border-slate-800/70 text-slate-200 h-10 text-left focus:ring-2 focus:ring-blue-500/40">
-                                                    <SelectValue placeholder="Select Adviser" />
-                                                </SelectTrigger>
-                                                <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
-                                                    <SelectItem value="doe">Professor John Doe, Ph.D</SelectItem>
-                                                    <SelectItem value="brown">Professor Dorothy Brown, MIT</SelectItem>
-                                                    <SelectItem value="turing">Professor Alan Turing, Ph.D.</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
+                                    <div className="space-y-3">
+                                        <Label className="text-sm font-medium text-slate-300">
+                                            Research Adviser <span className="text-rose-400">*</span>
+                                        </Label>
+                                        <Select value={adviser} onValueChange={setAdviser}>
+                                            <SelectTrigger className="bg-slate-950/80 border-slate-800/70 text-slate-200 h-10 text-left focus:ring-2 focus:ring-blue-500/40">
+                                                <SelectValue placeholder={fetchingData ? "Loading..." : "Select Adviser"} />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
+                                                {advisers.map((adv) => (
+                                                    <SelectItem key={adv.id} value={adv.id}>{adv.display_name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                 </div>
 
@@ -405,9 +498,17 @@ export default function AddThesisEntryModal({ open, onOpenChange }) {
                                 </Button>
                                 <Button
                                     onClick={handleSave}
-                                    className="bg-blue-600 hover:bg-blue-500 text-white px-8 h-10 font-medium shadow-lg shadow-blue-900/30 transition-all"
+                                    disabled={loading}
+                                    className="bg-blue-600 hover:bg-blue-500 text-white px-8 h-10 font-medium shadow-lg shadow-blue-900/30 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
                                 >
-                                    Save Entry
+                                    {loading ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                            Saving...
+                                        </>
+                                    ) : (
+                                        "Save Entry"
+                                    )}
                                 </Button>
                             </div>
                         </>
