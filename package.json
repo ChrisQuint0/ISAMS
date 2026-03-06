@@ -6,9 +6,10 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:thesis\" \"npm run dev:frontend\"",
     "dev:frontend": "vite",
     "dev:backend": "node server.js",
+    "dev:thesis": "node thesis_backend.js",
     "build": "vite build",
     "tauri": "tauri"
   },

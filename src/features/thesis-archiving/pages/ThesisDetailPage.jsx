@@ -1,51 +1,93 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Download, FileText } from "lucide-react";
+import { ArrowLeft, Download, FileText, Loader2, ShieldAlert, CheckCircle2, RefreshCw } from "lucide-react";
 import { ThesisArchivingHeader } from "../components/ThesisArchivingHeader";
 import { Badge } from "@/components/ui/badge";
-import { ShieldAlert, CheckCircle2, RefreshCw } from "lucide-react";
 import { SimilarityScoreBadge } from "../components/SimilarityScoreBadge";
 import { SimilarityReportModal } from "../components/SimilarityReportModal";
-
-const DUMMY_PAPERS = [
-    {
-        id: "1",
-        title: "Automated Crops Monitoring using IoT",
-        authors: ["Christopher Quinto", "John Doe", "Kendra Wilson"],
-        year: "2025",
-        adviser: "Professor. Juanito Alvarez Jr., MIT",
-        category: "Internet of Things",
-        abstract: "The rapid evolution of Precision Agriculture (PA) demands real-time data to mitigate the risks of food insecurity and resource wastage. This paper presents an Automated Crop Monitoring System leveraging an integrated Internet of Things (IoT) architecture to provide continuous oversight of plant health and environmental conditions. Utilizing a network of wireless sensors, the system tracks critical parameters including soil moisture, ambient temperature, humidity, and NPK levels. Data is transmitted via a LoRaWAN or Wi-Fi gateway to a centralized cloud platform, where it is analyzed to trigger automated irrigation and fertilization protocols. Preliminary results demonstrate a 25% reduction in water consumption and a significant improvement in crop yield compared to traditional manual monitoring. This study concludes that the implementation of IoT-driven automation not only optimizes resource allocation but also provides farmers with actionable insights through a user-friendly Figma-designed dashboard for remote management."
-    },
-    {
-        id: "2",
-        title: "Library Management System with RFID",
-        authors: ["C. Quinto", "J. Doe", "K. Wilson"],
-        year: "2025",
-        adviser: "Professor. Dorothy Brown, MIT",
-        category: "Information Systems",
-        abstract: "This research explores the integration of Radio Frequency Identification (RFID) technology into library management systems to enhance operational efficiency and security. Traditional barcode-based systems often suffer from slow checkout processes and inaccuracies in inventory management. The proposed system utilizes passive RFID tags on books and high-frequency readers at circulations desks and exit points. By automating the identification and tracking of library materials, the system facilitates rapid self-checkout, real-time inventory updates, and improved anti-theft measures. Experimental data shows a 40% reduction in average checkout time and a 95% accuracy rate in automated shelf-reading. The findings suggest that RFID technology significantly alleviates the administrative burden on library staff while providing a more seamless experience for patrons."
-    },
-    {
-        id: "3",
-        title: "AI-Powered Traffic Management System",
-        authors: ["S. Smith", "M. Johnson", "R. Lee"],
-        year: "2024",
-        adviser: "Professor. Alan Turing, Ph.D.",
-        category: "Artificial Intelligence",
-        abstract: "Urban congestion remains a critical challenge for modern cities, leading to increased travel times and environmental impact. This paper introduces an AI-driven traffic management system that employs computer vision and deep learning to optimize traffic signal timings in real-time. Using live feeds from existing traffic cameras, a Convolutional Neural Network (CNN) detects vehicle density and flow patterns at intersections. This data is then processed by a Reinforcement Learning (RL) agent that dynamically adjusts signal phases to minimize cumulative delay. Simulations conducted in high-density urban scenarios indicate a 15-20% improvement in traffic throughput compared to fixed-time signal controllers. The study highlights the potential of AI to create more responsive and efficient urban infrastructure."
-    }
-];
+import { thesisService } from "../services/thesisService";
 
 export default function ThesisDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
 
     const [reportModalOpen, setReportModalOpen] = useState(false);
+    const [paper, setPaper] = useState(null);
+    const [loading, setLoading] = useState(true);
 
-    // Find paper by ID or default to the first one for demo purposes
-    const paper = DUMMY_PAPERS.find(p => p.id === id) || DUMMY_PAPERS[0];
+    useEffect(() => {
+        const fetchPaper = async () => {
+            try {
+                setLoading(true);
+                const data = await thesisService.getThesisById(id);
+
+                // Map DB structure to UI structure
+                const mappedPaper = {
+                    id: data.id,
+                    title: data.title,
+                    authors: data.authors
+                        ? data.authors
+                            .sort((a, b) => a.display_order - b.display_order)
+                            .map(a => `${a.first_name} ${a.last_name}`)
+                        : [],
+                    year: data.publication_year,
+                    adviser: data.adviser
+                        ? `${data.adviser.title ? data.adviser.title + '. ' : ''}${data.adviser.first_name || ''} ${data.adviser.last_name || ''}${data.adviser.credentials ? ', ' + data.adviser.credentials : ''}`.trim() || "Unspecified"
+                        : "N/A",
+                    category: data.category?.name || "Uncategorized",
+                    abstract: data.abstract,
+                    similarityScore: 0, // Placeholder for now
+                    downloadUrl: data.files?.[0]?.storage_path
+                        ? `https://drive.google.com/uc?export=download&id=${data.files[0].storage_path}`
+                        : null
+                };
+
+                setPaper(mappedPaper);
+            } catch (error) {
+                console.error("Error fetching thesis details:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (id) fetchPaper();
+    }, [id]);
+
+    if (loading) {
+        return (
+            <div className="flex flex-col min-h-screen w-full bg-slate-950">
+                <ThesisArchivingHeader title="Digital Repository" />
+                <div className="flex-1 flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-4">
+                        <Loader2 className="h-12 w-12 text-blue-500 animate-spin" />
+                        <p className="text-slate-400 font-medium">Loading research details...</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (!paper) {
+        return (
+            <div className="flex flex-col min-h-screen w-full bg-slate-950 text-slate-100">
+                <ThesisArchivingHeader title="Digital Repository" />
+                <div className="flex-1 flex flex-col items-center justify-center gap-6">
+                    <div className="p-4 rounded-full bg-slate-900 border border-slate-800">
+                        <ShieldAlert className="h-12 w-12 text-slate-500" />
+                    </div>
+                    <div className="text-center">
+                        <h2 className="text-2xl font-bold mb-2">Research Not Found</h2>
+                        <p className="text-slate-400">The document you are looking for does not exist or has been removed.</p>
+                    </div>
+                    <Button variant="outline" onClick={() => navigate(-1)} className="border-slate-800 bg-slate-950 hover:bg-slate-900">
+                        <ArrowLeft className="h-4 w-4 mr-2" />
+                        Back to Repository
+                    </Button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-col min-h-screen w-full bg-slate-950">
@@ -100,10 +142,19 @@ export default function ThesisDetailPage() {
                                 {paper.category}
                             </Badge>
 
-                            <Button className="bg-slate-100 hover:bg-slate-200 text-slate-900 font-semibold gap-2 border-none shadow-lg">
-                                <Download className="h-4 w-4" />
-                                Download PDF
-                            </Button>
+                            {paper.downloadUrl ? (
+                                <a href={paper.downloadUrl} target="_blank" rel="noopener noreferrer">
+                                    <Button className="bg-slate-100 hover:bg-slate-200 text-slate-900 font-semibold gap-2 border-none shadow-lg">
+                                        <Download className="h-4 w-4" />
+                                        Download PDF
+                                    </Button>
+                                </a>
+                            ) : (
+                                <Button disabled className="bg-slate-800 text-slate-500 font-semibold gap-2 border-none cursor-not-allowed">
+                                    <Download className="h-4 w-4" />
+                                    No PDF Available
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -117,9 +168,9 @@ export default function ThesisDetailPage() {
                                 <div className="h-0.5 w-full bg-slate-800 mt-2" />
                             </div>
 
-                            <p className="text-slate-300 leading-relaxed text-lg tracking-wide">
-                                {paper.abstract}
-                            </p>
+                            <div className="text-slate-300 leading-relaxed text-lg tracking-wide abstract-content"
+                                dangerouslySetInnerHTML={{ __html: paper.abstract || "No abstract provided." }}
+                            />
                         </div>
 
                         {/* Research Integrity & Similarity Section */}

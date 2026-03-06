@@ -14,53 +14,52 @@ import {
 import { ThesisArchivingHeader } from "../components/ThesisArchivingHeader";
 import AddThesisEntryModal from "../components/AddThesisEntryModal";
 import { Badge } from "@/components/ui/badge";
+import { thesisService } from "../services/thesisService";
+import { useToast } from "@/components/ui/toast/toaster";
 
 export default function DigitalRepositoryPage() {
     const [isAddEntryModalOpen, setIsAddEntryModalOpen] = React.useState(false);
     const navigate = useNavigate();
 
-    const THESIS_ENTRIES = [
-        {
-            id: "1",
-            title: "Automated Crops Monitoring using IoT",
-            description: "A comprehensive study on leveraging IoT sensors for real-time agricultural oversight...",
-            authors: ["Christopher Quinto", "John Doe", "Kendra Wilson"],
-            year: "2025",
-            category: "Internet of Things"
-        },
-        {
-            id: "2",
-            title: "Library Management System with RFID",
-            description: "Development of a secure entry and borrowing system utilizing RFID technology...",
-            authors: ["C. Quinto", "J. Doe", "K. Wilson"],
-            year: "2025",
-            category: "Information Systems"
-        },
-        {
-            id: "3",
-            title: "AI-Powered Traffic Management System",
-            description: "Optimizing urban traffic flow using deep learning and real-time computer vision...",
-            authors: ["S. Smith", "M. Johnson", "R. Lee"],
-            year: "2024",
-            category: "Artificial Intelligence"
-        },
-        {
-            id: "4",
-            title: "Blockchain for Secure Medical Records",
-            description: "Establishing a decentralized and immutable ledger for patient healthcare data...",
-            authors: ["A. Brown", "B. Clark", "D. Martinez"],
-            year: "2024",
-            category: "Cybersecurity"
-        },
-        {
-            id: "5",
-            title: "Machine Learning in Financial Forecasting",
-            description: "Analyzing stock market trends and predicting fluctuations using LSTM networks...",
-            authors: ["E. Garcia", "F. White", "G. Thompson"],
-            year: "2023",
-            category: "Machine Learning"
+    const [entries, setEntries] = React.useState([]);
+    const [loading, setLoading] = React.useState(true);
+    const { addToast } = useToast();
+
+    const fetchEntries = React.useCallback(async () => {
+        try {
+            setLoading(true);
+            const data = await thesisService.getThesisEntries();
+
+            // Map the Supabase data to match the UI's expected structure
+            const mappedData = data.map(entry => ({
+                id: entry.id,
+                title: entry.title,
+                description: entry.description,
+                authors: entry.authors
+                    ? entry.authors
+                        .sort((a, b) => a.display_order - b.display_order)
+                        .map(a => `${a.first_name} ${a.last_name}`)
+                    : [],
+                year: entry.publication_year.toString(),
+                category: entry.category?.name || "Uncategorized"
+            }));
+
+            setEntries(mappedData);
+        } catch (error) {
+            console.error("Error fetching entries:", error);
+            addToast({
+                title: "Error",
+                description: "Failed to load repository data.",
+                variant: "destructive"
+            });
+        } finally {
+            setLoading(false);
         }
-    ];
+    }, [addToast]);
+
+    React.useEffect(() => {
+        fetchEntries();
+    }, [fetchEntries]);
 
     return (
         <div className="flex flex-col min-h-screen w-full bg-slate-950 text-slate-100">
@@ -112,18 +111,32 @@ export default function DigitalRepositoryPage() {
                     <AddThesisEntryModal
                         open={isAddEntryModalOpen}
                         onOpenChange={setIsAddEntryModalOpen}
+                        onSuccess={fetchEntries}
                     />
 
                     {/* Thesis Cards Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {THESIS_ENTRIES.map((entry) => (
-                            <ThesisCard
-                                key={entry.id}
-                                entry={entry}
-                                onClick={() => navigate(`${entry.id}`)}
-                            />
-                        ))}
-                    </div>
+                    {loading ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {[1, 2, 3].map((i) => (
+                                <div key={i} className="h-64 rounded-xl bg-slate-900/40 animate-pulse border border-slate-800/50" />
+                            ))}
+                        </div>
+                    ) : entries.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {entries.map((entry) => (
+                                <ThesisCard
+                                    key={entry.id}
+                                    entry={entry}
+                                    onClick={() => navigate(`${entry.id}`)}
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center py-20 text-slate-500 border-2 border-dashed border-slate-800 rounded-2xl">
+                            <span className="text-lg font-medium mb-1">No researches found</span>
+                            <p className="text-sm">Click the button above to archive your first entry.</p>
+                        </div>
+                    )}
                 </div>
             </main>
         </div>
