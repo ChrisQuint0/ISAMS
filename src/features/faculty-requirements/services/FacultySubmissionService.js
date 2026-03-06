@@ -8,17 +8,9 @@ export const FacultySubmissionService = {
      */
     async getRequiredDocs(courseId) {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            const { data: faculty } = await supabase
-                .from('faculty_fs')
-                .select('faculty_id')
-                .eq('user_id', user.id)
-                .single();
-
             const { data, error } = await supabase
                 .rpc('get_faculty_required_docs_fs', {
-                    p_course_id: courseId,
-                    p_faculty_id: faculty.faculty_id
+                    p_course_id: courseId
                 });
 
             if (error) throw error;
@@ -57,7 +49,13 @@ export const FacultySubmissionService = {
 
             const { data, error } = await supabase
                 .from('courses_fs')
-                .select('course_id, course_code, course_name')
+                .select(`
+                    course_id, 
+                    course_code, 
+                    course_name, 
+                    section,
+                    master_courses_fs (is_active)
+                `)
                 .eq('faculty_id', faculty.faculty_id)
                 .eq('semester', semester)
                 .eq('academic_year', academicYear);
@@ -99,9 +97,13 @@ export const FacultySubmissionService = {
             // 3. Get document type name for the deepest folder
             const { data: docType } = await supabase
                 .from('documenttypes_fs')
-                .select('type_name')
+                .select('type_name, gdrive_folder_name')
                 .eq('doc_type_id', docTypeId)
                 .single();
+
+            // Use gdrive_folder_name for technical path, fall back to type_name
+            const technicalFolder = docType?.gdrive_folder_name || docType?.type_name || 'Other';
+            const displayDocType = docType?.type_name || 'Document';
 
             // 4. Resolve the current AY and semester from system settings (use passed-in or fetch)
             let currentAY = academicYear;
@@ -118,7 +120,7 @@ export const FacultySubmissionService = {
             // 5. Upload to Google Drive — always use main folder hierarchy
             const folderLink = await getFolderLink();
             const rootFolderId = getFolderId(folderLink);
-            if (!rootFolderId) throw new Error('Google Drive folder not configured. Please set it in Admin Settings.');
+            if (!rootFolderId) throw new Error('Please Let the admin update the gdrive folder link on admin settings');
 
             // Root > AY > Semester > Faculty > Course-Section > DocType
             const { ensureFolderStructure } = await import('./gdriveSettings');
@@ -128,15 +130,16 @@ export const FacultySubmissionService = {
                 facultyName,
                 courseCode: course?.course_code,
                 section: course?.section,
-                docTypeName: docType?.type_name,
+                docTypeName: technicalFolder,
             });
 
             // 5.b Standardize Filename: {CourseCode}_{LastName}_{FirstName}_{DocType}.{extension}
             const cleanLastName = (faculty.last_name || '').replace(/\s+/g, '_');
             const cleanFirstName = (faculty.first_name || '').replace(/\s+/g, '_');
-            const cleanDocType = (docType?.type_name || 'Document').replace(/\s+/g, '_');
+            const cleanDocType = displayDocType.replace(/\s+/g, '_');
+            const cleanOriginal = file.name.substring(0, file.name.lastIndexOf('.')).replace(/[^a-zA-Z0-9]/g, '_');
             const extension = file.name.substring(file.name.lastIndexOf('.'));
-            const standardizedName = `${course?.course_code || 'COURSE'}_${cleanLastName}_${cleanFirstName}_${cleanDocType}${extension}`;
+            const standardizedName = `${course?.course_code || 'COURSE'}_${cleanLastName}_${cleanFirstName}_${cleanDocType}_${cleanOriginal}${extension}`;
 
             console.log(`[FacultySubmissionService] Renaming file to: ${standardizedName}`);
 
@@ -160,7 +163,7 @@ export const FacultySubmissionService = {
                     p_gdrive_file_id: gdriveFile.id,
                     p_gdrive_web_view_link: gdriveFile.webViewLink,
                     p_gdrive_download_link: gdriveFile.webContentLink || gdriveFile.webViewLink,
-                    p_is_staged: isStaged // Pass the staging flag
+                    p_is_staged: false // Required to resolve overloaded function signature
                 });
 
             if (insertError) throw insertError;
@@ -173,19 +176,104 @@ export const FacultySubmissionService = {
     },
 
     /**
-     * Run OCR on a file (Client-side)
+     * Run OCR on a file (Client-side Image vs Edge Function Doc)
+     * Validates against the Document Type's Keyword Dictionaries
      */
-    async runOCR(file) {
+    async runOCR(file, docTypeId, extension) {
         try {
-            const result = await Tesseract.recognize(file, 'eng');
-            return {
-                text: result.data.text,
-                confidence: result.data.confidence,
-                success: true
-            };
+            // First, get the validation rules for this document type
+            const { data: docType, error: docError } = await supabase
+                .from('documenttypes_fs')
+                .select('required_keywords, forbidden_keywords')
+                .eq('doc_type_id', docTypeId)
+                .limit(1)
+                .maybeSingle();
+
+            if (docError) {
+                console.error("Error fetching docType rules:", docError);
+            }
+
+            if (!docType) {
+                console.warn(`Validation rules not found for document type ID: ${docTypeId}. Bypassing keyword check.`);
+            }
+
+            let extractedText = "";
+
+            // PATH 1: LOCAL EXPRESS ROUTE / TESSERACT CLIENT (IMAGES)
+            if (['.png', '.jpg', '.jpeg'].includes(extension)) {
+                console.log("[OCR Bot] Sending Image to Tesseract");
+                const result = await Tesseract.recognize(file, 'eng');
+                extractedText = result.data.text;
+
+                // Perform Manual Validation on extracted text if rules exist
+                const normalizedExtractedText = extractedText.toLowerCase();
+                const noSpaceText = normalizedExtractedText.replace(/\s+/g, '');
+
+                if (docType?.required_keywords?.length > 0) {
+                    const missing = docType.required_keywords.filter(kw => {
+                        const kwLower = kw.toLowerCase();
+                        const kwNoSpace = kwLower.replace(/\s+/g, '');
+                        return !normalizedExtractedText.includes(kwLower) && !noSpaceText.includes(kwNoSpace);
+                    });
+                    if (missing.length > 0) return { success: false, text: `Validation Failed. Missing required keywords: ${missing.join(', ')}`, confidence: result.data.confidence };
+                }
+
+                if (docType?.forbidden_keywords?.length > 0) {
+                    const found = docType.forbidden_keywords.filter(kw => {
+                        const kwLower = kw.toLowerCase();
+                        const kwNoSpace = kwLower.replace(/\s+/g, '');
+                        return normalizedExtractedText.includes(kwLower) || noSpaceText.includes(kwNoSpace);
+                    });
+                    if (found.length > 0) return { success: false, text: `Validation Failed. Contains forbidden keywords: ${found.join(', ')}`, confidence: result.data.confidence };
+                }
+
+                return {
+                    text: extractedText,
+                    confidence: result.data.confidence,
+                    success: true
+                };
+            }
+
+            // PATH 2: SUPABASE EDGE FUNCTION (PDFs, DOCX, CSV, ETC)
+            else {
+                console.log("[OCR Bot] Sending Text Document to Supabase Edge Function: document-parser");
+
+                // We send the file to the Edge Function via FormData
+                const formData = new FormData();
+                formData.append('files', file);
+                formData.append('doc_type_id', String(docTypeId));
+
+                const { data, error } = await supabase.functions.invoke('document-parser', {
+                    body: formData,
+                });
+
+                if (error) {
+                    console.error("Edge Function Error:", error);
+                    return { success: false, text: "Edge Function returned an error. Please try again.", confidence: 100 };
+                }
+
+                if (data?.error && data.pass === undefined) {
+                    return { success: false, text: `Server Error: ${data.error}`, confidence: 100 };
+                }
+
+                // The Edge Function handles the keyword matching on its end and returns a 'pass' flag
+                if (data && data.pass === false) {
+                    let failMsg = data.error || "Document failed automated content checks.";
+                    if (data.missingKeywords?.length > 0) failMsg = `Validation Failed. Missing required keywords: ${data.missingKeywords.join(', ')}`;
+                    if (data.foundForbidden?.length > 0) failMsg = `Validation Failed. Contains forbidden keywords: ${data.foundForbidden.join(', ')}`;
+
+                    return { success: false, text: failMsg, confidence: 100 };
+                }
+
+                return {
+                    text: data?.extractedText || "Document parsed and validated successfully via Edge Function.",
+                    confidence: 100, // Edge functions parsing raw text are 100% confident
+                    success: true
+                };
+            }
         } catch (err) {
             console.error("OCR Failed:", err);
-            return { success: false, error: err.message };
+            return { success: false, error: err.message || "Validation engine offline." };
         }
     },
 
@@ -214,7 +302,7 @@ export const FacultySubmissionService = {
                     submitted_at,
                     submission_status,
                     original_filename,
-                    courses_fs (course_code, course_name),
+                    courses_fs (course_code, course_name, section),
                     documenttypes_fs (type_name, doc_type_id),
                     course_id,
                     doc_type_id

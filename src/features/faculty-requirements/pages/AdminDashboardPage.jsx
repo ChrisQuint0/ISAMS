@@ -8,7 +8,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 import {
   PieChart, Clock, AlertTriangle, CalendarCheck, CheckCircle,
   Bell, Search, Mail, Eye, CalendarPlus, FileText, Download, AlertCircle,
-  RefreshCw
+  RefreshCw, Badge
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

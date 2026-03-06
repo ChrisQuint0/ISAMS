@@ -28,48 +28,72 @@ export function useAdminDeadlines() {
 
       setDocTypes(types);
 
-      // FIX 2: Create a strict "Midnight Today" object to prevent timezone/time-of-day glitches
+      // Helper to parse "YYYY-MM-DD" as local date to avoid UTC shift
+      const parseLocalDate = (dateStr) => {
+        if (!dateStr) return null;
+        const [y, m, d] = dateStr.split('-').map(Number);
+        return new Date(y, m - 1, d);
+      };
+
+      // Get real dynamic date
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      // FIX 1: Manually calculate and inject the "status" string so the UI Grid renders badges correctly
+      // Status calculation (Upcoming, Active, Grace Period, Passed)
       const mappedDeadlines = allDeadlines.map(d => {
-        const deadlineDate = new Date(d.deadline_date);
-        deadlineDate.setHours(0, 0, 0, 0);
+        const startDate = parseLocalDate(d.issue_date);
+        const dueDate = parseLocalDate(d.deadline_date);
+
+        if (!dueDate) return { ...d, status: 'Passed' };
+
+        // Calculate Hard Cutoff (Due Date + Grace Period)
+        const hardCutoff = new Date(dueDate);
+        hardCutoff.setDate(hardCutoff.getDate() + (d.grace_period_days || 0));
+        hardCutoff.setHours(0, 0, 0, 0);
 
         let status = 'Passed';
         if (d.is_active) {
-          if (deadlineDate > today) status = 'Upcoming';
-          else if (deadlineDate.getTime() === today.getTime()) status = 'Active'; // Due Today
+          if (today.getTime() < startDate?.getTime()) {
+            status = 'Upcoming';
+          } else if (today.getTime() <= dueDate.getTime()) {
+            status = 'Active';
+          } else if (today.getTime() <= hardCutoff.getTime()) {
+            status = 'Grace Period';
+          } else {
+            status = 'Passed';
+          }
         }
-        return { ...d, status };
+
+        return {
+          ...d,
+          status,
+          deadline_date_obj: dueDate,
+          start_date_obj: startDate,
+          hard_cutoff_obj: hardCutoff
+        };
       });
 
       setDeadlines(mappedDeadlines);
 
       // Compute next deadline safely using the stripped dates
       const upcoming = mappedDeadlines
-        .filter(d => {
-          const dDate = new Date(d.deadline_date);
-          dDate.setHours(0, 0, 0, 0);
-          return dDate >= today && d.is_active;
-        })
-        .sort((a, b) => new Date(a.deadline_date) - new Date(b.deadline_date));
+        .filter(d => (d.status === 'Active' || d.status === 'Grace Period') && d.is_active)
+        .sort((a, b) => {
+          const dateDiff = a.deadline_date_obj - b.deadline_date_obj;
+          if (dateDiff !== 0) return dateDiff;
+          return a.type_name.localeCompare(b.type_name);
+        });
 
       const next = upcoming[0] || null;
       const daysLeft = next
-        ? Math.ceil((new Date(next.deadline_date) - today) / (1000 * 60 * 60 * 24))
+        ? Math.floor((next.deadline_date_obj.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
         : 0;
 
       setStats({
         ...statistics,
-        next_deadline_type: next?.type_name || 'None', // Mapped from your RPC's 'type_name'
-        days_left: daysLeft,
-        on_time: 0, // Mocked for now, plug into real stats later if needed
-        late: 0,
-        pending: 0,
-        total_submissions: 0
+        next_deadline: next
       });
+
     } catch (err) {
       console.error(err);
       setError("Failed to load deadline data.");
@@ -123,7 +147,6 @@ export function useAdminDeadlines() {
       return false;
     } finally {
       setLoading(false);
-      // FIX 3: Clear errors dynamically
       setTimeout(() => { setSuccess(null); setError(null); }, 3000);
     }
   };
@@ -136,7 +159,6 @@ export function useAdminDeadlines() {
     } catch (err) {
       setError("Failed to delete deadline.");
     } finally {
-      // FIX 3: Clear errors dynamically
       setTimeout(() => { setSuccess(null); setError(null); }, 3000);
     }
   };
@@ -147,7 +169,6 @@ export function useAdminDeadlines() {
       let result;
       if (action === 'EXTEND') result = await deadlineService.extendAll(value);
       if (action === 'GRACE') result = await deadlineService.applyGracePeriod(value);
-      if (action === 'RESET') result = await deadlineService.resetToDefaults(value.semester, value.year);
 
       setSuccess(result.message);
       await fetchData();
@@ -155,7 +176,6 @@ export function useAdminDeadlines() {
       setError("Bulk action failed.");
     } finally {
       setLoading(false);
-      // FIX 3: Clear errors dynamically
       setTimeout(() => { setSuccess(null); setError(null); }, 3000);
     }
   };
@@ -165,6 +185,7 @@ export function useAdminDeadlines() {
     deadlines, docTypes, stats,
     settings,
     refresh: fetchData,
-    saveDeadline, deleteDeadline, handleBulkAction
+    saveDeadline, deleteDeadline, handleBulkAction,
+    setError
   };
 }

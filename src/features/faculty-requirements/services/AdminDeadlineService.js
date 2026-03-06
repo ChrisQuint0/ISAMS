@@ -34,6 +34,7 @@ export const deadlineService = {
       p_doc_type_id: deadline.doc_type_id,
       p_date: deadline.deadline_date,
       p_grace: deadline.grace_period_days,
+      p_issue_date: deadline.issue_date,
       p_id: deadline.deadline_id || null
     });
 
@@ -81,15 +82,4 @@ export const deadlineService = {
     return { success: true, message: data };
   },
 
-  /**
-   * Reset Semester Deadlines (Delete & Re-seed)
-   */
-  resetToDefaults: async (semester, year) => {
-    const { data, error } = await supabase.rpc('reset_deadlines_fs', {
-      p_semester: semester,
-      p_academic_year: year
-    });
-    if (error) throw error;
-    return { success: true, message: data };
-  }
 };

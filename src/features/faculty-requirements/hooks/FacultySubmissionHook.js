@@ -57,24 +57,30 @@ export function useFacultySubmission() {
         } catch (err) {
             console.error(err);
             setError('Failed to load document requirements');
-            setTimeout(() => setError(null), 3000); // FIX: Clear sticky error
+            setTimeout(() => setError(null), 3000);
         } finally {
             setLoading(false);
         }
     };
 
-    const submitDocument = async ({ file, courseId, docTypeId, semester, academicYear }) => {
+    const submitDocument = async ({ files, courseId, docTypeId, semester, academicYear }) => {
         setIsSubmitting(true);
         setError(null);
+        let hasLate = false;
         try {
-            const data = await FacultySubmissionService.uploadSubmission({
-                file,
-                courseId,
-                docTypeId,
-                semester,
-                academicYear
-            });
-            return data;
+            for (const fileObj of files) {
+                const data = await FacultySubmissionService.uploadSubmission({
+                    file: fileObj.file,
+                    courseId,
+                    docTypeId,
+                    semester,
+                    academicYear
+                });
+                if (data && data.is_late) {
+                    hasLate = true;
+                }
+            }
+            return { is_late: hasLate };
         } catch (err) {
             console.error(err);
             setError(err.message || 'Submission failed');

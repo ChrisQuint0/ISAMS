@@ -16,6 +16,7 @@ import {
   AlertCircle
 } from "lucide-react";
 import { useFacultyDashboard } from "../hooks/FacultyDashboardHook";
+import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DataTable } from "@/components/DataTable"; // Using your standardized wrapper
 
@@ -230,8 +231,8 @@ export default function FacultyDashboardPage() {
                   </div>
                   <div className="text-right flex flex-col items-end">
                     <div className={`px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider rounded-full border shadow-sm mb-1.5 ${pct === 100 ? 'bg-success/10 text-success border-success/20' :
-                        pct >= 50 ? 'bg-primary-50 text-primary-700 border-primary-200' :
-                          'bg-warning/10 text-warning border-warning/20'
+                      pct >= 50 ? 'bg-primary-50 text-primary-700 border-primary-200' :
+                        'bg-warning/10 text-warning border-warning/20'
                       }`}>
                       {pct}% Complete
                     </div>
@@ -263,9 +264,9 @@ export default function FacultyDashboardPage() {
 
                     return (
                       <div key={idx} className={`flex items-center justify-between p-3.5 rounded-lg border transition-all ${isApproved ? 'bg-success/5 border-success/20 hover:bg-success/10 shadow-sm' :
-                          isRejected ? 'bg-destructive/5 border-destructive/20 hover:bg-destructive/10 shadow-sm' :
-                            isSubmitted ? 'bg-info/5 border-info/20 hover:bg-info/10 shadow-sm' :
-                              'bg-neutral-50 border-neutral-200 hover:border-primary-300 hover:shadow-md'
+                        isRejected ? 'bg-destructive/5 border-destructive/20 hover:bg-destructive/10 shadow-sm' :
+                          isSubmitted ? 'bg-info/5 border-info/20 hover:bg-info/10 shadow-sm' :
+                            'bg-neutral-50 border-neutral-200 hover:border-primary-300 hover:shadow-md'
                         }`}>
                         <div className="flex items-center">
                           <div className={`p-2 rounded bg-white border border-neutral-100 shadow-sm mr-3`}>
@@ -279,9 +280,9 @@ export default function FacultyDashboardPage() {
                         <div className="flex items-center gap-3">
                           {/* Status Badge */}
                           <span className={`px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold rounded-full border shadow-sm flex-shrink-0 ${isApproved ? 'bg-success/10 text-success border-success/20' :
-                              isRejected ? 'bg-destructive/10 text-destructive border-destructive/20' :
-                                isSubmitted ? 'bg-info/10 text-info border-info/20' :
-                                  'bg-neutral-100 text-neutral-500 border-neutral-200'
+                            isRejected ? 'bg-destructive/10 text-destructive border-destructive/20' :
+                              isSubmitted ? 'bg-info/10 text-info border-info/20' :
+                                'bg-neutral-100 text-neutral-500 border-neutral-200'
                             }`}>
                             {doc.status || 'Pending'}
                           </span>

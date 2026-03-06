@@ -23,6 +23,18 @@ export const facultyMonitorService = {
   },
 
   /**
+   * Get dynamic courses and their submission status for a specific faculty
+   */
+  getFacultyCourseStatus: async (facultyId) => {
+    const { data, error } = await supabase.rpc('get_faculty_courses_status_fs', {
+      p_faculty_id: facultyId
+    });
+
+    if (error) throw error;
+    return data; // returns jsonb array
+  },
+
+  /**
    * Helper options
    */
   getOptions: async () => {

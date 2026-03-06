@@ -4,7 +4,7 @@ import {
     Cpu, CheckCircle, AlertCircle, Play, Shield, FileText,
     Clock, Archive, HardDrive, Server, Activity,
     Wifi, WifiOff, Globe, Lock, Unlock, AlertTriangle,
-    ChevronUp, ChevronDown, Plus, Folder, File as FileIcon, LayoutTemplate, Users, BookOpen, X
+    ChevronUp, ChevronDown, Plus, Folder, File as FileIcon, LayoutTemplate, Users, BookOpen, X, Settings2, ArchiveRestore
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -109,7 +109,7 @@ export default function AdminSettingsPage() {
     const [testFile, setTestFile] = useState(null);
     const [testDocTypeId, setTestDocTypeId] = useState('');
 
-    const [newReq, setNewReq] = useState({ name: '', folder: '', required: true });
+    const [newReq, setNewReq] = useState({ name: '', folder: '', description: '', required: true });
     const [newHoliday, setNewHoliday] = useState({ startDate: '', endDate: '', description: '' });
     const todayStr = useMemo(() => new Date().toLocaleDateString('en-CA'), []);
     const holidayIsPast = newHoliday.startDate && newHoliday.startDate < todayStr;
@@ -501,25 +501,27 @@ export default function AdminSettingsPage() {
             sortable: false,
             filter: false,
             cellRenderer: (params) => (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
                     <Button
-                        variant="outline"
-                        size="xs"
-                        className="h-6 text-[10px] text-gold-600 border-gold-500 hover:bg-gold-500 font-bold shadow-none"
+                        variant="ghost"
+                        size="icon"
+                        title="Calibrate"
+                        className="h-7 w-7 text-gold-600 hover:text-gold-700 hover:bg-gold-500/15 font-bold shadow-none rounded-md"
                         onClick={() => {
                             setSelectedTemplateForCalibration(params.data);
                             setIsCalibratorOpen(true);
                         }}
                     >
-                        Calibrate
+                        <Settings2 className="h-4 w-4 pointer-events-none" />
                     </Button>
                     <Button
                         variant="ghost"
-                        size="xs"
-                        className={`h-6 text-[10px] font-bold ${params.data.isActive ? 'text-neutral-500 hover:text-destructive hover:bg-destructive/10' : 'text-success hover:text-success hover:bg-success/10'}`}
+                        size="icon"
+                        title={params.data.isActive ? 'Archive' : 'Restore'}
+                        className={`h-7 w-7 rounded-md ${params.data.isActive ? 'text-neutral-400 hover:text-destructive hover:bg-destructive/10' : 'text-success hover:text-success hover:bg-success/10'}`}
                         onClick={() => archiveTemplate(params.data.id, !params.data.isActive)}
                     >
-                        {params.data.isActive ? 'Archive' : 'Restore'}
+                        {params.data.isActive ? <Archive className="h-4 w-4 pointer-events-none" /> : <ArchiveRestore className="h-4 w-4 pointer-events-none" />}
                     </Button>
                 </div>
             )
@@ -557,14 +559,15 @@ export default function AdminSettingsPage() {
             sortable: false,
             filter: false,
             cellRenderer: (params) => (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
                     <Button
                         variant="ghost"
-                        size="xs"
-                        className={`h-6 text-[10px] font-bold ${params.data.isActive ? 'text-neutral-500 hover:text-destructive hover:bg-destructive/10' : 'text-success hover:text-success hover:bg-success/10'}`}
+                        size="icon"
+                        title={params.data.isActive ? 'Archive' : 'Restore'}
+                        className={`h-7 w-7 rounded-md ${params.data.isActive ? 'text-neutral-400 hover:text-destructive hover:bg-destructive/10' : 'text-success hover:text-success hover:bg-success/10'}`}
                         onClick={() => archiveTemplate(params.data.id, !params.data.isActive)}
                     >
-                        {params.data.isActive ? 'Archive' : 'Restore'}
+                        {params.data.isActive ? <Archive className="h-4 w-4 pointer-events-none" /> : <ArchiveRestore className="h-4 w-4 pointer-events-none" />}
                     </Button>
                 </div>
             )
@@ -1560,7 +1563,7 @@ export default function AdminSettingsPage() {
                                             />
                                             <div className="min-h-[1.25rem]">
                                                 {isDuplicateRequirement && (
-                                                    <p className="text-[10px] text-destructive font-medium italic flex items-center gap-1 mt-1 text-destructive">
+                                                    <p className="text-[10px] text-destructive font-medium italic flex items-center gap-1 mt-1">
                                                         <AlertCircle className="h-2.5 w-2.5" />
                                                         "{newReq.name}" is already a requirement.
                                                     </p>
@@ -1568,24 +1571,35 @@ export default function AdminSettingsPage() {
                                             </div>
                                         </div>
 
-                                        {/* GDrive Folder Name Column */}
+                                        {/* Folder Name Column */}
                                         <div className="flex-1 space-y-1.5 w-full">
                                             <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">GDrive Folder Name *</Label>
                                             <Input
                                                 placeholder="e.g. Reports_Q1"
                                                 value={newReq.folder}
-                                                disabled={!newReq.name.trim() || isDuplicateRequirement}
-                                                onChange={(e) => setNewReq({ ...newReq, folder: e.target.value })}
-                                                className={`bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 shadow-sm disabled:bg-neutral-100 disabled:text-neutral-400 ${isDuplicateFolder ? 'border-destructive focus-visible:ring-destructive/20' : ''}`}
+                                                onChange={(e) => setNewReq({ ...newReq, folder: e.target.value.replace(/[^a-zA-Z0-9_-]/g, '_') })}
+                                                className={`bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 shadow-sm ${isDuplicateFolder ? 'border-destructive focus-visible:ring-destructive/20' : ''}`}
                                             />
                                             <div className="min-h-[1.25rem]">
                                                 {isDuplicateFolder && (
-                                                    <p className="text-[10px] text-destructive font-medium italic flex items-center gap-1 mt-1 text-destructive">
+                                                    <p className="text-[10px] text-destructive font-medium italic flex items-center gap-1 mt-1">
                                                         <AlertCircle className="h-2.5 w-2.5" />
                                                         Folder "/{newReq.folder}" is already in use.
                                                     </p>
                                                 )}
                                             </div>
+                                        </div>
+
+                                        {/* Description Column */}
+                                        <div className="flex-1 space-y-1.5 w-full">
+                                            <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Faculty Guidelines</Label>
+                                            <Input
+                                                placeholder="e.g. Please upload the latest signed copy..."
+                                                value={newReq.description}
+                                                onChange={(e) => setNewReq({ ...newReq, description: e.target.value })}
+                                                className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 shadow-sm"
+                                            />
+                                            <div className="min-h-[1.25rem]" />
                                         </div>
 
                                         {/* Required Checkbox Column */}
@@ -1611,7 +1625,7 @@ export default function AdminSettingsPage() {
                                                     onClick={() => {
                                                         if (canAddDocType) {
                                                             addDocRequirement(newReq);
-                                                            setNewReq({ name: '', folder: '', required: true });
+                                                            setNewReq({ name: '', folder: '', description: '', required: true });
                                                         }
                                                     }}
                                                 >
@@ -1653,7 +1667,12 @@ export default function AdminSettingsPage() {
                                                             </div>
                                                             <div className="flex-1 min-w-0">
                                                                 <p className={`font-bold text-sm truncate ${isActive ? 'text-neutral-900' : 'text-neutral-500 line-through decoration-neutral-300'}`}>{req.name}</p>
-                                                                <p className="text-xs text-neutral-500 mt-0.5 font-mono truncate">/{req.folder}</p>
+                                                                <div className="flex items-center gap-2 mt-0.5">
+                                                                    <p className="text-[10px] text-neutral-500 font-mono truncate bg-neutral-100 px-1.5 rounded">{req.folder || req.gdrive_folder_name}</p>
+                                                                    {req.description && (
+                                                                        <p className="text-[10px] text-neutral-400 italic truncate flex-1">— {req.description}</p>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         </div>
 
