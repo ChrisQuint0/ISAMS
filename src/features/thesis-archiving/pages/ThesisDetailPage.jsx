@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { SimilarityScoreBadge } from "../components/SimilarityScoreBadge";
 import { SimilarityReportModal } from "../components/SimilarityReportModal";
 import { thesisService } from "../services/thesisService";
+import { useToast } from "@/components/ui/toast/toaster";
 
 export default function ThesisDetailPage() {
     const { id } = useParams();
@@ -15,6 +16,8 @@ export default function ThesisDetailPage() {
     const [reportModalOpen, setReportModalOpen] = useState(false);
     const [paper, setPaper] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [downloadSuccess, setDownloadSuccess] = useState(false);
+    const { addToast } = useToast();
 
     useEffect(() => {
         const fetchPaper = async () => {
@@ -39,7 +42,7 @@ export default function ThesisDetailPage() {
                     abstract: data.abstract,
                     similarityScore: 0, // Placeholder for now
                     downloadUrl: data.files?.[0]?.storage_path
-                        ? `https://drive.google.com/uc?export=download&id=${data.files[0].storage_path}`
+                        ? thesisService.getDownloadUrl(data.files[0].storage_path)
                         : null
                 };
 
@@ -53,6 +56,53 @@ export default function ThesisDetailPage() {
 
         if (id) fetchPaper();
     }, [id]);
+
+    const [isDownloading, setIsDownloading] = useState(false);
+
+    const handleDownload = async () => {
+        if (!paper.downloadUrl) return;
+
+        try {
+            setIsDownloading(true);
+            const response = await fetch(paper.downloadUrl);
+            if (!response.ok) throw new Error("Download failed");
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            // Extract filename from response headers or use title
+            const contentDisposition = response.headers.get('Content-Disposition');
+            let fileName = `${paper.title.substring(0, 30)}.pdf`;
+            if (contentDisposition && contentDisposition.includes('filename=')) {
+                fileName = contentDisposition.split('filename=')[1].replace(/"/g, '');
+            }
+
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+
+            setDownloadSuccess(true);
+            setTimeout(() => setDownloadSuccess(false), 3000);
+
+            addToast({
+                title: "Success",
+                description: "Research paper downloaded successfully.",
+                variant: "success"
+            });
+        } catch (error) {
+            console.error("Download error:", error);
+            addToast({
+                title: "Download Failed",
+                description: "Could not download the PDF. Please try again later.",
+                variant: "destructive"
+            });
+        } finally {
+            setIsDownloading(false);
+        }
+    };
 
     if (loading) {
         return (
@@ -143,12 +193,28 @@ export default function ThesisDetailPage() {
                             </Badge>
 
                             {paper.downloadUrl ? (
-                                <a href={paper.downloadUrl} target="_blank" rel="noopener noreferrer">
-                                    <Button className="bg-slate-100 hover:bg-slate-200 text-slate-900 font-semibold gap-2 border-none shadow-lg">
-                                        <Download className="h-4 w-4" />
-                                        Download PDF
-                                    </Button>
-                                </a>
+                                <Button
+                                    onClick={handleDownload}
+                                    disabled={isDownloading || downloadSuccess}
+                                    className={`${downloadSuccess ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-900'} font-semibold gap-2 border-none shadow-lg min-w-[160px] transition-all duration-300`}
+                                >
+                                    {isDownloading ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            Downloading...
+                                        </>
+                                    ) : downloadSuccess ? (
+                                        <>
+                                            <CheckCircle2 className="h-4 w-4" />
+                                            Downloaded
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Download className="h-4 w-4" />
+                                            Download PDF
+                                        </>
+                                    )}
+                                </Button>
                             ) : (
                                 <Button disabled className="bg-slate-800 text-slate-500 font-semibold gap-2 border-none cursor-not-allowed">
                                     <Download className="h-4 w-4" />

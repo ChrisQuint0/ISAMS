@@ -155,5 +155,11 @@ export const thesisService = {
 
         if (error) throw error;
         return data;
+    },
+    /**
+     * Get backend download URL for a thesis file
+     */
+    getDownloadUrl(fileId) {
+        return `${BACKEND_URL}/download/${fileId}`;
     }
 };
