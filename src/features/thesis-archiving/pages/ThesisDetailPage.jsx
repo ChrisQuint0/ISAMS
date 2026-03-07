@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Download, FileText, Loader2, ShieldAlert, CheckCircle2, RefreshCw } from "lucide-react";
+import { ArrowLeft, Download, Loader2, ShieldAlert, CheckCircle2 } from "lucide-react";
 import { ThesisArchivingHeader } from "../components/ThesisArchivingHeader";
 import { Badge } from "@/components/ui/badge";
-import { SimilarityScoreBadge } from "../components/SimilarityScoreBadge";
-import { SimilarityReportModal } from "../components/SimilarityReportModal";
 import { thesisService } from "../services/thesisService";
+import { useToast } from "@/components/ui/toast/toaster";
 
 export default function ThesisDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
 
-    const [reportModalOpen, setReportModalOpen] = useState(false);
     const [paper, setPaper] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [downloadSuccess, setDownloadSuccess] = useState(false);
+    const { addToast } = useToast();
 
     useEffect(() => {
         const fetchPaper = async () => {
@@ -37,9 +37,8 @@ export default function ThesisDetailPage() {
                         : "N/A",
                     category: data.category?.name || "Uncategorized",
                     abstract: data.abstract,
-                    similarityScore: 0, // Placeholder for now
                     downloadUrl: data.files?.[0]?.storage_path
-                        ? `https://drive.google.com/uc?export=download&id=${data.files[0].storage_path}`
+                        ? thesisService.getDownloadUrl(data.files[0].storage_path)
                         : null
                 };
 
@@ -53,6 +52,53 @@ export default function ThesisDetailPage() {
 
         if (id) fetchPaper();
     }, [id]);
+
+    const [isDownloading, setIsDownloading] = useState(false);
+
+    const handleDownload = async () => {
+        if (!paper.downloadUrl) return;
+
+        try {
+            setIsDownloading(true);
+            const response = await fetch(paper.downloadUrl);
+            if (!response.ok) throw new Error("Download failed");
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            // Extract filename from response headers or use title
+            const contentDisposition = response.headers.get('Content-Disposition');
+            let fileName = `${paper.title.substring(0, 30)}.pdf`;
+            if (contentDisposition && contentDisposition.includes('filename=')) {
+                fileName = contentDisposition.split('filename=')[1].replace(/"/g, '');
+            }
+
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+
+            setDownloadSuccess(true);
+            setTimeout(() => setDownloadSuccess(false), 3000);
+
+            addToast({
+                title: "Success",
+                description: "Research paper downloaded successfully.",
+                variant: "success"
+            });
+        } catch (error) {
+            console.error("Download error:", error);
+            addToast({
+                title: "Download Failed",
+                description: "Could not download the PDF. Please try again later.",
+                variant: "destructive"
+            });
+        } finally {
+            setIsDownloading(false);
+        }
+    };
 
     if (loading) {
         return (
@@ -143,12 +189,28 @@ export default function ThesisDetailPage() {
                             </Badge>
 
                             {paper.downloadUrl ? (
-                                <a href={paper.downloadUrl} target="_blank" rel="noopener noreferrer">
-                                    <Button className="bg-slate-100 hover:bg-slate-200 text-slate-900 font-semibold gap-2 border-none shadow-lg">
-                                        <Download className="h-4 w-4" />
-                                        Download PDF
-                                    </Button>
-                                </a>
+                                <Button
+                                    onClick={handleDownload}
+                                    disabled={isDownloading || downloadSuccess}
+                                    className={`${downloadSuccess ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-900'} font-semibold gap-2 border-none shadow-lg min-w-[160px] transition-all duration-300`}
+                                >
+                                    {isDownloading ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            Downloading...
+                                        </>
+                                    ) : downloadSuccess ? (
+                                        <>
+                                            <CheckCircle2 className="h-4 w-4" />
+                                            Downloaded
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Download className="h-4 w-4" />
+                                            Download PDF
+                                        </>
+                                    )}
+                                </Button>
                             ) : (
                                 <Button disabled className="bg-slate-800 text-slate-500 font-semibold gap-2 border-none cursor-not-allowed">
                                     <Download className="h-4 w-4" />
@@ -172,92 +234,8 @@ export default function ThesisDetailPage() {
                                 dangerouslySetInnerHTML={{ __html: paper.abstract || "No abstract provided." }}
                             />
                         </div>
-
-                        {/* Research Integrity & Similarity Section */}
-                        <div className="mt-16 space-y-6">
-                            <div className="flex flex-col gap-2">
-                                <div className="flex items-center justify-between">
-                                    <h2 className="text-2xl font-semibold text-slate-100 flex items-center gap-2">
-                                        <ShieldAlert className="h-6 w-6 text-blue-400" />
-                                        Research Integrity
-                                    </h2>
-                                    <div className="flex items-center gap-2">
-                                        <SimilarityScoreBadge score={paper.similarityScore || 18} />
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800"
-                                            onClick={() => setReportModalOpen(true)}
-                                        >
-                                            <FileText className="h-4 w-4 mr-2" />
-                                            Full Report
-                                        </Button>
-                                    </div>
-                                </div>
-                                <div className="h-0.5 w-full bg-slate-800 mt-2" />
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div className="md:col-span-2 space-y-4">
-                                    <p className="text-slate-400 text-sm italic">
-                                        Automated similarity analysis compares this submission against the full digital repository using NLP-based semantic matching.
-                                    </p>
-                                    <div className="p-5 rounded-xl bg-slate-900/50 border border-slate-800 space-y-4">
-                                        <h3 className="text-sm font-bold uppercase tracking-widest text-slate-500">Analysis Breakdown</h3>
-                                        <div className="space-y-3">
-                                            {[
-                                                { label: "Title Similarity", value: 5 },
-                                                { label: "Abstract Similarity", value: 22 },
-                                                { label: "Keywords Similarity", value: 12 },
-                                            ].map((item) => (
-                                                <div key={item.label} className="space-y-1.5">
-                                                    <div className="flex justify-between text-xs">
-                                                        <span className="text-slate-300">{item.label}</span>
-                                                        <span className="text-slate-500">{item.value}%</span>
-                                                    </div>
-                                                    <div className="h-1 w-full bg-slate-800 rounded-full overflow-hidden">
-                                                        <div
-                                                            className="h-full bg-blue-500 rounded-full"
-                                                            style={{ width: `${item.value}%` }}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="space-y-4">
-                                    <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
-                                        <h4 className="text-xs font-bold text-emerald-400 uppercase mb-2">Integrity Status</h4>
-                                        <div className="flex items-start gap-3">
-                                            <div className="p-1.5 rounded-full bg-emerald-500/10 mt-0.5">
-                                                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                                            </div>
-                                            <div>
-                                                <p className="text-xs font-semibold text-slate-200">Below Threshold</p>
-                                                <p className="text-[10px] text-slate-500 mt-0.5">No significant duplications detected. Verification cleared.</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <Button
-                                        variant="outline"
-                                        className="w-full border-slate-800 bg-slate-950 text-slate-400 hover:text-white"
-                                        onClick={() => console.log("Retriggering...")}
-                                    >
-                                        <RefreshCw className="h-3.5 w-3.5 mr-2" />
-                                        Re-run Analysis
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
-
-                <SimilarityReportModal
-                    open={reportModalOpen}
-                    onOpenChange={setReportModalOpen}
-                    submission={{ ...paper, similarityScore: paper.similarityScore || 18 }}
-                />
             </main>
         </div>
     );

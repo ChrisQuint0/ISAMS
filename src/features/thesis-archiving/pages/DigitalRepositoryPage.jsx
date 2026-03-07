@@ -23,12 +23,45 @@ export default function DigitalRepositoryPage() {
 
     const [entries, setEntries] = React.useState([]);
     const [loading, setLoading] = React.useState(true);
+    const [categories, setCategories] = React.useState([]);
+    const [years, setYears] = React.useState([]);
     const { addToast } = useToast();
+
+    // Filter states
+    const [searchQuery, setSearchQuery] = React.useState("");
+    const [debouncedSearch, setDebouncedSearch] = React.useState("");
+    const [selectedYear, setSelectedYear] = React.useState("all");
+    const [selectedCategory, setSelectedCategory] = React.useState("all");
+
+    // Debounce search query
+    React.useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchQuery);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    const fetchDropdownData = React.useCallback(async () => {
+        try {
+            const [categoriesData, yearsData] = await Promise.all([
+                thesisService.getCategories(),
+                thesisService.getPublicationYears()
+            ]);
+            setCategories(categoriesData);
+            setYears(yearsData);
+        } catch (error) {
+            console.error("Error fetching dropdown data:", error);
+        }
+    }, []);
 
     const fetchEntries = React.useCallback(async () => {
         try {
             setLoading(true);
-            const data = await thesisService.getThesisEntries();
+            const data = await thesisService.getThesisEntries({
+                search: debouncedSearch,
+                year: selectedYear,
+                categoryId: selectedCategory
+            });
 
             // Map the Supabase data to match the UI's expected structure
             const mappedData = data.map(entry => ({
@@ -55,7 +88,11 @@ export default function DigitalRepositoryPage() {
         } finally {
             setLoading(false);
         }
-    }, [addToast]);
+    }, [addToast, debouncedSearch, selectedYear, selectedCategory]);
+
+    React.useEffect(() => {
+        fetchDropdownData();
+    }, [fetchDropdownData]);
 
     React.useEffect(() => {
         fetchEntries();
@@ -74,29 +111,31 @@ export default function DigitalRepositoryPage() {
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                             <Input
                                 placeholder="Search Title, Authors etc."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
                                 className="pl-10 bg-slate-950/50 border-slate-800 text-slate-100 placeholder:text-slate-500 focus-visible:ring-slate-700"
                             />
                         </div>
-                        <Select defaultValue="all">
+                        <Select value={selectedYear} onValueChange={setSelectedYear}>
                             <SelectTrigger className="w-[140px] bg-slate-950/50 border-slate-800 text-slate-100">
                                 <SelectValue placeholder="All Years" />
                             </SelectTrigger>
                             <SelectContent className="bg-slate-900 border-slate-800 text-slate-100">
                                 <SelectItem value="all">All Years</SelectItem>
-                                <SelectItem value="2025">2025</SelectItem>
-                                <SelectItem value="2024">2024</SelectItem>
-                                <SelectItem value="2023">2023</SelectItem>
+                                {years.map(year => (
+                                    <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
-                        <Select defaultValue="all">
+                        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                             <SelectTrigger className="w-[140px] bg-slate-950/50 border-slate-800 text-slate-100">
                                 <SelectValue placeholder="Category" />
                             </SelectTrigger>
                             <SelectContent className="bg-slate-900 border-slate-800 text-slate-100">
-                                <SelectItem value="all">Category</SelectItem>
-                                <SelectItem value="iot">Internet of Things</SelectItem>
-                                <SelectItem value="ai">Artificial Intelligence</SelectItem>
-                                <SelectItem value="ml">Machine Learning</SelectItem>
+                                <SelectItem value="all">All Categories</SelectItem>
+                                {categories.map(cat => (
+                                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                         <Button

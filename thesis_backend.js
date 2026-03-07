@@ -69,6 +69,50 @@ async function loadToken() {
     return oauth2Client;
 }
 
+// Download endpoint specific to Thesis Archiving
+app.get("/api/thesis/download/:fileId", async (req, res) => {
+    try {
+        const { fileId } = req.params;
+        const auth = await loadToken();
+        if (!auth) return res.status(401).json({ error: "Not authenticated with GDrive" });
+
+        const drive = google.drive({ version: "v3", auth });
+
+        // 1. Get file metadata to set headers
+        console.log(`[Download] Fetching metadata for ID: ${fileId}`);
+        const { data: fileMetadata } = await drive.files.get({
+            fileId: fileId,
+            fields: "name, mimeType"
+        });
+
+        // 2. Set response headers for download
+        res.setHeader("Content-Type", fileMetadata.mimeType || "application/pdf");
+        res.setHeader("Content-Disposition", `attachment; filename="${fileMetadata.name}"`);
+
+        // 3. Stream from Google Drive
+        console.log(`[Download] Starting stream for: ${fileMetadata.name}`);
+        const response = await drive.files.get(
+            { fileId: fileId, alt: "media" },
+            { responseType: "stream" }
+        );
+
+        response.data
+            .on("error", (err) => {
+                console.error("Stream error:", err);
+                if (!res.headersSent) {
+                    res.status(500).json({ error: "Failed to stream file" });
+                }
+            })
+            .pipe(res);
+
+    } catch (error) {
+        console.error("Error downloading thesis file:", error);
+        if (!res.headersSent) {
+            res.status(500).json({ error: error.message });
+        }
+    }
+});
+
 // Upload endpoint specific to Thesis Archiving
 app.post("/api/thesis/upload", upload.single("file"), async (req, res) => {
     try {
@@ -77,7 +121,6 @@ app.post("/api/thesis/upload", upload.single("file"), async (req, res) => {
 
         const drive = google.drive({ version: "v3", auth });
 
-        // Use the title or a timestamped name for uniqueness
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const fileName = `${timestamp}-${req.file.originalname}`;
 
@@ -104,7 +147,7 @@ app.post("/api/thesis/upload", upload.single("file"), async (req, res) => {
     }
 });
 
-// Proxy/Helper to get advisers (to keep logic in one place if needed)
+// Proxy/Helper to get advisers
 app.get("/api/thesis/advisers", async (req, res) => {
     try {
         const { data, error } = await supabase
@@ -134,12 +177,11 @@ app.get("/api/thesis/categories", async (req, res) => {
     }
 });
 
-// Multi-table creation endpoint (Bypasses RLS using Service Role Key)
+// Multi-table creation endpoint (Bypasses RLS)
 app.post("/api/thesis/create", async (req, res) => {
     const { entry, authors, gdriveFile } = req.body;
 
     try {
-        // 1. Insert Core Thesis Entry
         const { data: thesis, error: thesisError } = await supabaseAdmin
             .from("thesis_entries")
             .insert([entry])
@@ -148,7 +190,6 @@ app.post("/api/thesis/create", async (req, res) => {
 
         if (thesisError) throw thesisError;
 
-        // 2. Insert Authors
         const authorsToInsert = authors.map((author, index) => ({
             thesis_id: thesis.id,
             first_name: author.firstName,
@@ -162,7 +203,6 @@ app.post("/api/thesis/create", async (req, res) => {
 
         if (authorsError) throw authorsError;
 
-        // 3. Insert File Metadata
         const fileMetadata = {
             thesis_id: thesis.id,
             original_filename: entry.title + ".pdf",
@@ -177,10 +217,9 @@ app.post("/api/thesis/create", async (req, res) => {
 
         if (fileError) throw fileError;
 
-        // 4. Create Audit Log
         await supabaseAdmin.from("ta_audit_logs").insert([{
             actor_user_id: entry.added_by,
-            actor_name: "System User (Admin)", // Or fetch name if available
+            actor_name: "System User (Admin)",
             action: "Add",
             description: `Archived new thesis: "${entry.title}"`,
             record_id: thesis.id,
@@ -195,7 +234,7 @@ app.post("/api/thesis/create", async (req, res) => {
     }
 });
 
-// Generic Error Handler to ensure JSON responses
+// Generic Error Handler
 app.use((err, req, res, next) => {
     console.error("Global Error Handler:", err);
     res.status(err.status || 500).json({
