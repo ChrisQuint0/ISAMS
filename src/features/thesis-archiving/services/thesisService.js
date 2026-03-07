@@ -84,20 +84,57 @@ export const thesisService = {
     },
 
     /**
-     * Fetch all thesis entries with categories and authors
+     * Fetch all thesis entries with categories and authors, with optional filtering
      */
-    async getThesisEntries() {
-        const { data, error } = await supabase
+    async getThesisEntries(filters = {}) {
+        let query = supabase
             .from("thesis_entries")
             .select(`
                 *,
                 category:thesis_categories(name),
                 authors:thesis_authors(first_name, last_name, display_order)
             `)
-            .order("created_at", { ascending: false });
+            .eq('is_deleted', false);
+
+        if (filters.year && filters.year !== 'all') {
+            query = query.eq('publication_year', parseInt(filters.year));
+        }
+
+        if (filters.categoryId && filters.categoryId !== 'all') {
+            query = query.eq('category_id', filters.categoryId);
+        }
+
+        if (filters.search) {
+            const searchTerm = `%${filters.search}%`;
+            // Using logic to search across multiple fields
+            // Supabase/PostgREST doesn't support complex OR across joined tables easily in a single string,
+            // but we can search title, description, and abstract directly.
+            // For authors, we might need a separate approach or a view if it gets too complex,
+            // but for now let's search the main fields.
+            query = query.or(`title.ilike.${searchTerm},description.ilike.${searchTerm},abstract.ilike.${searchTerm}`);
+        }
+
+        const { data, error } = await query.order("created_at", { ascending: false });
 
         if (error) throw error;
         return data;
+    },
+
+    /**
+     * Fetch all unique publication years
+     */
+    async getPublicationYears() {
+        const { data, error } = await supabase
+            .from("thesis_entries")
+            .select("publication_year")
+            .eq('is_deleted', false)
+            .order("publication_year", { ascending: false });
+
+        if (error) throw error;
+
+        // Return unique years
+        const years = [...new Set(data.map(item => item.publication_year))];
+        return years;
     },
 
     /**
