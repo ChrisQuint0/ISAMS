@@ -207,30 +207,30 @@ export default function AddThesisEntryModal({ open, onOpenChange, onSuccess }) {
                     background: transparent;
                 }
                 .custom-scrollbar::-webkit-scrollbar-thumb {
-                    background: #1e293b;
+                    background: #d1d5db;
                     border-radius: 9999px;
                 }
                 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                    background: #334155;
+                    background: #9ca3af;
                 }
             `}} />
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="sm:max-w-[800px] max-h-[90vh] bg-slate-900 text-slate-100 border border-slate-800 p-0 overflow-hidden flex flex-col shadow-2xl shadow-black/50">
+                <DialogContent className="sm:max-w-[800px] max-h-[90vh] bg-white text-neutral-900 border border-neutral-200 p-0 overflow-hidden flex flex-col shadow-2xl shadow-neutral-900/10">
                     {view === "form" ? (
                         <>
                             {/* Header with gradient accent */}
-                            <div className="relative px-8 pt-8 pb-6 border-b border-slate-800/50 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-900/95">
-                                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/5 blur-[100px] rounded-full pointer-events-none" />
+                            <div className="relative px-8 pt-8 pb-6 border-b border-neutral-200 bg-gradient-to-br from-white via-white to-neutral-50/95">
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-primary-500/5 blur-[100px] rounded-full pointer-events-none" />
                                 <DialogHeader className="relative space-y-3">
                                     <div className="flex items-center gap-3">
-                                        <div className="h-10 w-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-                                            <FileText className="h-5 w-5 text-blue-400" />
+                                        <div className="h-10 w-10 rounded-lg bg-primary-500/10 border border-primary-500/20 flex items-center justify-center">
+                                            <FileText className="h-5 w-5 text-primary-600" />
                                         </div>
                                         <div className="flex-1">
-                                            <DialogTitle className="text-2xl font-bold text-slate-50">
+                                            <DialogTitle className="text-2xl font-bold text-neutral-900">
                                                 Add New Research Entry
                                             </DialogTitle>
-                                            <DialogDescription className="text-slate-400 text-sm mt-1">
+                                            <DialogDescription className="text-neutral-600 text-sm mt-1">
                                                 Archive a new research paper to the digital repository
                                             </DialogDescription>
                                         </div>
@@ -243,27 +243,27 @@ export default function AddThesisEntryModal({ open, onOpenChange, onSuccess }) {
                                 {/* Basic Information Section */}
                                 <div className="space-y-5">
                                     <div className="flex items-center gap-2">
-                                        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
-                                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Basic Information</span>
-                                        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+                                        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-neutral-300 to-transparent" />
+                                        <span className="text-xs font-semibold text-neutral-600 uppercase tracking-wider">Basic Information</span>
+                                        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-neutral-300 to-transparent" />
                                     </div>
 
                                     <div className="space-y-3">
-                                        <Label htmlFor="title" className="text-sm font-medium text-slate-300">
-                                            Research Title <span className="text-rose-400">*</span>
+                                        <Label htmlFor="title" className="text-sm font-medium text-neutral-700">
+                                            Research Title <span className="text-destructive-semantic">*</span>
                                         </Label>
                                         <Input
                                             id="title"
                                             value={title}
                                             onChange={(e) => setTitle(e.target.value)}
                                             placeholder="Enter the complete research title"
-                                            className="bg-slate-950/80 border-slate-800/70 text-slate-100 placeholder:text-slate-600 focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:border-blue-500/40 h-11 transition-all"
+                                            className="bg-neutral-50 border-neutral-200 text-neutral-900 placeholder:text-neutral-500 focus-visible:ring-2 focus-visible:ring-primary-500/40 focus-visible:border-primary-500/40 h-11 transition-all"
                                         />
                                     </div>
 
                                     <div className="space-y-3">
-                                        <Label htmlFor="description" className="text-sm font-medium text-slate-300">
-                                            Brief Description <span className="text-rose-400">*</span>
+                                        <Label htmlFor="description" className="text-sm font-medium text-neutral-700">
+                                            Brief Description <span className="text-destructive-semantic">*</span>
                                         </Label>
                                         <textarea
                                             id="description"
@@ -271,34 +271,34 @@ export default function AddThesisEntryModal({ open, onOpenChange, onSuccess }) {
                                             onChange={(e) => setDescription(e.target.value)}
                                             placeholder="Provide a concise summary of the research focus and key findings..."
                                             rows={4}
-                                            className="w-full rounded-lg border border-slate-800/70 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:border-blue-500/40 transition-all resize-none leading-relaxed"
+                                            className="w-full rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-900 placeholder:text-neutral-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 focus-visible:border-primary-500/40 transition-all resize-none leading-relaxed"
                                         />
-                                        <p className="text-xs text-slate-500">Max 200 characters recommended</p>
+                                        <p className="text-xs text-neutral-600">Max 200 characters recommended</p>
                                     </div>
                                 </div>
 
                                 {/* Authors Section */}
                                 <div className="space-y-5">
                                     <div className="flex items-center gap-2">
-                                        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
-                                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Authors</span>
-                                        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+                                        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-neutral-300 to-transparent" />
+                                        <span className="text-xs font-semibold text-neutral-600 uppercase tracking-wider">Authors</span>
+                                        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-neutral-300 to-transparent" />
                                     </div>
 
                                     <div className="space-y-3">
                                         {authors.map((author, index) => (
                                             <div
                                                 key={index}
-                                                className="relative group bg-slate-950/40 border border-slate-800/40 rounded-lg p-4 hover:border-slate-700/60 transition-all"
+                                                className="relative group bg-neutral-50 border border-neutral-200 rounded-lg p-4 hover:border-neutral-300 transition-all"
                                             >
                                                 <div className="flex items-center justify-between mb-3">
-                                                    <span className="text-xs font-medium text-slate-400">
+                                                    <span className="text-xs font-medium text-neutral-600">
                                                         Author {index + 1}
                                                     </span>
                                                     {authors.length > 1 && (
                                                         <button
                                                             onClick={() => handleRemoveAuthor(index)}
-                                                            className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-400/10 rounded-md transition-all"
+                                                            className="opacity-0 group-hover:opacity-100 p-1.5 text-neutral-600 hover:text-destructive-semantic hover:bg-destructive-semantic/10 rounded-md transition-all"
                                                             title="Remove author"
                                                         >
                                                             <Trash2 className="h-3.5 w-3.5" />
@@ -311,7 +311,7 @@ export default function AddThesisEntryModal({ open, onOpenChange, onSuccess }) {
                                                             placeholder="First Name"
                                                             value={author.firstName}
                                                             onChange={(e) => handleAuthorChange(index, "firstName", e.target.value)}
-                                                            className="bg-slate-950/60 border-slate-800/50 text-slate-200 placeholder:text-slate-600 h-9 focus-visible:ring-1 focus-visible:ring-blue-500/30"
+                                                            className="bg-neutral-50 border-neutral-200 text-neutral-900 placeholder:text-neutral-500 h-9 focus-visible:ring-1 focus-visible:ring-primary-500/30"
                                                         />
                                                     </div>
                                                     <div>
@@ -319,7 +319,7 @@ export default function AddThesisEntryModal({ open, onOpenChange, onSuccess }) {
                                                             placeholder="Last Name"
                                                             value={author.lastName}
                                                             onChange={(e) => handleAuthorChange(index, "lastName", e.target.value)}
-                                                            className="bg-slate-950/60 border-slate-800/50 text-slate-200 placeholder:text-slate-600 h-9 focus-visible:ring-1 focus-visible:ring-blue-500/30"
+                                                            className="bg-neutral-50 border-neutral-200 text-neutral-900 placeholder:text-neutral-500 h-9 focus-visible:ring-1 focus-visible:ring-primary-500/30"
                                                         />
                                                     </div>
                                                 </div>
@@ -331,7 +331,7 @@ export default function AddThesisEntryModal({ open, onOpenChange, onSuccess }) {
                                         type="button"
                                         variant="outline"
                                         onClick={handleAddAuthor}
-                                        className="w-full border-dashed border-slate-700 bg-transparent hover:bg-slate-800/50 hover:border-slate-600 text-slate-300 h-10"
+                                        className="w-full border-dashed border-neutral-300 bg-transparent hover:bg-neutral-100 hover:border-neutral-400 text-neutral-700 h-10"
                                     >
                                         <Plus className="h-4 w-4 mr-2" />
                                         Add Another Author
@@ -341,21 +341,21 @@ export default function AddThesisEntryModal({ open, onOpenChange, onSuccess }) {
                                 {/* Details Section */}
                                 <div className="space-y-5">
                                     <div className="flex items-center gap-2">
-                                        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
-                                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Research Details</span>
-                                        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+                                        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-neutral-300 to-transparent" />
+                                        <span className="text-xs font-semibold text-neutral-600 uppercase tracking-wider">Research Details</span>
+                                        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-neutral-300 to-transparent" />
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-3">
-                                            <Label className="text-sm font-medium text-slate-300">
-                                                Research Category <span className="text-rose-400">*</span>
+                                            <Label className="text-sm font-medium text-neutral-700">
+                                                Research Category <span className="text-destructive-semantic">*</span>
                                             </Label>
                                             <Select value={category} onValueChange={setCategory}>
-                                                <SelectTrigger className="bg-slate-950/80 border-slate-800/70 text-slate-200 h-10 focus:ring-2 focus:ring-blue-500/40">
+                                                <SelectTrigger className="bg-neutral-50 border-neutral-200 text-neutral-900 h-10 focus:ring-2 focus:ring-primary-500/40">
                                                     <SelectValue placeholder={fetchingData ? "Loading..." : "Select Category"} />
                                                 </SelectTrigger>
-                                                <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
+                                                <SelectContent className="bg-white border-neutral-200 text-neutral-900">
                                                     {categories.map((cat) => (
                                                         <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                                                     ))}
@@ -364,14 +364,14 @@ export default function AddThesisEntryModal({ open, onOpenChange, onSuccess }) {
                                         </div>
 
                                         <div className="space-y-3">
-                                            <Label className="text-sm font-medium text-slate-300">
-                                                Publication Year <span className="text-rose-400">*</span>
+                                            <Label className="text-sm font-medium text-neutral-700">
+                                                Publication Year <span className="text-destructive-semantic">*</span>
                                             </Label>
                                             <Select value={year} onValueChange={setYear}>
-                                                <SelectTrigger className="bg-slate-950/80 border-slate-800/70 text-slate-200 h-10 focus:ring-2 focus:ring-blue-500/40">
+                                                <SelectTrigger className="bg-neutral-50 border-neutral-200 text-neutral-900 h-10 focus:ring-2 focus:ring-primary-500/40">
                                                     <SelectValue placeholder="Select Year" />
                                                 </SelectTrigger>
-                                                <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
+                                                <SelectContent className="bg-white border-neutral-200 text-neutral-900">
                                                     {years.map((y) => (
                                                         <SelectItem key={y} value={y}>{y}</SelectItem>
                                                     ))}
@@ -381,14 +381,14 @@ export default function AddThesisEntryModal({ open, onOpenChange, onSuccess }) {
                                     </div>
 
                                     <div className="space-y-3">
-                                        <Label className="text-sm font-medium text-slate-300">
-                                            Research Adviser <span className="text-rose-400">*</span>
+                                        <Label className="text-sm font-medium text-neutral-700">
+                                            Research Adviser <span className="text-destructive-semantic">*</span>
                                         </Label>
                                         <Select value={adviser} onValueChange={setAdviser}>
-                                            <SelectTrigger className="bg-slate-950/80 border-slate-800/70 text-slate-200 h-10 text-left focus:ring-2 focus:ring-blue-500/40">
+                                            <SelectTrigger className="bg-neutral-50 border-neutral-200 text-neutral-900 h-10 text-left focus:ring-2 focus:ring-primary-500/40">
                                                 <SelectValue placeholder={fetchingData ? "Loading..." : "Select Adviser"} />
                                             </SelectTrigger>
-                                            <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
+                                            <SelectContent className="bg-white border-neutral-200 text-neutral-900">
                                                 {advisers.map((adv) => (
                                                     <SelectItem key={adv.id} value={adv.id}>{adv.display_name}</SelectItem>
                                                 ))}
@@ -400,30 +400,30 @@ export default function AddThesisEntryModal({ open, onOpenChange, onSuccess }) {
                                 {/* Files Section */}
                                 <div className="space-y-5">
                                     <div className="flex items-center gap-2">
-                                        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
-                                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Attachments</span>
-                                        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+                                        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-neutral-300 to-transparent" />
+                                        <span className="text-xs font-semibold text-neutral-600 uppercase tracking-wider">Attachments</span>
+                                        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-neutral-300 to-transparent" />
                                     </div>
 
                                     <div className="space-y-4">
                                         {/* Abstract */}
-                                        <div className="flex items-center justify-between p-4 rounded-lg border border-slate-800/40 bg-slate-950/40 hover:border-slate-700/60 transition-all group">
+                                        <div className="flex items-center justify-between p-4 rounded-lg border border-neutral-200 bg-neutral-50 hover:border-neutral-300 transition-all group">
                                             <div className="flex items-center gap-3">
-                                                <div className="h-9 w-9 rounded-md bg-slate-800/50 border border-slate-700/30 flex items-center justify-center group-hover:border-slate-600/50 transition-all">
-                                                    <Edit className="h-4 w-4 text-slate-400 group-hover:text-slate-300" />
+                                                <div className="h-9 w-9 rounded-md bg-neutral-100 border border-neutral-200 flex items-center justify-center group-hover:border-neutral-300 transition-all">
+                                                    <Edit className="h-4 w-4 text-neutral-600 group-hover:text-neutral-700" />
                                                 </div>
                                                 <div>
-                                                    <p className="text-sm font-medium text-slate-200">Research Abstract</p>
-                                                    <p className="text-xs text-slate-500">
+                                                    <p className="text-sm font-medium text-neutral-900">Research Abstract</p>
+                                                    <p className="text-xs text-neutral-600">
                                                         {abstract ? "Content edited" : "Add detailed abstract content"}
                                                     </p>
                                                 </div>
                                             </div>
                                             <Button
-                                                variant="ghost"
+                                                variant="outline"
                                                 size="sm"
                                                 onClick={handleEditAbstract}
-                                                className="text-slate-400 hover:text-slate-100 hover:bg-slate-800 h-8 font-medium"
+                                                className="text-neutral-900 hover:text-white hover:bg-primary-500 hover:border-primary-500 border-neutral-300 h-8 font-medium transition-all"
                                             >
                                                 {abstract ? "Modify" : "Edit"}
                                             </Button>
@@ -433,21 +433,21 @@ export default function AddThesisEntryModal({ open, onOpenChange, onSuccess }) {
                                         <div
                                             onClick={() => !file && fileInputRef.current?.click()}
                                             className={`p-4 rounded-lg border-2 border-dashed transition-all cursor-pointer ${file
-                                                ? 'border-blue-500/30 bg-blue-500/5'
-                                                : 'border-slate-800/40 bg-slate-950/40 hover:border-slate-700/60 hover:bg-slate-900/40'
+                                                ? 'border-primary-500/30 bg-primary-500/5'
+                                                : 'border-neutral-300 bg-neutral-50 hover:border-neutral-400 hover:bg-neutral-100'
                                                 }`}
                                         >
                                             {file ? (
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="h-10 w-10 rounded-md bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-                                                            <FileText className="h-5 w-5 text-blue-400" />
+                                                        <div className="h-10 w-10 rounded-md bg-primary-500/10 border border-primary-500/20 flex items-center justify-center">
+                                                            <FileText className="h-5 w-5 text-primary-600" />
                                                         </div>
                                                         <div>
-                                                            <p className="text-sm font-medium text-slate-200 truncate max-w-[300px]">
+                                                            <p className="text-sm font-medium text-neutral-900 truncate max-w-[300px]">
                                                                 {file.name}
                                                             </p>
-                                                            <p className="text-xs text-slate-500">
+                                                            <p className="text-xs text-neutral-600">
                                                                 {(file.size / 1024 / 1024).toFixed(2)} MB
                                                             </p>
                                                         </div>
@@ -457,20 +457,20 @@ export default function AddThesisEntryModal({ open, onOpenChange, onSuccess }) {
                                                             e.stopPropagation();
                                                             setFile(null);
                                                         }}
-                                                        className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-400/10 rounded-md transition-all"
+                                                        className="p-1.5 text-neutral-600 hover:text-destructive-semantic hover:bg-destructive-semantic/10 rounded-md transition-all"
                                                     >
                                                         <X className="h-4 w-4" />
                                                     </button>
                                                 </div>
                                             ) : (
                                                 <div className="flex flex-col items-center justify-center py-4 text-center">
-                                                    <div className="h-12 w-12 rounded-lg bg-slate-800/50 border border-slate-700/30 flex items-center justify-center mb-3">
-                                                        <Upload className="h-5 w-5 text-slate-400" />
+                                                    <div className="h-12 w-12 rounded-lg bg-neutral-100 border border-neutral-200 flex items-center justify-center mb-3">
+                                                        <Upload className="h-5 w-5 text-neutral-600" />
                                                     </div>
-                                                    <p className="text-sm font-medium text-slate-300 mb-1">
+                                                    <p className="text-sm font-medium text-neutral-700 mb-1">
                                                         Upload Research PDF
                                                     </p>
-                                                    <p className="text-xs text-slate-500">
+                                                    <p className="text-xs text-neutral-600">
                                                         Click to browse or drag and drop
                                                     </p>
                                                 </div>
@@ -488,18 +488,18 @@ export default function AddThesisEntryModal({ open, onOpenChange, onSuccess }) {
                             </div>
 
                             {/* Footer Actions */}
-                            <div className="px-8 py-5 bg-slate-900/50 border-t border-slate-800/50 flex items-center justify-end gap-3 shrink-0">
+                            <div className="px-8 py-5 bg-neutral-50 border-t border-neutral-200 flex items-center justify-end gap-3 shrink-0">
                                 <Button
-                                    variant="ghost"
+                                    variant="outline"
                                     onClick={() => onOpenChange(false)}
-                                    className="text-slate-400 hover:text-slate-100 hover:bg-slate-800/60 px-6 h-10"
+                                    className="text-neutral-900 hover:text-white hover:bg-neutral-600 hover:border-neutral-600 border-neutral-300 px-6 h-10 transition-all"
                                 >
                                     Cancel
                                 </Button>
                                 <Button
                                     onClick={handleSave}
                                     disabled={loading}
-                                    className="bg-blue-600 hover:bg-blue-500 text-white px-8 h-10 font-medium shadow-lg shadow-blue-900/30 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                                    className="bg-primary-500 hover:bg-primary-600 text-white px-8 h-10 font-medium shadow-sm border border-primary-600 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
                                 >
                                     {loading ? (
                                         <>
@@ -515,34 +515,34 @@ export default function AddThesisEntryModal({ open, onOpenChange, onSuccess }) {
                     ) : (
                         <>
                             {/* Editor Header */}
-                            <div className="px-8 pt-6 pb-4 border-b border-slate-800 bg-slate-900">
-                                <div className="flex items-center gap-2 text-xs text-slate-500 mb-3">
-                                    <span className="hover:text-slate-300 cursor-pointer" onClick={handleCancelAbstract}>
+                            <div className="px-8 pt-6 pb-4 border-b border-neutral-200 bg-white">
+                                <div className="flex items-center gap-2 text-xs text-neutral-600 mb-3">
+                                    <span className="hover:text-neutral-900 cursor-pointer" onClick={handleCancelAbstract}>
                                         Add New Research Entry
                                     </span>
                                     <ChevronRight className="h-3 w-3" />
-                                    <span className="text-blue-400 font-medium">Abstract Editor</span>
+                                    <span className="text-primary-600 font-medium">Abstract Editor</span>
                                 </div>
                                 <div className="flex items-center justify-between">
                                     <div className="flex-1 min-w-0">
-                                        <h3 className="text-xl font-bold text-slate-50 truncate">
+                                        <h3 className="text-xl font-bold text-neutral-900 truncate">
                                             {title || "Untitled Research"}
                                         </h3>
-                                        <p className="text-xs text-slate-400 mt-0.5">Editing Research Abstract</p>
+                                        <p className="text-xs text-neutral-600 mt-0.5">Editing Research Abstract</p>
                                     </div>
                                     <div className="flex items-center gap-2 shrink-0">
                                         <Button
-                                            variant="ghost"
+                                            variant="outline"
                                             size="sm"
                                             onClick={handleCancelAbstract}
-                                            className="text-slate-400 hover:text-slate-100 hover:bg-slate-800 h-9"
+                                            className="text-neutral-900 hover:text-white hover:bg-neutral-600 hover:border-neutral-600 border-neutral-300 h-9 transition-all"
                                         >
                                             Cancel
                                         </Button>
                                         <Button
                                             size="sm"
                                             onClick={handleSaveAbstract}
-                                            className="bg-blue-600 hover:bg-blue-500 text-white h-9 px-4 font-medium"
+                                            className="bg-primary-500 hover:bg-primary-600 text-white h-9 px-4 font-medium"
                                         >
                                             Save Changes
                                         </Button>
@@ -551,12 +551,12 @@ export default function AddThesisEntryModal({ open, onOpenChange, onSuccess }) {
                             </div>
 
                             {/* Editor Toolbar */}
-                            <div className="flex items-center justify-center gap-1 p-2 bg-slate-950/40 border-b border-slate-800/60">
+                            <div className="flex items-center justify-center gap-1 p-2 bg-neutral-50 border-b border-neutral-200">
                                 <Button
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => execCommand('bold')}
-                                    className="h-9 w-9 p-0 text-slate-400 hover:text-slate-100 hover:bg-slate-800"
+                                    className="h-9 w-9 p-0 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100"
                                     title="Bold"
                                 >
                                     <Bold className="h-4 w-4" />
@@ -565,17 +565,17 @@ export default function AddThesisEntryModal({ open, onOpenChange, onSuccess }) {
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => execCommand('italic')}
-                                    className="h-9 w-9 p-0 text-slate-400 hover:text-slate-100 hover:bg-slate-800"
+                                    className="h-9 w-9 p-0 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100"
                                     title="Italic"
                                 >
                                     <Italic className="h-4 w-4" />
                                 </Button>
-                                <Separator orientation="vertical" className="h-6 bg-slate-800 mx-1" />
+                                <Separator orientation="vertical" className="h-6 bg-neutral-300 mx-1" />
                                 <Button
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => execCommand('formatBlock', 'h1')}
-                                    className="h-9 w-9 p-0 text-slate-400 hover:text-slate-100 hover:bg-slate-800"
+                                    className="h-9 w-9 p-0 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100"
                                     title="Heading 1"
                                 >
                                     <Heading1 className="h-4 w-4" />
@@ -584,7 +584,7 @@ export default function AddThesisEntryModal({ open, onOpenChange, onSuccess }) {
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => execCommand('formatBlock', 'h2')}
-                                    className="h-9 w-9 p-0 text-slate-400 hover:text-slate-100 hover:bg-slate-800"
+                                    className="h-9 w-9 p-0 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100"
                                     title="Heading 2"
                                 >
                                     <Heading2 className="h-4 w-4" />
@@ -592,15 +592,15 @@ export default function AddThesisEntryModal({ open, onOpenChange, onSuccess }) {
                             </div>
 
                             {/* Editor Content Area */}
-                            <div className="flex-1 bg-slate-950/20 p-8 overflow-y-auto custom-scrollbar">
+                            <div className="flex-1 bg-neutral-50 p-8 overflow-y-auto custom-scrollbar">
                                 <div
                                     ref={editorRef}
                                     contentEditable
                                     suppressContentEditableWarning
                                     onPaste={handlePaste}
-                                    className="max-w-3xl mx-auto min-h-[400px] outline-none text-slate-200 leading-relaxed prose prose-invert overflow-visible selection:bg-blue-500/30
-                                [&_h1]:text-3xl [&_h1]:font-bold [&_h1]:text-slate-50 [&_h1]:mb-4 [&_h1]:mt-6
-                                [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:text-slate-100 [&_h2]:mb-3 [&_h2]:mt-5
+                                    className="max-w-3xl mx-auto min-h-[400px] outline-none text-neutral-900 leading-relaxed prose overflow-visible selection:bg-primary-500/30
+                                [&_h1]:text-3xl [&_h1]:font-bold [&_h1]:text-neutral-900 [&_h1]:mb-4 [&_h1]:mt-6
+                                [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:text-neutral-800 [&_h2]:mb-3 [&_h2]:mt-5
                                 [&_p]:mb-4"
                                     dangerouslySetInnerHTML={{ __html: tempAbstract || '<p><br></p>' }}
                                 />

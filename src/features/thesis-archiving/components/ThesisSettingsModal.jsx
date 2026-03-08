@@ -24,15 +24,15 @@ import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-communi
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
 
-// Custom theme using AG Grid v33+ Theming API with Balham theme (better dark mode support)
+// Custom theme using AG Grid v33+ Theming API with Balham theme (light neutral mode)
 const customTheme = themeBalham.withParams({
     accentColor: '#3b82f6',
-    backgroundColor: '#020617',
-    foregroundColor: '#e2e8f0',
-    borderColor: '#1e293b',
-    headerBackgroundColor: '#0f172a',
-    headerTextColor: '#94a3b8',
-    oddRowBackgroundColor: '#020617',
+    backgroundColor: '#f5f5f4',
+    foregroundColor: '#262524',
+    borderColor: '#e7e5e4',
+    headerBackgroundColor: '#fafaf9',
+    headerTextColor: '#525252',
+    oddRowBackgroundColor: '#f5f5f4',
     rowHeight: 48,
     headerHeight: 40,
 });
@@ -96,16 +96,17 @@ const ActionCellRenderer = (params) => {
             <button
                 onClick={handleClick}
                 disabled={isRecentSave}
-                className={`p-1.5 rounded-md transition-all duration-200 ${isRecentSave
-                    ? "opacity-30 cursor-not-allowed bg-slate-800/50"
-                    : "hover:bg-slate-800 text-slate-400 hover:text-slate-100"
+                className={`p-1.5 rounded-md transition-all duration-200 ${
+                    isRecentSave
+                    ? "opacity-30 cursor-not-allowed bg-neutral-200/50"
+                    : "hover:bg-neutral-100 text-neutral-600 hover:text-neutral-900"
                     }`}
                 title={isEditing ? "Save changes" : isRecentSave ? "Saved" : "Delete item"}
             >
                 {isEditing ? (
-                    <Check className="h-4 w-4 text-emerald-400" />
+                    <Check className="h-4 w-4 text-emerald-500" />
                 ) : (
-                    <Trash2 className={`h-4 w-4 ${isRecentSave ? "text-slate-500" : "text-rose-400"}`} />
+                    <Trash2 className={`h-4 w-4 ${isRecentSave ? "text-neutral-400" : "text-red-500"}`} />
                 )}
             </button>
         </div>
@@ -217,61 +218,58 @@ export function ThesisSettingsModal({ variant = "dark" }) {
                 <Button
                     variant="ghost"
                     size="icon"
-                    className={`transition-colors ${isDark
-                            ? "text-slate-400 hover:text-slate-100 hover:bg-slate-800"
-                            : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                        }`}
+                    className="text-neutral-600 hover:text-white hover:bg-primary-500 transition-colors"
                 >
                     <Settings className="h-5 w-5" />
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px] bg-slate-900 text-slate-100 border-slate-800 gap-6 min-h-[500px] flex flex-col">
+            <DialogContent className="sm:max-w-[600px] bg-white text-neutral-900 border-neutral-200 gap-6 min-h-[500px] flex flex-col">
                 {view === 'settings' ? (
                     <>
                         <DialogHeader>
-                            <DialogTitle className="text-2xl font-semibold">Settings</DialogTitle>
-                            <DialogDescription className="text-slate-400">
+                            <DialogTitle className="text-2xl font-semibold text-neutral-900">Settings</DialogTitle>
+                            <DialogDescription className="text-neutral-600">
                                 Manage application preferences and configurations.
                             </DialogDescription>
                         </DialogHeader>
 
                         <div className="grid gap-6 flex-1">
                             <div className="flex items-center gap-4">
-                                <Label htmlFor="theme" className="text-base w-48 text-slate-100">
+                                <Label htmlFor="theme" className="text-base w-48 text-neutral-900">
                                     Theme
                                 </Label>
-                                <Select defaultValue="dark">
-                                    <SelectTrigger className="w-[140px] bg-slate-950 border-slate-800 text-slate-100 focus:ring-slate-700">
+                                <Select defaultValue="light">
+                                    <SelectTrigger className="w-[140px] bg-white border-neutral-200 text-neutral-900 focus:ring-neutral-300">
                                         <SelectValue placeholder="Select theme" />
                                     </SelectTrigger>
-                                    <SelectContent className="bg-slate-900 border-slate-800 text-slate-100">
-                                        <SelectItem value="light" className="focus:bg-slate-800 focus:text-slate-100">Light</SelectItem>
-                                        <SelectItem value="dark" className="focus:bg-slate-800 focus:text-slate-100">Dark</SelectItem>
+                                    <SelectContent className="bg-white border-neutral-200 text-neutral-900">
+                                        <SelectItem value="light" className="focus:bg-neutral-100 focus:text-neutral-900">Light</SelectItem>
+                                        <SelectItem value="dark" className="focus:bg-neutral-100 focus:text-neutral-900">Dark</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
 
                             <div className="flex items-center gap-4">
-                                <Label htmlFor="thesis-link" className="text-base w-48 text-slate-100">
+                                <Label htmlFor="thesis-link" className="text-base w-48 text-neutral-900">
                                     Thesis Folder Link
                                 </Label>
-                                <Input id="thesis-link" className="flex-1 bg-slate-950 border-slate-800 text-slate-100 focus-visible:ring-slate-700" />
+                                <Input id="thesis-link" className="flex-1 bg-white border-neutral-200 text-neutral-900 focus-visible:ring-neutral-300" />
                             </div>
 
                             <div className="flex items-center gap-4">
-                                <Label htmlFor="hte-link" className="text-base w-48 text-slate-100">
+                                <Label htmlFor="hte-link" className="text-base w-48 text-neutral-900">
                                     HTE GDrive Folder Link
                                 </Label>
-                                <Input id="hte-link" className="flex-1 bg-slate-950 border-slate-800 text-slate-100 focus-visible:ring-slate-700" />
+                                <Input id="hte-link" className="flex-1 bg-white border-neutral-200 text-neutral-900 focus-visible:ring-neutral-300" />
                             </div>
 
-                            <div className="h-px bg-slate-800 my-2" />
+                            <div className="h-px bg-neutral-200 my-2" />
 
                             <div className="flex items-center gap-4">
-                                <Label className="text-base w-48 text-slate-100">Adviser List</Label>
+                                <Label className="text-base w-48 text-neutral-900">Adviser List</Label>
                                 <Button
                                     variant="outline"
-                                    className="flex-1 justify-start gap-2 h-10 px-4 font-normal text-base bg-transparent border-slate-800 text-slate-100 hover:bg-slate-800 hover:text-slate-100"
+                                    className="flex-1 justify-start gap-2 h-10 px-4 font-normal text-base bg-white border-neutral-200 text-neutral-900 hover:bg-neutral-50 hover:text-neutral-900 hover:border-neutral-300"
                                     onClick={() => setView('advisers')}
                                 >
                                     <Edit className="h-4 w-4" />
@@ -280,10 +278,10 @@ export function ThesisSettingsModal({ variant = "dark" }) {
                             </div>
 
                             <div className="flex items-center gap-4">
-                                <Label className="text-base w-48 text-slate-100">Categories</Label>
+                                <Label className="text-base w-48 text-neutral-900">Categories</Label>
                                 <Button
                                     variant="outline"
-                                    className="flex-1 justify-start gap-2 h-10 px-4 font-normal text-base bg-transparent border-slate-800 text-slate-100 hover:bg-slate-800 hover:text-slate-100"
+                                    className="flex-1 justify-start gap-2 h-10 px-4 font-normal text-base bg-white border-neutral-200 text-neutral-900 hover:bg-neutral-50 hover:text-neutral-900 hover:border-neutral-300"
                                     onClick={() => setView('categories')}
                                 >
                                     <Edit className="h-4 w-4" />
@@ -292,8 +290,8 @@ export function ThesisSettingsModal({ variant = "dark" }) {
                             </div>
                         </div>
 
-                        <div className="flex justify-end pt-2 border-t border-slate-800 mt-auto">
-                            <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto">
+                        <div className="flex justify-end pt-2 border-t border-neutral-200 mt-auto">
+                            <Button className="bg-primary-500 hover:bg-primary-600 text-white w-full sm:w-auto">
                                 Save
                             </Button>
                         </div>
@@ -304,15 +302,15 @@ export function ThesisSettingsModal({ variant = "dark" }) {
                             <div className="flex items-center gap-1 text-sm mb-1">
                                 <button
                                     onClick={handleBack}
-                                    className="text-slate-400 hover:text-slate-100 transition-colors flex items-center"
+                                    className="text-neutral-600 hover:text-neutral-900 transition-colors flex items-center"
                                 >
                                     Settings
                                 </button>
-                                <ChevronRight className="h-4 w-4 text-slate-600" />
-                                <span className="text-slate-100 font-medium">Advisers List</span>
+                                <ChevronRight className="h-4 w-4 text-neutral-400" />
+                                <span className="text-neutral-900 font-medium">Advisers List</span>
                             </div>
-                            <DialogTitle className="text-xl font-semibold">Manage Advisers</DialogTitle>
-                            <DialogDescription className="text-slate-400 text-sm">
+                            <DialogTitle className="text-xl font-semibold text-neutral-900">Manage Advisers</DialogTitle>
+                            <DialogDescription className="text-neutral-600 text-sm">
                                 These advisers would appear as an option in the adviser dropdown when adding a new research entry.
                             </DialogDescription>
                         </DialogHeader>
@@ -322,21 +320,21 @@ export function ThesisSettingsModal({ variant = "dark" }) {
                                 placeholder="Enter Adviser Name"
                                 value={newAdviserName}
                                 onChange={(e) => setNewAdviserName(e.target.value)}
-                                className="bg-slate-950 border-slate-800 text-slate-100"
+                                className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-neutral-300"
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') handleAddAdviser();
                                 }}
                             />
                             <Button
                                 variant="outline"
-                                className="bg-slate-100 text-slate-900 hover:bg-slate-200 border-none font-medium shrink-0"
+                                className="bg-primary-500 text-white hover:bg-primary-600 border-none font-medium shrink-0"
                                 onClick={handleAddAdviser}
                             >
                                 Add
                             </Button>
                         </div>
 
-                        <div className="border border-slate-800 rounded-md overflow-hidden bg-slate-950" style={{ height: '350px' }}>
+                        <div className="border border-neutral-200 rounded-md overflow-hidden bg-white" style={{ height: '350px' }}>
                             <div style={{ height: '100%', width: '100%' }}>
                                 <AgGridReact
                                     theme={customTheme}
@@ -361,15 +359,15 @@ export function ThesisSettingsModal({ variant = "dark" }) {
                             <div className="flex items-center gap-1 text-sm mb-1">
                                 <button
                                     onClick={handleBack}
-                                    className="text-slate-400 hover:text-slate-100 transition-colors flex items-center"
+                                    className="text-neutral-600 hover:text-neutral-900 transition-colors flex items-center"
                                 >
                                     Settings
                                 </button>
-                                <ChevronRight className="h-4 w-4 text-slate-600" />
-                                <span className="text-slate-100 font-medium">Categories</span>
+                                <ChevronRight className="h-4 w-4 text-neutral-400" />
+                                <span className="text-neutral-900 font-medium">Categories</span>
                             </div>
-                            <DialogTitle className="text-xl font-semibold">Manage Categories</DialogTitle>
-                            <DialogDescription className="text-slate-400 text-sm">
+                            <DialogTitle className="text-xl font-semibold text-neutral-900">Manage Categories</DialogTitle>
+                            <DialogDescription className="text-neutral-600 text-sm">
                                 These categories would appear as an option in the category dropdown when adding a new research entry.
                             </DialogDescription>
                         </DialogHeader>
@@ -379,21 +377,21 @@ export function ThesisSettingsModal({ variant = "dark" }) {
                                 placeholder="Enter Category Name"
                                 value={newCategoryName}
                                 onChange={(e) => setNewCategoryName(e.target.value)}
-                                className="bg-slate-950 border-slate-800 text-slate-100"
+                                className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-neutral-300"
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') handleAddCategory();
                                 }}
                             />
                             <Button
                                 variant="outline"
-                                className="bg-slate-100 text-slate-900 hover:bg-slate-200 border-none font-medium shrink-0"
+                                className="bg-primary-500 text-white hover:bg-primary-600 border-none font-medium shrink-0"
                                 onClick={handleAddCategory}
                             >
                                 Add
                             </Button>
                         </div>
 
-                        <div className="border border-slate-800 rounded-md overflow-hidden bg-slate-950" style={{ height: '350px' }}>
+                        <div className="border border-neutral-200 rounded-md overflow-hidden bg-white" style={{ height: '350px' }}>
                             <div style={{ height: '100%', width: '100%' }}>
                                 <AgGridReact
                                     theme={customTheme}
@@ -416,11 +414,11 @@ export function ThesisSettingsModal({ variant = "dark" }) {
             </DialogContent>
 
             <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                <DialogContent className="sm:max-w-[400px] bg-slate-900 text-slate-100 border-slate-800 p-6">
+                <DialogContent className="sm:max-w-[400px] bg-white text-neutral-900 border-neutral-200 p-6">
                     <DialogHeader>
-                        <DialogTitle className="text-xl font-semibold text-rose-400">Confirm Deletion</DialogTitle>
-                        <DialogDescription className="text-slate-400 pt-2 text-base">
-                            Are you sure you want to delete <span className="text-slate-100 font-medium">"{itemToDelete?.name}"</span>?
+                        <DialogTitle className="text-xl font-semibold text-red-600">Confirm Deletion</DialogTitle>
+                        <DialogDescription className="text-neutral-600 pt-2 text-base">
+                            Are you sure you want to delete <span className="text-neutral-900 font-medium">"{itemToDelete?.name}"</span>?
                             This action cannot be undone.
                         </DialogDescription>
                     </DialogHeader>
@@ -428,13 +426,13 @@ export function ThesisSettingsModal({ variant = "dark" }) {
                         <Button
                             variant="outline"
                             onClick={() => setIsDeleteDialogOpen(false)}
-                            className="bg-transparent border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white"
+                            className="bg-white border-neutral-200 text-neutral-900 hover:bg-neutral-50 hover:text-neutral-900"
                         >
                             Cancel
                         </Button>
                         <Button
                             onClick={confirmDelete}
-                            className="bg-rose-600 hover:bg-rose-700 text-white"
+                            className="bg-red-600 hover:bg-red-700 text-white"
                         >
                             Delete
                         </Button>

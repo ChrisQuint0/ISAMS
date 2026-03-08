@@ -55,7 +55,12 @@ export default function StudentDocumentPortal() {
         const userId = user.id;
         let student = STUDENT_DATA[userId];
         if (!student) {
-            student = { id: `STU-${Date.now()}`, name: user.email?.split("@")[0] || "Student", year: "2024-2025", semester: "2nd Semester", email: user.email || "" };
+            const fullName = user.user_metadata?.full_name || 
+                            (user.user_metadata?.first_name && user.user_metadata?.last_name 
+                             ? `${user.user_metadata.first_name} ${user.user_metadata.last_name}`
+                             : user.email?.split("@")[0]) || 
+                            "Student";
+            student = { id: `STU-${Date.now()}`, name: fullName, year: "2024-2025", semester: "2nd Semester", email: user.email || "" };
         }
         if (!student.uploads) student.uploads = buildInitialUploads(ALL_FIELD_IDS);
         setStudentData(student);
