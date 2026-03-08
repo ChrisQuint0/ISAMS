@@ -42,7 +42,7 @@ const PROGRAMS = [
 
 const SECTIONS = ["4A", "4B", "4C", "4D"];
 
-export default function AddStudentModal({ open, onOpenChange }) {
+export default function AddStudentModal({ open, onOpenChange, onAdd }) {
     const [view, setView] = useState("selection"); // "selection" | "single" | "batch"
     const [loading, setLoading] = useState(false);
     const [advisers, setAdvisers] = useState([]);
@@ -116,6 +116,7 @@ export default function AddStudentModal({ open, onOpenChange }) {
         // Simulate API call
         setTimeout(() => {
             setLoading(false);
+            if (onAdd) onAdd(formData);
             addToast({
                 title: "Student Account Created",
                 description: `Successfully created account for ${formData.firstName} ${formData.lastName}.`,

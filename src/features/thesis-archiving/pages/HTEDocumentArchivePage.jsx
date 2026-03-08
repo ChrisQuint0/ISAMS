@@ -11,6 +11,21 @@ import {
     Timer, UserPlus,
 } from "lucide-react";
 import AddStudentModal from "../components/AddStudentModal";
+import { AgGridReact } from 'ag-grid-react';
+import { ModuleRegistry, AllCommunityModule, themeQuartz } from 'ag-grid-community';
+
+ModuleRegistry.registerModules([AllCommunityModule]);
+
+var hteTheme = themeQuartz.withParams({
+    accentColor: '#0ea5e9',
+    backgroundColor: '#ffffff',
+    foregroundColor: '#171717',
+    borderColor: '#e5e5e5',
+    headerBackgroundColor: '#f9fafb',
+    headerTextColor: '#6b7280',
+    rowHeight: 52,
+    headerHeight: 48,
+});
 
 var PORTAL_BASE_URL = "https://ojt-portal.university.edu/upload";
 
@@ -66,8 +81,10 @@ function makeUploadedRecord(fieldId, uploadedBy, uploadedAt, fileName, fileSize)
 
 var INITIAL_STUDENTS = [
     {
-        id: "STU-2025-001", name: "Christopher Quinto", year: "2024-2025", semester: "2nd Semester",
-        email: "quinto_christopher@plpasig.edu.ph",
+        id: "25-00001", lastName: "Quinto", firstName: "Christopher", middleInitial: "A.",
+        year: "2024-2025", semester: "2nd Semester", section: "4A", program: "Computer Science",
+        adviser: "Dr. Ricardo Santos", email: "quinto_christopher@plpasig.edu.ph",
+        name: "Christopher Quinto", // Backward compatibility
         uploads: (function () {
             var r = buildInitialUploads(ALL_FIELD_IDS);
             var uFields = ["f-1", "f-2", "f-3", "f-4", "f-5", "f-6", "f-7", "f-8", "f-9", "f-10"];
@@ -79,8 +96,10 @@ var INITIAL_STUDENTS = [
         })(),
     },
     {
-        id: "STU-2025-002", name: "Maria Santos", year: "2024-2025", semester: "2nd Semester",
-        email: "santos_maria@plpasig.edu.ph",
+        id: "25-00002", lastName: "Santos", firstName: "Maria", middleInitial: "B.",
+        year: "2024-2025", semester: "2nd Semester", section: "4B", program: "Information Technology",
+        adviser: "Prof. Elena Cruz", email: "santos_maria@plpasig.edu.ph",
+        name: "Maria Santos",
         uploads: (function () {
             var r = buildInitialUploads(ALL_FIELD_IDS);
             for (var i = 0; i < ALL_FIELD_IDS.length; i++) {
@@ -90,8 +109,10 @@ var INITIAL_STUDENTS = [
         })(),
     },
     {
-        id: "STU-2025-003", name: "Juan dela Cruz", year: "2024-2025", semester: "2nd Semester",
-        email: "dela_cruz_juan@plpasig.edu.ph",
+        id: "25-00003", lastName: "Dela Cruz", firstName: "Juan", middleInitial: "C.",
+        year: "2024-2025", semester: "2nd Semester", section: "4A", program: "Computer Science",
+        adviser: "Dr. Ricardo Santos", email: "dela_cruz_juan@plpasig.edu.ph",
+        name: "Juan dela Cruz",
         uploads: (function () {
             var r = buildInitialUploads(ALL_FIELD_IDS);
             var uFields = ["f-1", "f-2", "f-3", "f-4", "f-5", "f-6", "f-7", "f-8"];
@@ -102,8 +123,10 @@ var INITIAL_STUDENTS = [
         })(),
     },
     {
-        id: "STU-2025-004", name: "Sarah Johnson", year: "2024-2025", semester: "2nd Semester",
-        email: "johnson_sarah@plpasig.edu.ph",
+        id: "25-00004", lastName: "Johnson", firstName: "Sarah", middleInitial: "D.",
+        year: "2024-2025", semester: "2nd Semester", section: "4C", program: "Information Technology",
+        adviser: "Prof. Elena Cruz", email: "johnson_sarah@plpasig.edu.ph",
+        name: "Sarah Johnson",
         uploads: (function () {
             var r = buildInitialUploads(ALL_FIELD_IDS);
             var uFields = ["f-1", "f-2", "f-3", "f-4", "f-5", "f-6", "f-7", "f-8", "f-9", "f-10", "f-11", "f-12"];
@@ -116,8 +139,10 @@ var INITIAL_STUDENTS = [
         })(),
     },
     {
-        id: "STU-2024-015", name: "Robert Lee", year: "2023-2024", semester: "2nd Semester",
-        email: "lee_robert@plpasig.edu.ph",
+        id: "24-00015", lastName: "Lee", firstName: "Robert", middleInitial: "E.",
+        year: "2023-2024", semester: "2nd Semester", section: "4A", program: "Computer Science",
+        adviser: "Dr. Ricardo Santos", email: "lee_robert@plpasig.edu.ph",
+        name: "Robert Lee",
         uploads: (function () {
             var r = buildInitialUploads(ALL_FIELD_IDS);
             for (var i = 0; i < ALL_FIELD_IDS.length; i++) {
@@ -261,6 +286,9 @@ export default function HTEDocumentArchivePage() {
     var s3 = React.useState(""); var searchQuery = s3[0]; var setSearchQuery = s3[1];
     var s4 = React.useState("all"); var yearFilter = s4[0]; var setYearFilter = s4[1];
     var s5 = React.useState("all"); var statusFilter = s5[0]; var setStatusFilter = s5[1];
+    var s18 = React.useState("all"); var programFilter = s18[0]; var setProgramFilter = s18[1];
+    var s19 = React.useState("all"); var adviserFilter = s19[0]; var setAdviserFilter = s19[1];
+    var s20 = React.useState("all"); var sectionFilter = s20[0]; var setSectionFilter = s20[1];
     var s6 = React.useState(new Set()); var selectedStudents = s6[0]; var setSelectedStudents = s6[1];
     var s7 = React.useState(false); var showBatchPreview = s7[0]; var setShowBatchPreview = s7[1];
     var s8 = React.useState(null); var detailStudent = s8[0]; var setDetailStudent = s8[1];
@@ -295,13 +323,141 @@ export default function HTEDocumentArchivePage() {
         var matchSearch = s.name.toLowerCase().indexOf(sq) !== -1 || s.id.toLowerCase().indexOf(sq) !== -1;
         var matchYear = yearFilter === "all" || s.year === yearFilter;
         var matchStatus = statusFilter === "all" || status === statusFilter;
-        return matchSearch && matchYear && matchStatus;
+        var matchProgram = programFilter === "all" || s.program === programFilter;
+        var matchAdviser = adviserFilter === "all" || s.adviser === adviserFilter;
+        var matchSection = sectionFilter === "all" || s.section === sectionFilter;
+        return matchSearch && matchYear && matchStatus && matchProgram && matchAdviser && matchSection;
     });
 
     var incompleteStudents = filteredStudents.filter(function (s) { return getStudentStatus(s, docFields) === "incomplete"; });
 
     // Incomplete students who are NOT in the cooldown window — these can be selected
     var selectableStudents = incompleteStudents.filter(function (s) { return !recentlySentMap[s.id]; });
+
+    // AG-Grid Column Definitions
+    var columnDefs = React.useMemo(function () {
+        return [
+            {
+                headerCheckboxSelection: true,
+                checkboxSelection: true,
+                width: 50,
+                suppressMenu: true,
+                filter: false,
+                pinned: 'left'
+            },
+            {
+                headerName: "OJT Docs",
+                field: "ojtProgress",
+                width: 150,
+                cellRenderer: function (params) {
+                    var ojtActive = getActiveFields(docFields, "ojt");
+                    var ojtUploaded = countUploadedForFields(params.data, ojtActive);
+                    var ojtPct = ojtActive.length === 0 ? 100 : Math.round(ojtUploaded / ojtActive.length * 100);
+                    var color = ojtPct === 100 ? "success" : ojtPct >= 70 ? "primary" : "warning";
+                    return (
+                        <div className="flex items-center h-full">
+                            <ProgressCell uploaded={ojtUploaded} total={ojtActive.length} pct={ojtPct} color={color} />
+                        </div>
+                    );
+                }
+            },
+            {
+                headerName: "HTE Docs",
+                field: "hteProgress",
+                width: 150,
+                cellRenderer: function (params) {
+                    var hteActive = getActiveFields(docFields, "hte");
+                    var hteUploaded = countUploadedForFields(params.data, hteActive);
+                    var htePct = hteActive.length === 0 ? 100 : Math.round(hteUploaded / hteActive.length * 100);
+                    return (
+                        <div className="flex items-center h-full">
+                            <ProgressCell uploaded={hteUploaded} total={hteActive.length} pct={htePct} color="gold" />
+                        </div>
+                    );
+                }
+            },
+            {
+                headerName: "Student",
+                field: "lastName",
+                minWidth: 200,
+                flex: 1,
+                pinned: 'left',
+                valueGetter: function (params) {
+                    return params.data.lastName + ", " + params.data.firstName + " " + params.data.middleInitial;
+                }
+            },
+            {
+                headerName: "Period (SY)",
+                field: "year",
+                width: 120
+            },
+            {
+                headerName: "Email",
+                field: "email",
+                minWidth: 220,
+                flex: 1
+            },
+            {
+                headerName: "Section",
+                field: "section",
+                width: 100
+            },
+            {
+                headerName: "Adviser",
+                field: "adviser",
+                minWidth: 180,
+                flex: 1
+            },
+            {
+                headerName: "Program",
+                field: "program",
+                minWidth: 180,
+                flex: 1
+            },
+            {
+                headerName: "Status",
+                field: "status",
+                width: 130,
+                cellRenderer: function (params) {
+                    var status = getStudentStatus(params.data, docFields);
+                    return (
+                        <div className="flex items-center h-full">
+                            <StatusBadge status={status} />
+                        </div>
+                    );
+                }
+            },
+            {
+                headerName: "Actions",
+                width: 120,
+                pinned: 'right',
+                cellRenderer: function (params) {
+                    return (
+                        <div className="flex items-center h-full">
+                            <button onClick={function () { setDetailStudent(params.data); }} className={btnGhost + " h-8 px-3 text-xs"}>
+                                <span>{role === "admin" ? "View" : "My Docs"}</span>
+                                <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                            </button>
+                        </div>
+                    );
+                }
+            }
+        ];
+    }, [docFields, role]);
+
+    var defaultColDef = React.useMemo(function () {
+        return {
+            sortable: true,
+            resizable: true,
+            filter: true,
+            suppressMovable: true,
+        };
+    }, []);
+
+    var onSelectionChanged = React.useCallback(function (event) {
+        var selectedRows = event.api.getSelectedRows();
+        setSelectedStudents(new Set(selectedRows.map(function (s) { return s.id; })));
+    }, []);
 
     function handleUpload(sId, fieldId, file, uploaderRole) {
         var err = validateFile(file);
@@ -331,22 +487,9 @@ export default function HTEDocumentArchivePage() {
         });
     }
 
-    function handleSelectAll() {
-        if (selectedStudents.size === selectableStudents.length && selectableStudents.length > 0) {
-            setSelectedStudents(new Set());
-        } else {
-            setSelectedStudents(new Set(selectableStudents.map(function (s) { return s.id; })));
-        }
-    }
-
-    function handleSelectStudent(id) {
-        // Silently reject selecting a recently-notified student
-        if (recentlySentMap[id]) return;
-        setSelectedStudents(function (prev) {
-            var n = new Set(prev);
-            if (n.has(id)) { n.delete(id); } else { n.add(id); }
-            return n;
-        });
+    function handleBatchNotify() {
+        // Logic for batch notification is already handled by detail logic and previews
+        setShowBatchPreview(true);
     }
 
     /**
@@ -449,6 +592,24 @@ export default function HTEDocumentArchivePage() {
         setDocFields(function (prev) { return prev.map(function (f) { return f.id !== fieldId ? f : { id: f.id, name: newName, category: f.category, order: f.order, active: f.active }; }); });
     }
 
+    function handleAddNewStudent(newStudentData) {
+        var newStudent = {
+            id: newStudentData.studentId,
+            lastName: newStudentData.lastName,
+            firstName: newStudentData.firstName,
+            middleInitial: newStudentData.middleName ? newStudentData.middleName.charAt(0) + "." : "",
+            year: "2024-2025",
+            semester: "2nd Semester",
+            section: newStudentData.section,
+            program: newStudentData.program,
+            adviser: newStudentData.adviser,
+            email: newStudentData.email,
+            name: newStudentData.firstName + " " + newStudentData.lastName,
+            uploads: buildInitialUploads(ALL_FIELD_IDS)
+        };
+        setStudents(function (prev) { return [newStudent].concat(prev); });
+    }
+
     var selectedNotified = students.filter(function (s) { return selectedStudents.has(s.id); });
     var liveDetail = detailStudent ? students.find(function (s) { return s.id === detailStudent.id; }) : null;
 
@@ -467,11 +628,11 @@ export default function HTEDocumentArchivePage() {
             <AddStudentModal
                 open={isAddStudentModalOpen}
                 onOpenChange={setIsAddStudentModalOpen}
+                onAdd={handleAddNewStudent}
             />
 
             <main className="flex-1 p-6">
                 <div className="space-y-5">
-
                     {role === "student" ? (
                         <HTEStudentPage
                             student={visibleStudents[0]}
@@ -480,8 +641,7 @@ export default function HTEDocumentArchivePage() {
                         />
                     ) : (
                         <React.Fragment>
-
-                            {role === "admin" && showFieldConfig ? (
+                            {role === "admin" && showFieldConfig && (
                                 <FieldConfigPanel
                                     docFields={docFields}
                                     onAddField={handleAddField}
@@ -489,12 +649,11 @@ export default function HTEDocumentArchivePage() {
                                     onUpdateOrder={handleUpdateFieldOrder}
                                     onUpdateName={handleUpdateFieldName}
                                 />
-                            ) : null}
+                            )}
 
-                            {!showFieldConfig ? (
+                            {!showFieldConfig && (
                                 <React.Fragment>
-
-                                    {role === "admin" ? (
+                                    {role === "admin" && (
                                         <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
                                             <div className="flex flex-wrap items-center gap-3">
                                                 <div className="relative flex-1 min-w-[260px]">
@@ -517,14 +676,38 @@ export default function HTEDocumentArchivePage() {
                                                     { value: "complete", label: "Complete" },
                                                     { value: "incomplete", label: "Incomplete" },
                                                 ]} />
-                                                <button onClick={function () { setSearchQuery(""); setYearFilter("all"); setStatusFilter("all"); }} className={btnSmGhost}>
+                                                <SelectInput value={programFilter} onChange={setProgramFilter} options={[
+                                                    { value: "all", label: "All Programs" },
+                                                    { value: "Computer Science", label: "Computer Science" },
+                                                    { value: "Information Technology", label: "Information Technology" },
+                                                ]} />
+                                                <SelectInput value={adviserFilter} onChange={setAdviserFilter} options={[
+                                                    { value: "all", label: "All Advisers" },
+                                                    { value: "Dr. Ricardo Santos", label: "Dr. Ricardo Santos" },
+                                                    { value: "Prof. Elena Cruz", label: "Prof. Elena Cruz" },
+                                                ]} />
+                                                <SelectInput value={sectionFilter} onChange={setSectionFilter} options={[
+                                                    { value: "all", label: "All Sections" },
+                                                    { value: "4A", label: "4A" },
+                                                    { value: "4B", label: "4B" },
+                                                    { value: "4C", label: "4C" },
+                                                    { value: "4D", label: "4D" },
+                                                ]} />
+                                                <button onClick={function () {
+                                                    setSearchQuery("");
+                                                    setYearFilter("all");
+                                                    setStatusFilter("all");
+                                                    setProgramFilter("all");
+                                                    setAdviserFilter("all");
+                                                    setSectionFilter("all");
+                                                }} className={btnSmGhost}>
                                                     <X className="h-3.5 w-3.5" /><span>Clear</span>
                                                 </button>
                                             </div>
                                         </div>
-                                    ) : null}
+                                    )}
 
-                                    {role === "admin" && selectedStudents.size > 0 ? (
+                                    {role === "admin" && selectedStudents.size > 0 && (
                                         <div className="bg-neutral-100 border border-neutral-200 rounded-xl p-4 flex items-center justify-between">
                                             <div className="flex items-center gap-3">
                                                 <div className="h-10 w-10 rounded-lg bg-primary-500/10 border border-primary-500/20 flex items-center justify-center">
@@ -542,115 +725,45 @@ export default function HTEDocumentArchivePage() {
                                                 </button>
                                             </div>
                                         </div>
-                                    ) : null}
+                                    )}
 
                                     <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm">
                                         <div className="px-5 py-4 border-b border-neutral-200 flex items-center justify-between bg-gradient-primary">
                                             <div className="flex items-center gap-3">
                                                 <h2 className="text-base font-bold text-white">{role === "admin" ? "Student Document Status" : "My Document Status"}</h2>
-                                                {role === "admin" ? <span className="text-xs px-2 py-0.5 rounded-full bg-white/15 border border-white/25 text-white/80">{filteredStudents.length} students</span> : null}
+                                                {role === "admin" && <span className="text-xs px-2 py-0.5 rounded-full bg-white/15 border border-white/25 text-white/80">{filteredStudents.length} students</span>}
                                             </div>
-                                            {role === "admin" && selectableStudents.length > 0 ? (
-                                                <button onClick={handleSelectAll} className="inline-flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-md bg-white/15 border border-white/30 text-white hover:bg-white/25 transition-all">
-                                                    {selectedStudents.size === selectableStudents.length ? "Deselect All" : "Select All Incomplete"}
+                                            {role === "admin" && selectedStudents.size > 0 && (
+                                                <button onClick={handleBatchNotify} className="inline-flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-lg bg-primary-600 text-white hover:bg-primary-700 shadow-md shadow-primary-500/20 transition-all">
+                                                    <Mail className="h-3.5 w-3.5" />
+                                                    <span>Batch Notify ({selectedStudents.size})</span>
                                                 </button>
-                                            ) : null}
+                                            )}
                                         </div>
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-sm">
-                                                <thead className="bg-neutral-50 border-b border-neutral-200">
-                                                    <tr>
-                                                        {role === "admin" ? <th className="px-4 py-3 text-left text-xs text-neutral-500 uppercase tracking-wider font-semibold">Select</th> : null}
-                                                        <th className="px-4 py-3 text-left text-xs text-neutral-500 uppercase tracking-wider font-semibold">Student</th>
-                                                        <th className="px-4 py-3 text-left text-xs text-neutral-500 uppercase tracking-wider font-semibold">Period</th>
-                                                        <th className="px-4 py-3 text-left text-xs text-neutral-500 uppercase tracking-wider font-semibold">OJT Docs</th>
-                                                        <th className="px-4 py-3 text-left text-xs text-neutral-500 uppercase tracking-wider font-semibold">HTE Docs</th>
-                                                        <th className="px-4 py-3 text-left text-xs text-neutral-500 uppercase tracking-wider font-semibold">Status</th>
-                                                        <th className="px-4 py-3 text-left text-xs text-neutral-500 uppercase tracking-wider font-semibold">Actions</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-neutral-100">
-                                                    {filteredStudents.map(function (student) {
-                                                        var status = getStudentStatus(student, docFields);
-                                                        var ojtActive = getActiveFields(docFields, "ojt");
-                                                        var hteActive = getActiveFields(docFields, "hte");
-                                                        var ojtUploaded = countUploadedForFields(student, ojtActive);
-                                                        var hteUploaded = countUploadedForFields(student, hteActive);
-                                                        var ojtPct = ojtActive.length === 0 ? 100 : Math.round(ojtUploaded / ojtActive.length * 100);
-                                                        var htePct = hteActive.length === 0 ? 100 : Math.round(hteUploaded / hteActive.length * 100);
-                                                        var isRecentlyNotified = !!recentlySentMap[student.id];
-                                                        var isIncomplete = status === "incomplete";
-                                                        return (
-                                                            <tr key={student.id} className={"hover:bg-neutral-50 transition-colors " + (isRecentlyNotified ? "bg-warning/3" : "")}>
-                                                                {role === "admin" ? (
-                                                                    <td className="px-4 py-4">
-                                                                        {isIncomplete ? (
-                                                                            isRecentlyNotified ? (
-                                                                                /* Cooldown indicator: checkbox is visually disabled with a timer badge */
-                                                                                <div className="flex flex-col items-start gap-1">
-                                                                                    <input
-                                                                                        type="checkbox"
-                                                                                        disabled
-                                                                                        checked={false}
-                                                                                        className="h-4 w-4 rounded border-neutral-200 opacity-30 cursor-not-allowed"
-                                                                                        title={"Cooldown active — " + formatCooldownRemaining(recentlySentMap[student.id]) + " remaining"}
-                                                                                    />
-                                                                                    <span className="inline-flex items-center gap-0.5 text-[10px] text-warning font-medium leading-none">
-                                                                                        <Timer className="h-2.5 w-2.5" />
-                                                                                        {formatCooldownRemaining(recentlySentMap[student.id])}
-                                                                                    </span>
-                                                                                </div>
-                                                                            ) : (
-                                                                                <input type="checkbox" checked={selectedStudents.has(student.id)} onChange={function () { handleSelectStudent(student.id); }}
-                                                                                    className="h-4 w-4 rounded border-neutral-200 accent-primary-500" />
-                                                                            )
-                                                                        ) : null}
-                                                                    </td>
-                                                                ) : null}
-                                                                <td className="px-4 py-4">
-                                                                    <p className="font-semibold text-neutral-900">{student.name}</p>
-                                                                    <p className="text-xs text-neutral-500">{student.id}</p>
-                                                                    {/* Recently-notified badge shown under the student's name */}
-                                                                    {isRecentlyNotified ? (
-                                                                        <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-warning/10 border border-warning/30 text-warning">
-                                                                            <Mail className="h-2.5 w-2.5" />
-                                                                            Notified · {formatCooldownRemaining(recentlySentMap[student.id])} cooldown
-                                                                        </span>
-                                                                    ) : null}
-                                                                </td>
-                                                                <td className="px-4 py-4">
-                                                                    <p className="text-neutral-900 text-sm">{student.year}</p>
-                                                                    <p className="text-xs text-neutral-500">{student.semester}</p>
-                                                                </td>
-                                                                <td className="px-4 py-4">
-                                                                    <ProgressCell uploaded={ojtUploaded} total={ojtActive.length} pct={ojtPct} color={ojtPct === 100 ? "success" : ojtPct >= 70 ? "primary" : "warning"} />
-                                                                </td>
-                                                                <td className="px-4 py-4">
-                                                                    <ProgressCell uploaded={hteUploaded} total={hteActive.length} pct={htePct} color={htePct === 100 ? "success" : "gold"} />
-                                                                </td>
-                                                                <td className="px-4 py-4"><StatusBadge status={status} /></td>
-                                                                <td className="px-4 py-4">
-                                                                    <button onClick={function () { setDetailStudent(student); }} className={btnGhost + " h-8 px-3 text-sm"}>
-                                                                        {role === "admin" ? <Eye className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
-                                                                        <span>{role === "admin" ? "View" : "My Docs"}</span>
-                                                                        <ChevronRight className="h-3.5 w-3.5" />
-                                                                    </button>
-                                                                </td>
-                                                            </tr>
-                                                        );
-                                                    })}
-                                                </tbody>
-                                            </table>
+                                        <div style={{ height: 600, width: '100%' }}>
+                                            <AgGridReact
+                                                theme={hteTheme}
+                                                rowData={filteredStudents}
+                                                columnDefs={columnDefs}
+                                                defaultColDef={defaultColDef}
+                                                rowSelection="multiple"
+                                                onSelectionChanged={onSelectionChanged}
+                                                animateRows={true}
+                                                pagination={true}
+                                                paginationPageSize={20}
+                                                suppressRowClickSelection={true}
+                                            />
                                         </div>
-                                        {filteredStudents.length === 0 ? (
-                                            <div className="p-12 text-center">
-                                                <FileText className="h-10 w-10 text-neutral-200 mx-auto mb-3" />
-                                                <p className="text-neutral-500 text-sm">No students found</p>
-                                            </div>
-                                        ) : null}
                                     </div>
 
-                                    {role === "admin" && notificationLog.length > 0 ? (
+                                    {filteredStudents.length === 0 && (
+                                        <div className="p-12 text-center">
+                                            <FileText className="h-10 w-10 text-neutral-200 mx-auto mb-3" />
+                                            <p className="text-neutral-500 text-sm">No students found</p>
+                                        </div>
+                                    )}
+
+                                    {role === "admin" && notificationLog.length > 0 && (
                                         <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm">
                                             <button onClick={function () { setShowLog(function (p) { return !p; }); }} className="w-full px-5 py-4 flex items-center justify-between hover:bg-neutral-50 transition-colors">
                                                 <div className="flex items-center gap-3">
@@ -660,7 +773,7 @@ export default function HTEDocumentArchivePage() {
                                                 </div>
                                                 {showLog ? <ChevronUp className="h-4 w-4 text-neutral-500" /> : <ChevronDown className="h-4 w-4 text-neutral-500" />}
                                             </button>
-                                            {showLog ? (
+                                            {showLog && (
                                                 <div className="border-t border-neutral-200 divide-y divide-neutral-100">
                                                     {notificationLog.map(function (entry) {
                                                         return (
@@ -689,174 +802,177 @@ export default function HTEDocumentArchivePage() {
                                                         );
                                                     })}
                                                 </div>
-                                            ) : null}
+                                            )}
                                         </div>
-                                    ) : null}
-
+                                    )}
                                 </React.Fragment>
-                            ) : null}
-
+                            )}
                         </React.Fragment>
                     )}
-
                 </div>
             </main>
 
             {/* ── Duplicate Send Warning Modal (redesigned) ───────────────────── */}
-            {duplicateWarnData ? (
-                <Modal onClose={function () { setDuplicateWarnData(null); }}>
-                    <div className="p-6 space-y-5">
-                        {/* Header */}
-                        <div className="flex items-start gap-3">
-                            <div className="h-10 w-10 rounded-lg bg-warning/10 border border-warning/30 flex items-center justify-center flex-shrink-0">
-                                <ShieldAlert className="h-5 w-5 text-warning" />
+            {
+                duplicateWarnData ? (
+                    <Modal onClose={function () { setDuplicateWarnData(null); }}>
+                        <div className="p-6 space-y-5">
+                            {/* Header */}
+                            <div className="flex items-start gap-3">
+                                <div className="h-10 w-10 rounded-lg bg-warning/10 border border-warning/30 flex items-center justify-center flex-shrink-0">
+                                    <ShieldAlert className="h-5 w-5 text-warning" />
+                                </div>
+                                <div>
+                                    <h2 className="text-base font-bold text-neutral-900">Duplicate Notification Detected</h2>
+                                    <p className="text-xs text-neutral-500 mt-0.5">
+                                        {duplicateWarnData.blockedStudents.length === 1
+                                            ? "1 student was"
+                                            : duplicateWarnData.blockedStudents.length + " students were"} already notified within the {DUPLICATE_SEND_COOLDOWN_MINUTES}-minute cooldown window.
+                                    </p>
+                                </div>
                             </div>
-                            <div>
-                                <h2 className="text-base font-bold text-neutral-900">Duplicate Notification Detected</h2>
-                                <p className="text-xs text-neutral-500 mt-0.5">
-                                    {duplicateWarnData.blockedStudents.length === 1
-                                        ? "1 student was"
-                                        : duplicateWarnData.blockedStudents.length + " students were"} already notified within the {DUPLICATE_SEND_COOLDOWN_MINUTES}-minute cooldown window.
-                                </p>
-                            </div>
-                        </div>
 
-                        {/* Blocked students list */}
-                        <div className="rounded-lg border border-warning/30 bg-warning/5 divide-y divide-warning/15 overflow-hidden">
-                            {duplicateWarnData.blockedStudents.map(function (s) {
-                                return (
-                                    <div key={s.id} className="flex items-center justify-between px-4 py-2.5 gap-3">
-                                        <div>
-                                            <p className="text-sm font-semibold text-neutral-900">{s.name}</p>
-                                            <p className="text-xs text-neutral-500">{s.email}</p>
+                            {/* Blocked students list */}
+                            <div className="rounded-lg border border-warning/30 bg-warning/5 divide-y divide-warning/15 overflow-hidden">
+                                {duplicateWarnData.blockedStudents.map(function (s) {
+                                    return (
+                                        <div key={s.id} className="flex items-center justify-between px-4 py-2.5 gap-3">
+                                            <div>
+                                                <p className="text-sm font-semibold text-neutral-900">{s.name}</p>
+                                                <p className="text-xs text-neutral-500">{s.email}</p>
+                                            </div>
+                                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-warning whitespace-nowrap">
+                                                <Timer className="h-3 w-3" />
+                                                {formatCooldownRemaining(s.sentAt)} left
+                                            </span>
                                         </div>
-                                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-warning whitespace-nowrap">
-                                            <Timer className="h-3 w-3" />
-                                            {formatCooldownRemaining(s.sentAt)} left
-                                        </span>
-                                    </div>
-                                );
-                            })}
-                        </div>
+                                    );
+                                })}
+                            </div>
 
-                        {/* Guidance text */}
-                        {duplicateWarnData.allowedStudents.length > 0 ? (
-                            <p className="text-sm text-neutral-600">
-                                <span className="font-semibold text-neutral-900">{duplicateWarnData.allowedStudents.length} other student{duplicateWarnData.allowedStudents.length !== 1 ? "s" : ""}</span> in your selection are not in cooldown and can be notified now.
-                            </p>
-                        ) : (
-                            <p className="text-sm text-neutral-600">All selected students are currently in the cooldown window. Sending duplicate notifications may confuse them.</p>
-                        )}
-
-                        {/* Actions */}
-                        <div className="flex flex-col gap-2 pt-1">
-                            {/* Primary action depends on whether there are any "allowed" students */}
+                            {/* Guidance text */}
                             {duplicateWarnData.allowedStudents.length > 0 ? (
-                                <button onClick={handleConfirmAllowedOnly} className={btnDefault + " w-full justify-center"}>
-                                    <Mail className="h-4 w-4" />
-                                    <span>Notify {duplicateWarnData.allowedStudents.length} Eligible Student{duplicateWarnData.allowedStudents.length !== 1 ? "s" : ""} Only</span>
+                                <p className="text-sm text-neutral-600">
+                                    <span className="font-semibold text-neutral-900">{duplicateWarnData.allowedStudents.length} other student{duplicateWarnData.allowedStudents.length !== 1 ? "s" : ""}</span> in your selection are not in cooldown and can be notified now.
+                                </p>
+                            ) : (
+                                <p className="text-sm text-neutral-600">All selected students are currently in the cooldown window. Sending duplicate notifications may confuse them.</p>
+                            )}
+
+                            {/* Actions */}
+                            <div className="flex flex-col gap-2 pt-1">
+                                {/* Primary action depends on whether there are any "allowed" students */}
+                                {duplicateWarnData.allowedStudents.length > 0 ? (
+                                    <button onClick={handleConfirmAllowedOnly} className={btnDefault + " w-full justify-center"}>
+                                        <Mail className="h-4 w-4" />
+                                        <span>Notify {duplicateWarnData.allowedStudents.length} Eligible Student{duplicateWarnData.allowedStudents.length !== 1 ? "s" : ""} Only</span>
+                                    </button>
+                                ) : null}
+                                {/* Force-override: always available but visually secondary */}
+                                <button onClick={handleForceConfirmAll} className={btnWarning + " w-full justify-center"}>
+                                    <ShieldAlert className="h-4 w-4" />
+                                    <span>Override Cooldown & Notify All {selectedStudents.size}</span>
                                 </button>
-                            ) : null}
-                            {/* Force-override: always available but visually secondary */}
-                            <button onClick={handleForceConfirmAll} className={btnWarning + " w-full justify-center"}>
-                                <ShieldAlert className="h-4 w-4" />
-                                <span>Override Cooldown & Notify All {selectedStudents.size}</span>
-                            </button>
-                            <button onClick={function () { setDuplicateWarnData(null); }} className={btnSecondary + " w-full justify-center"}>
-                                Cancel
-                            </button>
+                                <button onClick={function () { setDuplicateWarnData(null); }} className={btnSecondary + " w-full justify-center"}>
+                                    Cancel
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                </Modal>
-            ) : null}
+                    </Modal>
+                ) : null
+            }
 
             {/* Batch Preview Modal */}
-            {showBatchPreview ? (
-                <Modal onClose={function () { setShowBatchPreview(false); }} wide={true}>
-                    <div className="flex flex-col max-h-[90vh]">
-                        <div className="p-6 border-b border-neutral-200 bg-gradient-primary">
-                            <h2 className="text-xl font-bold text-white">Preview Batch Notification</h2>
-                            <p className="text-sm text-white/70">Emails will be sent to <span className="text-gold-500 font-semibold">{selectedNotified.length} student(s)</span>. Review before confirming.</p>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-6 space-y-5 bg-neutral-50">
-                            {selectedNotified.map(function (student) {
-                                var activeFields = getAllActiveFields(docFields);
-                                var missing = activeFields.filter(function (f) { var rec = student.uploads[f.id]; return !rec || rec.status !== "uploaded"; }).map(function (f) { return f.name; });
-                                var portalLink = PORTAL_BASE_URL + "/" + student.id;
-                                var wasRecentlyNotified = !!recentlySentMap[student.id];
-                                return (
-                                    <div key={student.id} className="bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm">
-                                        <div className="px-4 py-2.5 bg-neutral-100 border-b border-neutral-200 flex items-center justify-between gap-3 flex-wrap">
-                                            <div className="flex items-center gap-4 text-xs">
-                                                <span className="text-neutral-500">To:</span>
-                                                <span className="font-semibold text-neutral-900">{student.name}</span>
-                                                <span className="text-neutral-200">|</span>
-                                                <span className="text-neutral-500">{student.email}</span>
+            {
+                showBatchPreview ? (
+                    <Modal onClose={function () { setShowBatchPreview(false); }} wide={true}>
+                        <div className="flex flex-col max-h-[90vh]">
+                            <div className="p-6 border-b border-neutral-200 bg-gradient-primary">
+                                <h2 className="text-xl font-bold text-white">Preview Batch Notification</h2>
+                                <p className="text-sm text-white/70">Emails will be sent to <span className="text-gold-500 font-semibold">{selectedNotified.length} student(s)</span>. Review before confirming.</p>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-6 space-y-5 bg-neutral-50">
+                                {selectedNotified.map(function (student) {
+                                    var activeFields = getAllActiveFields(docFields);
+                                    var missing = activeFields.filter(function (f) { var rec = student.uploads[f.id]; return !rec || rec.status !== "uploaded"; }).map(function (f) { return f.name; });
+                                    var portalLink = PORTAL_BASE_URL + "/" + student.id;
+                                    var wasRecentlyNotified = !!recentlySentMap[student.id];
+                                    return (
+                                        <div key={student.id} className="bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm">
+                                            <div className="px-4 py-2.5 bg-neutral-100 border-b border-neutral-200 flex items-center justify-between gap-3 flex-wrap">
+                                                <div className="flex items-center gap-4 text-xs">
+                                                    <span className="text-neutral-500">To:</span>
+                                                    <span className="font-semibold text-neutral-900">{student.name}</span>
+                                                    <span className="text-neutral-200">|</span>
+                                                    <span className="text-neutral-500">{student.email}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2 flex-shrink-0">
+                                                    {wasRecentlyNotified ? (
+                                                        <span className="text-xs px-2 py-0.5 rounded-full bg-warning/10 border border-warning/40 text-warning font-medium flex items-center gap-1">
+                                                            <Timer className="h-2.5 w-2.5" />Override
+                                                        </span>
+                                                    ) : null}
+                                                    <span className="text-xs px-2 py-0.5 rounded-full bg-warning/10 border border-warning/40 text-warning font-medium">{missing.length} pending</span>
+                                                </div>
                                             </div>
-                                            <div className="flex items-center gap-2 flex-shrink-0">
-                                                {wasRecentlyNotified ? (
-                                                    <span className="text-xs px-2 py-0.5 rounded-full bg-warning/10 border border-warning/40 text-warning font-medium flex items-center gap-1">
-                                                        <Timer className="h-2.5 w-2.5" />Override
-                                                    </span>
-                                                ) : null}
-                                                <span className="text-xs px-2 py-0.5 rounded-full bg-warning/10 border border-warning/40 text-warning font-medium">{missing.length} pending</span>
+                                            <div className="px-4 py-2 bg-neutral-50 border-b border-neutral-200 flex items-center gap-3 text-xs">
+                                                <span className="text-neutral-500">Subject:</span>
+                                                <span className="text-neutral-900">Action Required: Pending OJT Document Submissions — {student.year} {student.semester}</span>
+                                            </div>
+                                            <div className="p-5 space-y-4 text-sm text-neutral-900 leading-relaxed">
+                                                <p>Dear <span className="font-bold">{student.name}</span>,</p>
+                                                <p className="text-neutral-500">
+                                                    This is a reminder from your OJT Coordinator regarding your document submissions for the{" "}
+                                                    <span className="text-neutral-900 font-medium">{student.year} {student.semester}</span> internship period. The following document(s) are still pending:
+                                                </p>
+                                                <ul className="space-y-2 pl-1">
+                                                    {missing.map(function (docName, i) {
+                                                        return (
+                                                            <li key={i} className="flex items-start gap-2.5">
+                                                                <span className="mt-2 h-1.5 w-1.5 rounded-full bg-warning flex-shrink-0" />
+                                                                <span className="text-neutral-900">{docName}</span>
+                                                            </li>
+                                                        );
+                                                    })}
+                                                </ul>
+                                                <p className="text-neutral-500">Please upload your missing documents through your student portal:</p>
+                                                <div className="bg-neutral-100 border border-neutral-200 rounded-lg px-4 py-3 flex items-center gap-3">
+                                                    <Mail className="h-4 w-4 text-neutral-500 flex-shrink-0" />
+                                                    <span className="text-neutral-900 text-xs break-all font-medium">{portalLink}</span>
+                                                </div>
+                                                <p className="text-neutral-500 text-xs pt-1 border-t border-neutral-100">
+                                                    If you have already submitted any documents in person, please coordinate with your OJT Coordinator for manual processing. Do not reply to this automated message.
+                                                </p>
                                             </div>
                                         </div>
-                                        <div className="px-4 py-2 bg-neutral-50 border-b border-neutral-200 flex items-center gap-3 text-xs">
-                                            <span className="text-neutral-500">Subject:</span>
-                                            <span className="text-neutral-900">Action Required: Pending OJT Document Submissions — {student.year} {student.semester}</span>
-                                        </div>
-                                        <div className="p-5 space-y-4 text-sm text-neutral-900 leading-relaxed">
-                                            <p>Dear <span className="font-bold">{student.name}</span>,</p>
-                                            <p className="text-neutral-500">
-                                                This is a reminder from your OJT Coordinator regarding your document submissions for the{" "}
-                                                <span className="text-neutral-900 font-medium">{student.year} {student.semester}</span> internship period. The following document(s) are still pending:
-                                            </p>
-                                            <ul className="space-y-2 pl-1">
-                                                {missing.map(function (docName, i) {
-                                                    return (
-                                                        <li key={i} className="flex items-start gap-2.5">
-                                                            <span className="mt-2 h-1.5 w-1.5 rounded-full bg-warning flex-shrink-0" />
-                                                            <span className="text-neutral-900">{docName}</span>
-                                                        </li>
-                                                    );
-                                                })}
-                                            </ul>
-                                            <p className="text-neutral-500">Please upload your missing documents through your student portal:</p>
-                                            <div className="bg-neutral-100 border border-neutral-200 rounded-lg px-4 py-3 flex items-center gap-3">
-                                                <Mail className="h-4 w-4 text-neutral-500 flex-shrink-0" />
-                                                <span className="text-neutral-900 text-xs break-all font-medium">{portalLink}</span>
-                                            </div>
-                                            <p className="text-neutral-500 text-xs pt-1 border-t border-neutral-100">
-                                                If you have already submitted any documents in person, please coordinate with your OJT Coordinator for manual processing. Do not reply to this automated message.
-                                            </p>
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                })}
+                            </div>
+                            <div className="p-5 border-t border-neutral-200 bg-white flex justify-end gap-3">
+                                <button onClick={function () { setShowBatchPreview(false); }} className={btnSecondary}>Cancel</button>
+                                <button onClick={handleConfirmBatch} className={btnDefault}>
+                                    <Mail className="h-4 w-4" /><span>Confirm and Send {selectedNotified.length} Email(s)</span>
+                                </button>
+                            </div>
                         </div>
-                        <div className="p-5 border-t border-neutral-200 bg-white flex justify-end gap-3">
-                            <button onClick={function () { setShowBatchPreview(false); }} className={btnSecondary}>Cancel</button>
-                            <button onClick={handleConfirmBatch} className={btnDefault}>
-                                <Mail className="h-4 w-4" /><span>Confirm and Send {selectedNotified.length} Email(s)</span>
-                            </button>
-                        </div>
-                    </div>
-                </Modal>
-            ) : null}
+                    </Modal>
+                ) : null
+            }
 
             {/* Student Detail Modal */}
-            {detailStudent ? (
-                <StudentDetailModal
-                    student={liveDetail ? liveDetail : detailStudent}
-                    role={role}
-                    docFields={docFields}
-                    onClose={function () { setDetailStudent(null); }}
-                    onUpload={function (fieldId, file) { handleUpload(detailStudent.id, fieldId, file, role); }}
-                    onRemoveUpload={function (fieldId) { handleRemoveUpload(detailStudent.id, fieldId); }}
-                    onError={setUploadError}
-                />
-            ) : null}
+            {
+                detailStudent ? (
+                    <StudentDetailModal
+                        student={liveDetail ? liveDetail : detailStudent}
+                        role={role}
+                        docFields={docFields}
+                        onClose={function () { setDetailStudent(null); }}
+                        onUpload={function (fieldId, file) { handleUpload(detailStudent.id, fieldId, file, role); }}
+                        onRemoveUpload={function (fieldId) { handleRemoveUpload(detailStudent.id, fieldId); }}
+                        onError={setUploadError}
+                    />
+                ) : null
+            }
 
             {/* Toast stack */}
             <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[60] flex flex-col gap-3 w-96 pointer-events-none">
@@ -865,7 +981,7 @@ export default function HTEDocumentArchivePage() {
                 {notifySuccess ? <Toast type="notify" message={notifySuccess} onClose={function () { setNotifySuccess(null); }} /> : null}
             </div>
 
-        </div>
+        </div >
     );
 }
 
