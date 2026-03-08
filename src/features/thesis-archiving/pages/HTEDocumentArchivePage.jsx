@@ -8,7 +8,7 @@ import {
     Ban, RefreshCw, Trash2, Calendar, User, ChevronRight, AlertTriangle,
     History, ChevronDown, ChevronUp, Settings, Plus, GripVertical,
     ToggleLeft, ToggleRight, Save, MinusCircle, ShieldAlert, Edit,
-    Timer, UserPlus,
+    Timer, UserPlus, ExternalLink,
 } from "lucide-react";
 import AddStudentModal from "../components/AddStudentModal";
 import { AgGridReact } from 'ag-grid-react';
@@ -415,6 +415,31 @@ export default function HTEDocumentArchivePage() {
                 flex: 1
             },
             {
+                headerName: "Folder Link",
+                field: "gdrive_folder_link",
+                minWidth: 200,
+                flex: 1,
+                editable: role === "admin",
+                cellClass: role === "admin" ? "bg-amber-50/30 cursor-pointer" : "",
+                cellRenderer: function (params) {
+                    if (!params.value) return <span className="text-neutral-400 italic text-xs">No link set</span>;
+                    return (
+                        <div className="flex items-center gap-2 group h-full">
+                            <a
+                                href={params.value}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary-600 hover:underline truncate"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                {params.value}
+                            </a>
+                            <ExternalLink className="h-3 w-3 text-neutral-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                    );
+                }
+            },
+            {
                 headerName: "Status",
                 field: "status",
                 width: 130,
@@ -604,6 +629,8 @@ export default function HTEDocumentArchivePage() {
             program: newStudentData.program,
             adviser: newStudentData.adviser,
             email: newStudentData.email,
+            gdrive_folder_link: "",
+            gdrive_folder_id: "",
             name: newStudentData.firstName + " " + newStudentData.lastName,
             uploads: buildInitialUploads(ALL_FIELD_IDS)
         };
