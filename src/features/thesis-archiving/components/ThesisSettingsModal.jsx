@@ -18,6 +18,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Settings, Edit, ChevronRight, Plus, Trash2, Check, ArrowLeft, Save } from "lucide-react";
+import { thesisService } from "../services/thesisService";
 import { AgGridReact } from 'ag-grid-react';
 import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-community';
 
@@ -96,8 +97,7 @@ const ActionCellRenderer = (params) => {
             <button
                 onClick={handleClick}
                 disabled={isRecentSave}
-                className={`p-1.5 rounded-md transition-all duration-200 ${
-                    isRecentSave
+                className={`p-1.5 rounded-md transition-all duration-200 ${isRecentSave
                     ? "opacity-30 cursor-not-allowed bg-neutral-200/50"
                     : "hover:bg-neutral-100 text-neutral-600 hover:text-neutral-900"
                     }`}
@@ -115,38 +115,76 @@ const ActionCellRenderer = (params) => {
 
 export function ThesisSettingsModal({ variant = "dark" }) {
     const isDark = variant === "dark";
-    const [view, setView] = useState('settings'); // 'settings' | 'advisers' | 'categories'
-    const [advisers, setAdvisers] = useState([
-        { id: 1, name: "Professor. Alan Turing, Ph.D." },
-        { id: 2, name: "Professor. Dorothy Brown, MIT" },
-    ]);
-    const [newAdviserName, setNewAdviserName] = useState("");
+    const [view, setView] = useState('settings'); // 'settings' | 'advisers' | 'categories' | 'sections'
+    const [advisers, setAdvisers] = useState([]);
+    const [categories, setCategories] = useState([]);
+    const [sections, setSections] = useState([]);
+    const [loading, setLoading] = useState(false);
 
-    const [categories, setCategories] = useState([
-        { id: 1, name: "AI" },
-        { id: 2, name: "Internet of things" },
-    ]);
+    // Form states
+    const [newAdviserName, setNewAdviserName] = useState("");
     const [newCategoryName, setNewCategoryName] = useState("");
+    const [newSectionName, setNewSectionName] = useState("");
+    const [newSectionProgram, setNewSectionProgram] = useState("Computer Science");
 
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState(null);
+
+    useEffect(() => {
+        fetchInitialData();
+    }, []);
+
+    const fetchInitialData = async () => {
+        setLoading(true);
+        try {
+            const [advData, catData, secData] = await Promise.all([
+                thesisService.getAdvisers(),
+                thesisService.getCategories(),
+                thesisService.getSections()
+            ]);
+            setAdvisers(advData.map(a => ({ id: a.id, name: a.display_name || a.name })));
+            setCategories(catData);
+            setSections(secData);
+        } catch (error) {
+            console.error("Failed to fetch settings data:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleBack = () => {
         setView('settings');
     };
 
-    const handleAddAdviser = () => {
+    const handleAddAdviser = async () => {
         if (!newAdviserName.trim()) return;
-        const newId = Math.max(...advisers.map(a => a.id), 0) + 1;
+        // Note: Real adviser creation might be complex if it requires auth.user sync,
+        // but let's assume a simple table for this context or skip real sync if unknown.
+        // For HTE specifically, we focus on Sections.
+        const newId = Date.now();
         setAdvisers([...advisers, { id: newId, name: newAdviserName }]);
         setNewAdviserName("");
     };
 
     const handleAddCategory = () => {
         if (!newCategoryName.trim()) return;
-        const newId = Math.max(...categories.map(c => c.id), 0) + 1;
+        const newId = Date.now();
         setCategories([...categories, { id: newId, name: newCategoryName }]);
         setNewCategoryName("");
+    };
+
+    const handleAddSection = async () => {
+        if (!newSectionName.trim()) return;
+        try {
+            const data = await thesisService.addSection({
+                name: newSectionName,
+                program: newSectionProgram
+            });
+            setSections([...sections, data]);
+            setNewSectionName("");
+        } catch (error) {
+            console.error("Failed to add section:", error);
+        }
     };
 
     const handleDelete = (id) => {
@@ -157,12 +195,19 @@ export function ThesisSettingsModal({ variant = "dark" }) {
         setIsDeleteDialogOpen(true);
     };
 
-    const confirmDelete = () => {
+    const confirmDelete = async () => {
         if (itemToDelete) {
-            if (view === 'advisers') {
-                setAdvisers(advisers.filter(a => a.id !== itemToDelete.id));
-            } else {
-                setCategories(categories.filter(c => c.id !== itemToDelete.id));
+            try {
+                if (view === 'advisers') {
+                    setAdvisers(advisers.filter(a => a.id !== itemToDelete.id));
+                } else if (view === 'categories') {
+                    setCategories(categories.filter(c => c.id !== itemToDelete.id));
+                } else if (view === 'sections') {
+                    await thesisService.deleteSection(itemToDelete.id);
+                    setSections(sections.filter(s => s.id !== itemToDelete.id));
+                }
+            } catch (error) {
+                console.error("Delete failed:", error);
             }
             setIsDeleteDialogOpen(false);
             setItemToDelete(null);
@@ -191,25 +236,40 @@ export function ThesisSettingsModal({ variant = "dark" }) {
 
 
     const columnDefs = useMemo(() => {
-        const fieldName = view === 'advisers' ? "name" : "name";
-        const headerName = view === 'advisers' ? "Name" : "Category Name";
+        const headerName = view === 'advisers' ? "Name" : view === 'categories' ? "Category Name" : "Section Name";
 
-        return [
+        const cols = [
             {
                 field: "name",
                 headerName: headerName,
                 flex: 1,
                 editable: true,
                 singleClickEdit: false,
-            },
-            {
-                field: "actions",
-                headerName: "Action",
-                width: 100,
-                cellRenderer: ActionCellRenderer,
-                editable: false
             }
         ];
+
+        if (view === 'sections') {
+            cols.push({
+                field: "program",
+                headerName: "Program",
+                width: 150,
+                editable: true,
+                cellEditor: 'agSelectCellEditor',
+                cellEditorParams: {
+                    values: ["Computer Science", "Information Technology"]
+                }
+            });
+        }
+
+        cols.push({
+            field: "actions",
+            headerName: "Action",
+            width: 80,
+            cellRenderer: ActionCellRenderer,
+            editable: false
+        });
+
+        return cols;
     }, [view]);
 
     return (
@@ -288,6 +348,18 @@ export function ThesisSettingsModal({ variant = "dark" }) {
                                     Edit / Add Categories
                                 </Button>
                             </div>
+
+                            <div className="flex items-center gap-4">
+                                <Label className="text-base w-48 text-neutral-900">Sections</Label>
+                                <Button
+                                    variant="outline"
+                                    className="flex-1 justify-start gap-2 h-10 px-4 font-normal text-base bg-white border-neutral-200 text-neutral-900 hover:bg-neutral-50 hover:text-neutral-900 hover:border-neutral-300"
+                                    onClick={() => setView('sections')}
+                                >
+                                    <Edit className="h-4 w-4" />
+                                    Edit / Add Sections
+                                </Button>
+                            </div>
                         </div>
 
                         <div className="flex justify-end pt-2 border-t border-neutral-200 mt-auto">
@@ -353,7 +425,7 @@ export function ThesisSettingsModal({ variant = "dark" }) {
                             </div>
                         </div>
                     </div>
-                ) : (
+                ) : view === 'categories' ? (
                     <div className="flex flex-col h-full gap-4">
                         <DialogHeader>
                             <div className="flex items-center gap-1 text-sm mb-1">
@@ -406,6 +478,82 @@ export function ThesisSettingsModal({ variant = "dark" }) {
                                     animateRows={true}
                                     stopEditingWhenCellsLoseFocus={true}
                                     onCellValueChanged={handleCellValueChanged}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="flex flex-col h-full gap-4">
+                        <DialogHeader>
+                            <div className="flex items-center gap-1 text-sm mb-1">
+                                <button
+                                    onClick={handleBack}
+                                    className="text-neutral-600 hover:text-neutral-900 transition-colors flex items-center"
+                                >
+                                    Settings
+                                </button>
+                                <ChevronRight className="h-4 w-4 text-neutral-400" />
+                                <span className="text-neutral-900 font-medium">Sections</span>
+                            </div>
+                            <DialogTitle className="text-xl font-semibold text-neutral-900">Manage Sections</DialogTitle>
+                            <DialogDescription className="text-neutral-600 text-sm">
+                                Manage class sections for Computer Science and Information Technology.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="flex gap-2 items-center">
+                            <Input
+                                placeholder="Section Name (e.g. 4A)"
+                                value={newSectionName}
+                                onChange={(e) => setNewSectionName(e.target.value)}
+                                className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-neutral-300 flex-1"
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleAddSection();
+                                }}
+                            />
+                            <Select value={newSectionProgram} onValueChange={setNewSectionProgram}>
+                                <SelectTrigger className="w-[180px] bg-white border-neutral-200 text-neutral-900">
+                                    <SelectValue placeholder="Program" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white border-neutral-200 text-neutral-900">
+                                    <SelectItem value="Computer Science">Computer Science</SelectItem>
+                                    <SelectItem value="Information Technology">Information Technology</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <Button
+                                variant="outline"
+                                className="bg-primary-500 text-white hover:bg-primary-600 border-none font-medium shrink-0"
+                                onClick={handleAddSection}
+                            >
+                                Add
+                            </Button>
+                        </div>
+
+                        <div className="border border-neutral-200 rounded-md overflow-hidden bg-white" style={{ height: '350px' }}>
+                            <div style={{ height: '100%', width: '100%' }}>
+                                <AgGridReact
+                                    theme={customTheme}
+                                    rowData={sections}
+                                    columnDefs={columnDefs}
+                                    defaultColDef={{
+                                        sortable: true,
+                                        filter: true,
+                                        resizable: true,
+                                    }}
+                                    context={{ handleDelete }}
+                                    animateRows={true}
+                                    stopEditingWhenCellsLoseFocus={true}
+                                    onCellValueChanged={async (event) => {
+                                        try {
+                                            await thesisService.updateSection(event.data.id, {
+                                                name: event.data.name,
+                                                program: event.data.program
+                                            });
+                                            setSections(prev => prev.map(s => s.id === event.data.id ? event.data : s));
+                                        } catch (error) {
+                                            console.error("Update failed:", error);
+                                        }
+                                    }}
                                 />
                             </div>
                         </div>

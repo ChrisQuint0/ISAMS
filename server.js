@@ -1150,6 +1150,77 @@ app.get("/api/reports/ojt", verifyReportsAccess, async (req, res) => {
   }
 });
 
+// 11. Create HTE Student (Auth + GDrive + DB)
+app.post("/api/hte/students/create", async (req, res) => {
+  const { studentData, password, academicYear, semester } = req.body;
+  const HTE_PARENT_FOLDER_ID = "1AmN8A4Q-D7eUWH7vIE_C_ybV4DWvm99V";
+
+  try {
+    const auth = await loadToken();
+    if (!auth) return res.status(401).json({ error: "Google Drive not authenticated" });
+    const drive = google.drive({ version: "v3", auth });
+
+    // 1. Create Auth User
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email: studentData.email,
+      password: password,
+      email_confirm: true,
+      user_metadata: {
+        first_name: studentData.firstName,
+        last_name: studentData.lastName,
+      },
+    });
+
+    if (authError) throw authError;
+    const userId = authData.user.id;
+
+    // 2. Set RBAC
+    await supabaseAdmin.from("user_rbac").upsert({
+      user_id: userId,
+      thesis: true, // Thesis Archiving module
+      thesis_role: "student",
+      status: "active"
+    });
+
+    // 3. Create GDrive Folder
+    // Pattern: {studentNo}_{lastName}_{semester}
+    const folderName = `${studentData.studentId}_${studentData.lastName}_${semester}`;
+    const folderId = await getOrCreateFolder(drive, folderName, HTE_PARENT_FOLDER_ID);
+    const folderLink = `https://drive.google.com/drive/folders/${folderId}`;
+
+    // 4. Insert Student Record
+    const { data: student, error: studentError } = await supabaseAdmin
+      .from("hte_ojt_students")
+      .insert([{
+        user_id: userId,
+        student_no: studentData.studentId,
+        first_name: studentData.firstName,
+        middle_name: studentData.middleName,
+        last_name: studentData.lastName,
+        email: studentData.email,
+        program: studentData.program,
+        section: studentData.sectionName || "", // For legacy compatibility
+        section_id: studentData.sectionId,
+        adviser_id: studentData.adviserId,
+        academic_year: academicYear,
+        semester: semester,
+        gdrive_folder_id: folderId,
+        gdrive_folder_link: folderLink,
+        overall_status: "incomplete",
+        is_active: true
+      }])
+      .select()
+      .single();
+
+    if (studentError) throw studentError;
+
+    res.json({ success: true, student });
+  } catch (error) {
+    console.error("Error creating student:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });

@@ -11,6 +11,7 @@ import {
     Timer, UserPlus, ExternalLink,
 } from "lucide-react";
 import AddStudentModal from "../components/AddStudentModal";
+import { thesisService } from "../services/thesisService";
 import { AgGridReact } from 'ag-grid-react';
 import { ModuleRegistry, AllCommunityModule, themeQuartz } from 'ag-grid-community';
 
@@ -281,14 +282,16 @@ export default function HTEDocumentArchivePage() {
     var role = ctx.role;
     var studentId = ctx.studentId;
 
-    var s1 = React.useState(INITIAL_STUDENTS); var students = s1[0]; var setStudents = s1[1];
-    var s2 = React.useState(INITIAL_DOC_FIELDS); var docFields = s2[0]; var setDocFields = s2[1];
+    var s1 = React.useState([]); var students = s1[0]; var setStudents = s1[1];
+    var s2 = React.useState([]); var docFields = s2[0]; var setDocFields = s2[1];
     var s3 = React.useState(""); var searchQuery = s3[0]; var setSearchQuery = s3[1];
     var s4 = React.useState("all"); var yearFilter = s4[0]; var setYearFilter = s4[1];
     var s5 = React.useState("all"); var statusFilter = s5[0]; var setStatusFilter = s5[1];
     var s18 = React.useState("all"); var programFilter = s18[0]; var setProgramFilter = s18[1];
     var s19 = React.useState("all"); var adviserFilter = s19[0]; var setAdviserFilter = s19[1];
     var s20 = React.useState("all"); var sectionFilter = s20[0]; var setSectionFilter = s20[1];
+    var [loading, setLoading] = React.useState(true);
+    var [filterOptions, setFilterOptions] = React.useState({ advisers: [], sections: [] });
     var s6 = React.useState(new Set()); var selectedStudents = s6[0]; var setSelectedStudents = s6[1];
     var s7 = React.useState(false); var showBatchPreview = s7[0]; var setShowBatchPreview = s7[1];
     var s8 = React.useState(null); var detailStudent = s8[0]; var setDetailStudent = s8[1];
@@ -307,6 +310,71 @@ export default function HTEDocumentArchivePage() {
     // Recompute the recently-sent map on every render (it's cheap — O(log entries))
     var recentlySentMap = buildRecentlySentMap(notificationLog);
 
+    React.useEffect(function () {
+        loadPageData();
+    }, []);
+
+    async function loadPageData() {
+        setLoading(true);
+        console.log("HTEArchive: Loading data...");
+        try {
+            const [fields, studentRecords, advisers, sections] = await Promise.all([
+                thesisService.getHTEDocumentFields(),
+                thesisService.getHTEStudents(),
+                thesisService.getAdvisers(),
+                thesisService.getSections()
+            ]);
+            console.log("HTEArchive: Data loaded", { fields, studentRecords, advisers, sections });
+            const fieldsMapped = fields.map(f => ({
+                ...f,
+                active: f.is_active,
+                order: f.display_order
+            }));
+            setDocFields(fieldsMapped);
+            setFilterOptions({ advisers, sections });
+
+            // Transform DB students into UI-friendly format
+            const transformed = studentRecords.map(s => {
+                const uploadsMap = {};
+                fields.forEach(f => {
+                    uploadsMap[f.id] = { fieldId: f.id, status: "pending", file: null };
+                });
+
+                (s.uploads || []).forEach(u => {
+                    uploadsMap[u.field_id] = {
+                        fieldId: u.field_id,
+                        status: u.status,
+                        file: u.status === "uploaded" ? { name: u.original_filename, size: u.file_size_bytes } : null,
+                        uploadedBy: u.uploaded_by_role,
+                        uploadedAt: u.uploaded_at,
+                        gdrive_file_id: u.gdrive_file_id,
+                        gdrive_view_link: u.gdrive_view_link
+                    };
+                });
+
+                return {
+                    ...s,
+                    // Keep student_no as student_no for display
+                    firstName: s.first_name,
+                    lastName: s.last_name,
+                    middleInitial: s.middle_name ? s.middle_name.charAt(0) + "." : "",
+                    year: s.academic_year,
+                    section: s.section_ref?.name || s.section,
+                    adviser: s.adviser ? `${s.adviser.first_name} ${s.adviser.last_name}` : "None",
+                    name: `${s.first_name} ${s.last_name}`,
+                    uploads: uploadsMap
+                };
+            });
+
+            console.log("HTEArchive: Transformed students", transformed);
+            setStudents(transformed);
+        } catch (error) {
+            console.error("Failed to load archive data:", error);
+        } finally {
+            setLoading(false);
+        }
+    }
+
     // Live-tick every 30 seconds so "Xm remaining" badges refresh automatically
     React.useEffect(function () {
         var interval = setInterval(function () { setTick(function (t) { return t + 1; }); }, 30000);
@@ -320,7 +388,7 @@ export default function HTEDocumentArchivePage() {
     var filteredStudents = visibleStudents.filter(function (s) {
         var status = getStudentStatus(s, docFields);
         var sq = searchQuery.toLowerCase();
-        var matchSearch = s.name.toLowerCase().indexOf(sq) !== -1 || s.id.toLowerCase().indexOf(sq) !== -1;
+        var matchSearch = (s.name || "").toLowerCase().indexOf(sq) !== -1 || (s.student_no || "").toLowerCase().indexOf(sq) !== -1;
         var matchYear = yearFilter === "all" || s.year === yearFilter;
         var matchStatus = statusFilter === "all" || status === statusFilter;
         var matchProgram = programFilter === "all" || s.program === programFilter;
@@ -337,14 +405,7 @@ export default function HTEDocumentArchivePage() {
     // AG-Grid Column Definitions
     var columnDefs = React.useMemo(function () {
         return [
-            {
-                headerCheckboxSelection: true,
-                checkboxSelection: true,
-                width: 50,
-                suppressMenu: true,
-                filter: false,
-                pinned: 'left'
-            },
+            /* Removed Selection Column from colDef — now handled by rowSelection.checkboxes/headerCheckbox */
             {
                 headerName: "OJT Docs",
                 field: "ojtProgress",
@@ -385,6 +446,12 @@ export default function HTEDocumentArchivePage() {
                 valueGetter: function (params) {
                     return params.data.lastName + ", " + params.data.firstName + " " + params.data.middleInitial;
                 }
+            },
+            {
+                headerName: "Student ID",
+                field: "student_no",
+                width: 120,
+                pinned: 'left'
             },
             {
                 headerName: "Period (SY)",
@@ -655,7 +722,9 @@ export default function HTEDocumentArchivePage() {
             <AddStudentModal
                 open={isAddStudentModalOpen}
                 onOpenChange={setIsAddStudentModalOpen}
-                onAdd={handleAddNewStudent}
+                onAdd={function () {
+                    loadPageData();
+                }}
             />
 
             <main className="flex-1 p-6">
@@ -709,17 +778,14 @@ export default function HTEDocumentArchivePage() {
                                                     { value: "Information Technology", label: "Information Technology" },
                                                 ]} />
                                                 <SelectInput value={adviserFilter} onChange={setAdviserFilter} options={[
-                                                    { value: "all", label: "All Advisers" },
-                                                    { value: "Dr. Ricardo Santos", label: "Dr. Ricardo Santos" },
-                                                    { value: "Prof. Elena Cruz", label: "Prof. Elena Cruz" },
-                                                ]} />
+                                                    { value: "all", label: "All Advisers" }
+                                                ].concat(filterOptions.advisers.map(a => {
+                                                    const name = a.display_name || (a.first_name ? `${a.first_name} ${a.last_name}` : "Unknown");
+                                                    return { value: name, label: name };
+                                                }))} />
                                                 <SelectInput value={sectionFilter} onChange={setSectionFilter} options={[
-                                                    { value: "all", label: "All Sections" },
-                                                    { value: "4A", label: "4A" },
-                                                    { value: "4B", label: "4B" },
-                                                    { value: "4C", label: "4C" },
-                                                    { value: "4D", label: "4D" },
-                                                ]} />
+                                                    { value: "all", label: "All Sections" }
+                                                ].concat(filterOptions.sections.map(s => ({ value: s.name, label: s.name })))} />
                                                 <button onClick={function () {
                                                     setSearchQuery("");
                                                     setYearFilter("all");
@@ -773,12 +839,11 @@ export default function HTEDocumentArchivePage() {
                                                 rowData={filteredStudents}
                                                 columnDefs={columnDefs}
                                                 defaultColDef={defaultColDef}
-                                                rowSelection="multiple"
+                                                rowSelection={{ mode: 'multiRow', enableClickSelection: false, checkboxes: true, headerCheckbox: true }}
                                                 onSelectionChanged={onSelectionChanged}
                                                 animateRows={true}
                                                 pagination={true}
                                                 paginationPageSize={20}
-                                                suppressRowClickSelection={true}
                                             />
                                         </div>
                                     </div>

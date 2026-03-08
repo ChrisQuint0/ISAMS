@@ -138,6 +138,20 @@ export const thesisService = {
     },
 
     /**
+     * Fetch HTE document checklist fields
+     */
+    async getHTEDocumentFields() {
+        const { data, error } = await supabase
+            .from("hte_document_fields")
+            .select("*")
+            .eq("is_active", true)
+            .order("display_order", { ascending: true });
+
+        if (error) throw error;
+        return data;
+    },
+
+    /**
      * Fetch a single thesis by ID with all details
      */
     async getThesisById(id) {
@@ -156,6 +170,101 @@ export const thesisService = {
         if (error) throw error;
         return data;
     },
+
+    /**
+     * Fetch all HTE sections
+     */
+    async getSections() {
+        const { data, error } = await supabase
+            .from("hte_sections")
+            .select("*")
+            .order("name", { ascending: true });
+
+        if (error) throw error;
+        return data;
+    },
+
+    /**
+     * Add a new HTE section
+     */
+    async addSection(section) {
+        const { data, error } = await supabase
+            .from("hte_sections")
+            .insert([section])
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
+    /**
+     * Update an HTE section
+     */
+    async updateSection(id, updates) {
+        const { data, error } = await supabase
+            .from("hte_sections")
+            .update(updates)
+            .eq("id", id)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
+    /**
+     * Delete an HTE section
+     */
+    async deleteSection(id) {
+        const { error } = await supabase
+            .from("hte_sections")
+            .delete()
+            .eq("id", id);
+
+        if (error) throw error;
+    },
+    async createHTEStudent({ studentData, password, academicYear, semester }) {
+        const response = await fetch("http://localhost:3000/api/hte/students/create", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ studentData, password, academicYear, semester }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Failed to create student");
+        return data.student;
+    },
+
+    /**
+     * Fetch all HTE students with joined data
+     */
+    async getHTEStudents(filters = {}) {
+        let query = supabase
+            .from("hte_ojt_students")
+            .select(`
+                *,
+                adviser:thesis_advisers(first_name, last_name),
+                section_ref:hte_sections(name),
+                uploads:hte_document_uploads(*)
+            `)
+            .eq("is_active", true);
+
+        // Apply potential filters here if needed
+        if (filters.academic_year && filters.academic_year !== "all") {
+            query = query.eq("academic_year", filters.academic_year);
+        }
+        if (filters.semester && filters.semester !== "all") {
+            query = query.eq("semester", filters.semester);
+        }
+
+        const { data, error } = await query.order("created_at", { ascending: false });
+        if (error) throw error;
+        return data;
+    },
+
     /**
      * Get backend download URL for a thesis file
      */
