@@ -1150,6 +1150,238 @@ app.get("/api/reports/ojt", verifyReportsAccess, async (req, res) => {
   }
 });
 
+// 11. Create HTE Student (Auth + GDrive + DB)
+app.post("/api/hte/students/create", async (req, res) => {
+  const { studentData, password, academicYear, semester } = req.body;
+  const HTE_PARENT_FOLDER_ID = "1AmN8A4Q-D7eUWH7vIE_C_ybV4DWvm99V";
+
+  try {
+    const auth = await loadToken();
+    if (!auth) return res.status(401).json({ error: "Google Drive not authenticated" });
+    const drive = google.drive({ version: "v3", auth });
+
+    // 1. Create Auth User
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email: studentData.email,
+      password: password,
+      email_confirm: true,
+      user_metadata: {
+        first_name: studentData.firstName,
+        last_name: studentData.lastName,
+      },
+    });
+
+    if (authError) throw authError;
+    const userId = authData.user.id;
+
+    // 2. Set RBAC
+    await supabaseAdmin.from("user_rbac").upsert({
+      user_id: userId,
+      thesis: true, // Thesis Archiving module
+      thesis_role: "student",
+      status: "active"
+    });
+
+    // 3. Create GDrive Folder
+    // Pattern: {studentNo}_{lastName}_{semester}
+    const folderName = `${studentData.studentId}_${studentData.lastName}_${semester}`;
+    const folderId = await getOrCreateFolder(drive, folderName, HTE_PARENT_FOLDER_ID);
+    const folderLink = `https://drive.google.com/drive/folders/${folderId}`;
+
+    // 4. Insert Student Record
+    const { data: student, error: studentError } = await supabaseAdmin
+      .from("hte_ojt_students")
+      .insert([{
+        user_id: userId,
+        student_no: studentData.studentId,
+        first_name: studentData.firstName,
+        middle_name: studentData.middleName,
+        last_name: studentData.lastName,
+        email: studentData.email,
+        program: studentData.program,
+        section: studentData.sectionName || "", // For legacy compatibility
+        section_id: studentData.sectionId,
+        adviser_id: studentData.adviserId,
+        academic_year: academicYear,
+        semester: semester,
+        gdrive_folder_id: folderId,
+        gdrive_folder_link: folderLink,
+        overall_status: "incomplete",
+        is_active: true
+      }])
+      .select()
+      .single();
+
+    if (studentError) throw studentError;
+
+    res.json({ success: true, student });
+  } catch (error) {
+    console.error("Error creating student:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+// 12. Upload HTE/OJT Document
+app.post("/api/hte/upload", upload.single("file"), async (req, res) => {
+  const { studentId, fieldId, uploadedByRole } = req.body;
+  const file = req.file;
+
+  if (!studentId || !fieldId || !file) {
+    return res.status(400).json({ error: "Missing required fields or file" });
+  }
+
+  try {
+    const auth = await loadToken();
+    if (!auth) return res.status(401).json({ error: "Google Drive not authenticated" });
+    const drive = google.drive({ version: "v3", auth });
+
+    // 1. Find existing upload record
+    const { data: existingUpload } = await supabaseAdmin
+      .from("hte_document_uploads")
+      .select("id, gdrive_file_id")
+      .eq("student_id", studentId)
+      .eq("field_id", fieldId)
+      .maybeSingle();
+
+    // 2. If exists, delete old file from GDrive
+    if (existingUpload && existingUpload.gdrive_file_id) {
+      try {
+        await drive.files.delete({ fileId: existingUpload.gdrive_file_id });
+      } catch (delErr) {
+        console.warn(`Failed to delete old file (${existingUpload.gdrive_file_id}) from GDrive during overwrite.`, delErr.message);
+      }
+    }
+
+    // 3. Get student's GDrive folder ID
+    const { data: student, error: studentError } = await supabaseAdmin
+      .from("hte_ojt_students")
+      .select("gdrive_folder_id")
+      .eq("id", studentId)
+      .single();
+
+    if (studentError || !student) {
+      throw new Error("Student not found or missing GDrive folder");
+    }
+
+    const maxFileSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxFileSize) {
+      return res.status(400).json({ error: "File exceeds 10MB limit" });
+    }
+
+    // 4. Upload new file to GDrive
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const fileName = `${timestamp}-${file.originalname}`;
+
+    const fileMetadata = {
+      name: fileName,
+      parents: [student.gdrive_folder_id],
+    };
+    const media = {
+      mimeType: file.mimetype,
+      body: Readable.from(file.buffer),
+    };
+
+    const gdriveRes = await drive.files.create({
+      resource: fileMetadata,
+      media: media,
+      fields: "id, webViewLink, name",
+    });
+
+    const gdriveFileId = gdriveRes.data.id;
+    const gdriveViewLink = gdriveRes.data.webViewLink;
+
+    let dbError2;
+    let finalUploadData;
+
+    const payload = {
+      student_id: studentId,
+      field_id: fieldId,
+      status: "uploaded",
+      original_filename: file.originalname,
+      gdrive_file_id: gdriveFileId,
+      gdrive_view_link: gdriveViewLink,
+      file_size_bytes: file.size,
+      uploaded_by_role: uploadedByRole || 'student',
+      uploaded_at: new Date().toISOString()
+    };
+
+    if (existingUpload) {
+      payload.updated_at = new Date().toISOString();
+      const { data, error } = await supabaseAdmin
+        .from("hte_document_uploads")
+        .update(payload)
+        .eq("id", existingUpload.id)
+        .select()
+        .single();
+      dbError2 = error;
+      finalUploadData = data;
+    } else {
+      const { data, error } = await supabaseAdmin
+        .from("hte_document_uploads")
+        .insert([payload])
+        .select()
+        .single();
+      dbError2 = error;
+      finalUploadData = data;
+    }
+
+    if (dbError2) throw dbError2;
+
+    res.json({ success: true, upload: finalUploadData });
+
+  } catch (error) {
+    console.error("Error uploading document:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 13. Delete HTE/OJT Document
+app.post("/api/hte/delete", async (req, res) => {
+  const { studentId, fieldId } = req.body;
+  if (!studentId || !fieldId) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+
+  try {
+    const auth = await loadToken();
+    if (!auth) return res.status(401).json({ error: "Google Drive not authenticated" });
+    const drive = google.drive({ version: "v3", auth });
+
+    // 1. Find existing upload record
+    const { data: existingUpload, error: fetchErr } = await supabaseAdmin
+      .from("hte_document_uploads")
+      .select("id, gdrive_file_id")
+      .eq("student_id", studentId)
+      .eq("field_id", fieldId)
+      .maybeSingle();
+
+    if (fetchErr) throw fetchErr;
+
+    if (existingUpload) {
+      // 2. Delete from GDrive
+      if (existingUpload.gdrive_file_id) {
+        try {
+          await drive.files.delete({ fileId: existingUpload.gdrive_file_id });
+        } catch (delErr) {
+          console.warn(`Failed to delete file (${existingUpload.gdrive_file_id}) from GDrive during removal.`, delErr.message);
+        }
+      }
+
+      // 3. Delete from database
+      const { error: dbDelErr } = await supabaseAdmin
+        .from("hte_document_uploads")
+        .delete()
+        .eq("id", existingUpload.id);
+
+      if (dbDelErr) throw dbDelErr;
+    }
+
+    res.json({ success: true, message: "Document deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting document:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });

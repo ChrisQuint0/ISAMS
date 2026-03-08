@@ -8,9 +8,10 @@ import {
     Ban, RefreshCw, Trash2, Calendar, User, ChevronRight, AlertTriangle,
     History, ChevronDown, ChevronUp, Settings, Plus, GripVertical,
     ToggleLeft, ToggleRight, Save, MinusCircle, ShieldAlert, Edit,
-    Timer, UserPlus, ExternalLink,
+    Timer, UserPlus, ExternalLink, Loader2
 } from "lucide-react";
 import AddStudentModal from "../components/AddStudentModal";
+import { thesisService } from "../services/thesisService";
 import { AgGridReact } from 'ag-grid-react';
 import { ModuleRegistry, AllCommunityModule, themeQuartz } from 'ag-grid-community';
 
@@ -281,14 +282,16 @@ export default function HTEDocumentArchivePage() {
     var role = ctx.role;
     var studentId = ctx.studentId;
 
-    var s1 = React.useState(INITIAL_STUDENTS); var students = s1[0]; var setStudents = s1[1];
-    var s2 = React.useState(INITIAL_DOC_FIELDS); var docFields = s2[0]; var setDocFields = s2[1];
+    var s1 = React.useState([]); var students = s1[0]; var setStudents = s1[1];
+    var s2 = React.useState([]); var docFields = s2[0]; var setDocFields = s2[1];
     var s3 = React.useState(""); var searchQuery = s3[0]; var setSearchQuery = s3[1];
     var s4 = React.useState("all"); var yearFilter = s4[0]; var setYearFilter = s4[1];
     var s5 = React.useState("all"); var statusFilter = s5[0]; var setStatusFilter = s5[1];
     var s18 = React.useState("all"); var programFilter = s18[0]; var setProgramFilter = s18[1];
     var s19 = React.useState("all"); var adviserFilter = s19[0]; var setAdviserFilter = s19[1];
     var s20 = React.useState("all"); var sectionFilter = s20[0]; var setSectionFilter = s20[1];
+    var [loading, setLoading] = React.useState(true);
+    var [filterOptions, setFilterOptions] = React.useState({ advisers: [], sections: [] });
     var s6 = React.useState(new Set()); var selectedStudents = s6[0]; var setSelectedStudents = s6[1];
     var s7 = React.useState(false); var showBatchPreview = s7[0]; var setShowBatchPreview = s7[1];
     var s8 = React.useState(null); var detailStudent = s8[0]; var setDetailStudent = s8[1];
@@ -298,6 +301,7 @@ export default function HTEDocumentArchivePage() {
     var s11 = React.useState([]); var notificationLog = s11[0]; var setNotificationLog = s11[1];
     var s12 = React.useState(false); var showLog = s12[0]; var setShowLog = s12[1];
     var s13 = React.useState(false); var showFieldConfig = s13[0]; var setShowFieldConfig = s13[1];
+    var up = React.useState(null); var uploadingFieldId = up[0]; var setUploadingFieldId = up[1];
     // Duplicate warn: now carries { blockedStudents, allowedStudents } instead of just a boolean
     var s14 = React.useState(null); var duplicateWarnData = s14[0]; var setDuplicateWarnData = s14[1];
     // Tick counter to force re-render so cooldown timers stay live
@@ -306,6 +310,71 @@ export default function HTEDocumentArchivePage() {
 
     // Recompute the recently-sent map on every render (it's cheap — O(log entries))
     var recentlySentMap = buildRecentlySentMap(notificationLog);
+
+    React.useEffect(function () {
+        loadPageData();
+    }, []);
+
+    async function loadPageData() {
+        setLoading(true);
+        console.log("HTEArchive: Loading data...");
+        try {
+            const [fields, studentRecords, advisers, sections] = await Promise.all([
+                thesisService.getHTEDocumentFields(),
+                thesisService.getHTEStudents(),
+                thesisService.getAdvisers(),
+                thesisService.getSections()
+            ]);
+            console.log("HTEArchive: Data loaded", { fields, studentRecords, advisers, sections });
+            const fieldsMapped = fields.map(f => ({
+                ...f,
+                active: f.is_active,
+                order: f.display_order
+            }));
+            setDocFields(fieldsMapped);
+            setFilterOptions({ advisers, sections });
+
+            // Transform DB students into UI-friendly format
+            const transformed = studentRecords.map(s => {
+                const uploadsMap = {};
+                fields.forEach(f => {
+                    uploadsMap[f.id] = { fieldId: f.id, status: "pending", file: null };
+                });
+
+                (s.uploads || []).forEach(u => {
+                    uploadsMap[u.field_id] = {
+                        fieldId: u.field_id,
+                        status: u.status,
+                        file: u.status === "uploaded" ? { name: u.original_filename, size: u.file_size_bytes } : null,
+                        uploadedBy: u.uploaded_by_role,
+                        uploadedAt: u.uploaded_at,
+                        gdrive_file_id: u.gdrive_file_id,
+                        gdrive_view_link: u.gdrive_view_link
+                    };
+                });
+
+                return {
+                    ...s,
+                    // Keep student_no as student_no for display
+                    firstName: s.first_name,
+                    lastName: s.last_name,
+                    middleInitial: s.middle_name ? s.middle_name.charAt(0) + "." : "",
+                    year: s.academic_year,
+                    section: s.section_ref?.name || s.section,
+                    adviser: s.adviser ? `${s.adviser.first_name} ${s.adviser.last_name}` : "None",
+                    name: `${s.first_name} ${s.last_name}`,
+                    uploads: uploadsMap
+                };
+            });
+
+            console.log("HTEArchive: Transformed students", transformed);
+            setStudents(transformed);
+        } catch (error) {
+            console.error("Failed to load archive data:", error);
+        } finally {
+            setLoading(false);
+        }
+    }
 
     // Live-tick every 30 seconds so "Xm remaining" badges refresh automatically
     React.useEffect(function () {
@@ -320,7 +389,7 @@ export default function HTEDocumentArchivePage() {
     var filteredStudents = visibleStudents.filter(function (s) {
         var status = getStudentStatus(s, docFields);
         var sq = searchQuery.toLowerCase();
-        var matchSearch = s.name.toLowerCase().indexOf(sq) !== -1 || s.id.toLowerCase().indexOf(sq) !== -1;
+        var matchSearch = (s.name || "").toLowerCase().indexOf(sq) !== -1 || (s.student_no || "").toLowerCase().indexOf(sq) !== -1;
         var matchYear = yearFilter === "all" || s.year === yearFilter;
         var matchStatus = statusFilter === "all" || status === statusFilter;
         var matchProgram = programFilter === "all" || s.program === programFilter;
@@ -338,11 +407,19 @@ export default function HTEDocumentArchivePage() {
     var columnDefs = React.useMemo(function () {
         return [
             {
-                headerCheckboxSelection: true,
-                checkboxSelection: true,
-                width: 50,
-                suppressMenu: true,
-                filter: false,
+                headerName: "Student",
+                field: "lastName",
+                minWidth: 200,
+                flex: 1,
+                pinned: 'left',
+                valueGetter: function (params) {
+                    return params.data.lastName + ", " + params.data.firstName + " " + params.data.middleInitial;
+                }
+            },
+            {
+                headerName: "Student ID",
+                field: "student_no",
+                width: 120,
                 pinned: 'left'
             },
             {
@@ -374,16 +451,6 @@ export default function HTEDocumentArchivePage() {
                             <ProgressCell uploaded={hteUploaded} total={hteActive.length} pct={htePct} color="gold" />
                         </div>
                     );
-                }
-            },
-            {
-                headerName: "Student",
-                field: "lastName",
-                minWidth: 200,
-                flex: 1,
-                pinned: 'left',
-                valueGetter: function (params) {
-                    return params.data.lastName + ", " + params.data.firstName + " " + params.data.middleInitial;
                 }
             },
             {
@@ -484,32 +551,83 @@ export default function HTEDocumentArchivePage() {
         setSelectedStudents(new Set(selectedRows.map(function (s) { return s.id; })));
     }, []);
 
-    function handleUpload(sId, fieldId, file, uploaderRole) {
+    async function handleUpload(sId, fieldId, file, uploaderRole) {
         var err = validateFile(file);
         if (err) { setUploadError(err); return; }
-        setStudents(function (prev) {
-            return prev.map(function (s) {
-                if (s.id !== sId) return s;
-                var newUploads = {};
-                Object.keys(s.uploads).forEach(function (k) { newUploads[k] = s.uploads[k]; });
-                newUploads[fieldId] = { fieldId: fieldId, status: "uploaded", file: { name: file.name, size: file.size }, uploadedBy: uploaderRole === "admin" ? "coordinator" : "student", uploadedAt: new Date().toISOString() };
-                return { id: s.id, name: s.name, year: s.year, semester: s.semester, email: s.email, uploads: newUploads };
+
+        setUploadingFieldId(fieldId);
+        try {
+            const result = await thesisService.uploadHTEDocument(sId, fieldId, file, uploaderRole === "admin" ? "coordinator" : "student");
+
+            setStudents(function (prev) {
+                return prev.map(function (s) {
+                    if (s.id !== sId) return s;
+                    var newUploads = {};
+                    Object.keys(s.uploads || {}).forEach(function (k) { newUploads[k] = s.uploads[k]; });
+                    newUploads[fieldId] = {
+                        fieldId: fieldId,
+                        status: "uploaded",
+                        file: { name: file.name, size: file.size },
+                        uploadedBy: uploaderRole === "admin" ? "coordinator" : "student",
+                        uploadedAt: result.upload?.uploaded_at || new Date().toISOString()
+                    };
+                    return { ...s, uploads: newUploads };
+                });
             });
-        });
-        setUploadSuccess('"' + file.name + '" uploaded successfully.');
-        setTimeout(function () { setUploadSuccess(null); }, 3500);
+            setUploadSuccess('"' + file.name + '" uploaded successfully.');
+            setTimeout(function () { setUploadSuccess(null); }, 3500);
+
+            // If the detail modal is open for this student, also update live_detail
+            if (detailStudent && detailStudent.id === sId) {
+                setDetailStudent(prev => {
+                    var newUploads = {};
+                    Object.keys(prev.uploads || {}).forEach(function (k) { newUploads[k] = prev.uploads[k]; });
+                    newUploads[fieldId] = {
+                        fieldId: fieldId,
+                        status: "uploaded",
+                        file: { name: file.name, size: file.size },
+                        uploadedBy: uploaderRole === "admin" ? "coordinator" : "student",
+                        uploadedAt: result.upload?.uploaded_at || new Date().toISOString()
+                    };
+                    return { ...prev, uploads: newUploads };
+                });
+            }
+
+        } catch (error) {
+            console.error("Upload failed", error);
+            setUploadError(error.message || "Failed to upload document.");
+        } finally {
+            setUploadingFieldId(null);
+        }
     }
 
-    function handleRemoveUpload(sId, fieldId) {
-        setStudents(function (prev) {
-            return prev.map(function (s) {
-                if (s.id !== sId) return s;
-                var newUploads = {};
-                Object.keys(s.uploads).forEach(function (k) { newUploads[k] = s.uploads[k]; });
-                newUploads[fieldId] = { fieldId: fieldId, status: "pending", file: null, uploadedBy: null, uploadedAt: null };
-                return { id: s.id, name: s.name, year: s.year, semester: s.semester, email: s.email, uploads: newUploads };
+    async function handleRemoveUpload(sId, fieldId) {
+        try {
+            await thesisService.deleteHTEDocument(sId, fieldId);
+            setStudents(function (prev) {
+                return prev.map(function (s) {
+                    if (s.id !== sId) return s;
+                    var newUploads = {};
+                    Object.keys(s.uploads || {}).forEach(function (k) { newUploads[k] = s.uploads[k]; });
+                    newUploads[fieldId] = { fieldId: fieldId, status: "pending", file: null, uploadedBy: null, uploadedAt: null };
+                    return { ...s, uploads: newUploads };
+                });
             });
-        });
+            setUploadSuccess("Document removed.");
+            setTimeout(function () { setUploadSuccess(null); }, 3500);
+
+            if (detailStudent && detailStudent.id === sId) {
+                setDetailStudent(prev => {
+                    var newUploads = {};
+                    Object.keys(prev.uploads || {}).forEach(function (k) { newUploads[k] = prev.uploads[k]; });
+                    newUploads[fieldId] = { fieldId: fieldId, status: "pending", file: null, uploadedBy: null, uploadedAt: null };
+                    return { ...prev, uploads: newUploads };
+                });
+            }
+        } catch (error) {
+            console.error("Remove failed", error);
+            setUploadError(error.message || "Failed to remove document.");
+        }
     }
 
     function handleBatchNotify() {
@@ -655,7 +773,9 @@ export default function HTEDocumentArchivePage() {
             <AddStudentModal
                 open={isAddStudentModalOpen}
                 onOpenChange={setIsAddStudentModalOpen}
-                onAdd={handleAddNewStudent}
+                onAdd={function () {
+                    loadPageData();
+                }}
             />
 
             <main className="flex-1 p-6">
@@ -709,17 +829,17 @@ export default function HTEDocumentArchivePage() {
                                                     { value: "Information Technology", label: "Information Technology" },
                                                 ]} />
                                                 <SelectInput value={adviserFilter} onChange={setAdviserFilter} options={[
-                                                    { value: "all", label: "All Advisers" },
-                                                    { value: "Dr. Ricardo Santos", label: "Dr. Ricardo Santos" },
-                                                    { value: "Prof. Elena Cruz", label: "Prof. Elena Cruz" },
-                                                ]} />
+                                                    { value: "all", label: "All Advisers" }
+                                                ].concat(Array.from(new Set(filterOptions.advisers.map(function (a) {
+                                                    return a.display_name || (a.first_name ? a.first_name + " " + a.last_name : "Unknown");
+                                                }))).map(function (name) {
+                                                    return { value: name, label: name };
+                                                }))} />
                                                 <SelectInput value={sectionFilter} onChange={setSectionFilter} options={[
-                                                    { value: "all", label: "All Sections" },
-                                                    { value: "4A", label: "4A" },
-                                                    { value: "4B", label: "4B" },
-                                                    { value: "4C", label: "4C" },
-                                                    { value: "4D", label: "4D" },
-                                                ]} />
+                                                    { value: "all", label: "All Sections" }
+                                                ].concat(Array.from(new Set(filterOptions.sections.map(function (s) { return s.name; }))).map(function (name) {
+                                                    return { value: name, label: name };
+                                                }))} />
                                                 <button onClick={function () {
                                                     setSearchQuery("");
                                                     setYearFilter("all");
@@ -773,12 +893,13 @@ export default function HTEDocumentArchivePage() {
                                                 rowData={filteredStudents}
                                                 columnDefs={columnDefs}
                                                 defaultColDef={defaultColDef}
-                                                rowSelection="multiple"
+                                                getRowId={function (params) { return params.data.id; }}
+                                                rowSelection={{ mode: 'multiRow', enableClickSelection: false, checkboxes: true, headerCheckbox: true }}
+                                                selectionColumnDef={{ pinned: 'left', sortable: false, filter: false, suppressMenu: true, width: 50 }}
                                                 onSelectionChanged={onSelectionChanged}
                                                 animateRows={true}
                                                 pagination={true}
                                                 paginationPageSize={20}
-                                                suppressRowClickSelection={true}
                                             />
                                         </div>
                                     </div>
@@ -993,10 +1114,11 @@ export default function HTEDocumentArchivePage() {
                         student={liveDetail ? liveDetail : detailStudent}
                         role={role}
                         docFields={docFields}
-                        onClose={function () { setDetailStudent(null); }}
+                        onClose={function () { setDetailStudent(null); setShowBatchPreview(false); }}
                         onUpload={function (fieldId, file) { handleUpload(detailStudent.id, fieldId, file, role); }}
                         onRemoveUpload={function (fieldId) { handleRemoveUpload(detailStudent.id, fieldId); }}
                         onError={setUploadError}
+                        uploadingFieldId={uploadingFieldId}
                     />
                 ) : null
             }
@@ -1150,6 +1272,7 @@ function FieldConfigPanel(props) {
 function StudentDetailModal(props) {
     var s = props.student; var role = props.role; var docFields = props.docFields;
     var onClose = props.onClose; var onUpload = props.onUpload; var onRemoveUpload = props.onRemoveUpload; var onError = props.onError;
+    var uploadingFieldId = props.uploadingFieldId;
     var termArr = React.useState(s.year + " " + s.semester);
     var selectedTerm = termArr[0]; var setSelectedTerm = termArr[1];
     var availableTerms = [s.year + " " + s.semester, "2023-2024 2nd Semester", "2022-2023 2nd Semester"];
@@ -1170,11 +1293,11 @@ function StudentDetailModal(props) {
                     <DocSection title="OJT Trainee Documents" icon={<FileText className="h-5 w-5 text-neutral-500" />}
                         fields={ojtFields} uploads={s.uploads} canUpload={true} canDownload={role === "admin"} canRemove={role === "admin"}
                         onUpload={onUpload} onRemoveUpload={onRemoveUpload} onError={onError} badgeColor="primary"
-                        uploadedCount={ojtUploaded} activeCount={ojtActive.length} showInactive={true} />
+                        uploadedCount={ojtUploaded} activeCount={ojtActive.length} showInactive={true} uploadingFieldId={uploadingFieldId} />
                     <DocSection title="Host Training Establishment Documents" icon={<Building2 className="h-5 w-5 text-neutral-500" />}
                         fields={hteFields} uploads={s.uploads} canUpload={true} canDownload={role === "admin"} canRemove={role === "admin"}
                         onUpload={onUpload} onRemoveUpload={onRemoveUpload} onError={onError} badgeColor="gold"
-                        uploadedCount={hteUploaded} activeCount={hteActive.length} showInactive={true}
+                        uploadedCount={hteUploaded} activeCount={hteActive.length} showInactive={true} uploadingFieldId={uploadingFieldId}
                         termSelector={role === "admin" ? (
                             <div className="flex items-center gap-2">
                                 <Calendar className="h-3.5 w-3.5 text-neutral-500" />
@@ -1207,6 +1330,7 @@ function DocSection(props) {
     var onError = props.onError; var badgeColor = props.badgeColor; var uploadedCount = props.uploadedCount;
     var activeCount = props.activeCount; var showInactive = props.showInactive;
     var termSelector = props.termSelector; var hteLocked = props.hteLocked;
+    var uploadingFieldId = props.uploadingFieldId;
     var badgeClass = badgeColor === "primary" ? "bg-primary-500/8 border-primary-500/20 text-primary-500" : "bg-neutral-100 border-neutral-200 text-neutral-500";
     return (
         <div>
@@ -1223,11 +1347,11 @@ function DocSection(props) {
             <div className="space-y-2">
                 {fields.map(function (field) {
                     var rec = uploads[field.id];
-                    var isInactive = !field.active;
+                    var isInactive = !field.active && showInactive;
                     var status = isInactive ? "not_required" : (rec ? rec.status : "pending");
                     return <DocumentItem key={field.id} field={field} rec={rec} status={status} isInactive={isInactive}
                         canUpload={canUpload && !isInactive} canDownload={canDownload && !isInactive} canRemove={canRemove && !isInactive}
-                        onUpload={onUpload} onRemoveUpload={onRemoveUpload} onError={onError} />;
+                        onUpload={onUpload} onRemoveUpload={onRemoveUpload} onError={onError} isUploading={uploadingFieldId === field.id} />;
                 })}
             </div>
         </div>
@@ -1239,6 +1363,7 @@ function DocumentItem(props) {
     var isInactive = props.isInactive; var canUpload = props.canUpload;
     var canDownload = props.canDownload; var canRemove = props.canRemove;
     var onUpload = props.onUpload; var onRemoveUpload = props.onRemoveUpload; var onError = props.onError;
+    var isUploading = props.isUploading;
     var fileInputRef = React.useRef(null);
     var expandedArr = React.useState(false); var expanded = expandedArr[0]; var setExpanded = expandedArr[1];
     var cfg = STATUS_CONFIG[status] || STATUS_CONFIG["pending"];
@@ -1269,13 +1394,13 @@ function DocumentItem(props) {
                         {!isInactive && canUpload ? (
                             <span>
                                 <input ref={fileInputRef} type="file" accept={ACCEPTED_EXTENSIONS.join(",")} onChange={handleFileChange} className="hidden" />
-                                <button title={status === "uploaded" ? "Replace file" : "Upload document"} onClick={function () { if (fileInputRef.current) fileInputRef.current.click(); }} className={btnSmGhost}>
-                                    {status === "uploaded" ? <RefreshCw className="h-3 w-3" /> : <Upload className="h-3 w-3" />}
-                                    <span>{status === "uploaded" ? "Replace" : "Upload"}</span>
+                                <button disabled={isUploading} title={status === "uploaded" ? "Replace file" : "Upload document"} onClick={function () { if (fileInputRef.current) fileInputRef.current.click(); }} className={btnSmGhost}>
+                                    {isUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : status === "uploaded" ? <RefreshCw className="h-3 w-3" /> : <Upload className="h-3 w-3" />}
+                                    <span>{isUploading ? "Uploading..." : status === "uploaded" ? "Replace" : "Upload"}</span>
                                 </button>
                             </span>
                         ) : null}
-                        {status === "uploaded" && canRemove ? <button title="Remove file" onClick={function () { onRemoveUpload(field.id); }} className={btnIconDestructive}><Trash2 className="h-3.5 w-3.5" /></button> : null}
+                        {status === "uploaded" && canRemove && !isUploading ? <button title="Remove file" onClick={function () { onRemoveUpload(field.id); }} className={btnIconDestructive}><Trash2 className="h-3.5 w-3.5" /></button> : null}
                     </div>
                 </div>
                 {expanded && status === "uploaded" && rec ? (
@@ -1293,7 +1418,7 @@ function DocumentItem(props) {
 
 function ProgressCell(props) {
     var uploaded = props.uploaded; var total = props.total; var pct = props.pct; var color = props.color;
-    var barMap = { success: "bg-success", primary: "bg-primary-500", warning: "bg-warning", gold: "bg-neutral-200" };
+    var barMap = { success: "bg-success", primary: "bg-primary-500", warning: "bg-warning", gold: "bg-yellow-500" };
     return (
         <div className="space-y-1">
             <div className="flex items-center gap-1.5">
@@ -1322,7 +1447,7 @@ function SelectInput(props) {
     return (
         <select value={value} onChange={function (e) { onChange(e.target.value); }}
             className="px-3 py-2 bg-white border border-neutral-200 rounded-md text-neutral-900 text-sm focus:outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900/20 shadow-xs">
-            {options.map(function (o) { return <option key={o.value} value={o.value}>{o.label}</option>; })}
+            {options.map(function (o, i) { return <option key={o.value + "-" + i} value={o.value}>{o.label}</option>; })}
         </select>
     );
 }

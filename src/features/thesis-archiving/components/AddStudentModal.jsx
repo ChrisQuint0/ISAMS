@@ -40,13 +40,14 @@ const PROGRAMS = [
     { value: "Information Technology", label: "Information Technology" }
 ];
 
-const SECTIONS = ["4A", "4B", "4C", "4D"];
+const SECTIONS_PLACEHOLDER = ["4A", "4B", "4C", "4D"];
 
 export default function AddStudentModal({ open, onOpenChange, onAdd }) {
     const [view, setView] = useState("selection"); // "selection" | "single" | "batch"
     const [loading, setLoading] = useState(false);
     const [advisers, setAdvisers] = useState([]);
-    const [fetchingAdvisers, setFetchingAdvisers] = useState(false);
+    const [sections, setSections] = useState([]);
+    const [fetchingData, setFetchingData] = useState(false);
     const { addToast } = useToast();
 
     // Single Entry States
@@ -67,7 +68,7 @@ export default function AddStudentModal({ open, onOpenChange, onAdd }) {
 
     useEffect(() => {
         if (open) {
-            fetchAdvisers();
+            fetchInitialData();
         } else {
             // Reset modal state on close
             setView("selection");
@@ -86,15 +87,19 @@ export default function AddStudentModal({ open, onOpenChange, onAdd }) {
         }
     }, [open]);
 
-    const fetchAdvisers = async () => {
-        setFetchingAdvisers(true);
+    const fetchInitialData = async () => {
+        setFetchingData(true);
         try {
-            const data = await thesisService.getAdvisers();
-            setAdvisers(data);
+            const [advData, secData] = await Promise.all([
+                thesisService.getAdvisers(),
+                thesisService.getSections()
+            ]);
+            setAdvisers(advData);
+            setSections(secData);
         } catch (error) {
-            console.error("Failed to fetch advisers:", error);
+            console.error("Failed to fetch initial data:", error);
         } finally {
-            setFetchingAdvisers(false);
+            setFetchingData(false);
         }
     };
 
@@ -113,17 +118,37 @@ export default function AddStudentModal({ open, onOpenChange, onAdd }) {
         }
 
         setLoading(true);
-        // Simulate API call
-        setTimeout(() => {
-            setLoading(false);
+        try {
+            const selectedSection = sections.find(s => s.id === formData.section);
+
+            await thesisService.createHTEStudent({
+                studentData: {
+                    ...formData,
+                    adviserId: formData.adviser,
+                    sectionId: formData.section,
+                    sectionName: selectedSection?.name
+                },
+                password: formData.password,
+                academicYear: "2023-2024", // This should ideally be dynamic
+                semester: "2nd Semester"    // This should ideally be dynamic
+            });
+
             if (onAdd) onAdd(formData);
             addToast({
                 title: "Student Account Created",
-                description: `Successfully created account for ${formData.firstName} ${formData.lastName}.`,
+                description: `Successfully created account and GDrive folder for ${formData.firstName} ${formData.lastName}.`,
                 variant: "success"
             });
             onOpenChange(false);
-        }, 1500);
+        } catch (error) {
+            addToast({
+                title: "Creation Failed",
+                description: error.message,
+                variant: "destructive"
+            });
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleBatchSubmit = (e) => {
@@ -299,7 +324,7 @@ export default function AddStudentModal({ open, onOpenChange, onAdd }) {
                                             required
                                         >
                                             <SelectTrigger className="h-9 text-sm">
-                                                <SelectValue placeholder={fetchingAdvisers ? "Loading..." : "Select Adviser"} />
+                                                <SelectValue placeholder={fetchingData ? "Loading..." : "Select Adviser"} />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {advisers.map(a => (
@@ -316,12 +341,14 @@ export default function AddStudentModal({ open, onOpenChange, onAdd }) {
                                             required
                                         >
                                             <SelectTrigger className="h-9 text-sm">
-                                                <SelectValue placeholder="Select Section" />
+                                                <SelectValue placeholder={fetchingData ? "Loading..." : "Select Section"} />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {SECTIONS.map(s => (
-                                                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                                                ))}
+                                                {sections
+                                                    .filter(s => !formData.program || s.program === formData.program)
+                                                    .map(s => (
+                                                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                                                    ))}
                                             </SelectContent>
                                         </Select>
                                     </div>
