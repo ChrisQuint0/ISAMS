@@ -46,7 +46,7 @@ export function SimilarityAnalysisLoading({ onComplete }) {
                             cx="96"
                             cy="96"
                             r="88"
-                            className="stroke-slate-900 fill-none stroke-[6]"
+                            className="stroke-gray-200 fill-none stroke-[6]"
                         />
                         <circle
                             cx="96"
@@ -56,21 +56,21 @@ export function SimilarityAnalysisLoading({ onComplete }) {
                                 strokeDasharray: "552.92",
                                 strokeDashoffset: 552.92 - (552.92 * progress) / 100
                             }}
-                            className="stroke-blue-500 fill-none stroke-[6] transition-all duration-300 ease-out"
+                            className="stroke-green-600 fill-none stroke-[6] transition-all duration-300 ease-out"
                         />
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <span className="text-4xl font-black text-slate-100 italic tracking-tighter">
+                        <span className="text-4xl font-black text-gray-900 italic tracking-tighter">
                             {progress}%
                         </span>
-                        <span className="text-[10px] uppercase font-bold text-blue-400 tracking-widest mt-1">
+                        <span className="text-[10px] uppercase font-bold text-green-600 tracking-widest mt-1">
                             Analyzing
                         </span>
                     </div>
                 </div>
 
                 {/* Animated Rings */}
-                <div className="absolute inset-0 -z-10 bg-blue-500/10 rounded-full animate-ping opacity-20" />
+                <div className="absolute inset-0 -z-10 bg-green-500/10 rounded-full animate-ping opacity-20" />
             </div>
 
             <div className="space-y-6 max-w-sm w-full">
@@ -81,10 +81,10 @@ export function SimilarityAnalysisLoading({ onComplete }) {
                             className={cn(
                                 "flex items-center gap-4 p-3 rounded-xl border transition-all duration-500",
                                 i === currentStep
-                                    ? "bg-slate-900 border-blue-500/30 text-slate-100 translate-x-1"
+                                    ? "bg-green-50 border-green-400/40 text-green-800 translate-x-1"
                                     : i < currentStep
-                                        ? "bg-slate-950/50 border-emerald-500/20 text-emerald-500/60"
-                                        : "bg-transparent border-transparent text-slate-600 opacity-40"
+                                        ? "bg-gray-50 border-green-300/30 text-green-600/70"
+                                        : "bg-transparent border-transparent text-gray-400 opacity-40"
                             )}
                         >
                             <step.icon className={cn(
@@ -92,14 +92,14 @@ export function SimilarityAnalysisLoading({ onComplete }) {
                                 i === currentStep && "animate-pulse"
                             )} />
                             <span className="text-sm font-semibold">{step.label}</span>
-                            {i < currentStep && <FileCheck className="h-4 w-4 ml-auto" />}
-                            {i === currentStep && <Loader2 className="h-4 w-4 ml-auto animate-spin" />}
+                            {i < currentStep && <FileCheck className="h-4 w-4 ml-auto text-green-600" />}
+                            {i === currentStep && <Loader2 className="h-4 w-4 ml-auto animate-spin text-green-600" />}
                         </div>
                     ))}
                 </div>
             </div>
 
-            <p className="text-xs text-slate-500 italic max-w-xs mx-auto leading-relaxed">
+            <p className="text-xs text-gray-400 italic max-w-xs mx-auto leading-relaxed">
                 This process typically takes 3-5 seconds depending on repository size and document complexity.
             </p>
         </div>

@@ -55,9 +55,9 @@ export function SimilarityDropzone({ onFileSelect }) {
                 className={cn(
                     "relative group cursor-pointer rounded-2xl border-2 border-dashed transition-all duration-500 min-h-[300px] flex flex-col items-center justify-center p-8 text-center",
                     isDragging
-                        ? "border-blue-500 bg-blue-500/10 scale-[1.01]"
-                        : "border-slate-800 bg-slate-900/30 hover:border-slate-700 hover:bg-slate-900/50",
-                    selectedFile && "border-blue-500/40 bg-blue-500/5 cursor-default"
+                        ? "border-green-500 bg-green-50 scale-[1.01]"
+                        : "border-gray-300 bg-white hover:border-green-400 hover:bg-green-50/30",
+                    selectedFile && "border-green-500/50 bg-green-50/20 cursor-default"
                 )}
             >
                 <input
@@ -70,13 +70,13 @@ export function SimilarityDropzone({ onFileSelect }) {
 
                 {!selectedFile ? (
                     <div className="flex flex-col items-center justify-center space-y-6">
-                        <h3 className="text-xl font-bold text-slate-100 tracking-tight">
+                        <h3 className="text-xl font-bold text-gray-800 tracking-tight">
                             Drag & Drop Thesis Document Here
                         </h3>
 
                         <Button
                             variant="outline"
-                            className="bg-white hover:bg-slate-100 text-slate-900 font-bold border-none px-8 py-6 rounded-xl shadow-lg transition-transform active:scale-95"
+                            className="bg-green-700 hover:bg-green-800 text-white font-bold border-none px-8 py-6 rounded-xl shadow-lg transition-transform active:scale-95"
                         >
                             Browse Files
                         </Button>
@@ -85,27 +85,27 @@ export function SimilarityDropzone({ onFileSelect }) {
                     <div className="w-full animate-in fade-in zoom-in duration-300">
                         <div className="flex flex-col items-center">
                             <div className="mb-6 relative">
-                                <div className="p-6 rounded-2xl bg-blue-600/20 border border-blue-500/30 text-blue-400 font-bold">
+                                <div className="p-6 rounded-2xl bg-green-600/10 border border-green-500/30 text-green-700 font-bold">
                                     <FileText className="h-16 w-16" />
                                 </div>
                                 <button
                                     onClick={removeFile}
-                                    className="absolute -top-2 -right-2 p-1.5 rounded-full bg-slate-900 border border-slate-700 text-slate-400 hover:text-white transition-colors shadow-lg"
+                                    className="absolute -top-2 -right-2 p-1.5 rounded-full bg-white border border-gray-300 text-gray-500 hover:text-gray-800 transition-colors shadow-lg"
                                 >
                                     <X className="h-4 w-4" />
                                 </button>
                             </div>
 
-                            <h3 className="text-lg font-bold text-slate-100 mb-1 truncate max-w-md">
+                            <h3 className="text-lg font-bold text-gray-900 mb-1 truncate max-w-md">
                                 {selectedFile.name}
                             </h3>
-                            <p className="text-sm text-slate-500 mb-8 font-medium">
+                            <p className="text-sm text-gray-500 mb-8 font-medium">
                                 {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB • Ready for analysis
                             </p>
 
                             <Button
                                 onClick={startAnalysis}
-                                className="h-12 px-10 bg-blue-600 hover:bg-blue-500 text-white border-none shadow-[0_0_20px_rgba(37,99,235,0.3)] font-bold text-base"
+                                className="h-12 px-10 bg-green-700 hover:bg-green-800 text-white border-none shadow-[0_0_20px_rgba(22,101,52,0.25)] font-bold text-base"
                             >
                                 <FileUp className="h-5 w-5 mr-3" />
                                 Run Similarity Analysis
@@ -115,10 +115,10 @@ export function SimilarityDropzone({ onFileSelect }) {
                 )}
 
                 {/* Decorative corners */}
-                <div className="absolute top-4 left-4 w-2 h-2 border-t-2 border-l-2 border-slate-800 group-hover:border-blue-500/50 transition-colors" />
-                <div className="absolute top-4 right-4 w-2 h-2 border-t-2 border-r-2 border-slate-800 group-hover:border-blue-500/50 transition-colors" />
-                <div className="absolute bottom-4 left-4 w-2 h-2 border-b-2 border-l-2 border-slate-800 group-hover:border-blue-500/50 transition-colors" />
-                <div className="absolute bottom-4 right-4 w-2 h-2 border-b-2 border-r-2 border-slate-800 group-hover:border-blue-500/50 transition-colors" />
+                <div className="absolute top-4 left-4 w-2 h-2 border-t-2 border-l-2 border-gray-300 group-hover:border-green-500/50 transition-colors" />
+                <div className="absolute top-4 right-4 w-2 h-2 border-t-2 border-r-2 border-gray-300 group-hover:border-green-500/50 transition-colors" />
+                <div className="absolute bottom-4 left-4 w-2 h-2 border-b-2 border-l-2 border-gray-300 group-hover:border-green-500/50 transition-colors" />
+                <div className="absolute bottom-4 right-4 w-2 h-2 border-b-2 border-r-2 border-gray-300 group-hover:border-green-500/50 transition-colors" />
             </div>
         </div>
     );
