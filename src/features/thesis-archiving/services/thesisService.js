@@ -270,5 +270,65 @@ export const thesisService = {
      */
     getDownloadUrl(fileId) {
         return `${BACKEND_URL}/download/${fileId}`;
+    },
+
+    /**
+     * Upload an HTE document
+     */
+    async uploadHTEDocument(studentId, fieldId, file, uploaderRole) {
+        const formData = new FormData();
+        formData.append("studentId", studentId);
+        formData.append("fieldId", fieldId);
+        formData.append("file", file);
+        if (uploaderRole) formData.append("uploadedByRole", uploaderRole);
+
+        // Since the backend uses /api/hte/upload on localhost:3000, 
+        // we'll use the BACKEND_URL, but thesis backend is 3001, global server is 3000.
+        // The server.js is 3000. thesis_backend.js is 3001. 
+        // Let's assume the API URL is process.env.VITE_GLOBAL_BACKEND_URL or we hardcode 3000.
+        // Actually, where's BACKEND_URL defined?
+        // Let's just use the same approach as create.
+
+        try {
+            const response = await fetch(`http://localhost:3000/api/hte/upload`, {
+                method: "POST",
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || "Failed to upload document");
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error("Upload error:", error);
+            throw error;
+        }
+    },
+
+    /**
+     * Delete an HTE document
+     */
+    async deleteHTEDocument(studentId, fieldId) {
+        try {
+            const response = await fetch(`http://localhost:3000/api/hte/delete`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ studentId, fieldId }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || "Failed to delete document");
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error("Delete error:", error);
+            throw error;
+        }
     }
 };
