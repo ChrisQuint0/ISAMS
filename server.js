@@ -8,6 +8,13 @@ import fs from "fs";
 import Tesseract from "tesseract.js";
 import JSZip from "jszip";
 import { Readable } from "stream";
+import { createRequire } from "module";
+
+// Load CJS-only packages safely from an ESM context
+const require = createRequire(import.meta.url);
+const natural = require("natural");
+const pdfParse = require("pdf-parse");
+const mammoth = require("mammoth");
 
 // Load environment variables from .env.local
 dotenv.config({ path: "./.env.local" });
@@ -1381,6 +1388,436 @@ app.post("/api/hte/delete", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// ── SIMILARITY CHECK ──────────────────────────────────────────────────────────
+
+// S0. Get similarity threshold
+app.get("/api/similarity/threshold", async (req, res) => {
+  const client = supabaseAdmin || supabase;
+  try {
+    const { data, error } = await client
+      .from("thesis_settings")
+      .select("value")
+      .eq("key", "similarity_threshold")
+      .single();
+    if (error) throw error;
+    res.json({ value: parseFloat(data?.value ?? "20") });
+  } catch (err) {
+    // Return default if not found
+    res.json({ value: 20 });
+  }
+});
+
+// S0. Save similarity threshold (uses supabaseAdmin to bypass RLS)
+app.post("/api/similarity/threshold", async (req, res) => {
+  const { value, updatedBy } = req.body;
+  if (value === undefined || value === null) {
+    return res.status(400).json({ error: "value is required" });
+  }
+  const client = supabaseAdmin || supabase;
+  try {
+    const { error } = await client
+      .from("thesis_settings")
+      .update({ value: String(value), updated_by: updatedBy || null, updated_at: new Date().toISOString() })
+      .eq("key", "similarity_threshold");
+    if (error) throw error;
+    res.json({ success: true, value });
+  } catch (err) {
+    console.error("[Similarity Threshold] Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// S0b. Create a scan job (uses supabaseAdmin to bypass RLS on insert)
+app.post("/api/similarity/job", async (req, res) => {
+  const { userId, proposedTitle, fileName, fileSize, mimeType, scanType = "standard" } = req.body;
+  if (!userId) return res.status(400).json({ error: "userId is required" });
+
+  const client = supabaseAdmin || supabase;
+  try {
+    // Get current threshold
+    const { data: settingRow } = await client
+      .from("thesis_settings")
+      .select("value")
+      .eq("key", "similarity_threshold")
+      .single();
+    const threshold = parseFloat(settingRow?.value ?? "20");
+
+    const { data, error } = await client
+      .from("similarity_scan_queue")
+      .insert({
+        submitted_by: userId,
+        proposed_title: proposedTitle || null,
+        original_filename: fileName,
+        file_size_bytes: fileSize || null,
+        mime_type: mimeType || null,
+        scan_type: scanType,
+        threshold_at_scan: threshold,
+        status: "pending",
+      })
+      .select("id")
+      .single();
+
+    if (error) throw error;
+    res.json({ scanId: data.id });
+  } catch (err) {
+    console.error("[Similarity Job] Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// S0c. Fetch recent scans for a user (uses supabaseAdmin to bypass RLS)
+app.get("/api/similarity/recent/:userId", async (req, res) => {
+  const { userId } = req.params;
+  if (!userId) return res.status(400).json({ error: "userId is required" });
+
+  const client = supabaseAdmin || supabase;
+  try {
+    const { data, error } = await client
+      .from("similarity_scan_queue")
+      .select(`
+        id, proposed_title, original_filename, status, submitted_at,
+        result:similarity_scan_results(overall_score, integrity_status, top_match_title)
+      `)
+      .eq("submitted_by", userId)
+      .order("submitted_at", { ascending: false })
+      .limit(10);
+
+    if (error) throw error;
+    res.json(data || []);
+  } catch (err) {
+    console.error("[Similarity Recent] Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// S0d. Fetch full scan result for PDF export (uses supabaseAdmin to bypass RLS)
+app.get("/api/similarity/result/:scanId", async (req, res) => {
+  const { scanId } = req.params;
+  if (!scanId) return res.status(400).json({ error: "scanId is required" });
+
+  const client = supabaseAdmin || supabase;
+  try {
+    const { data: queueRow, error: qErr } = await client
+      .from("similarity_scan_queue")
+      .select("*")
+      .eq("id", scanId)
+      .single();
+    if (qErr) throw qErr;
+
+    const { data: result, error: rErr } = await client
+      .from("similarity_scan_results")
+      .select("*, field_scores:similarity_scan_field_scores(*), top_matches:similarity_scan_matches(*)")
+      .eq("scan_id", scanId)
+      .single();
+    if (rErr && rErr.code !== "PGRST116") throw rErr;
+
+    res.json({ queue: queueRow, result });
+  } catch (err) {
+    console.error("[Similarity Result] Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Helper: compute TF-IDF cosine similarity between two texts
+function cosineSimilarity(textA, textB) {
+  const strA = String(textA || "");
+  const strB = String(textB || "");
+  if (!strA || !strB) return 0;
+
+  const TfIdf = natural.TfIdf;
+  const tfidf = new TfIdf();
+  tfidf.addDocument(strA);
+  tfidf.addDocument(strB);
+
+  const vecA = {};
+  const vecB = {};
+  const terms = new Set();
+
+  // listTerms(0) gets the TF-IDF vector for strA
+  tfidf.listTerms(0).forEach(item => {
+    terms.add(item.term);
+    vecA[item.term] = item.tfidf;
+  });
+  // listTerms(1) gets the TF-IDF vector for strB
+  tfidf.listTerms(1).forEach(item => {
+    terms.add(item.term);
+    vecB[item.term] = item.tfidf;
+  });
+
+  let dot = 0;
+  let magA = 0;
+  let magB = 0;
+
+  for (const t of terms) {
+    const valA = vecA[t] || 0;
+    const valB = vecB[t] || 0;
+    dot += valA * valB;
+    magA += valA * valA;
+    magB += valB * valB;
+  }
+
+  magA = Math.sqrt(magA);
+  magB = Math.sqrt(magB);
+
+  if (magA === 0 || magB === 0) return 0;
+  return Math.min(100, (dot / (magA * magB)) * 100);
+}
+
+// Helper: simple field extraction from raw text
+function extractFields(rawText) {
+  const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
+  let title = '';
+  let abstract = '';
+  let keywords = '';
+  let content = rawText;
+
+  // Heuristic: first non-empty line is likely the title
+  if (lines.length > 0) title = lines[0];
+
+  // Look for ABSTRACT section
+  const abstractMatch = rawText.match(/abstract[:\s]*\n([\s\S]{50,1500}?)(?=\n[A-Z\s]{3,}:|keywords?:|introduction|$)/i);
+  if (abstractMatch) abstract = abstractMatch[1].trim();
+
+  // Look for KEYWORDS section
+  const kwMatch = rawText.match(/keywords?[:\s]+([^\n]{10,300})/i);
+  if (kwMatch) keywords = kwMatch[1].trim();
+
+  return { title, abstract, keywords, content };
+}
+
+// S1. Extract text from uploaded file (PDF / DOCX / DOC)
+app.post("/api/similarity/extract", upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No file provided" });
+
+    const { mimetype, buffer, originalname } = req.file;
+    let rawText = "";
+
+    if (mimetype === "application/pdf") {
+      const result = await pdfParse(buffer);
+      rawText = result.text;
+    } else if (
+      mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      originalname.endsWith(".docx")
+    ) {
+      const result = await mammoth.extractRawText({ buffer });
+      rawText = result.value;
+    } else if (originalname.endsWith(".doc")) {
+      // Fallback: try mammoth (works for some older .doc files)
+      try {
+        const result = await mammoth.extractRawText({ buffer });
+        rawText = result.value;
+      } catch {
+        return res.status(422).json({ error: "Legacy .doc format not fully supported. Please convert to .docx or .pdf." });
+      }
+    } else {
+      return res.status(422).json({ error: "Unsupported file type" });
+    }
+
+    if (!rawText || rawText.trim().length < 50) {
+      return res.status(422).json({ error: "Could not extract sufficient text from the file. Please ensure the document contains selectable text (not scanned images)." });
+    }
+
+    const fields = extractFields(rawText);
+    res.json({ rawText, ...fields });
+  } catch (err) {
+    console.error("[Similarity Extract] Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// S2. Run NLP similarity analysis against the thesis repository
+app.post("/api/similarity/analyze", async (req, res) => {
+  const {
+    scanId, userId,
+    title, abstract, keywords, content,
+    fileName, fileSize, mimeType,
+    scanType = "standard"
+  } = req.body;
+
+  if (!scanId || !userId) {
+    return res.status(400).json({ error: "scanId and userId are required" });
+  }
+
+  const client = supabaseAdmin || supabase;
+  if (!client) {
+    return res.status(500).json({ error: "Supabase not configured" });
+  }
+
+  const startTime = Date.now();
+
+  try {
+    // 1. Mark job as processing
+    await client.from("similarity_scan_queue").update({ status: "processing" }).eq("id", scanId);
+
+    // 2. Fetch active threshold
+    const { data: settingRow } = await client
+      .from("thesis_settings")
+      .select("value")
+      .eq("key", "similarity_threshold")
+      .single();
+    const threshold = parseFloat(settingRow?.value ?? "20");
+
+    // 3. Fetch all thesis entries (title, abstract, description as keywords)
+    const { data: theses, error: thesisError } = await client
+      .from("thesis_entries")
+      .select(`
+        id, title, abstract, description,
+        publication_year,
+        authors:thesis_authors(first_name, last_name)
+      `)
+      .eq("is_deleted", false)
+      .eq("status", "archived");
+
+    if (thesisError) throw thesisError;
+
+    const repositorySize = theses?.length ?? 0;
+
+    // 4. Compute per-thesis cosine similarity scores
+    const fullDocText = [title, abstract, keywords, content].filter(Boolean).join(" \n ");
+    const scoredTheses = (theses || []).map(thesis => {
+      const thesisText = [thesis.title, thesis.abstract, thesis.description].filter(Boolean).join(" ");
+      const titleScore = cosineSimilarity(title || "", thesis.title || "");
+      const abstractScore = cosineSimilarity(abstract || "", thesis.abstract || "");
+      const kwScore = cosineSimilarity(keywords || "", thesis.description || "");
+      const contentScore = cosineSimilarity(fullDocText, thesisText);
+
+      // Weighted overall: 25% title, 35% abstract, 20% keywords, 20% content
+      const weighted = titleScore * 0.25 + abstractScore * 0.35 + kwScore * 0.20 + contentScore * 0.20;
+
+      const matchedFields = [];
+      if (abstractScore > threshold) matchedFields.push("Abstract");
+      if (titleScore > threshold) matchedFields.push("Title");
+      if (kwScore > threshold) matchedFields.push("Keywords");
+
+      return {
+        thesis,
+        titleScore,
+        abstractScore,
+        kwScore,
+        contentScore,
+        weighted,
+        matchType: matchedFields.length > 0 ? matchedFields.join(" & ") : "Content",
+      };
+    });
+
+    // Sort descending, take top 10
+    scoredTheses.sort((a, b) => b.weighted - a.weighted);
+    const topMatches = scoredTheses.slice(0, 10);
+
+    // 5. Compute aggregate field scores (avg across all theses, weighted by top matches)
+    const topN = Math.min(10, scoredTheses.length);
+    const avgField = (field) => topN === 0 ? 0 : scoredTheses.slice(0, topN).reduce((s, t) => s + t[field], 0) / topN;
+    const overallScore = topN === 0 ? 0 : avgField("weighted");
+
+    // Final overall = highest single match influences more
+    const topMatchScore = topMatches[0]?.weighted ?? 0;
+    // Blend: 60% top match, 40% average of top 10
+    const finalScore = parseFloat(Math.min(99.99, topMatchScore * 0.6 + overallScore * 0.4).toFixed(2));
+    const fieldTitle = parseFloat((topMatches[0]?.titleScore ?? 0).toFixed(2));
+    const fieldAbstract = parseFloat((topMatches[0]?.abstractScore ?? 0).toFixed(2));
+    const fieldKeywords = parseFloat((topMatches[0]?.kwScore ?? 0).toFixed(2));
+    const fieldContent = parseFloat((topMatches[0]?.contentScore ?? 0).toFixed(2));
+
+    const durationMs = Date.now() - startTime;
+
+    // 6. Update scan queue with metadata
+    await client.from("similarity_scan_queue").update({
+      status: "completed",
+      completed_at: new Date().toISOString(),
+      repository_size_at_scan: repositorySize,
+      analysis_duration_ms: durationMs,
+      engine_version: "ISAMS-NLP v1.0",
+      threshold_at_scan: threshold,
+    }).eq("id", scanId);
+
+    // 7. Insert scan result (triggers DB trigger for integrity_status derivation)
+    const topMatchEntry = topMatches[0];
+    const { data: resultRow, error: resultErr } = await client
+      .from("similarity_scan_results")
+      .insert({
+        scan_id: scanId,
+        overall_score: finalScore,
+        integrity_status: finalScore > 50 ? "high_similarity" : finalScore > threshold ? "flagged" : "safe",
+        analysis_method: "TF-IDF Cosine Similarity",
+        top_match_score: parseFloat((topMatchEntry?.weighted ?? 0).toFixed(2)),
+        top_match_title: topMatchEntry?.thesis?.title ?? null,
+      })
+      .select()
+      .single();
+
+    if (resultErr) throw resultErr;
+    const resultId = resultRow.id;
+
+    // 8. Insert field scores
+    const getSeverity = (score) => score > 50 ? "high" : score > threshold ? "moderate" : "low";
+    await client.from("similarity_scan_field_scores").insert([
+      { result_id: resultId, field_name: "title", score: fieldTitle, severity: getSeverity(fieldTitle), display_label: "Title match", display_order: 1 },
+      { result_id: resultId, field_name: "abstract", score: fieldAbstract, severity: getSeverity(fieldAbstract), display_label: "Abstract match", display_order: 2 },
+      { result_id: resultId, field_name: "content", score: fieldContent, severity: getSeverity(fieldContent), display_label: "Content match", display_order: 3 },
+      { result_id: resultId, field_name: "keywords", score: fieldKeywords, severity: getSeverity(fieldKeywords), display_label: "Keywords match", display_order: 4 },
+    ]);
+
+    // 9. Insert top match records
+    const matchInserts = topMatches
+      .filter(m => m.weighted > 1)
+      .slice(0, 5)
+      .map((m, idx) => ({
+        result_id: resultId,
+        match_rank: idx + 1,
+        matched_thesis_id: m.thesis.id,
+        matched_title: m.thesis.title,
+        matched_authors: (m.thesis.authors || []).map(a => `${a.first_name} ${a.last_name}`),
+        matched_year: m.thesis.publication_year,
+        match_score: parseFloat(m.weighted.toFixed(2)),
+        match_type: m.matchType,
+        match_source: "internal",
+      }));
+
+    if (matchInserts.length > 0) {
+      await client.from("similarity_scan_matches").insert(matchInserts);
+    }
+
+    // 10. Return full result
+    const fullResult = {
+      scanId,
+      resultId,
+      overall_score: finalScore,
+      integrity_status: resultRow.integrity_status,
+      integrity_label: resultRow.integrity_label,
+      integrity_detail: resultRow.integrity_detail,
+      analysis_method: "TF-IDF Cosine Similarity",
+      analysis_duration_ms: durationMs,
+      repository_size: repositorySize,
+      engine_version: "ISAMS-NLP v1.0",
+      threshold,
+      field_scores: [
+        { field_name: "title", score: fieldTitle, display_label: "Title match", severity: getSeverity(fieldTitle), display_order: 1 },
+        { field_name: "abstract", score: fieldAbstract, display_label: "Abstract match", severity: getSeverity(fieldAbstract), display_order: 2 },
+        { field_name: "content", score: fieldContent, display_label: "Content match", severity: getSeverity(fieldContent), display_order: 3 },
+        { field_name: "keywords", score: fieldKeywords, display_label: "Keywords match", severity: getSeverity(fieldKeywords), display_order: 4 },
+      ],
+      top_matches: matchInserts,
+    };
+
+    res.json(fullResult);
+  } catch (err) {
+    console.error("[Similarity Analyze] Error:", err);
+    // Mark job as failed
+    try {
+      await client.from("similarity_scan_queue").update({
+        status: "failed",
+        status_message: err.message,
+        completed_at: new Date().toISOString(),
+      }).eq("id", scanId);
+    } catch (_) { }
+
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── END SIMILARITY CHECK ───────────────────────────────────────────────────────
 
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
