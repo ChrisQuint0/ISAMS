@@ -10,125 +10,158 @@ import {
 import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
 import { HTEArchivingHeader } from "./HTEDocumentArchivePage";
 import { thesisService } from "../services/thesisService";
-
-const STUDENT_DATA = {
-    "user-1": { id: "STU-2025-001", name: "Christopher Quinto", year: "2024-2025", semester: "2nd Semester", email: "quinto_christopher@plpasig.edu.ph" },
-    "user-2": { id: "STU-2025-002", name: "Maria Santos", year: "2024-2025", semester: "2nd Semester", email: "santos_maria@plpasig.edu.ph" },
-};
-
-const INITIAL_DOC_FIELDS = [
-    { id: "f-1", name: "Curriculum Vitae", category: "ojt", order: 1, active: true },
-    { id: "f-2", name: "Certificate of Registration (COR)", category: "ojt", order: 2, active: true },
-    { id: "f-3", name: "OJT Seminar Certificate", category: "ojt", order: 3, active: true },
-    { id: "f-4", name: "Received Copy of the OJT Recommendation Letter", category: "ojt", order: 4, active: true },
-    { id: "f-5", name: "OJT Waiver", category: "ojt", order: 5, active: true },
-    { id: "f-6", name: "Training Agreement", category: "ojt", order: 6, active: true },
-    { id: "f-7", name: "Job Description", category: "ojt", order: 7, active: true },
-    { id: "f-8", name: "Attendance Record", category: "ojt", order: 8, active: true },
-    { id: "f-9", name: "OJT Progress Report", category: "ojt", order: 9, active: true },
-    { id: "f-10", name: "Job Proficiency Rating / Evaluation Sheet", category: "ojt", order: 10, active: true },
-    { id: "f-11", name: "OJT Certificate", category: "ojt", order: 11, active: true },
-    { id: "f-12", name: "Narrative Report", category: "ojt", order: 12, active: true },
-    { id: "f-13", name: "Pictures with Captions", category: "ojt", order: 13, active: true },
-    { id: "f-14", name: "Company Profile", category: "hte", order: 1, active: true },
-    { id: "f-15", name: "Company Evaluation of Internship", category: "hte", order: 2, active: true },
-];
-
-function buildInitialUploads(fieldIds) {
-    var records = {};
-    for (var i = 0; i < fieldIds.length; i++) {
-        records[fieldIds[i]] = { fieldId: fieldIds[i], status: "pending", file: null, uploadedBy: null, uploadedAt: null };
-    }
-    return records;
-}
-
-const ALL_FIELD_IDS = INITIAL_DOC_FIELDS.map(function (f) { return f.id; });
+import { supabase } from "@/lib/supabaseClient";
 
 export default function StudentDocumentPortal() {
     const { user, loading, signOut } = useAuth();
     const navigate = useNavigate();
-    const [docFields] = React.useState(INITIAL_DOC_FIELDS);
+    const [docFields, setDocFields] = React.useState([]);
     const [studentData, setStudentData] = React.useState(null);
+    const [dataLoading, setDataLoading] = React.useState(true);
+    const [dataError, setDataError] = React.useState(null);
 
     React.useEffect(() => {
         if (loading) return;
         if (!user) return;
-        const userId = user.id;
-        let student = STUDENT_DATA[userId];
-        if (!student) {
-            const fullName = user.user_metadata?.full_name ||
-                (user.user_metadata?.first_name && user.user_metadata?.last_name
-                    ? `${user.user_metadata.first_name} ${user.user_metadata.last_name}`
-                    : user.email?.split("@")[0]) ||
-                "Student";
-            student = { id: `STU-${Date.now()}`, name: fullName, year: "2024-2025", semester: "2nd Semester", email: user.email || "" };
-        }
-        if (!student.uploads) student.uploads = buildInitialUploads(ALL_FIELD_IDS);
-        setStudentData(student);
+        loadStudentData(user.id);
     }, [user, loading]);
 
-    const handleUpload = React.useCallback(async (studentId, fieldId, file) => {
+    async function loadStudentData(userId) {
+        setDataLoading(true);
+        setDataError(null);
         try {
-            const result = await thesisService.uploadHTEDocument(studentId, fieldId, file, "student");
+            // 1. Load ALL doc fields (including inactive) so students see "Not Required" slots
+            const fields = await thesisService.getHTEDocumentFieldsAll();
+            const fieldsMapped = fields.map(f => ({
+                ...f,
+                active: f.is_active,
+                order: f.display_order,
+            }));
+            setDocFields(fieldsMapped);
 
-            setStudentData((prev) => {
-                if (!prev) return null;
-                return {
-                    ...prev,
-                    uploads: {
-                        ...prev.uploads,
-                        [fieldId]: {
-                            fieldId,
-                            status: "uploaded",
-                            file: { name: file.name, size: file.size },
-                            uploadedBy: "student",
-                            uploadedAt: result.upload?.uploaded_at || new Date().toISOString()
-                        },
-                    },
+            // 2. Load the student record linked to this Supabase auth user
+            const { data: studentRow, error: studentError } = await supabase
+                .from("hte_ojt_students")
+                .select(`
+                    *,
+                    adviser:thesis_advisers(first_name, last_name),
+                    section_ref:hte_sections(name),
+                    uploads:hte_document_uploads(*)
+                `)
+                .eq("user_id", userId)
+                .eq("is_active", true)
+                .maybeSingle();
+
+            if (studentError) throw studentError;
+
+            if (!studentRow) {
+                setDataError("No student record found for your account. Please contact your coordinator.");
+                return;
+            }
+
+            // 3. Build uploads map keyed by field_id (mirrors coordinator view)
+            const uploadsMap = {};
+            fields.forEach(f => {
+                uploadsMap[f.id] = { fieldId: f.id, status: "pending", file: null };
+            });
+            (studentRow.uploads || []).forEach(u => {
+                uploadsMap[u.field_id] = {
+                    fieldId: u.field_id,
+                    status: u.status,
+                    file: u.status === "uploaded" ? { name: u.original_filename, size: u.file_size_bytes } : null,
+                    uploadedBy: u.uploaded_by_role,
+                    uploadedAt: u.uploaded_at,
+                    gdrive_file_id: u.gdrive_file_id,
+                    gdrive_view_link: u.gdrive_view_link,
                 };
             });
-        } catch (error) {
-            console.error("Student upload error:", error);
-            // Optionally set an error state here if the UI has a way to show it
-            alert(error.message || "Failed to upload document");
+
+            setStudentData({
+                ...studentRow,
+                // id is the real DB UUID — critical for the upload API
+                id: studentRow.id,
+                student_no: studentRow.student_no,
+                firstName: studentRow.first_name,
+                lastName: studentRow.last_name,
+                name: `${studentRow.first_name} ${studentRow.last_name}`,
+                year: studentRow.academic_year,
+                semester: studentRow.semester,
+                section: studentRow.section_ref?.name || studentRow.section,
+                adviser: studentRow.adviser
+                    ? `${studentRow.adviser.first_name} ${studentRow.adviser.last_name}`
+                    : "None",
+                email: studentRow.email,
+                uploads: uploadsMap,
+            });
+        } catch (err) {
+            console.error("StudentDocumentPortal: Failed to load data", err);
+            setDataError(err.message || "Failed to load student data.");
+        } finally {
+            setDataLoading(false);
         }
-    }, [thesisService]);
+    }
+
+    const handleUpload = React.useCallback(async (studentId, fieldId, file) => {
+        const result = await thesisService.uploadHTEDocument(studentId, fieldId, file, "student");
+        setStudentData((prev) => {
+            if (!prev) return null;
+            return {
+                ...prev,
+                uploads: {
+                    ...prev.uploads,
+                    [fieldId]: {
+                        fieldId,
+                        status: "uploaded",
+                        file: { name: file.name, size: file.size },
+                        uploadedBy: "student",
+                        uploadedAt: result.upload?.uploaded_at || new Date().toISOString()
+                    },
+                },
+            };
+        });
+    }, []);
 
     const handleRemove = React.useCallback(async (studentId, fieldId) => {
-        try {
-            await thesisService.deleteHTEDocument(studentId, fieldId);
-
-            setStudentData((prev) => {
-                if (!prev) return null;
-                return {
-                    ...prev,
-                    uploads: {
-                        ...prev.uploads,
-                        [fieldId]: {
-                            fieldId,
-                            status: "pending",
-                            file: null,
-                            uploadedBy: null,
-                            uploadedAt: null
-                        },
+        await thesisService.deleteHTEDocument(studentId, fieldId);
+        setStudentData((prev) => {
+            if (!prev) return null;
+            return {
+                ...prev,
+                uploads: {
+                    ...prev.uploads,
+                    [fieldId]: {
+                        fieldId,
+                        status: "pending",
+                        file: null,
+                        uploadedBy: null,
+                        uploadedAt: null
                     },
-                };
-            });
-        } catch (error) {
-            console.error("Student remove error:", error);
-            alert(error.message || "Failed to remove document");
-        }
-    }, [thesisService]);
+                },
+            };
+        });
+    }, []);
 
     const handleSignOut = React.useCallback(async () => {
         try { await signOut(); navigate("/login"); } catch (error) { console.error("Error signing out:", error); }
     }, [signOut, navigate]);
 
-    if (loading) {
+    if (loading || dataLoading) {
         return (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "var(--background, #0f172a)" }}>
                 <div style={{ width: 40, height: 40, border: "4px solid rgba(255,255,255,0.1)", borderTopColor: "rgba(255,255,255,0.6)", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
                 <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            </div>
+        );
+    }
+
+    if (dataError) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-neutral-100">
+                <div className="text-center max-w-sm px-4">
+                    <GraduationCap className="h-12 w-12 text-neutral-300 mx-auto mb-3" />
+                    <p className="text-neutral-700 text-sm font-semibold mb-1">Unable to load student data</p>
+                    <p className="text-neutral-500 text-xs">{dataError}</p>
+                </div>
             </div>
         );
     }

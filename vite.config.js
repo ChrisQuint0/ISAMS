@@ -8,7 +8,7 @@ import topLevelAwait from "vite-plugin-top-level-await";
 
 export default defineConfig({
   plugins: [
-    react(), 
+    react(),
     tailwindcss(),
     // 2. Add them to the plugins array
     wasm(),
