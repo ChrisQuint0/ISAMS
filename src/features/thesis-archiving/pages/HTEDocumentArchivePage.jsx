@@ -393,7 +393,7 @@ export default function HTEDocumentArchivePage() {
         var matchYear = yearFilter === "all" || s.year === yearFilter;
         var matchStatus = statusFilter === "all" || status === statusFilter;
         var matchProgram = programFilter === "all" || s.program === programFilter;
-        var matchAdviser = adviserFilter === "all" || s.adviser === adviserFilter;
+        var matchAdviser = adviserFilter === "all" || s.adviser_id === adviserFilter;
         var matchSection = sectionFilter === "all" || s.section === sectionFilter;
         return matchSearch && matchYear && matchStatus && matchProgram && matchAdviser && matchSection;
     });
@@ -830,10 +830,11 @@ export default function HTEDocumentArchivePage() {
                                                 ]} />
                                                 <SelectInput value={adviserFilter} onChange={setAdviserFilter} options={[
                                                     { value: "all", label: "All Advisers" }
-                                                ].concat(Array.from(new Set(filterOptions.advisers.map(function (a) {
-                                                    return a.display_name || (a.first_name ? a.first_name + " " + a.last_name : "Unknown");
-                                                }))).map(function (name) {
-                                                    return { value: name, label: name };
+                                                ].concat(filterOptions.advisers.map(function (a) {
+                                                    return {
+                                                        value: a.id,
+                                                        label: a.display_name || (a.first_name ? a.first_name + " " + a.last_name : "Unknown")
+                                                    };
                                                 }))} />
                                                 <SelectInput value={sectionFilter} onChange={setSectionFilter} options={[
                                                     { value: "all", label: "All Sections" }
