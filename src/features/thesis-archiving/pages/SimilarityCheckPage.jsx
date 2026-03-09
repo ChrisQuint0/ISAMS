@@ -58,7 +58,7 @@ export default function SimilarityCheckPage() {
 
                     {/* Progress Header (Visible when not idle) */}
                     {viewState !== "idle" && (
-                        <div className="mb-8 animate-in slide-in-from-top-4 duration-500">
+                        <div className="mb-8">
                             <Button
                                 variant="ghost"
                                 size="sm"
@@ -94,7 +94,7 @@ export default function SimilarityCheckPage() {
 
                     <div className="flex-1 flex flex-col items-center justify-center">
                         {viewState === "idle" && (
-                            <div className="w-full max-w-5xl animate-in fade-in zoom-in duration-700 space-y-12">
+                            <div className="w-full max-w-5xl space-y-12">
                                 <div className="space-y-4">
                                     <h2 className="text-xl font-bold text-gray-900 tracking-tight">
                                         Smart Research Topic Similarity Detection
@@ -147,7 +147,7 @@ export default function SimilarityCheckPage() {
                         )}
 
                         {viewState === "result" && (
-                            <div className="w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
+                            <div className="w-full">
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                                     <div className="lg:col-span-2 space-y-8">
                                         <Card className="bg-white border-gray-200 shadow-lg backdrop-blur-xl">

@@ -46,7 +46,7 @@ export function SimilarityDropzone({ onFileSelect }) {
     };
 
     return (
-        <div className="w-full max-w-3xl mx-auto">
+        <div className="w-full max-w-5xl mx-auto">
             <div
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
@@ -76,7 +76,7 @@ export function SimilarityDropzone({ onFileSelect }) {
 
                         <Button
                             variant="outline"
-                            className="bg-green-700 hover:bg-green-800 text-white font-bold border-none px-8 py-6 rounded-xl shadow-lg transition-transform active:scale-95"
+                            className="bg-green-700 hover:bg-green-800 text-white hover:text-white font-bold border-none px-8 py-6 rounded-xl shadow-lg transition-transform active:scale-95"
                         >
                             Browse Files
                         </Button>
