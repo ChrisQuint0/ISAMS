@@ -138,13 +138,27 @@ export const thesisService = {
     },
 
     /**
-     * Fetch HTE document checklist fields
+     * Fetch active HTE document checklist fields (used by coordinator view)
      */
     async getHTEDocumentFields() {
         const { data, error } = await supabase
             .from("hte_document_fields")
             .select("*")
             .eq("is_active", true)
+            .order("display_order", { ascending: true });
+
+        if (error) throw error;
+        return data;
+    },
+
+    /**
+     * Fetch ALL HTE document checklist fields, including inactive ones.
+     * Used by the student portal so inactive fields can be shown as "Not Required".
+     */
+    async getHTEDocumentFieldsAll() {
+        const { data, error } = await supabase
+            .from("hte_document_fields")
+            .select("*")
             .order("display_order", { ascending: true });
 
         if (error) throw error;
