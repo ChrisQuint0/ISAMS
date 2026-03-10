@@ -1,0 +1,14 @@
+[dotenv@17.3.1] injecting env (8) from .env.local -- tip: ⚡️ secrets for agents: https://dotenvx.com/as2
+file:///C:/Users/PLPASIG/Documents/Github/ISAMS/node_modules/@supabase/supabase-js/dist/index.mjs:200
+		if (!supabaseKey) throw new Error("supabaseKey is required.");
+		                        ^
+
+Error: supabaseKey is required.
+    at new SupabaseClient (file:///C:/Users/PLPASIG/Documents/Github/ISAMS/node_modules/@supabase/supabase-js/dist/index.mjs:200:27)
+    at createClient (file:///C:/Users/PLPASIG/Documents/Github/ISAMS/node_modules/@supabase/supabase-js/dist/index.mjs:392:9)
+    at file:///C:/Users/PLPASIG/Documents/Github/ISAMS/thesis_backend.js:42:23
+    at ModuleJob.run (node:internal/modules/esm/module_job:377:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:691:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v24.10.0
