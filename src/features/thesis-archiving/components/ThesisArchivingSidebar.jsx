@@ -74,22 +74,22 @@ export function ThesisArchivingSidebar() {
     ];
 
     return (
-        <Sidebar variant="sidebar" collapsible="icon" className="bg-slate-900 border-slate-800">
-            <SidebarHeader className="bg-slate-900 border-b border-slate-800">
+        <Sidebar variant="sidebar" collapsible="icon" className="bg-white border-neutral-200">
+            <SidebarHeader className="bg-white border-b border-neutral-200 h-16 flex items-center justify-center">
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton
                             size="lg"
-                            className="hover:bg-slate-800 data-[state=open]:bg-slate-800"
+                            className="hover:bg-neutral-50 data-[state=open]:bg-neutral-50 w-full"
                         >
                             {/* Icon Container */}
-                            <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-blue-600 text-white shadow-lg shadow-blue-900/20">
+                            <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary-500 text-white shadow-lg shadow-primary-500/20">
                                 <BookOpen className="size-4" />
                             </div>
 
                             {/* Text Container - SidebarMenuButton handles hiding this automatically */}
                             <div className="grid flex-1 text-left text-sm leading-tight">
-                                <span className="truncate font-bold text-slate-100">
+                                <span className="truncate font-bold text-neutral-900">
                                     Thesis / HTE Archiving
                                 </span>
                             </div>
@@ -98,7 +98,7 @@ export function ThesisArchivingSidebar() {
                 </SidebarMenu>
             </SidebarHeader>
 
-            <SidebarContent className="bg-slate-900 overflow-x-hidden">
+            <SidebarContent className="bg-white overflow-x-hidden">
                 <SidebarGroup>
                     <SidebarGroupContent>
                         <SidebarMenu>
@@ -107,11 +107,11 @@ export function ThesisArchivingSidebar() {
                                     asChild
                                     isActive={isActive("/thesis-archiving/dashboard")}
                                     tooltip="Dashboard"
-                                    className={`text-slate-300 hover:text-slate-300 hover:!bg-slate-800 transition-colors ${isActive("/thesis-archiving/dashboard") ? "!bg-slate-800 !text-slate-300" : ""
+                                    className={`transition-colors group ${isActive("/thesis-archiving/dashboard") ? "!bg-primary-50 !text-primary-600 font-medium" : "text-neutral-600 hover:!bg-primary-50 hover:!text-primary-600"
                                         }`}
                                 >
                                     <Link to="/thesis-archiving/dashboard">
-                                        <LayoutDashboard className={`h-4 w-4 ${isActive("/thesis-archiving/dashboard") ? "text-blue-400" : ""}`} />
+                                        <LayoutDashboard className={`h-4 w-4 transition-colors ${isActive("/thesis-archiving/dashboard") ? "text-primary-600" : "text-neutral-500 group-hover:text-primary-600"}`} />
                                         <span className="group-data-[collapsible=icon]:hidden">Dashboard</span>
                                     </Link>
                                 </SidebarMenuButton>
@@ -121,7 +121,7 @@ export function ThesisArchivingSidebar() {
                 </SidebarGroup>
 
                 <SidebarGroup>
-                    <SidebarGroupLabel className="text-slate-500 group-data-[collapsible=icon]:hidden">
+                    <SidebarGroupLabel className="text-neutral-500 font-medium group-data-[collapsible=icon]:hidden">
                         THESIS / CAPSTONE
                     </SidebarGroupLabel>
                     <SidebarGroupContent>
@@ -132,12 +132,12 @@ export function ThesisArchivingSidebar() {
                                         asChild
                                         isActive={isActive(item.path)}
                                         tooltip={item.label}
-                                        className={`text-slate-300 hover:!text-slate-300 hover:!bg-slate-800 transition-colors ${isActive(item.path) ? "!bg-slate-800 !text-slate-300" : ""
+                                        className={`transition-colors group ${isActive(item.path) ? "!bg-primary-50 !text-primary-600 font-medium" : "text-neutral-600 hover:!bg-primary-50 hover:!text-primary-600"
                                             }`}
                                     >
                                         <Link to={item.path}>
                                             <item.icon
-                                                className={`h-4 w-4 ${isActive(item.path) ? "text-blue-400" : ""}`}
+                                                className={`h-4 w-4 transition-colors ${isActive(item.path) ? "text-primary-600" : "text-neutral-500 group-hover:text-primary-600"}`}
                                             />
                                             <span className="group-data-[collapsible=icon]:hidden">
                                                 {item.label}
@@ -151,7 +151,7 @@ export function ThesisArchivingSidebar() {
                 </SidebarGroup>
 
                 <SidebarGroup>
-                    <SidebarGroupLabel className="text-slate-500 group-data-[collapsible=icon]:hidden text-[10px] font-bold tracking-wider uppercase">
+                    <SidebarGroupLabel className="text-neutral-500 group-data-[collapsible=icon]:hidden text-[10px] font-bold tracking-wider uppercase">
                         HTE / INTERNSHIP
                     </SidebarGroupLabel>
                     <SidebarGroupContent>
@@ -162,12 +162,12 @@ export function ThesisArchivingSidebar() {
                                         asChild
                                         isActive={isActive(item.path)}
                                         tooltip={item.label}
-                                        className={`text-slate-300 hover:!text-slate-300 hover:!bg-slate-800 transition-colors ${isActive(item.path) ? "!bg-slate-800 !text-slate-300" : ""
+                                        className={`transition-colors group ${isActive(item.path) ? "!bg-primary-50 !text-primary-600 font-medium" : "text-neutral-600 hover:!bg-primary-50 hover:!text-primary-600"
                                             }`}
                                     >
                                         <Link to={item.path}>
                                             <item.icon
-                                                className={`h-4 w-4 ${isActive(item.path) ? "text-blue-400" : ""}`}
+                                                className={`h-4 w-4 transition-colors ${isActive(item.path) ? "text-primary-600" : "text-neutral-500 group-hover:text-primary-600"}`}
                                             />
                                             <span className="group-data-[collapsible=icon]:hidden">
                                                 {item.label}
@@ -181,7 +181,7 @@ export function ThesisArchivingSidebar() {
                 </SidebarGroup>
 
                 <SidebarGroup>
-                    <SidebarGroupLabel className="text-slate-500 group-data-[collapsible=icon]:hidden text-[10px] font-bold tracking-wider uppercase">
+                    <SidebarGroupLabel className="text-neutral-500 group-data-[collapsible=icon]:hidden text-[10px] font-bold tracking-wider uppercase">
                         INSIGHTS
                     </SidebarGroupLabel>
                     <SidebarGroupContent>
@@ -192,12 +192,12 @@ export function ThesisArchivingSidebar() {
                                         asChild
                                         isActive={isActive(item.path)}
                                         tooltip={item.label}
-                                        className={`text-slate-300 hover:!text-slate-300 hover:!bg-slate-800 transition-colors ${isActive(item.path) ? "!bg-slate-800 !text-slate-300" : ""
+                                        className={`transition-colors group ${isActive(item.path) ? "!bg-primary-50 !text-primary-600 font-medium" : "text-neutral-600 hover:!bg-primary-50 hover:!text-primary-600"
                                             }`}
                                     >
                                         <Link to={item.path}>
                                             <item.icon
-                                                className={`h-4 w-4 ${isActive(item.path) ? "text-blue-400" : ""}`}
+                                                className={`h-4 w-4 transition-colors ${isActive(item.path) ? "text-primary-600" : "text-neutral-500 group-hover:text-primary-600"}`}
                                             />
                                             <span className="group-data-[collapsible=icon]:hidden">
                                                 {item.label}
@@ -211,29 +211,29 @@ export function ThesisArchivingSidebar() {
                 </SidebarGroup>
             </SidebarContent>
 
-            <SidebarFooter className="bg-slate-900 border-slate-800 p-2">
+            <SidebarFooter className="bg-white border-t border-neutral-200 p-2">
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <SidebarMenuButton
                                     size="lg"
-                                    className="w-full justify-start gap-3 hover:bg-slate-800 text-slate-200 group-data-[collapsible=icon]:justify-center"
+                                    className="w-full justify-start gap-3 hover:bg-neutral-50 text-neutral-900 group-data-[collapsible=icon]:justify-center"
                                 >
-                                    <div className="flex aspect-square size-8 items-center justify-center rounded-full bg-slate-700 shrink-0">
-                                        <User className="size-4 text-slate-100" />
+                                    <div className="flex aspect-square size-8 items-center justify-center rounded-full bg-primary-100 shrink-0">
+                                        <User className="size-4 text-primary-600" />
                                     </div>
-                                    <div className="flex-1 text-left text-slate-200 text-sm leading-tight group-data-[collapsible=icon]:hidden overflow-hidden min-w-0">
+                                    <div className="flex-1 text-left text-neutral-900 text-sm leading-tight group-data-[collapsible=icon]:hidden overflow-hidden min-w-0">
                                         <span className="truncate font-medium block">User Account</span>
-                                        <span className="truncate text-xs text-slate-400">Thesis Archiving</span>
+                                        <span className="truncate text-xs text-neutral-500">Thesis Archiving</span>
                                     </div>
-                                    <ChevronUp className="ml-auto size-4 text-slate-500 group-data-[collapsible=icon]:hidden shrink-0" />
+                                    <ChevronUp className="ml-auto size-4 text-neutral-400 group-data-[collapsible=icon]:hidden shrink-0" />
                                 </SidebarMenuButton>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent side="top" className="w-56 bg-slate-900 border-slate-800 text-slate-200">
+                            <DropdownMenuContent side="top" className="w-56 bg-white border-neutral-200 text-neutral-900 shadow-md">
                                 <DropdownMenuItem
                                     onClick={() => navigate("/dashboard")}
-                                    className="text-red-400 hover:bg-red-950/30 focus:bg-red-950/30 focus:text-red-400"
+                                    className="text-red-600 hover:bg-red-50 focus:bg-red-50 focus:text-red-700"
                                 >
                                     <LogOut className="mr-2 h-4 w-4" />
                                     <span>Sign out</span>
