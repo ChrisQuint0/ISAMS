@@ -39,7 +39,9 @@ app.get("/", (req, res) => res.json({ status: "Thesis Backend Running", port: 30
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ADMIN/SERVICE Client to bypass RLS for critical transactions
-const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+const supabaseAdmin = (SUPABASE_URL && SUPABASE_SERVICE_KEY)
+    ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+    : null;
 
 const oauth2Client = new google.auth.OAuth2(
     GOOGLE_CLIENT_ID,
