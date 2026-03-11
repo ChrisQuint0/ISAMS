@@ -164,6 +164,9 @@ export function ImposeSanctionModal({ isOpen, onClose, onSuccess, violationData 
         setErrorMsg(null);
 
         try {
+            const { data: { user }, error: authError } = await supabase.auth.getUser();
+            if (authError || !user) throw new Error("Authentication error. Please log in again.");
+
             // First, ensure the primary violation status is updated to "Sanctioned" to trigger DB logic correctly
             // (Even though the DB has a trigger, sometimes we might be changing status inside ManageViolation UI. doing it here explicitly guarantees data consistency if called directly)
 
@@ -175,7 +178,8 @@ export function ImposeSanctionModal({ isOpen, onClose, onSuccess, violationData 
                 description: description || null,
                 start_date: startDate || null,
                 deadline_date: deadlineDate || null,
-                status: 'In Progress'
+                status: 'In Progress',
+                assigned_by: user.id
             };
 
             const { error: insertError } = await supabase

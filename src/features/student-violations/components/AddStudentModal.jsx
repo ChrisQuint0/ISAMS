@@ -86,10 +86,22 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
         setSuccessMsg(null);
 
         try {
-            const { error } = await supabase.from('students_sv').insert([{
-                ...formData,
-                status: 'Enrolled' // Default status
-            }]);
+            const { data: { user }, error: authError } = await supabase.auth.getUser();
+            if (authError || !user) throw new Error("Authentication error. Please log in again.");
+
+            const insertPayload = {
+                student_number: formData.student_number,
+                first_name: formData.first_name,
+                last_name: formData.last_name,
+                email: formData.email || null,
+                course_year_section: formData.course_year_section,
+                guardian_name: formData.guardian_name || null,
+                guardian_contact: formData.guardian_contact || null,
+                status: 'Enrolled', // Default status
+                created_by: user.id
+            };
+
+            const { error } = await supabase.from('students_sv').insert([insertPayload]);
 
             if (error) throw error;
 
@@ -157,6 +169,9 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
         setSuccessMsg(null);
 
         try {
+            const { data: { user }, error: authError } = await supabase.auth.getUser();
+            if (authError || !user) throw new Error("Authentication error. Please log in again.");
+
             const insertData = parsedData.map(row => ({
                 student_number: row.student_number?.trim(),
                 first_name: row.first_name?.trim(),
@@ -165,7 +180,8 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
                 course_year_section: row.course_year_section?.trim(),
                 guardian_name: row.guardian_name?.trim() || null,
                 guardian_contact: row.guardian_contact?.trim() || null,
-                status: row.status?.trim() || 'Enrolled'
+                status: row.status?.trim() || 'Enrolled',
+                created_by: user.id
             })).filter(row => row.student_number && row.first_name && row.last_name && row.course_year_section);
 
             if (insertData.length === 0) {

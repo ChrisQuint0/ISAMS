@@ -31,8 +31,8 @@ export function EditStudentModal({ isOpen, onClose, onSuccess, studentData }) {
     useEffect(() => {
         if (studentData) {
             setFormData({
-                first_name: studentData.name.split(" ")[0] || "",
-                last_name: studentData.name.split(" ").slice(1).join(" ") || "",
+                first_name: studentData.first_name || "",
+                last_name: studentData.last_name || "",
                 email: studentData.email || "",
                 course_year_section: studentData.course_year_section || studentData.course || "",
                 guardian_name: studentData.guardian_name || studentData.guardian || "",
@@ -81,9 +81,23 @@ export function EditStudentModal({ isOpen, onClose, onSuccess, studentData }) {
         setSuccessMsg(null);
 
         try {
+            const { data: { user }, error: authError } = await supabase.auth.getUser();
+            if (authError || !user) throw new Error("Authentication error. Please log in again.");
+
+            const updatePayload = {
+                first_name: formData.first_name,
+                last_name: formData.last_name,
+                email: formData.email || null,
+                course_year_section: formData.course_year_section,
+                guardian_name: formData.guardian_name || null,
+                guardian_contact: formData.guardian_contact || null,
+                status: formData.status,
+                updated_by: user.id
+            };
+
             const { error } = await supabase
                 .from('students_sv')
-                .update(formData)
+                .update(updatePayload)
                 .eq('student_number', studentData.id);
 
             if (error) throw error;
@@ -172,6 +186,18 @@ export function EditStudentModal({ isOpen, onClose, onSuccess, studentData }) {
                         <Input id="guardian_contact" name="guardian_contact" value={formData.guardian_contact} onChange={handleInputChange} className="bg-white border-neutral-200 focus-visible:ring-primary-500 h-9 text-sm text-neutral-900" />
                     </div>
 
+                    {studentData && (
+                        <div className="col-span-2 bg-neutral-50/80 rounded-lg p-3.5 text-[11px] text-neutral-500 border border-neutral-200 mt-4 space-y-2.5">
+                            <div className="flex justify-between items-center">
+                                <span className="font-bold text-neutral-700 uppercase tracking-widest">Record Created</span>
+                                <span>{studentData.created_at ? new Date(studentData.created_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : 'Unknown'} by <strong className="text-neutral-700">{studentData.created_by_name || 'System'}</strong></span>
+                            </div>
+                            <div className="flex justify-between items-center pt-2.5 border-t border-neutral-200/60">
+                                <span className="font-bold text-neutral-700 uppercase tracking-widest">Last Modified</span>
+                                <span>{studentData.updated_at ? new Date(studentData.updated_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : 'Never'} by <strong className="text-neutral-700">{studentData.updated_by_name || 'System'}</strong></span>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="col-span-2 flex justify-end gap-3 mt-4 pt-4 border-t border-neutral-100">
                         <Button type="button" variant="ghost" className="text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 font-bold" onClick={() => handleOpenChange(false)}>Cancel</Button>
