@@ -31,14 +31,41 @@ export function ManageSanctionModal({ isOpen, onClose, onSuccess, sanctionData }
     const [evidenceList, setEvidenceList] = useState([]);
     const [isLoadingEvidence, setIsLoadingEvidence] = useState(false);
 
+    // Audit trail names
+    const [assignedByName, setAssignedByName] = useState('Unknown');
+    const [updatedByName, setUpdatedByName] = useState('Unknown');
+
     useEffect(() => {
         if (isOpen && sanctionData && sanctionData.original_data) {
             setStatus(sanctionData.original_data.status || "In Progress");
             setRemarks(sanctionData.original_data.remarks || "");
             setCompletionDate(sanctionData.original_data.completion_date || "");
             fetchEvidence(sanctionData.sanction_id);
+            resolveAuditNames(sanctionData.original_data);
         }
     }, [isOpen, sanctionData]);
+
+    const resolveAuditNames = async (data) => {
+        const uuids = [data.assigned_by, data.updated_by].filter(Boolean);
+        if (uuids.length === 0) return;
+
+        try {
+            const { data: users, error } = await supabase
+                .from('users_with_roles')
+                .select('id, first_name, last_name')
+                .in('id', uuids);
+
+            if (error || !users) return;
+
+            const map = {};
+            users.forEach(u => { map[u.id] = `${u.first_name} ${u.last_name}`; });
+
+            if (data.assigned_by && map[data.assigned_by]) setAssignedByName(map[data.assigned_by]);
+            if (data.updated_by && map[data.updated_by]) setUpdatedByName(map[data.updated_by]);
+        } catch (err) {
+            console.error('Error resolving audit names:', err);
+        }
+    };
 
     const fetchEvidence = async (sanctionId) => {
         setIsLoadingEvidence(true);
@@ -68,6 +95,8 @@ export function ManageSanctionModal({ isOpen, onClose, onSuccess, sanctionData }
         setFile(null);
         setIsUploading(false);
         setEvidenceList([]);
+        setAssignedByName('Unknown');
+        setUpdatedByName('Unknown');
     };
 
     const handleOpenChange = (open) => {
@@ -99,6 +128,9 @@ export function ManageSanctionModal({ isOpen, onClose, onSuccess, sanctionData }
         setErrorMsg(null);
 
         try {
+            const { data: { user }, error: authError } = await supabase.auth.getUser();
+            if (authError || !user) throw new Error("Authentication error. Please log in again.");
+
             // Include Upload Step if File Exists & Completed
             let fileUploadLink = null;
             let fileName = null;
@@ -119,7 +151,8 @@ export function ManageSanctionModal({ isOpen, onClose, onSuccess, sanctionData }
                 .update({
                     status,
                     remarks: remarks || null,
-                    completion_date: completionDate || null
+                    completion_date: completionDate || null,
+                    updated_by: user.id
                 })
                 .eq('sanction_id', sanctionData.sanction_id);
 
@@ -133,7 +166,8 @@ export function ManageSanctionModal({ isOpen, onClose, onSuccess, sanctionData }
                         sanction_id: sanctionData.sanction_id,
                         file_name: fileName,
                         file_url: fileUploadLink,
-                        notes: remarks || null
+                        notes: remarks || null,
+                        uploaded_by: user.id
                     }]);
 
                 if (evidenceError) {
@@ -321,6 +355,28 @@ export function ManageSanctionModal({ isOpen, onClose, onSuccess, sanctionData }
                 </div>
 
                 <div className="p-6 border-t border-neutral-100 bg-neutral-50 rounded-b-xl shrink-0">
+                    {/* Read-only Audit Block */}
+                    <div className="bg-white border border-neutral-200 rounded-md p-3 grid grid-cols-2 gap-3 text-xs shadow-sm mb-4">
+                        <div>
+                            <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5">Sanction Assigned</p>
+                            <p className="text-neutral-900 font-bold">
+                                {sanctionData.original_data?.created_at
+                                    ? new Date(sanctionData.original_data.created_at).toLocaleString()
+                                    : 'N/A'}
+                            </p>
+                            <p className="text-neutral-500 font-medium">by {assignedByName}</p>
+                        </div>
+                        <div>
+                            <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5">Last Modified</p>
+                            <p className="text-neutral-900 font-bold">
+                                {sanctionData.original_data?.updated_at
+                                    ? new Date(sanctionData.original_data.updated_at).toLocaleString()
+                                    : 'N/A'}
+                            </p>
+                            <p className="text-neutral-500 font-medium">by {updatedByName}</p>
+                        </div>
+                    </div>
+
                     <div className="flex justify-end gap-3">
                         <Button type="button" variant="ghost" className="text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200 font-bold" onClick={() => handleOpenChange(false)}>Close</Button>
                         <Button form="manage-sanction-form" type="submit" className="bg-warning hover:bg-amber-600 text-white font-bold shadow-md" disabled={isSubmitting}>

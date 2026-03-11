@@ -57,6 +57,9 @@ export function AddSanctionModal({ isOpen, onClose, onSuccess, editingSanction }
         setSuccessMsg(null);
 
         try {
+            const { data: { user }, error: authError } = await supabase.auth.getUser();
+            if (authError || !user) throw new Error("Authentication error. Please log in again.");
+
             if (editingSanction) {
                 const { error } = await supabase
                     .from('sanctions_sv')
@@ -64,7 +67,8 @@ export function AddSanctionModal({ isOpen, onClose, onSuccess, editingSanction }
                         severity: formData.severity,
                         frequency: parseInt(formData.frequency, 10),
                         sanction_name: formData.sanction_name,
-                        sanction_description: formData.sanction_description || null
+                        sanction_description: formData.sanction_description || null,
+                        updated_by: user.id
                     })
                     .eq('matrix_id', editingSanction.matrix_id);
 
@@ -77,7 +81,8 @@ export function AddSanctionModal({ isOpen, onClose, onSuccess, editingSanction }
                         severity: formData.severity,
                         frequency: parseInt(formData.frequency, 10),
                         sanction_name: formData.sanction_name,
-                        sanction_description: formData.sanction_description || null
+                        sanction_description: formData.sanction_description || null,
+                        created_by: user.id
                     }]);
 
                 if (error) throw error;

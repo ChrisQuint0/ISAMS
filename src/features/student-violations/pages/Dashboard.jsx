@@ -40,6 +40,12 @@ export default function StudViolationDashboard() {
   const [loading, setLoading] = useState(false);
   const [gridApi, setGridApi] = useState(null);
   const [rowData, setRowData] = useState([]);
+  const [kpiStats, setKpiStats] = useState({
+    complianceRate: "0%",
+    activeCases: 0,
+    criticalCases: 0,
+    resolvedRate: "0%"
+  });
 
   const formatTimeAgo = (dateString) => {
     const date = new Date(dateString);
@@ -56,18 +62,20 @@ export default function StudViolationDashboard() {
     return date.toLocaleDateString();
   };
 
-  const fetchActivityLogs = async () => {
+  const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      // 1. Fetch Activity Logs
+      const { data: logData, error: logError } = await supabase
         .from('activity_log_sv')
         .select('*')
         .order('created_at', { ascending: false })
         .order('log_id', { ascending: false });
 
-      if (error) throw error;
+      if (logError) throw logError;
 
-      const formattedData = data.map((log) => {
+      const formattedData = logData.map((log) => {
         let displayType = "System Activity";
         let colorType = "text-neutral-500";
         if (log.action_type === 'INSERT') {
@@ -81,13 +89,15 @@ export default function StudViolationDashboard() {
           colorType = "text-destructive-semantic";
         }
 
-        // Make table names human readable
+        // Make table names human readable, including the newly added evidence tables
         const tableMap = {
           'students_sv': 'Student',
           'violations_sv': 'Violation',
-          'sanctions_sv': 'Sanction',
+          'sanctions_sv': 'Sanction Matrix',
           'offense_types_sv': 'Offense Type',
-          'student_sanctions_sv': 'Student Sanction'
+          'student_sanctions_sv': 'Student Sanction',
+          'violation_evidence_sv': 'Violation Evidence',
+          'compliance_evidence_sv': 'Compliance Evidence'
         };
         const readableTable = tableMap[log.table_name] || log.table_name;
 
@@ -105,15 +115,57 @@ export default function StudViolationDashboard() {
       });
 
       setRowData(formattedData);
+
+      // 2. Fetch KPI Data (Violations and Sanctions)
+      const { data: violations } = await supabase.from('violations_sv').select('status, offense_type_id');
+      const { data: sanctions } = await supabase.from('student_sanctions_sv').select('status');
+      const { data: offenseTypes } = await supabase.from('offense_types_sv').select('offense_type_id, severity');
+      
+      const vList = violations || [];
+      const sList = sanctions || [];
+      const oList = offenseTypes || [];
+
+      // Build offense severity lookup
+      const severityMap = {};
+      oList.forEach(o => { severityMap[o.offense_type_id] = o.severity; });
+
+      const totalViolations = vList.length;
+      const totalSanctions = sList.length;
+
+      // Active cases (Pending, Under Investigation, Sanctioned)
+      const activeCasesCount = vList.filter(v => ['Pending', 'Under Investigation', 'Sanctioned'].includes(v.status)).length;
+
+      // Critical Cases (Major severity and not Resolved/Dismissed)
+      const criticalCasesCount = vList.filter(v => {
+          const sev = severityMap[v.offense_type_id];
+          const isResolved = ['Resolved', 'Dismissed'].includes(v.status);
+          return sev === 'Major' && !isResolved;
+      }).length;
+
+      // Resolved Rate (Resolved / Total Violations)
+      const resolvedCount = vList.filter(v => v.status === 'Resolved').length;
+      const resolvedRateCalc = totalViolations > 0 ? Math.round((resolvedCount / totalViolations) * 100) : 0;
+
+      // Compliance Rate (Completed Sanctions / Total Sanctions)
+      const completedSanctions = sList.filter(s => s.status === 'Completed').length;
+      const complianceRateCalc = totalSanctions > 0 ? Math.round((completedSanctions / totalSanctions) * 100) : 0;
+
+      setKpiStats({
+          complianceRate: `${complianceRateCalc}%`,
+          activeCases: activeCasesCount,
+          criticalCases: criticalCasesCount,
+          resolvedRate: `${resolvedRateCalc}%`
+      });
+
     } catch (err) {
-      console.error("Error fetching activity logs:", err);
+      console.error("Error fetching dashboard data:", err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchActivityLogs();
+    fetchDashboardData();
   }, []);
 
   const columnDefs = useMemo(() => [
@@ -124,9 +176,8 @@ export default function StudViolationDashboard() {
       cellRenderer: (params) => {
         let color = "text-neutral-500";
         if (params.value.includes("New")) color = "text-destructive-semantic";
-        if (params.value.includes("cleared")) color = "text-success";
+        if (params.value.includes("removed")) color = "text-destructive-semantic";
         if (params.value.includes("update")) color = "text-info";
-        if (params.value.includes("Sanction")) color = "text-warning";
         return <span className={`font-semibold ${color}`}>{params.value}</span>;
       }
     },
@@ -171,7 +222,7 @@ export default function StudViolationDashboard() {
         <Button
           variant="outline"
           className="bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50 hover:text-primary-600 shadow-sm transition-all active:scale-95 h-10 px-4 font-medium text-xs"
-          onClick={fetchActivityLogs}
+          onClick={fetchDashboardData}
           disabled={loading}
         >
           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
@@ -180,10 +231,10 @@ export default function StudViolationDashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <QuickStat title="Compliance" value="94%" icon={PieChart} color="text-primary-600" />
-        <QuickStat title="Active cases" value="12" icon={Clock} color="text-warning" />
-        <QuickStat title="Critical" value="03" icon={AlertTriangle} color="text-destructive-semantic" />
-        <QuickStat title="Resolved" value="88%" icon={CalendarCheck} color="text-success" />
+        <QuickStat title="Compliance" value={kpiStats.complianceRate} icon={PieChart} color="text-primary-600" />
+        <QuickStat title="Active cases" value={kpiStats.activeCases.toString().padStart(2, '0')} icon={Clock} color="text-warning" />
+        <QuickStat title="Critical" value={kpiStats.criticalCases.toString().padStart(2, '0')} icon={AlertTriangle} color="text-destructive-semantic" />
+        <QuickStat title="Resolved" value={kpiStats.resolvedRate} icon={CalendarCheck} color="text-success" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">

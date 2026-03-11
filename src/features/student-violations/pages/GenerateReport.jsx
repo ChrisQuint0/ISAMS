@@ -36,7 +36,6 @@ const customTheme = themeQuartz.withParams({
   fontSize: '13px',
 });
 
-
 // --- Report Type Configs ---
 const REPORT_TYPES = [
   {
@@ -155,16 +154,33 @@ const GenerateReport = () => {
             if (severityFilter && v.offense_types_sv?.severity !== severityFilter) return false;
             return true;
           })
-          .map(v => ({
-            student_id: v.student_number,
-            student_name: v.students_sv ? `${v.students_sv.first_name} ${v.students_sv.last_name}` : "Unknown",
-            section: v.student_course_year_section || "N/A",
-            offense: v.offense_types_sv?.name || "N/A",
-            severity: v.offense_types_sv?.severity || "N/A",
-            incident_date: v.incident_date,
-            location: v.location,
-            status: v.status,
-          }));
+          .map(v => {
+              let incidentDisplay = v.incident_date || "N/A";
+              if (v.incident_date) {
+                  const dateObj = new Date(v.incident_date);
+                  let dateStr = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+                  let timeStr = "";
+                  if (v.incident_time) {
+                     const [hours, minutes] = v.incident_time.split(':');
+                     const h = parseInt(hours, 10);
+                     const ampm = h >= 12 ? 'PM' : 'AM';
+                     const h12 = h % 12 || 12;
+                     timeStr = ` at ${h12}:${minutes} ${ampm}`;
+                  }
+                  incidentDisplay = `${dateStr}${timeStr}`;
+              }
+
+              return {
+                student_id: v.student_number,
+                student_name: v.students_sv ? `${v.students_sv.first_name} ${v.students_sv.last_name}` : "Unknown",
+                section: v.student_course_year_section || "N/A",
+                offense: v.offense_types_sv?.name || "N/A",
+                severity: v.offense_types_sv?.severity || "N/A",
+                incident_display: incidentDisplay,
+                location: v.location,
+                status: v.status,
+              };
+          });
 
       } else if (selectedType === "sanctions") {
         let query = supabase
@@ -235,12 +251,11 @@ const GenerateReport = () => {
   const columnDefs = useMemo(() => {
     if (selectedType === "violations") {
       return [
-        { headerName: "Student ID", field: "student_id", width: 130 },
         { headerName: "Student Name", field: "student_name", flex: 1.2 },
-        { headerName: "Section", field: "section", flex: 1 },
+        { headerName: "Section", field: "section", width: 100 },
         { headerName: "Offense", field: "offense", flex: 1.5 },
         { headerName: "Severity", field: "severity", width: 110 },
-        { headerName: "Date", field: "incident_date", width: 120 },
+        { headerName: "Incident Date", field: "incident_display", width: 160 },
         { headerName: "Location", field: "location", flex: 1 },
         {
           headerName: "Status", field: "status", width: 140,

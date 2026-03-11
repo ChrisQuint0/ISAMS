@@ -54,6 +54,9 @@ export function AddOffenseModal({ isOpen, onClose, onSuccess, editingOffense }) 
         setSuccessMsg(null);
 
         try {
+            const { data: { user }, error: authError } = await supabase.auth.getUser();
+            if (authError || !user) throw new Error("Authentication error. Please log in again.");
+
             if (editingOffense) {
                 const { error } = await supabase
                     .from('offense_types_sv')
@@ -61,6 +64,7 @@ export function AddOffenseModal({ isOpen, onClose, onSuccess, editingOffense }) 
                         name: formData.name,
                         severity: formData.severity,
                         description: formData.description || null,
+                        updated_by: user.id,
                         updated_at: new Date().toISOString()
                     })
                     .eq('offense_type_id', editingOffense.offense_type_id);
@@ -73,7 +77,8 @@ export function AddOffenseModal({ isOpen, onClose, onSuccess, editingOffense }) 
                     .insert([{
                         name: formData.name,
                         severity: formData.severity,
-                        description: formData.description || null
+                        description: formData.description || null,
+                        created_by: user.id
                     }]);
 
                 if (error) throw error;

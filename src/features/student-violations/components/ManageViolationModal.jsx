@@ -98,9 +98,12 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
         setErrorMsg(null);
 
         try {
+            const { data: { user }, error: authError } = await supabase.auth.getUser();
+            if (authError || !user) throw new Error("Authentication error. Please log in again.");
+
             const { error } = await supabase
                 .from('violations_sv')
-                .update({ status })
+                .update({ status, updated_by: user.id })
                 .eq('violation_id', violationData.violation_id);
 
             if (error) throw error;
@@ -251,6 +254,24 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
                 </div>
 
                 <div className="p-6 border-t border-neutral-100 bg-neutral-50 shrink-0 rounded-b-xl">
+                    {/* Read-only Audit Block */}
+                    <div className="bg-white border border-neutral-200 rounded-md p-3 grid grid-cols-2 gap-3 text-xs shadow-sm mb-4">
+                        <div>
+                            <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5">Violation Reported</p>
+                            <p className="text-neutral-900 font-bold">
+                                {violationData.created_at ? new Date(violationData.created_at).toLocaleString() : 'N/A'}
+                            </p>
+                            <p className="text-neutral-500 font-medium">by {violationData.reported_by_name}</p>
+                        </div>
+                        <div>
+                            <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5">Last Modified</p>
+                            <p className="text-neutral-900 font-bold">
+                                {violationData.updated_at ? new Date(violationData.updated_at).toLocaleString() : 'N/A'}
+                            </p>
+                            <p className="text-neutral-500 font-medium">by {violationData.updated_by_name}</p>
+                        </div>
+                    </div>
+
                     <form onSubmit={handleSubmit}>
                         <div className="space-y-2 mb-6">
                             <Label htmlFor="status" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Update Status</Label>

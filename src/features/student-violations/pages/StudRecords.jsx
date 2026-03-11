@@ -42,6 +42,18 @@ const StudRecords = () => {
   const fetchStudents = async () => {
     setIsLoading(true);
     try {
+      // Fetch users for audit trail resolution
+      const { data: usersData } = await supabase
+        .from('users_with_roles')
+        .select('id, first_name, last_name');
+        
+      const userMap = {};
+      if (usersData) {
+         usersData.forEach(u => {
+             userMap[u.id] = `${u.first_name} ${u.last_name}`;
+         });
+      }
+
       const { data, error } = await supabase
         .from('students_sv')
         .select('*');
@@ -51,12 +63,18 @@ const StudRecords = () => {
       } else if (data) {
         const formattedData = data.map(student => ({
           id: student.student_number,
+          first_name: student.first_name,
+          last_name: student.last_name,
           name: `${student.first_name} ${student.last_name}`,
           email: student.email,
           course: student.course_year_section,
           guardian: student.guardian_name,
           guardianContact: student.guardian_contact,
-          status: student.status
+          status: student.status,
+          created_at: student.created_at,
+          updated_at: student.updated_at,
+          created_by_name: userMap[student.created_by] || 'System',
+          updated_by_name: userMap[student.updated_by] || (student.updated_by ? 'System' : 'None')
         }));
         setStudents(formattedData);
       }
@@ -144,6 +162,22 @@ const StudRecords = () => {
           </div>
         );
       }
+    },
+    {
+      headerName: "Created By",
+      field: "created_by_name",
+      flex: 1.5,
+      cellStyle: { color: 'var(--neutral-500)' },
+      filter: true,
+      hide: true // Hidden by default, unhideable in AG Grid columns panel
+    },
+    {
+      headerName: "Updated By",
+      field: "updated_by_name",
+      flex: 1.5,
+      cellStyle: { color: 'var(--neutral-500)' },
+      filter: true,
+      hide: true // Hidden by default
     },
     {
       headerName: "Actions",

@@ -146,8 +146,8 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
     };
 
     const validateForm = () => {
-        if (!formData.student_number || !formData.offense_type_id || !formData.incident_date) {
-            setErrorMsg("Student, Offense Type, and Incident Date are required.");
+        if (!formData.student_number || !formData.offense_type_id || !formData.incident_date || !formData.location) {
+            setErrorMsg("Student, Offense Type, Incident Date, and Location are required.");
             return false;
         }
         setErrorMsg(null);
@@ -162,6 +162,10 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
         setSuccessMsg(null);
 
         try {
+            // Get current user for audit fields
+            const { data: { user }, error: authError } = await supabase.auth.getUser();
+            if (authError || !user) throw new Error("Authentication error. Please log in again.");
+
             // Validate that the student exists
             const { data: studentData, error: studentError } = await supabase
                 .from('students_sv')
@@ -181,7 +185,8 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
                 location: formData.location || null,
                 description: formData.description || null,
                 student_course_year_section: studentData.course_year_section || null,
-                status: formData.status
+                status: formData.status,
+                reported_by: user.id
             };
 
             const { data: newViolation, error: insertError } = await supabase
@@ -207,6 +212,7 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
                             file_name: file.name,
                             file_url: uploadResult.webViewLink,
                             file_type: file.type || 'application/octet-stream',
+                            uploaded_by: user.id
                         });
                     } catch (uploadError) {
                         console.error(`Error uploading ${file.name}:`, uploadError);
@@ -381,7 +387,7 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="location" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Location</Label>
+                            <Label htmlFor="location" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Location *</Label>
                             <Input
                                 id="location"
                                 name="location"
