@@ -25,6 +25,26 @@ import {
   getFilterSummary,
 } from "../utils/reportExportUtils";
 
+import { fetchThesisReport, fetchSimilarityReport, fetchOJTReport, fetchCoordinators } from "../services/reportService";
+import { thesisService } from "../services/thesisService";
+import { supabase } from "@/lib/supabaseClient";
+
+import { AgGridReact } from "ag-grid-react";
+import { ModuleRegistry, AllCommunityModule, themeAlpine } from 'ag-grid-community';
+
+// Register AG Grid modules
+ModuleRegistry.registerModules([AllCommunityModule]);
+
+// Custom theme using AG Grid v33+ Theming API with Alpine theme and green accents matching GSDS
+const customTheme = themeAlpine.withParams({
+  accentColor: '#15803d', // green-700
+  backgroundColor: '#ffffff',
+  foregroundColor: '#1f2937', // gray-800
+  borderColor: '#e5e7eb', // gray-200
+  headerBackgroundColor: '#f9fafb', // gray-50
+  headerTextColor: '#4b5563', // gray-600
+});
+
 // ─────────────────────────────────────────────────────────────
 // CONSTANTS
 // ─────────────────────────────────────────────────────────────
@@ -34,98 +54,17 @@ const REPORT_TYPES = [
   { value: "ojt", label: "HTE / OJT", description: "Trainee Completion" },
 ];
 
-const DEPARTMENTS = ["Computer Science", "Information Technology", "Computer Engineering"];
-const CATEGORIES = ["Thesis", "Research", "Capstone Project"];
-const COORDINATORS = ["Dr. Juan Santos", "Dr. Maria Cruz", "Dr. Antonio Reyes"];
+const DEPARTMENTS = ["Information Technology", "Computer Science"];
 const STATUSES = ["All", "Complete", "Incomplete"];
 const PER_PAGE = 10;
-
-// ─────────────────────────────────────────────────────────────
-// MOCK DATA
-// ─────────────────────────────────────────────────────────────
-function generateMockThesisData() {
-  return {
-    submissionSummary: [
-      { year: 2022, category: "Thesis", count: 25 },
-      { year: 2022, category: "Research", count: 12 },
-      { year: 2022, category: "Capstone", count: 8 },
-      { year: 2023, category: "Thesis", count: 32 },
-      { year: 2023, category: "Research", count: 18 },
-      { year: 2023, category: "Capstone", count: 14 },
-      { year: 2024, category: "Thesis", count: 28 },
-      { year: 2024, category: "Research", count: 15 },
-      { year: 2024, category: "Capstone", count: 10 },
-      { year: 2025, category: "Thesis", count: 5 },
-      { year: 2025, category: "Research", count: 2 },
-      { year: 2025, category: "Capstone", count: 1 },
-    ],
-    archiveInventory: Array.from({ length: 45 }, (_, i) => ({
-      id: i + 1,
-      title: [
-        "Automated Crops Monitoring using IoT Sensors",
-        "Library Management System with RFID Technology",
-        "AI-Powered Traffic Management System",
-        "Blockchain for Secure Medical Records",
-        "Machine Learning in Financial Forecasting",
-        "Deep Learning for Image Classification",
-        "Real-Time Object Detection using YOLO",
-        "NLP-Based Sentiment Analysis Framework",
-        "Cybersecurity Framework for SMEs",
-        "Cloud-Based Inventory Management System",
-      ][i % 10] + (i >= 10 ? ` (Vol. ${Math.floor(i / 10) + 1})` : ""),
-      authors: `${["C. Quinto", "A. Brown", "S. Smith", "E. Garcia", "M. Cruz"][i % 5]} · ${["J. Doe", "B. Clark", "M. Johnson", "F. White", "A. Reyes"][i % 5]}`,
-      category: ["Thesis", "Research", "Capstone Project"][i % 3],
-      year: 2020 + (i % 5),
-      dateAdded: `2024-${String((i % 12) + 1).padStart(2, "0")}-${String((i % 28) + 1).padStart(2, "0")}`,
-    })),
-  };
-}
-
-function generateMockSimilarityData() {
-  return {
-    flaggedSubmissions: Array.from({ length: 25 }, (_, i) => ({
-      id: i + 1,
-      title: `Research Paper ${i + 1}: ${["Advanced Computing Systems", "Distributed Database Architecture", "Neural Network Optimization", "Quantum Computing Applications", "Edge Computing for IoT"][i % 5]}`,
-      authors: `${["A. Santos", "M. Cruz", "J. Reyes", "C. Quinto", "R. Lopez"][i % 5]} · Co-Author ${i + 1}`,
-      submissionDate: `2024-${String((i % 12) + 1).padStart(2, "0")}-${String((i % 28) + 1).padStart(2, "0")}`,
-      similarityScore: ((i * 13 + 7) % 100) + 0.42,
-      reviewStatus: ["Pending", "Reviewed", "Cleared"][i % 3],
-    })),
-    similarityDistribution: [
-      { category: "Thesis", avgSimilarity: 15.2 },
-      { category: "Research", avgSimilarity: 12.8 },
-      { category: "Capstone Project", avgSimilarity: 18.5 },
-      { category: "Other", avgSimilarity: 22.1 },
-    ],
-  };
-}
-
-function generateMockOJTData() {
-  return {
-    traineeStatus: Array.from({ length: 35 }, (_, i) => {
-      const uploaded = (i * 7 + 3) % 15 + 1;
-      return {
-        id: i + 1,
-        studentName: `${["Alice", "Bob", "Carlos", "Diana", "Ethan", "Fiona", "George"][i % 7]} ${["Santos", "Cruz", "Reyes", "Lopez", "Garcia", "Quinto", "Rivera"][i % 7]}`,
-        studentId: `2024${String(i + 1).padStart(5, "0")}`,
-        academicYear: `AY ${2023 + Math.floor(i / 12)}–${2024 + Math.floor(i / 12)}`,
-        semester: ["1st Sem", "2nd Sem", "Summer"][i % 3],
-        coordinator: ["Dr. Juan Santos", "Dr. Maria Cruz", "Dr. Antonio Reyes"][i % 3],
-        totalRequired: 15,
-        totalUploaded: uploaded,
-        overallStatus: uploaded === 15 ? "Complete" : "Incomplete",
-      };
-    }),
-  };
-}
 
 // ─────────────────────────────────────────────────────────────
 // GSDS DESIGN TOKENS (Green School Design System)
 // ─────────────────────────────────────────────────────────────
 const ACCENT = {
-  thesis:     { gradFrom: "from-green-600", gradTo: "to-green-700", glow: "rgba(0,138,69,0.15)" },
+  thesis: { gradFrom: "from-green-600", gradTo: "to-green-700", glow: "rgba(0,138,69,0.15)" },
   similarity: { gradFrom: "from-green-500", gradTo: "to-green-600", glow: "rgba(22,163,74,0.15)" },
-  ojt:        { gradFrom: "from-green-700", gradTo: "to-green-800", glow: "rgba(20,83,45,0.15)" },
+  ojt: { gradFrom: "from-green-700", gradTo: "to-green-800", glow: "rgba(20,83,45,0.15)" },
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -206,8 +145,8 @@ function ExportToolbar({ onExcel, onCSV, onPDF, exporting }) {
   const Spin = () => <span className="mr-1.5 size-3 rounded-full border border-white/30 border-t-white animate-spin inline-block" />;
   const btns = [
     { key: "excel", label: "XLSX", fn: onExcel, cls: "bg-green-700 hover:bg-green-800 shadow-sm" },
-    { key: "csv",   label: "CSV",  fn: onCSV,   cls: "bg-gray-700 hover:bg-gray-800 shadow-sm" },
-    { key: "pdf",   label: "PDF",  fn: onPDF,   cls: "bg-rose-600 hover:bg-rose-700 shadow-sm" },
+    { key: "csv", label: "CSV", fn: onCSV, cls: "bg-gray-700 hover:bg-gray-800 shadow-sm" },
+    { key: "pdf", label: "PDF", fn: onPDF, cls: "bg-rose-600 hover:bg-rose-700 shadow-sm" },
   ];
   return (
     <div className="flex items-center gap-2">
@@ -223,34 +162,46 @@ function ExportToolbar({ onExcel, onCSV, onPDF, exporting }) {
   );
 }
 
-function DataTable({ columns, children }) {
-  return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200">
-      <table className="w-full text-sm border-collapse">
-        <thead>
-          <tr className="bg-gray-50">
-            {columns.map((col, i) => (
-              <th key={i} className="px-5 py-3.5 text-left text-[10px] font-bold uppercase tracking-widest text-gray-500 whitespace-nowrap border-b border-gray-200">
-                {col}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">{children}</tbody>
-      </table>
-    </div>
-  );
+// Removed static DataTable function since AG-Grid will be used
+
+// ─────────────────────────────────────────────────────────────
+// DYNAMIC CATEGORY THEME GENERATOR
+// ─────────────────────────────────────────────────────────────
+const PRESET_CATEGORIES = {
+  "thesis": { bar: "from-green-700 to-green-500", val: "text-green-700", badge: "bg-green-50 text-green-700 border-green-200" },
+  "research": { bar: "from-blue-700 to-blue-500", val: "text-blue-700", badge: "bg-blue-50 text-blue-700 border-blue-200" },
+  "capstone project": { bar: "from-purple-700 to-purple-500", val: "text-purple-700", badge: "bg-purple-50 text-purple-700 border-purple-200" },
+  "capstone": { bar: "from-purple-700 to-purple-500", val: "text-purple-700", badge: "bg-purple-50 text-purple-700 border-purple-200" },
+};
+
+const FALLBACK_THEMES = [
+  { bar: "from-orange-600 to-orange-400", val: "text-orange-700", badge: "bg-orange-50 text-orange-700 border-orange-200" },
+  { bar: "from-teal-600 to-teal-400", val: "text-teal-700", badge: "bg-teal-50 text-teal-700 border-teal-200" },
+  { bar: "from-rose-600 to-rose-400", val: "text-rose-700", badge: "bg-rose-50 text-rose-700 border-rose-200" },
+  { bar: "from-indigo-600 to-indigo-400", val: "text-indigo-700", badge: "bg-indigo-50 text-indigo-700 border-indigo-200" },
+  { bar: "from-amber-600 to-amber-400", val: "text-amber-700", badge: "bg-amber-50 text-amber-700 border-amber-200" },
+  { bar: "from-cyan-600 to-cyan-400", val: "text-cyan-700", badge: "bg-cyan-50 text-cyan-700 border-cyan-200" },
+];
+
+function getCategoryTheme(category) {
+  if (!category) return { bar: "from-gray-600 to-gray-400", val: "text-gray-700", badge: "bg-gray-50 border-gray-200 text-gray-700" };
+
+  const lower = String(category).toLowerCase().trim();
+  if (PRESET_CATEGORIES[lower]) return PRESET_CATEGORIES[lower];
+
+  // Deterministic stable hash for unknown categories
+  let hash = 0;
+  for (let i = 0; i < lower.length; i++) {
+    hash = lower.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return FALLBACK_THEMES[Math.abs(hash) % FALLBACK_THEMES.length];
 }
 
 function CategoryBadge({ category }) {
-  const map = {
-    "Thesis":          "bg-green-50 text-green-700 border-green-200",
-    "Research":        "bg-blue-50 text-blue-700 border-blue-200",
-    "Capstone Project":"bg-purple-50 text-purple-700 border-purple-200",
-  };
+  const theme = getCategoryTheme(category);
   return (
-    <Badge className={`border text-xs font-semibold px-2.5 py-0.5 rounded-lg ${map[category] ?? "bg-gray-50 border-gray-200 text-gray-600"}`}>
-      {category}
+    <Badge className={`border text-xs font-semibold px-2.5 py-0.5 rounded-lg ${theme.badge}`}>
+      {category || "Unknown"}
     </Badge>
   );
 }
@@ -295,7 +246,7 @@ function defaultFilters() {
   return { dateFrom: "", dateTo: "", department: "All", category: "All", coordinator: "All", completionStatus: "All" };
 }
 
-function ReportsFilters({ onFilterChange, showOJTFilters = false, reportType = "thesis" }) {
+function ReportsFilters({ onFilterChange, showOJTFilters = false, reportType = "thesis", categories = [], coordinators = [] }) {
   const [filters, setFilters] = useState(() => {
     try {
       const s = sessionStorage.getItem(`reportFilters_${reportType}`);
@@ -334,7 +285,7 @@ function ReportsFilters({ onFilterChange, showOJTFilters = false, reportType = "
         )}
       </div>
 
-      <div className={`p-6 grid gap-4 ${showOJTFilters ? "grid-cols-1 sm:grid-cols-3 lg:grid-cols-6" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"}`}>
+      <div className={`p-6 grid gap-4 ${showOJTFilters ? "grid-cols-1 sm:grid-cols-3 lg:grid-cols-6" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"}`}>
         <div>
           <Label className={labelCls}>From Date</Label>
           <Input type="date" value={filters.dateFrom} onChange={setEv("dateFrom")} className={inputCls} />
@@ -343,26 +294,33 @@ function ReportsFilters({ onFilterChange, showOJTFilters = false, reportType = "
           <Label className={labelCls}>To Date</Label>
           <Input type="date" value={filters.dateTo} onChange={setEv("dateTo")} className={inputCls} />
         </div>
-        <div>
-          <Label className={labelCls}>Department</Label>
-          <Select value={filters.department} onValueChange={set("department")}>
-            <SelectTrigger className={triggerCls}><SelectValue placeholder="All Departments" /></SelectTrigger>
-            <SelectContent className={dropdownCls}>
-              <SelectItem value="All">All Departments</SelectItem>
-              {DEPARTMENTS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label className={labelCls}>Category</Label>
-          <Select value={filters.category} onValueChange={set("category")}>
-            <SelectTrigger className={triggerCls}><SelectValue placeholder="All Categories" /></SelectTrigger>
-            <SelectContent className={dropdownCls}>
-              <SelectItem value="All">All Categories</SelectItem>
-              {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
+
+        {showOJTFilters && (
+          <div>
+            <Label className={labelCls}>Department</Label>
+            <Select value={filters.department} onValueChange={set("department")}>
+              <SelectTrigger className={triggerCls}><SelectValue placeholder="All Departments" /></SelectTrigger>
+              <SelectContent className={dropdownCls}>
+                <SelectItem value="All">All Departments</SelectItem>
+                {DEPARTMENTS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {reportType !== "ojt" && (
+          <div>
+            <Label className={labelCls}>Category</Label>
+            <Select value={filters.category} onValueChange={set("category")}>
+              <SelectTrigger className={triggerCls}><SelectValue placeholder="All Categories" /></SelectTrigger>
+              <SelectContent className={dropdownCls}>
+                <SelectItem value="All">All Categories</SelectItem>
+                {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         {showOJTFilters && (
           <>
             <div>
@@ -371,7 +329,7 @@ function ReportsFilters({ onFilterChange, showOJTFilters = false, reportType = "
                 <SelectTrigger className={triggerCls}><SelectValue placeholder="All" /></SelectTrigger>
                 <SelectContent className={dropdownCls}>
                   <SelectItem value="All">All Coordinators</SelectItem>
-                  {COORDINATORS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {coordinators.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -403,40 +361,35 @@ function ReportsThesis({ filters }) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    let active = true;
     async function loadReport() {
       setLoading(true);
       setError(null);
       try {
-        const mockData = generateMockThesisData();
-        let filtered = mockData.archiveInventory;
-        if (filters.category !== "All") {
-          filtered = filtered.filter(item => item.category === filters.category);
-        }
-        const totalCount = filtered.length;
-        const start = (page - 1) * PER_PAGE;
-        const paginated = filtered.slice(start, start + PER_PAGE);
-        setData({ submissionSummary: mockData.submissionSummary, archiveInventory: paginated, totalCount });
+        const result = await fetchThesisReport({ ...filters, page, limit: PER_PAGE });
+        if (active) setData(result);
       } catch (err) {
-        setError(err.message || "Failed to load thesis report");
-        addToast({ title: "Error", description: err.message, variant: "destructive" });
+        if (active) {
+          setError(err.message || "Failed to load thesis report");
+          addToast({ title: "Error", description: err.message, variant: "destructive" });
+        }
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }
     loadReport();
+    return () => { active = false; };
   }, [filters, page, addToast]);
 
-  const paginated = useMemo(() => data?.archiveInventory ?? [], [data]);
-  const totalPages = data ? Math.ceil(data.totalCount / PER_PAGE) : 1;
+  const archiveInventory = useMemo(() => data?.archiveInventory ?? [], [data]);
+  const totalPages = data?.totalPages ?? 1;
 
   const withExport = async (key, label, fn) => {
     setExporting(key);
     try {
-      const fullData = generateMockThesisData();
-      let filtered = fullData.archiveInventory;
-      if (filters.category !== "All") filtered = filtered.filter(item => item.category === filters.category);
-      const result = fn({ ...fullData, archiveInventory: filtered });
-      if (result?.success) addToast({ title: "Exported", description: `Thesis report saved as ${label}` });
+      const result = await fetchThesisReport({ ...filters, page: 1, limit: 1000, fullDataset: true });
+      const exportRes = fn(result);
+      if (exportRes?.success) addToast({ title: "Exported", description: `Thesis report saved as ${label}` });
       else addToast({ title: "Export failed", description: "Could not export", variant: "destructive" });
     } catch (err) {
       addToast({ title: "Export failed", description: err.message, variant: "destructive" });
@@ -451,15 +404,26 @@ function ReportsThesis({ filters }) {
   const maxCount = data?.submissionSummary?.length > 0
     ? Math.max(...data.submissionSummary.map((s) => s.count)) : 1;
 
-  const BAR = {
-    Thesis:   { bar: "bg-gradient-to-r from-green-700 to-green-500",  val: "text-green-700" },
-    Research: { bar: "bg-gradient-to-r from-blue-700 to-blue-500",    val: "text-blue-700" },
-    Capstone: { bar: "bg-gradient-to-r from-purple-700 to-purple-500", val: "text-purple-700" },
-  };
+
 
   const csvExportData = (fullData) => (fullData?.archiveInventory ?? []).map((i) => ({
     Title: i.title, Authors: i.authors, Category: i.category, Year: i.year, "Date Added": i.dateAdded,
   }));
+
+  const colDefs = [
+    { field: "title", headerName: "Title", flex: 2, sortable: true, filter: true, minWidth: 200 },
+    { field: "authors", headerName: "Authors", flex: 1.5, sortable: true, filter: true },
+    {
+      field: "category",
+      headerName: "Category",
+      flex: 1,
+      sortable: true,
+      filter: true,
+      cellRenderer: (params) => <CategoryBadge category={params.value} />
+    },
+    { field: "year", headerName: "Year", flex: 0.8, sortable: true, filter: true, cellClass: "font-mono tabular-nums text-xs" },
+    { field: "dateAdded", headerName: "Date Added", flex: 1, sortable: true, filter: true, cellClass: "font-mono tabular-nums text-xs" },
+  ];
 
   return (
     <div className="space-y-5">
@@ -468,25 +432,30 @@ function ReportsThesis({ filters }) {
           Submission Summary
         </SectionTitle>
         <div className="space-y-0.5">
-          {(data?.submissionSummary ?? []).map((item, idx) => (
-            <ProgressRow
-              key={idx}
-              label={String(item.year)}
-              sub={item.category}
-              pct={(item.count / maxCount) * 100}
-              displayValue={item.count}
-              colorClass={(BAR[item.category] ?? BAR.Thesis).bar}
-              valueClass={(BAR[item.category] ?? BAR.Thesis).val}
-            />
-          ))}
-        </div>
-        <div className="flex items-center gap-6 mt-6 pt-5 border-t border-gray-200">
-          {[["Thesis", "bg-green-500"], ["Research", "bg-blue-500"], ["Capstone", "bg-purple-500"]].map(([label, dot]) => (
-            <div key={label} className="flex items-center gap-2">
-              <span className={`size-2 rounded-full ${dot}`} />
-              <span className="text-xs text-gray-600 font-medium">{label}</span>
-            </div>
-          ))}
+          {[...(data?.submissionSummary ?? [])]
+            .sort((a, b) => b.year - a.year || String(a.category).localeCompare(String(b.category)))
+            .map((item, idx) => {
+              const YEAR_THEMES = [
+                { bar: "from-green-700 to-green-500", val: "text-green-700" },      // year % 5 == 0
+                { bar: "from-blue-700 to-blue-500", val: "text-blue-700" },        // year % 5 == 1
+                { bar: "from-purple-700 to-purple-500", val: "text-purple-700" },  // year % 5 == 2
+                { bar: "from-rose-700 to-rose-500", val: "text-rose-700" },        // year % 5 == 3
+                { bar: "from-amber-700 to-amber-500", val: "text-amber-700" },      // year % 5 == 4
+              ];
+              const yearNum = parseInt(item.year, 10) || 0;
+              const theme = YEAR_THEMES[yearNum % 5];
+              return (
+                <ProgressRow
+                  key={idx}
+                  label={String(item.year)}
+                  sub={item.category}
+                  pct={(item.count / maxCount) * 100}
+                  displayValue={item.count}
+                  colorClass={`bg-gradient-to-r ${theme.bar}`}
+                  valueClass={theme.val}
+                />
+              );
+            })}
         </div>
       </Panel>
 
@@ -506,21 +475,15 @@ function ReportsThesis({ filters }) {
             onPDF={() => withExport("pdf", "PDF", (fullData) => exportToPDF({ title: "Thesis Report", subtitle: "Archive Inventory", filters, timestamp: new Date().toLocaleString(), columns: ["Title", "Authors", "Category", "Year", "Date Added"], data: (fullData?.archiveInventory ?? []).map((i) => [i.title, i.authors, i.category, i.year, i.dateAdded]) }, `${generateFilename("Thesis")}.pdf`))}
           />
         </div>
-        <DataTable columns={["Title", "Authors", "Category", "Year", "Date Added"]}>
-          {paginated.map((item, idx) => (
-            <tr key={idx} className="hover:bg-gray-50 transition-colors duration-100 group">
-              <td className="px-5 py-4 max-w-xs">
-                <a href="#" className="text-gray-900 hover:text-green-700 font-semibold text-sm group-hover:underline underline-offset-2 transition-colors line-clamp-1">
-                  {item.title}
-                </a>
-              </td>
-              <td className="px-5 py-4 text-gray-500 text-sm">{item.authors}</td>
-              <td className="px-5 py-4"><CategoryBadge category={item.category} /></td>
-              <td className="px-5 py-4 font-mono text-gray-500 text-xs tabular-nums">{item.year}</td>
-              <td className="px-5 py-4 font-mono text-gray-500 text-xs tabular-nums">{item.dateAdded}</td>
-            </tr>
-          ))}
-        </DataTable>
+        <div className="w-full h-[400px]">
+          <AgGridReact
+            theme={customTheme}
+            rowData={archiveInventory}
+            columnDefs={colDefs}
+            pagination={false}
+            domLayout="normal"
+          />
+        </div>
         <Pagination page={page} totalPages={totalPages} onPage={setPage} />
       </Panel>
     </div>
@@ -530,7 +493,7 @@ function ReportsThesis({ filters }) {
 // ─────────────────────────────────────────────────────────────
 // SIMILARITY REPORT
 // ─────────────────────────────────────────────────────────────
-function ReportsSimilarity({ filters }) {
+function ReportsSimilarity({ filters, categories = [] }) {
   const { addToast } = useToast();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -539,25 +502,24 @@ function ReportsSimilarity({ filters }) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    let active = true;
     async function loadReport() {
       setLoading(true);
       setError(null);
       try {
-        const mockData = generateMockSimilarityData();
-        let filtered = mockData.flaggedSubmissions;
-        if (filters.category !== "All") filtered = filtered.filter(item => item.category === filters.category);
-        const totalCount = filtered.length;
-        const start = (page - 1) * PER_PAGE;
-        const paginated = filtered.slice(start, start + PER_PAGE);
-        setData({ flaggedSubmissions: paginated, similarityDistribution: mockData.similarityDistribution, totalCount });
+        const result = await fetchSimilarityReport({ ...filters, page, limit: PER_PAGE });
+        if (active) setData(result);
       } catch (err) {
-        setError(err.message || "Failed to load similarity report");
-        addToast({ title: "Error", description: err.message, variant: "destructive" });
+        if (active) {
+          setError(err.message || "Failed to load similarity report");
+          addToast({ title: "Error", description: err.message, variant: "destructive" });
+        }
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }
     loadReport();
+    return () => { active = false; };
   }, [filters, page, addToast]);
 
   const paginated = useMemo(() => data?.flaggedSubmissions ?? [], [data]);
@@ -566,11 +528,9 @@ function ReportsSimilarity({ filters }) {
   const withExport = async (key, label, fn) => {
     setExporting(key);
     try {
-      const fullData = generateMockSimilarityData();
-      let filtered = fullData.flaggedSubmissions;
-      if (filters.category !== "All") filtered = filtered.filter(item => item.category === filters.category);
-      const result = fn({ ...fullData, flaggedSubmissions: filtered });
-      if (result?.success) addToast({ title: "Exported", description: `Similarity report saved as ${label}` });
+      const result = await fetchSimilarityReport({ ...filters, page: 1, limit: 1000, fullDataset: true });
+      const exportRes = fn(result);
+      if (exportRes?.success) addToast({ title: "Exported", description: `Similarity report saved as ${label}` });
       else addToast({ title: "Export failed", description: "Could not export", variant: "destructive" });
     } catch (err) {
       addToast({ title: "Export failed", description: err.message, variant: "destructive" });
@@ -579,11 +539,23 @@ function ReportsSimilarity({ filters }) {
     }
   };
 
+  const distributionData = useMemo(() => {
+    const apiDist = data?.similarityDistribution || [];
+    const distMap = new Map(apiDist.map(d => [d.category, parseFloat(d.avgSimilarity) || 0]));
+
+    if (!categories || categories.length === 0) return apiDist;
+
+    return categories.map(cat => ({
+      category: cat,
+      avgSimilarity: distMap.get(cat) || 0
+    })).sort((a, b) => b.avgSimilarity - a.avgSimilarity);
+  }, [data, categories]);
+
   if (loading) return <ReportSkeleton />;
   if (error) return <div className="text-red-500 p-4">Error: {error}</div>;
 
-  const maxSim = data?.similarityDistribution?.length > 0
-    ? Math.max(...data.similarityDistribution.map((s) => s.avgSimilarity)) : 1;
+  const maxSim = distributionData?.length > 0
+    ? Math.max(...distributionData.map((s) => s.avgSimilarity)) : 1;
 
   // Readable badge colors on white backgrounds
   const simCls = (v) => v > 50
@@ -592,40 +564,22 @@ function ReportsSimilarity({ filters }) {
       ? "bg-amber-50 text-amber-700 border-amber-200"
       : "bg-green-50 text-green-700 border-green-200";
 
-  const statusCls = (s) => s === "Pending"
-    ? "bg-amber-50 text-amber-700 border-amber-200"
-    : s === "Reviewed"
-      ? "bg-blue-50 text-blue-700 border-blue-200"
-      : "bg-green-50 text-green-700 border-green-200";
+  const statusCls = (s) => s === "Flagged"
+    ? "bg-red-50 text-red-700 border-red-200"
+    : "bg-green-50 text-green-700 border-green-200";
 
   const exportData = (fullData) => (fullData?.flaggedSubmissions ?? []).map((i) => ({
-    "Paper Title": i.title, Authors: i.authors, "Submission Date": i.submissionDate,
-    "Similarity Score": `${(i.similarityScore || 0).toFixed(2)}%`, "Review Status": i.reviewStatus,
+    "Paper Title": i.title, "Submission Date": i.submissionDate,
+    "Similarity Score": `${(i.similarityScore || 0).toFixed(2)}%`, Status: i.reviewStatus,
   }));
 
   return (
     <div className="space-y-5">
       <Panel>
-        <SectionTitle reportType="similarity">Similarity Distribution</SectionTitle>
-        <div className="space-y-0.5">
-          {(data?.similarityDistribution ?? []).map((item, idx) => (
-            <ProgressRow
-              key={idx}
-              label={item.category}
-              pct={(parseFloat(item.avgSimilarity) / maxSim) * 100}
-              displayValue={`${item.avgSimilarity}%`}
-              colorClass="bg-gradient-to-r from-green-700 to-green-500"
-              valueClass="text-green-700"
-            />
-          ))}
-        </div>
-      </Panel>
-
-      <Panel>
         <div className="flex items-center justify-between mb-7 gap-4 flex-wrap">
           <div className="flex items-center gap-3.5">
             <div className="h-7 w-[3px] rounded-full bg-gradient-to-b from-green-600 to-green-700" />
-            <h3 className="text-lg font-bold text-gray-900 tracking-tight">Flagged Submissions</h3>
+            <h3 className="text-lg font-bold text-gray-900 tracking-tight">Submission checks</h3>
             <span className="font-mono text-xs text-gray-500 bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-full">
               {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, data?.totalCount ?? 0)} of {data?.totalCount ?? 0}
             </span>
@@ -634,32 +588,44 @@ function ReportsSimilarity({ filters }) {
             exporting={exporting}
             onExcel={() => withExport("excel", "Excel", (fullData) => exportToExcel(exportData(fullData), `${generateFilename("Similarity")}.xlsx`, "Similarity Reports"))}
             onCSV={() => withExport("csv", "CSV", (fullData) => exportToCSV(exportData(fullData), `${generateFilename("Similarity")}.csv`))}
-            onPDF={() => withExport("pdf", "PDF", (fullData) => exportToPDF({ title: "Similarity Check Reports", subtitle: "Flagged Submissions", filters, timestamp: new Date().toLocaleString(), columns: ["Paper Title", "Authors", "Submission Date", "Similarity Score", "Review Status"], data: (fullData?.flaggedSubmissions ?? []).map((i) => [i.title, i.authors, i.submissionDate, `${(i.similarityScore || 0).toFixed(2)}%`, i.reviewStatus]) }, `${generateFilename("Similarity")}.pdf`))}
+            onPDF={() => withExport("pdf", "PDF", (fullData) => exportToPDF({ title: "Similarity Check Reports", subtitle: "Submission checks", filters, timestamp: new Date().toLocaleString(), columns: ["Paper Title", "Submission Date", "Similarity Score", "Status"], data: (fullData?.flaggedSubmissions ?? []).map((i) => [i.title, i.submissionDate, `${(i.similarityScore || 0).toFixed(2)}%`, i.reviewStatus]) }, `${generateFilename("Similarity")}.pdf`))}
           />
         </div>
-        <DataTable columns={["Paper Title", "Authors", "Submitted", "Similarity", "Status"]}>
-          {paginated.map((item, idx) => (
-            <tr key={idx} className="hover:bg-gray-50 transition-colors duration-100 group">
-              <td className="px-5 py-4 max-w-xs">
-                <a href="#" className="text-gray-900 hover:text-green-700 font-semibold text-sm group-hover:underline underline-offset-2 transition-colors line-clamp-1">
-                  {item.title}
-                </a>
-              </td>
-              <td className="px-5 py-4 text-gray-500 text-sm">{item.authors}</td>
-              <td className="px-5 py-4 font-mono text-gray-500 text-xs tabular-nums">{item.submissionDate}</td>
-              <td className="px-5 py-4">
-                <Badge className={`font-mono text-xs font-bold border rounded-lg px-2.5 py-1 ${simCls(item.similarityScore || 0)}`}>
-                  {(item.similarityScore || 0).toFixed(2)}%
-                </Badge>
-              </td>
-              <td className="px-5 py-4">
-                <Badge className={`text-xs font-semibold border rounded-lg px-2.5 py-1 ${statusCls(item.reviewStatus)}`}>
-                  {item.reviewStatus}
-                </Badge>
-              </td>
-            </tr>
-          ))}
-        </DataTable>
+        <div className="w-full h-[400px]">
+          <AgGridReact
+            theme={customTheme}
+            rowData={paginated}
+            columnDefs={[
+              { field: "title", headerName: "Paper Title", flex: 2, sortable: true, filter: true },
+              { field: "submissionDate", headerName: "Submitted", flex: 1, sortable: true, filter: true, cellClass: "font-mono tabular-nums text-xs" },
+              {
+                field: "similarityScore",
+                headerName: "Similarity",
+                width: 120,
+                sortable: true,
+                cellRenderer: (params) => (
+                  <Badge className={`font-mono text-xs font-bold border rounded-lg px-2.5 py-1 ${simCls(params.value || 0)}`}>
+                    {(params.value || 0).toFixed(2)}%
+                  </Badge>
+                )
+              },
+              {
+                field: "reviewStatus",
+                headerName: "Status",
+                width: 120,
+                sortable: true,
+                filter: true,
+                cellRenderer: (params) => (
+                  <Badge className={`text-xs font-semibold border rounded-lg px-2.5 py-1 ${statusCls(params.value)}`}>
+                    {params.value}
+                  </Badge>
+                )
+              }
+            ]}
+            pagination={false}
+            domLayout="normal"
+          />
+        </div>
         <Pagination page={page} totalPages={totalPages} onPage={setPage} />
       </Panel>
     </div>
@@ -678,29 +644,24 @@ function ReportsOJT({ filters }) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    let active = true;
     async function loadReport() {
       setLoading(true);
       setError(null);
       try {
-        const mockData = generateMockOJTData();
-        let filtered = mockData.traineeStatus;
-        if (filters.coordinator !== "All") filtered = filtered.filter(item => item.coordinator === filters.coordinator);
-        if (filters.completionStatus !== "All") filtered = filtered.filter(item => item.overallStatus === filters.completionStatus);
-        const totalCount = filtered.length;
-        const start = (page - 1) * PER_PAGE;
-        const paginated = filtered.slice(start, start + PER_PAGE);
-        const complete = filtered.filter(t => t.overallStatus === "Complete").length;
-        const incomplete = filtered.filter(t => t.overallStatus === "Incomplete").length;
-        const rate = totalCount > 0 ? ((complete / totalCount) * 100).toFixed(1) : "0.0";
-        setData({ traineeStatus: paginated, totalCount, stats: { total: totalCount, complete, incomplete, rate } });
+        const result = await fetchOJTReport({ ...filters, page, limit: PER_PAGE });
+        if (active) setData(result);
       } catch (err) {
-        setError(err.message || "Failed to load OJT report");
-        addToast({ title: "Error", description: err.message, variant: "destructive" });
+        if (active) {
+          setError(err.message || "Failed to load OJT report");
+          addToast({ title: "Error", description: err.message, variant: "destructive" });
+        }
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }
     loadReport();
+    return () => { active = false; };
   }, [filters, page, addToast]);
 
   const paginated = useMemo(() => data?.traineeStatus ?? [], [data]);
@@ -710,12 +671,9 @@ function ReportsOJT({ filters }) {
   const withExport = async (key, label, fn) => {
     setExporting(key);
     try {
-      const fullData = generateMockOJTData();
-      let filtered = fullData.traineeStatus;
-      if (filters.coordinator !== "All") filtered = filtered.filter(item => item.coordinator === filters.coordinator);
-      if (filters.completionStatus !== "All") filtered = filtered.filter(item => item.overallStatus === filters.completionStatus);
-      const result = fn({ ...fullData, traineeStatus: filtered });
-      if (result?.success) addToast({ title: "Exported", description: `OJT report saved as ${label}` });
+      const result = await fetchOJTReport({ ...filters, page: 1, limit: 1000, fullDataset: true });
+      const exportRes = fn(result);
+      if (exportRes?.success) addToast({ title: "Exported", description: `OJT report saved as ${label}` });
       else addToast({ title: "Export failed", description: "Could not export", variant: "destructive" });
     } catch (err) {
       addToast({ title: "Export failed", description: err.message, variant: "destructive" });
@@ -734,10 +692,10 @@ function ReportsOJT({ filters }) {
   }));
 
   const STAT_CARDS = [
-    { label: "Total Trainees",   value: stats.total,       sub: "enrolled trainees",  border: "border-green-200",  bg: "bg-green-50",  val: "text-green-800",  dot: "bg-green-500" },
-    { label: "Completed",        value: stats.complete,    sub: "met requirements",   border: "border-green-200",  bg: "bg-green-50",  val: "text-green-700",  dot: "bg-green-400" },
-    { label: "Incomplete",       value: stats.incomplete,  sub: "still pending",      border: "border-red-200",    bg: "bg-red-50",    val: "text-red-700",    dot: "bg-red-400" },
-    { label: "Completion Rate",  value: `${stats.rate}%`,  sub: "overall completion", border: "border-blue-200",   bg: "bg-blue-50",   val: "text-blue-700",   dot: "bg-blue-400" },
+    { label: "Total Trainees", value: stats.total, sub: "enrolled trainees", border: "border-green-200", bg: "bg-green-50", val: "text-green-800", dot: "bg-green-500" },
+    { label: "Completed", value: stats.complete, sub: "met requirements", border: "border-green-200", bg: "bg-green-50", val: "text-green-700", dot: "bg-green-400" },
+    { label: "Incomplete", value: stats.incomplete, sub: "still pending", border: "border-red-200", bg: "bg-red-50", val: "text-red-700", dot: "bg-red-400" },
+    { label: "Completion Rate", value: `${stats.rate}%`, sub: "overall completion", border: "border-blue-200", bg: "bg-blue-50", val: "text-blue-700", dot: "bg-blue-400" },
   ];
 
   return (
@@ -773,41 +731,66 @@ function ReportsOJT({ filters }) {
             onPDF={() => withExport("pdf", "PDF", (fullData) => exportToPDF({ title: "HTE / OJT Reports", subtitle: "Trainee Completion Status", filters, timestamp: new Date().toLocaleString(), columns: ["Student Name", "Student ID", "Acad. Year", "Semester", "Coordinator", "Req.", "Uploaded", "Status"], data: (fullData?.traineeStatus ?? []).map((i) => [i.studentName, i.studentId, i.academicYear, i.semester, i.coordinator, i.totalRequired, i.totalUploaded, i.overallStatus]) }, `${generateFilename("OJT")}.pdf`))}
           />
         </div>
-        <DataTable columns={["Student Name", "Student ID", "Academic Year", "Coordinator", "Progress", "Status"]}>
-          {paginated.map((item, idx) => {
-            const isOk = item.overallStatus === "Complete";
-            const pct = (item.totalUploaded / item.totalRequired) * 100;
-            return (
-              <tr key={idx} className={`transition-colors duration-100 ${isOk ? "hover:bg-gray-50" : "bg-red-50/40 hover:bg-red-50/70"}`}>
-                <td className="px-5 py-4 text-sm font-semibold text-gray-900">{item.studentName}</td>
-                <td className="px-5 py-4 font-mono text-gray-500 text-xs tabular-nums">{item.studentId}</td>
-                <td className="px-5 py-4">
-                  <p className="text-sm text-gray-700 font-medium leading-tight">{item.academicYear}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{item.semester}</p>
-                </td>
-                <td className="px-5 py-4 text-gray-500 text-sm">{item.coordinator}</td>
-                <td className="px-5 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-20 h-1.5 rounded-full bg-gray-200 overflow-hidden shrink-0">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${isOk ? "bg-green-500" : "bg-red-400"}`}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                    <span className={`font-mono text-xs font-bold whitespace-nowrap tabular-nums ${isOk ? "text-green-700" : "text-red-600"}`}>
-                      {item.totalUploaded}/{item.totalRequired}
-                    </span>
+        <div className="w-full h-[400px]">
+          <AgGridReact
+            theme={customTheme}
+            rowData={paginated}
+            columnDefs={[
+              { field: "studentName", headerName: "Student Name", flex: 1.5, sortable: true, filter: true },
+              { field: "studentId", headerName: "Student ID", width: 130, sortable: true, filter: true, cellClass: "font-mono tabular-nums text-xs" },
+              {
+                headerName: "Academic Term",
+                flex: 1.2,
+                valueGetter: p => `${p.data.academicYear} ${p.data.semester}`,
+                cellRenderer: (params) => (
+                  <div>
+                    <p className="text-sm text-gray-700 font-medium leading-tight">{params.data.academicYear}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{params.data.semester}</p>
                   </div>
-                </td>
-                <td className="px-5 py-4">
-                  <Badge className={`text-xs font-semibold border rounded-lg px-2.5 py-1 ${isOk ? "bg-green-50 text-green-700 border-green-200" : "bg-red-50 text-red-700 border-red-200"}`}>
-                    {item.overallStatus}
-                  </Badge>
-                </td>
-              </tr>
-            );
-          })}
-        </DataTable>
+                )
+              },
+              { field: "coordinator", headerName: "Coordinator", flex: 1.5, sortable: true, filter: true },
+              {
+                headerName: "Progress",
+                width: 150,
+                cellRenderer: (params) => {
+                  const isOk = params.data.overallStatus === "Complete";
+                  const pct = (params.data.totalUploaded / params.data.totalRequired) * 100;
+                  return (
+                    <div className="flex items-center gap-3 h-full">
+                      <div className="w-20 h-1.5 rounded-full bg-gray-200 overflow-hidden shrink-0">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${isOk ? "bg-green-500" : "bg-red-400"}`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <span className={`font-mono text-xs font-bold whitespace-nowrap tabular-nums ${isOk ? "text-green-700" : "text-red-600"}`}>
+                        {params.data.totalUploaded}/{params.data.totalRequired}
+                      </span>
+                    </div>
+                  );
+                }
+              },
+              {
+                field: "overallStatus",
+                headerName: "Status",
+                width: 120,
+                sortable: true,
+                filter: true,
+                cellRenderer: (params) => {
+                  const isOk = params.value === "Complete";
+                  return (
+                    <Badge className={`text-xs font-semibold border rounded-lg px-2.5 py-1 ${isOk ? "bg-green-50 text-green-700 border-green-200" : "bg-red-50 text-red-700 border-red-200"}`}>
+                      {params.value}
+                    </Badge>
+                  );
+                }
+              }
+            ]}
+            pagination={false}
+            domLayout="normal"
+          />
+        </div>
         <Pagination page={page} totalPages={totalPages} onPage={setPage} />
       </Panel>
     </div>
@@ -821,6 +804,21 @@ export default function ReportsAnalyticsPage() {
   const [reportType, setReportType] = useState("thesis");
   const [filters, setFilters] = useState(defaultFilters);
   const [lastRefresh, setLastRefresh] = useState(new Date());
+  const [dbCategories, setDbCategories] = useState([]);
+  const [dbCoordinators, setDbCoordinators] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    thesisService.getCategories().then(data => {
+      if (active && data) setDbCategories(data.map(c => c.name));
+    }).catch(err => console.error("Failed to fetch DB categories:", err));
+
+    fetchCoordinators().then(data => {
+      if (active && data) setDbCoordinators(data);
+    }).catch(err => console.error("Failed to fetch coordinators:", err));
+
+    return () => { active = false; };
+  }, []);
 
   const handleFilterChange = useCallback((f) => setFilters(f), []);
   const hasActive = Object.values(filters).some((v) => v && v !== "All");
@@ -881,11 +879,10 @@ export default function ReportsAnalyticsPage() {
                     <button
                       key={t.value}
                       onClick={() => setReportType(t.value)}
-                      className={`relative flex-1 flex flex-col items-center justify-center gap-1.5 rounded-2xl border py-6 px-4 transition-all duration-200 outline-none cursor-pointer select-none overflow-hidden ${
-                        active
-                          ? "border-green-300 bg-gradient-to-b from-green-50 to-white shadow-md shadow-green-100"
-                          : "border-gray-200 bg-white hover:border-green-200 hover:bg-green-50/40 hover:shadow-sm"
-                      }`}
+                      className={`relative flex-1 flex flex-col items-center justify-center gap-1.5 rounded-2xl border py-6 px-4 transition-all duration-200 outline-none cursor-pointer select-none overflow-hidden ${active
+                        ? "border-green-300 bg-gradient-to-b from-green-50 to-white shadow-md shadow-green-100"
+                        : "border-gray-200 bg-white hover:border-green-200 hover:bg-green-50/40 hover:shadow-sm"
+                        }`}
                     >
                       {/* Full-width top accent bar */}
                       <div
@@ -922,11 +919,13 @@ export default function ReportsAnalyticsPage() {
                 onFilterChange={handleFilterChange}
                 showOJTFilters={reportType === "ojt"}
                 reportType={reportType}
+                categories={dbCategories}
+                coordinators={dbCoordinators}
               />
 
               {/* ── REPORT CONTENT ── */}
               {reportType === "thesis" && <ReportsThesis filters={filters} />}
-              {reportType === "similarity" && <ReportsSimilarity filters={filters} />}
+              {reportType === "similarity" && <ReportsSimilarity filters={filters} categories={dbCategories} />}
               {reportType === "ojt" && <ReportsOJT filters={filters} />}
 
             </div>

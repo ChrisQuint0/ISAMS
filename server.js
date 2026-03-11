@@ -851,311 +851,8 @@ app.post("/api/faculty/export", async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────
-// REPORTS API ENDPOINTS
-// ─────────────────────────────────────────────────────────────
-
-// Middleware to verify user has reports access
-async function verifyReportsAccess(req, res, next) {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      return res.status(401).json({ error: "Missing authorization header" });
-    }
-
-    const token = authHeader.split(" ")[1];
-    if (!token) {
-      return res.status(401).json({ error: "Invalid token format" });
-    }
-
-    // Verify token and get user
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    if (error || !user) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    // Fetch user role from user_rbac
-    const { data: userData, error: roleError } = await supabase
-      .from("user_rbac")
-      .select("*")
-      .eq("user_id", user.id)
-      .single();
-
-    if (roleError || !userData) {
-      return res.status(403).json({ error: "User role not found" });
-    }
-
-    // Check if user has any of the coordinator/admin roles
-    const isAdmin = userData.thesis === true && userData.thesis_role === "admin";
-    const isOJTCoordinator = userData.ojt === true && userData.ojt_role === "coordinator";
-    const isResearchCoordinator = userData.similarity === true && userData.similarity_role === "coordinator";
-
-    if (!isAdmin && !isOJTCoordinator && !isResearchCoordinator) {
-      return res.status(403).json({ error: "Access denied. Insufficient permissions for reports." });
-    }
-
-    // Attach user info to request
-    req.user = user;
-    req.userRole = userData;
-    next();
-  } catch (error) {
-    console.error("Error in verifyReportsAccess:", error);
-    res.status(500).json({ error: "Server error during authorization" });
-  }
-}
-
-// 8. GET Thesis Archive Reports
-app.get("/api/reports/thesis", verifyReportsAccess, async (req, res) => {
-  try {
-    const { page = 1, limit = 10, fullDataset = false, dateFrom, dateTo, department, category } = req.query;
-    const pageNum = parseInt(page);
-    const limitNum = parseInt(limit);
-    const offset = (pageNum - 1) * limitNum;
-
-    // Build query based on available columns in digital_repository table
-    let query = supabase
-      .from("digital_repository")
-      .select("*", { count: "exact" });
-
-    // Apply filters
-    if (dateFrom) {
-      query = query.gte("date_added", dateFrom);
-    }
-    if (dateTo) {
-      query = query.lte("date_added", dateTo);
-    }
-    if (department && department !== "All") {
-      query = query.eq("department", department);
-    }
-    if (category && category !== "All") {
-      query = query.eq("category", category);
-    }
-
-    // If fullDataset is true, return all records without pagination for export
-    if (fullDataset === "true") {
-      const { data: allData, error } = await query;
-      if (error) throw error;
-
-      // Get summary by year and category
-      const submissionSummary = {};
-      allData.forEach(record => {
-        const year = new Date(record.date_added).getFullYear();
-        const cat = record.category || "Other";
-        const key = `${year}_${cat}`;
-        if (!submissionSummary[key]) {
-          submissionSummary[key] = { year, category: cat, count: 0 };
-        }
-        submissionSummary[key].count++;
-      });
-
-      return res.json({
-        archiveInventory: allData,
-        submissionSummary: Object.values(submissionSummary),
-      });
-    }
-
-    // Otherwise, apply pagination
-    const { data: paginatedData, error: dataError, count } = await query
-      .range(offset, offset + limitNum - 1);
-
-    if (dataError) throw dataError;
-
-    // Get summary for display
-    const { data: allForSummary, error: summaryError } = await supabase
-      .from("digital_repository")
-      .select("date_added, category");
-
-    if (summaryError) throw summaryError;
-
-    const submissionSummary = {};
-    allForSummary.forEach(record => {
-      const year = new Date(record.date_added).getFullYear();
-      const cat = record.category || "Other";
-      const key = `${year}_${cat}`;
-      if (!submissionSummary[key]) {
-        submissionSummary[key] = { year, category: cat, count: 0 };
-      }
-      submissionSummary[key].count++;
-    });
-
-    res.json({
-      archiveInventory: paginatedData,
-      submissionSummary: Object.values(submissionSummary),
-      totalCount: count,
-      page: pageNum,
-      limit: limitNum,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error("Error fetching thesis reports:", error);
-    res.status(500).json({ error: error.message || "Server error fetching thesis reports" });
-  }
-});
-
-// 9. GET Similarity Reports
-app.get("/api/reports/similarity", verifyReportsAccess, async (req, res) => {
-  try {
-    const { page = 1, limit = 10, fullDataset = false, dateFrom, dateTo, department, category } = req.query;
-    const pageNum = parseInt(page);
-    const limitNum = parseInt(limit);
-    const offset = (pageNum - 1) * limitNum;
-
-    // Build query for plagiarism_reports or similarity_checks table
-    let query = supabase
-      .from("plagiarism_reports")
-      .select("*", { count: "exact" })
-      .eq("status", "flagged");
-
-    // Apply filters
-    if (dateFrom) {
-      query = query.gte("submission_date", dateFrom);
-    }
-    if (dateTo) {
-      query = query.lte("submission_date", dateTo);
-    }
-    if (category && category !== "All") {
-      query = query.eq("category", category);
-    }
-
-    // If fullDataset is true, return all records for export
-    if (fullDataset === "true") {
-      const { data: allData, error } = await query;
-      if (error) throw error;
-
-      // Get distribution by category
-      const similarityDistribution = {};
-      allData.forEach(record => {
-        const cat = record.category || "Other";
-        if (!similarityDistribution[cat]) {
-          similarityDistribution[cat] = { category: cat, scores: [], avgSimilarity: 0 };
-        }
-        similarityDistribution[cat].scores.push(record.similarity_score || 0);
-      });
-
-      // Calculate averages
-      Object.values(similarityDistribution).forEach(item => {
-        if (item.scores.length > 0) {
-          item.avgSimilarity = (item.scores.reduce((a, b) => a + b, 0) / item.scores.length).toFixed(1);
-        }
-        delete item.scores;
-      });
-
-      return res.json({
-        flaggedSubmissions: allData,
-        similarityDistribution: Object.values(similarityDistribution),
-      });
-    }
-
-    // Apply pagination
-    const { data: paginatedData, error: dataError, count } = await query
-      .range(offset, offset + limitNum - 1);
-
-    if (dataError) throw dataError;
-
-    // Get distribution summary
-    const { data: allForDistribution, error: distError } = await supabase
-      .from("plagiarism_reports")
-      .select("category, similarity_score")
-      .eq("status", "flagged");
-
-    if (distError) throw distError;
-
-    const similarityDistribution = {};
-    allForDistribution.forEach(record => {
-      const cat = record.category || "Other";
-      if (!similarityDistribution[cat]) {
-        similarityDistribution[cat] = { category: cat, scores: [], avgSimilarity: 0 };
-      }
-      similarityDistribution[cat].scores.push(record.similarity_score || 0);
-    });
-
-    // Calculate averages
-    Object.values(similarityDistribution).forEach(item => {
-      if (item.scores.length > 0) {
-        item.avgSimilarity = (item.scores.reduce((a, b) => a + b, 0) / item.scores.length).toFixed(1);
-      }
-      delete item.scores;
-    });
-
-    res.json({
-      flaggedSubmissions: paginatedData,
-      similarityDistribution: Object.values(similarityDistribution),
-      totalCount: count,
-      page: pageNum,
-      limit: limitNum,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error("Error fetching similarity reports:", error);
-    res.status(500).json({ error: error.message || "Server error fetching similarity reports" });
-  }
-});
-
-// 10. GET OJT/HTE Reports
-app.get("/api/reports/ojt", verifyReportsAccess, async (req, res) => {
-  try {
-    const { page = 1, limit = 10, fullDataset = false, dateFrom, dateTo, coordinator, completionStatus } = req.query;
-    const pageNum = parseInt(page);
-    const limitNum = parseInt(limit);
-    const offset = (pageNum - 1) * limitNum;
-
-    // Build query
-    let query = supabase
-      .from("hte_archive")
-      .select("*", { count: "exact" });
-
-    // Apply filters
-    if (dateFrom) {
-      query = query.gte("created_at", dateFrom);
-    }
-    if (dateTo) {
-      query = query.lte("created_at", dateTo);
-    }
-    if (coordinator && coordinator !== "All") {
-      query = query.eq("assigned_coordinator", coordinator);
-    }
-    if (completionStatus && completionStatus !== "All") {
-      query = query.eq("overall_status", completionStatus);
-    }
-
-    // If fullDataset is true, return all records for export
-    if (fullDataset === "true") {
-      const { data: allData, error } = await query;
-      if (error) throw error;
-      return res.json({ traineeStatus: allData });
-    }
-
-    // Apply pagination
-    const { data: paginatedData, error: dataError, count } = await query
-      .range(offset, offset + limitNum - 1);
-
-    if (dataError) throw dataError;
-
-    // Calculate stats from all data
-    const { data: allData, error: statsError } = await supabase
-      .from("hte_archive")
-      .select("overall_status");
-
-    if (statsError) throw statsError;
-
-    const total = allData.length;
-    const complete = allData.filter(t => t.overall_status === "Complete").length;
-    const incomplete = total - complete;
-    const rate = ((complete / total) * 100).toFixed(1);
-
-    res.json({
-      traineeStatus: paginatedData,
-      stats: { total, complete, incomplete, rate },
-      totalCount: count,
-      page: pageNum,
-      limit: limitNum,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error("Error fetching OJT reports:", error);
-    res.status(500).json({ error: error.message || "Server error fetching OJT reports" });
-  }
-});
+// Removed duplicate deprecated Report endpoints that queried the old digital_repository schema.
+// The new definitions are located further down in the file.
 
 // 11. Create HTE Student (Auth + GDrive + DB)
 app.post("/api/hte/students/create", async (req, res) => {
@@ -1818,6 +1515,265 @@ app.post("/api/similarity/analyze", async (req, res) => {
 });
 
 // ── END SIMILARITY CHECK ───────────────────────────────────────────────────────
+
+// ── REPORTS & ANALYTICS ────────────────────────────────────────────────────────
+
+// Helper to get active user from token
+async function getUserFromReq(req, res) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    res.status(401).json({ error: "No auth token provided" });
+    return null;
+  }
+  const token = authHeader.replace("Bearer ", "");
+  const client = supabaseAdmin || supabase;
+  const { data: { user }, error } = await client.auth.getUser(token);
+  if (error || !user) {
+    res.status(401).json({ error: "Invalid auth token" });
+    return null;
+  }
+  return user;
+}
+
+// 1. Thesis Reports
+app.get("/api/reports/thesis", async (req, res) => {
+  const user = await getUserFromReq(req, res);
+  if (!user) return;
+
+  const { dateFrom, dateTo, department = "All", category = "All", page = 1, limit = 10, fullDataset = false } = req.query;
+  const client = supabaseAdmin || supabase;
+
+  try {
+    // THESIS SUMMARY
+    let summaryQuery = client.from("vw_report_thesis_summary").select("*");
+    if (category !== "All") summaryQuery = summaryQuery.eq("category", category);
+    // Removed department filter
+
+    // Aggregate by year and category across departments
+    const { data: rawSummary, error: sumErr } = await summaryQuery;
+    if (sumErr) throw sumErr;
+
+    // Grouping logic for summary (sum up the counts if multiple departments match)
+    const summaryMap = new Map();
+    (rawSummary || []).forEach(row => {
+      const key = `${row.year}_${row.category}`;
+      if (!summaryMap.has(key)) summaryMap.set(key, { year: row.year, category: row.category, count: 0 });
+      summaryMap.get(key).count += Number(row.count);
+    });
+    const submissionSummary = Array.from(summaryMap.values()).sort((a, b) => a.year - b.year || a.category.localeCompare(b.category));
+
+    // ARCHIVE INVENTORY
+    let invQuery = client.from("vw_report_archive_inventory").select("*", { count: 'exact' });
+    if (category !== "All") invQuery = invQuery.eq("category_name", category);
+    if (dateFrom) invQuery = invQuery.gte("date_added", dateFrom);
+    if (dateTo) invQuery = invQuery.lte("date_added", dateTo);
+
+    // Pagination (unless fullDataset is true)
+    const pageNum = parseInt(page);
+    const perPage = parseInt(limit);
+    if (fullDataset !== "true") {
+      const start = (pageNum - 1) * perPage;
+      invQuery = invQuery.range(start, start + perPage - 1);
+    }
+
+    invQuery = invQuery.order("date_added", { ascending: false });
+
+    const { data: archiveInventoryRaw, count: totalCount, error: invErr } = await invQuery;
+    if (invErr) throw invErr;
+
+    // Format output to match frontend expectation
+    const archiveInventory = (archiveInventoryRaw || []).map(row => ({
+      id: row.id,
+      title: row.title,
+      authors: row.authors,
+      category: row.category_name, // Return category_name mapped to category for UI
+      year: row.publication_year,
+      dateAdded: row.date_added
+    }));
+
+    res.json({
+      submissionSummary,
+      archiveInventory,
+      totalCount: totalCount || 0,
+      page: pageNum,
+      totalPages: fullDataset === "true" ? 1 : Math.ceil((totalCount || 0) / perPage)
+    });
+  } catch (error) {
+    console.error("Thesis report error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 2. Similarity Reports
+app.get("/api/reports/similarity", async (req, res) => {
+  const user = await getUserFromReq(req, res);
+  if (!user) return;
+
+  const { dateFrom, dateTo, category = "All", page = 1, limit = 10, fullDataset = false } = req.query;
+  const client = supabaseAdmin || supabase;
+
+  try {
+    // DISTRIBUTION
+    let distQuery = client.from("vw_report_similarity_distribution").select("*");
+    const { data: rawDist, error: distErr } = await distQuery;
+    if (distErr) throw distErr;
+
+    const similarityDistribution = (rawDist || []).map(row => ({
+      category: row.category,
+      avgSimilarity: parseFloat(row.avg_similarity) || 0
+    }));
+
+    // ALL SUBMISSION CHECKS (Fetching from base tables to ensure "all all all" are included)
+    let flagQuery = client
+      .from("similarity_scan_queue")
+      .select(`
+        id,
+        title:proposed_title,
+        status,
+        submission_date:submitted_at,
+        thesis_id,
+        result:similarity_scan_results(overall_score, integrity_status),
+        thesis:thesis_entries(
+          category:thesis_categories(name)
+        )
+      `, { count: 'exact' });
+
+    if (category !== "All") {
+      flagQuery = flagQuery.eq("thesis.category.name", category);
+    }
+    if (dateFrom) flagQuery = flagQuery.gte("submitted_at", dateFrom);
+    if (dateTo) flagQuery = flagQuery.lte("submitted_at", dateTo);
+
+    const pageNum = parseInt(page);
+    const perPage = parseInt(limit);
+    if (fullDataset !== "true") {
+      const start = (pageNum - 1) * perPage;
+      flagQuery = flagQuery.range(start, start + perPage - 1);
+    }
+
+    flagQuery = flagQuery.order("submitted_at", { ascending: false });
+
+    const { data: rawData, count: totalCount, error: flagErr } = await flagQuery;
+    if (flagErr) throw flagErr;
+
+    const flaggedSubmissions = (rawData || []).map(row => {
+      // result might be an array or single object depending on select
+      const resultData = Array.isArray(row.result) ? row.result[0] : row.result;
+      const score = resultData?.overall_score || 0;
+      const categoryName = row.thesis?.category?.name || "Uncategorized";
+
+      return {
+        id: row.id,
+        title: row.title || "Untitled Scan",
+        category: categoryName,
+        submissionDate: row.submission_date ? new Date(row.submission_date).toLocaleDateString() : "N/A",
+        similarityScore: parseFloat(score) || 0,
+        // Strictly "Flagged" or "Safe".
+        reviewStatus: score > 20 ? "Flagged" : "Safe"
+      };
+    });
+
+    res.json({
+      similarityDistribution: [], // kept for backward compatibility if needed, but empty
+      flaggedSubmissions,
+      totalCount: totalCount || 0,
+      page: pageNum,
+      totalPages: fullDataset === "true" ? 1 : Math.ceil((totalCount || 0) / perPage)
+    });
+  } catch (error) {
+    console.error("Similarity report error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 3. OJT Reports
+app.get("/api/reports/coordinators", async (req, res) => {
+  const client = supabaseAdmin || supabase;
+  try {
+    const { data, error } = await client
+      .from("vw_report_ojt_trainee_status")
+      .select("coordinator");
+
+    if (error) throw error;
+
+    // Get unique coordinators, filter out null/empty
+    const uniqueCoordinators = [...new Set((data || []).map(r => r.coordinator).filter(Boolean))].sort();
+
+    res.json(uniqueCoordinators);
+  } catch (error) {
+    console.error("Coordinators fetch error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/reports/ojt", async (req, res) => {
+  const user = await getUserFromReq(req, res);
+  if (!user) return;
+
+  const { department = "All", coordinator = "All", completionStatus = "All", page = 1, limit = 10, fullDataset = false } = req.query;
+  const client = supabaseAdmin || supabase;
+
+  try {
+    // TRAINEE STATUS
+    let ojtQuery = client.from("vw_report_ojt_trainee_status").select("*", { count: 'exact' });
+
+    // Filters
+    if (department !== "All") ojtQuery = ojtQuery.eq("department", department);
+    if (coordinator !== "All") ojtQuery = ojtQuery.eq("coordinator", coordinator);
+    if (completionStatus !== "All" && completionStatus !== "total") {
+      ojtQuery = ojtQuery.ilike("overall_status", completionStatus);
+    }
+
+    // Also get completion stats without pagination
+    let countQuery = client.from("vw_report_ojt_trainee_status").select("overall_status");
+    if (department !== "All") countQuery = countQuery.eq("department", department);
+    if (coordinator !== "All") countQuery = countQuery.eq("coordinator", coordinator);
+    // don't apply completionStatus to overall counts
+
+    const { data: allStats, error: countErr } = await countQuery;
+    if (countErr) throw countErr;
+
+    const total = allStats.length;
+    const complete = allStats.filter(r => r.overall_status.toLowerCase() === "complete").length;
+    const incomplete = total - complete;
+    const rate = total > 0 ? ((complete / total) * 100).toFixed(1) : "0.0";
+
+    const pageNum = parseInt(page);
+    const perPage = parseInt(limit);
+    if (fullDataset !== "true") {
+      const start = (pageNum - 1) * perPage;
+      ojtQuery = ojtQuery.range(start, start + perPage - 1);
+    }
+
+    const { data: traineeRaw, error: ojtErr } = await ojtQuery;
+    if (ojtErr) throw ojtErr;
+
+    const traineeStatus = (traineeRaw || []).map(row => ({
+      id: row.id,
+      studentName: row.student_name,
+      studentId: row.student_id,
+      academicYear: row.academic_year,
+      semester: row.semester,
+      coordinator: row.coordinator,
+      totalRequired: parseInt(row.total_required) || 0,
+      totalUploaded: parseInt(row.total_uploaded) || 0,
+      overallStatus: row.overall_status.charAt(0).toUpperCase() + row.overall_status.slice(1)
+    }));
+
+    res.json({
+      traineeStatus,
+      stats: { total, complete, incomplete, rate },
+      totalCount: fullDataset === "true" ? traineeStatus.length : (completionStatus === "All" || completionStatus === "total" ? total : (completionStatus.toLowerCase() === "complete" ? complete : incomplete)),
+      page: pageNum,
+      totalPages: fullDataset === "true" ? 1 : Math.ceil((completionStatus === "All" || completionStatus === "total" ? total : (completionStatus.toLowerCase() === "complete" ? complete : incomplete)) / perPage)
+    });
+  } catch (error) {
+    console.error("OJT report error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ── END REPORTS & ANALYTICS ────────────────────────────────────────────────────
 
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
