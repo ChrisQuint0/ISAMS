@@ -16,6 +16,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { supabase } from "@/lib/supabaseClient";
 
 // Custom theme using AG Grid v33+ Theming API with Quartz theme for a clean institutional look
 const customTheme = themeQuartz.withParams({
@@ -38,14 +39,82 @@ export default function StudViolationDashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [gridApi, setGridApi] = useState(null);
+  const [rowData, setRowData] = useState([]);
 
-  const rowData = [
-    { id: 1, type: "New violation", detail: "Uniform policy breach: Jamil C. Saludo (23-00201).", time: "just now" },
-    { id: 2, type: "Case cleared", detail: "Late entry violation for Marc Angelo A. Soria resolved.", time: "12 min ago" },
-    { id: 3, type: "Record update", detail: "Ella Mae C. Leonidas moved to Active status.", time: "45 min ago" },
-    { id: 4, type: "New violation", detail: "ID missing: John Doe (23-12345).", time: "1 hour ago" },
-    { id: 5, type: "Sanction", detail: "Community service assigned to Jane Smith.", time: "2 hours ago" },
-  ];
+  const formatTimeAgo = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+
+    if (seconds < 60) return "just now";
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} min ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days} day${days > 1 ? 's' : ''} ago`;
+    return date.toLocaleDateString();
+  };
+
+  const fetchActivityLogs = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('activity_log_sv')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .order('log_id', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedData = data.map((log) => {
+        let displayType = "System Activity";
+        let colorType = "text-neutral-500";
+        if (log.action_type === 'INSERT') {
+          displayType = "New Record";
+          colorType = "text-info";
+        } else if (log.action_type === 'UPDATE') {
+          displayType = "Record update";
+          colorType = "text-success";
+        } else if (log.action_type === 'DELETE') {
+          displayType = "Record removed";
+          colorType = "text-destructive-semantic";
+        }
+
+        // Make table names human readable
+        const tableMap = {
+          'students_sv': 'Student',
+          'violations_sv': 'Violation',
+          'sanctions_sv': 'Sanction',
+          'offense_types_sv': 'Offense Type',
+          'student_sanctions_sv': 'Student Sanction'
+        };
+        const readableTable = tableMap[log.table_name] || log.table_name;
+
+        let detailMsg = `Action on ${readableTable}`;
+        if (log.record_id) {
+          detailMsg = `${log.action_type} on ${readableTable} (ID: ${log.record_id})`;
+        }
+
+        return {
+          id: log.log_id,
+          type: displayType,
+          detail: detailMsg,
+          time: formatTimeAgo(log.created_at)
+        };
+      });
+
+      setRowData(formattedData);
+    } catch (err) {
+      console.error("Error fetching activity logs:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchActivityLogs();
+  }, []);
 
   const columnDefs = useMemo(() => [
     {
@@ -102,7 +171,8 @@ export default function StudViolationDashboard() {
         <Button
           variant="outline"
           className="bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50 hover:text-primary-600 shadow-sm transition-all active:scale-95 h-10 px-4 font-medium text-xs"
-          onClick={() => { setLoading(true); setTimeout(() => setLoading(false), 800); }}
+          onClick={fetchActivityLogs}
+          disabled={loading}
         >
           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
           Refresh
@@ -171,7 +241,7 @@ export default function StudViolationDashboard() {
               </button>
             ))}
           </div>
-          
+
           <div className="mt-auto pt-4">
             <div className="p-4 rounded-lg bg-neutral-50 border border-neutral-100">
               <div className="flex items-center gap-2 mb-1">
