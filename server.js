@@ -12,7 +12,7 @@ import { createRequire } from "module";
 // Load CJS-only packages safely from an ESM context
 const require = createRequire(import.meta.url);
 const natural = require("natural");
-const pdfParse = require("pdf-parse");
+const { PDFParse } = require("pdf-parse");
 const mammoth = require("mammoth");
 
 // Load environment variables from .env.local
@@ -797,7 +797,8 @@ app.post("/api/similarity/extract", upload.single("file"), async (req, res) => {
     let rawText = "";
 
     if (mimetype === "application/pdf") {
-      const result = await pdfParse(buffer);
+      const pdf = new PDFParse(new Uint8Array(buffer));
+      const result = await pdf.getText();
       rawText = result.text;
     } else if (
       mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
