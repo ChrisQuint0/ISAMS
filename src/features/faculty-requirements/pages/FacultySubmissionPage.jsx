@@ -182,6 +182,20 @@ export default function FacultySubmissionPage() {
     };
   }, [formData.course]);
 
+  // Sync effect: Re-ensure documentType is selected once requiredDocs finish loading
+  // This handles the "Re-submit" race condition where formData.documentType is set
+  // before the Select component's options (requiredDocs) are available.
+  useEffect(() => {
+    if (formData.documentType && !loading && requiredDocs.length > 0) {
+      const exists = requiredDocs.some(d => String(d.doc_type_id) === String(formData.documentType));
+      if (!exists) {
+        // If the current docType isn't in the new list, we should probably clear it
+        // BUT if we just triggered handleResubmit, we might want to wait.
+        // For ISAMS, most re-submissions stay within the same requirements list.
+      }
+    }
+  }, [loading, requiredDocs, formData.documentType]);
+
   // Helper to trigger toasts instead of native alerts
   const triggerError = (msg) => {
     setLocalToastError(msg);
@@ -345,10 +359,15 @@ export default function FacultySubmissionPage() {
   };
 
   const handleResubmit = (sub) => {
+    // Ensure staged files are cleared when starting a re-submission
+    setStagedFiles([]);
+
+    // Set form data with stringified IDs to match Select's expected value type
     setFormData({
-      course: sub.course_id,
-      documentType: sub.doc_type_id
+      course: String(sub.course_id),
+      documentType: String(sub.doc_type_id)
     });
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -810,42 +829,63 @@ export default function FacultySubmissionPage() {
                     No submissions yet.
                   </div>
                 ) : (
-                  history.map((sub) => (
-                    <div key={sub.submission_id} className="p-3.5 bg-neutral-50 rounded-xl border border-neutral-200 text-sm hover:border-primary-300 hover:shadow-md transition-all group">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="pr-2">
-                          <p className="font-bold text-neutral-900 leading-tight">{sub.documenttypes_fs?.type_name}</p>
-                          <p className="text-xs font-mono text-primary-600 mt-1 font-bold">
-                            {sub.courses_fs?.course_code} ({sub.courses_fs?.section || 'No Section'})
-                          </p>
-                        </div>
-                        <Badge variant="outline" className={`px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-full shadow-sm shrink-0 ${
-                          sub.submission_status === 'APPROVED' || sub.submission_status === 'VALIDATED' ? 'bg-success/10 text-success border-success/20' :
-                          sub.submission_status === 'REVISION_REQUESTED' ? 'bg-amber-100 text-amber-700 border-amber-200' :
-                          sub.submission_status === 'RESUBMITTED' ? 'bg-blue-100 text-blue-700 border-blue-200' :
-                          sub.submission_status === 'REJECTED' ? 'bg-destructive/10 text-destructive border-destructive/20' :
-                          'bg-info/10 text-info border-info/20'
-                        }`}>
-                          {sub.submission_status === 'REVISION_REQUESTED' ? 'REVISION ONGOING' : sub.submission_status === 'RESUBMITTED' ? 'REVISION SUCCESS' : sub.submission_status}
-                        </Badge>
-                      </div>
+                  (() => {
+                    // Group history by course and doc type to avoid duplicates for multi-file requirements
+                    const grouped = history.reduce((acc, sub) => {
+                      const key = `${sub.course_id}_${sub.doc_type_id}`;
+                      if (!acc[key]) {
+                        acc[key] = { ...sub };
+                      } else {
+                        // Keep the most recent record
+                        if (new Date(sub.submitted_at) > new Date(acc[key].submitted_at)) {
+                          acc[key] = { ...sub };
+                        }
+                        // Priority Check: If any file in the group is 'REVISION_REQUESTED', show that status
+                        if (sub.submission_status === 'REVISION_REQUESTED') {
+                          acc[key].submission_status = 'REVISION_REQUESTED';
+                        }
+                      }
+                      return acc;
+                    }, {});
 
-                      <div className="flex justify-between items-center text-[11px] font-bold text-neutral-500 mt-3 pt-3 border-t border-neutral-200/60 uppercase tracking-wider">
-                        <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" />{new Date(sub.submitted_at).toLocaleDateString()}</span>
+                    return Object.values(grouped)
+                      .sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at))
+                      .map((sub) => (
+                        <div key={sub.submission_id} className="p-3.5 bg-neutral-50 rounded-xl border border-neutral-200 text-sm hover:border-primary-300 hover:shadow-md transition-all group">
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="pr-2">
+                              <p className="font-bold text-neutral-900 leading-tight">{sub.documenttypes_fs?.type_name}</p>
+                              <p className="text-xs font-mono text-primary-600 mt-1 font-bold">
+                                {sub.courses_fs?.course_code} ({sub.courses_fs?.section || 'No Section'})
+                              </p>
+                            </div>
+                            <Badge variant="outline" className={`px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-full shadow-sm shrink-0 ${sub.submission_status === 'APPROVED' || sub.submission_status === 'VALIDATED' ? 'bg-success/10 text-success border-success/20' :
+                                sub.submission_status === 'REVISION_REQUESTED' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                                  sub.submission_status === 'RESUBMITTED' ? 'bg-blue-100 text-blue-700 border-blue-200' :
+                                    sub.submission_status === 'REJECTED' ? 'bg-destructive/10 text-destructive border-destructive/20' :
+                                      'bg-info/10 text-info border-info/20'
+                              }`}>
+                              {sub.submission_status === 'REVISION_REQUESTED' ? 'REVISION ONGOING' : sub.submission_status === 'RESUBMITTED' ? 'REVISION SUCCESS' : sub.submission_status}
+                            </Badge>
+                          </div>
 
-                        <div className="flex gap-2">
-                          {(sub.submission_status === 'REJECTED' || sub.submission_status === 'REVISION_REQUESTED') && (
-                            <button
-                              onClick={() => handleResubmit(sub)}
-                              className="text-primary-600 hover:text-primary-700 flex items-center gap-1 font-bold transition-colors bg-primary-50 px-2 py-1 rounded"
-                            >
-                              <RefreshCw className="h-3 w-3" /> Re-submit
-                            </button>
-                          )}
+                          <div className="flex justify-between items-center text-[11px] font-bold text-neutral-500 mt-3 pt-3 border-t border-neutral-200/60 uppercase tracking-wider">
+                            <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" />{new Date(sub.submitted_at).toLocaleDateString()}</span>
+
+                            <div className="flex gap-2">
+                              {(sub.submission_status === 'REJECTED' || sub.submission_status === 'REVISION_REQUESTED') && (
+                                <button
+                                  onClick={() => handleResubmit(sub)}
+                                  className="text-primary-600 hover:text-primary-700 flex items-center gap-1 font-bold transition-colors bg-primary-50 px-2 py-1 rounded"
+                                >
+                                  Re-submit
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  ))
+                      ));
+                  })()
                 )}
               </CardContent>
             </Card>

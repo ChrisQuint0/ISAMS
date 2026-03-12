@@ -1697,7 +1697,7 @@ function processSpPrNode (node, warpObj) {
           }
         }
         // console.log(thisTblStyle);
-        if (i === 0 && firstRowAttr !== undefined) {
+        if (i === 0 && firstRowAttr !== undefined && thisTblStyle !== undefined) {
           let fillColor = 'fff'
           let colorOpacity = 1
           if (thisTblStyle['a:firstRow'] !== undefined) {
@@ -1736,7 +1736,7 @@ function processSpPrNode (node, warpObj) {
           }
           rowsStyl += ' background-color:#' + fillColor + ';' +
             ' opacity:' + colorOpacity + ';'
-        } else if (i > 0 && bandRowAttr !== undefined) {
+        } else if (i > 0 && bandRowAttr !== undefined && thisTblStyle !== undefined) {
           let fillColor = 'fff'
           let colorOpacity = 1
           if ((i % 2) === 0) {

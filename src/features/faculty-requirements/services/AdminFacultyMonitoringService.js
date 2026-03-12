@@ -274,27 +274,81 @@ export const facultyMonitorService = {
    * Request a revision for a submitted document
    * Updates the submission status and creates a notification
    */
-  requestRevision: async ({ submissionId, submissionIds, gdriveFileIds, shouldDelete, facultyId, reason, courseDetails, docType, filenames }) => {
+  requestRevision: async ({ submissionId, submissionIds, gdriveFileIds, shouldDelete, facultyId, reason, courseDetails, docType, filenames, manualUploads = [], courseId, docTypeId }) => {
     // Standardize IDs into an array
     const ids = submissionIds || (submissionId ? [submissionId] : []);
     const gIds = gdriveFileIds || [];
-    if (ids.length === 0) return true;
+
+    // 0. Consolidate target revision records
+    // We only want ONE record per (faculty, course, docType) to avoid UI confusion
+    const finalIdsToUpdate = [...ids];
+
+    if (manualUploads.length > 0 && courseId && docTypeId) {
+      // Check if any of these already have a record in the DB
+      // Note: In ISAMS, we try to keep a one-record-per-requirement model for primary status tracking
+      const { data: existingRecords } = await supabase
+        .from('submissions_fs')
+        .select('submission_id, gdrive_file_id')
+        .eq('faculty_id', facultyId)
+        .eq('course_id', courseId)
+        .eq('doc_type_id', docTypeId);
+
+      const existingGdriveIds = new Set(existingRecords?.map(r => r.gdrive_file_id) || []);
+      const existingSubId = existingRecords?.[0]?.submission_id;
+
+      const toInsert = [];
+      const toUpdateImmediately = [];
+
+      for (const m of manualUploads) {
+        if (existingGdriveIds.has(m.gdrive_file_id)) {
+          // This specific file is already tracked, just update its status via the 'ids' array later
+          const matchedSub = existingRecords.find(r => r.gdrive_file_id === m.gdrive_file_id);
+          if (matchedSub) finalIdsToUpdate.push(matchedSub.submission_id);
+        } else {
+          // No record for this specific GDrive ID? Create one.
+          // Note: In ISAMS, a requirement (course+docType) can have multiple submissions (files).
+          toInsert.push({
+            faculty_id: facultyId,
+            course_id: courseId,
+            doc_type_id: docTypeId,
+            gdrive_file_id: m.gdrive_file_id,
+            original_filename: m.original_filename,
+            standardized_filename: m.standardized_filename || m.original_filename,
+            submission_status: 'REVISION_REQUESTED',
+            approval_remarks: reason,
+            submitted_at: new Date().toISOString()
+          });
+        }
+      }
+
+      if (toInsert.length > 0) {
+        const { data: created, error: iErr } = await supabase
+          .from('submissions_fs')
+          .insert(toInsert)
+          .select();
+        if (iErr) console.error("[Service] Insert failed:", iErr);
+        if (created) created.forEach(c => finalIdsToUpdate.push(c.submission_id));
+      }
+    }
 
     // 1. Move files to GDrive Trash (Soft Delete) if requested
     if (shouldDelete && gIds.length > 0) {
       await Promise.all(gIds.map(gid => deleteGDriveFile(gid)));
     }
 
-    // 2. Update submission status for all selected IDs
-    const { error: updateError } = await supabase
-      .from('submissions_fs')
-      .update({
-        submission_status: 'REVISION_REQUESTED',
-        approval_remarks: reason
-      })
-      .in('submission_id', ids);
+    // 2. Update all identified records to REVISION_REQUESTED
+    const uniqueIds = [...new Set(finalIdsToUpdate)];
+    if (uniqueIds.length > 0) {
+      const { error: updateError } = await supabase
+        .from('submissions_fs')
+        .update({
+          submission_status: 'REVISION_REQUESTED',
+          approval_remarks: reason
+        })
+        .in('submission_id', uniqueIds);
 
-    if (updateError) throw updateError;
+      if (updateError) throw updateError;
+    }
 
     // 3. Notify the faculty
     const { error: notifError } = await supabase.from('notifications_fs').insert({

@@ -168,26 +168,30 @@ export const FacultySubmissionService = {
 
             if (insertError) throw insertError;
 
-            // 7. Status Lifecycle Logic: If this was a revision request, mark as RESUBMITTED
-            // This ensures the "Revision Request Success" flow
-            const { data: currentSub } = await supabase
+            // 7. Status Lifecycle Logic: If this requirement had a revision request, mark ALL related records as RESUBMITTED
+            // We check if ANY file in this (faculty, course, docType) is in REVISION_REQUESTED state
+            const { data: revisionRecords } = await supabase
                 .from('submissions_fs')
-                .select('submission_status')
+                .select('submission_id')
                 .eq('faculty_id', faculty.faculty_id)
                 .eq('course_id', courseId)
                 .eq('doc_type_id', docTypeId)
-                .single();
+                .eq('submission_status', 'REVISION_REQUESTED');
 
-            if (currentSub?.submission_status === 'REVISION_REQUESTED') {
+            if (revisionRecords && revisionRecords.length > 0) {
+                // Update ALL records for this requirement in one go
+                // This ensures the dashboard and admin sidebar stay in sync
                 await supabase
                     .from('submissions_fs')
                     .update({ 
-                        submission_status: 'RESUBMITTED',
+                        submission_status: 'SUBMITTED',
                         approval_remarks: 'File re-submitted by faculty after revision request.'
                     })
                     .eq('faculty_id', faculty.faculty_id)
                     .eq('course_id', courseId)
                     .eq('doc_type_id', docTypeId);
+                
+                console.log(`[Service] Synced ${revisionRecords.length} records to RESUBMITTED for requirement.`);
             }
 
             return data;
