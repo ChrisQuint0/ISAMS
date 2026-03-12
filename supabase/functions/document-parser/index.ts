@@ -6,7 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 // @ts-ignore: Deno handles CommonJS default exports natively
 import * as pdfParseModule from "pdf-parse";
 // @ts-ignore: Handle commonjs default export mismatch in Deno
-const pdfParse = pdfParseModule.default || pdfParseModule;
+const { PDFParse } = pdfParseModule;
 import * as mammoth from "mammoth";
 // @ts-ignore: SheetJS npm types are missing for this version
 import * as xlsx from "xlsx";
@@ -93,7 +93,8 @@ serve(async (req: Request) => {
 
             try {
                 if (fileExtension === '.pdf') {
-                    const pdfData = await pdfParse(buffer);
+                    const pdf = new PDFParse(buffer);
+                    const pdfData = await pdf.getText();
                     extractedText = pdfData.text;
 
                 } else if (fileExtension === '.docx') {
