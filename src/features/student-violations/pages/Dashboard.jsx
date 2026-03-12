@@ -35,6 +35,123 @@ const customTheme = themeQuartz.withParams({
   fontSize: '13px',
 });
 
+// Helper: format occurrence number
+const formatFrequency = (freq) => {
+  if (freq === 1) return '1st';
+  if (freq === 2) return '2nd';
+  if (freq === 3) return '3rd';
+  return `${freq}th`;
+};
+
+// Helper: Build a human-readable detail message from a log entry
+const buildDetailMessage = (log, userName) => {
+  const action = log.action_type;
+  const table = log.table_name;
+  const d = log.details || {};
+  // For UPDATE actions, relevant data is in details.new
+  const data = action === 'UPDATE' ? (d.new || d) : d;
+  const oldData = action === 'UPDATE' ? (d.old || {}) : {};
+  const name = userName || 'Someone';
+
+  try {
+    switch (table) {
+      case 'students_sv': {
+        const sn = data.student_number || log.record_id;
+        if (action === 'INSERT') return `${name} added a student (${sn})`;
+        if (action === 'UPDATE') return `${name} updated student ${sn}`;
+        if (action === 'DELETE') return `${name} removed student ${sn}`;
+        break;
+      }
+      case 'violations_sv': {
+        const sn = data.student_number || '';
+        const vid = data.violation_id || log.record_id;
+        if (action === 'INSERT') return `${name} filed a violation against ${sn}`;
+        if (action === 'UPDATE') {
+          const oldStatus = oldData.status;
+          const newStatus = data.status;
+          if (oldStatus && newStatus && oldStatus !== newStatus) {
+            return `${name} updated violation #${vid} status to ${newStatus}`;
+          }
+          return `${name} updated violation #${vid} for ${sn}`;
+        }
+        if (action === 'DELETE') return `${name} removed violation #${vid}`;
+        break;
+      }
+      case 'offense_types_sv': {
+        const offName = data.name || `ID ${log.record_id}`;
+        if (action === 'INSERT') return `${name} added offense type "${offName}"`;
+        if (action === 'UPDATE') {
+          const oldSev = oldData.severity;
+          const newSev = data.severity;
+          if (oldSev && newSev && oldSev !== newSev) {
+            return `${name} changed "${offName}" severity from ${oldSev} to ${newSev}`;
+          }
+          return `${name} updated offense type "${offName}"`;
+        }
+        if (action === 'DELETE') return `${name} removed offense type "${offName}"`;
+        break;
+      }
+      case 'sanctions_sv': {
+        const sName = data.sanction_name || `ID ${log.record_id}`;
+        const severity = data.severity || '';
+        const freq = data.frequency ? formatFrequency(data.frequency) : '';
+        if (action === 'INSERT') return `${name} added sanction "${sName}" (${severity}, ${freq})`;
+        if (action === 'UPDATE') {
+          const oldName = oldData.sanction_name;
+          if (oldName && oldName !== sName) {
+            return `${name} renamed sanction "${oldName}" to "${sName}"`;
+          }
+          return `${name} updated sanction "${sName}"`;
+        }
+        if (action === 'DELETE') return `${name} removed sanction "${sName}"`;
+        break;
+      }
+      case 'student_sanctions_sv': {
+        const penalty = data.penalty_name || 'a sanction';
+        const vid = data.violation_id || '';
+        if (action === 'INSERT') return `${name} assigned "${penalty}" to violation #${vid}`;
+        if (action === 'UPDATE') {
+          const oldStatus = oldData.status;
+          const newStatus = data.status;
+          if (oldStatus && newStatus && oldStatus !== newStatus) {
+            return `${name} updated sanction "${penalty}" status to ${newStatus}`;
+          }
+          return `${name} updated sanction "${penalty}" for violation #${vid}`;
+        }
+        if (action === 'DELETE') return `${name} removed sanction "${penalty}" from violation #${vid}`;
+        break;
+      }
+      case 'violation_evidence_sv': {
+        const fileName = data.file_name || 'a file';
+        const vid = data.violation_id || '';
+        if (action === 'INSERT') return `${name} uploaded evidence "${fileName}" for violation #${vid}`;
+        if (action === 'DELETE') return `${name} removed evidence from violation #${vid}`;
+        break;
+      }
+      case 'compliance_evidence_sv': {
+        const fileName = data.file_name || 'a file';
+        const sid = data.sanction_id || '';
+        if (action === 'INSERT') return `${name} uploaded compliance evidence "${fileName}" for sanction #${sid}`;
+        if (action === 'DELETE') return `${name} removed compliance evidence from sanction #${sid}`;
+        break;
+      }
+      default:
+        break;
+    }
+  } catch {
+    // Fallback below
+  }
+
+  // Generic fallback
+  const tableMap = {
+    'students_sv': 'Student', 'violations_sv': 'Violation', 'sanctions_sv': 'Sanction Matrix',
+    'offense_types_sv': 'Offense Type', 'student_sanctions_sv': 'Student Sanction',
+    'violation_evidence_sv': 'Violation Evidence', 'compliance_evidence_sv': 'Compliance Evidence'
+  };
+  const readable = tableMap[table] || table;
+  return `${name} performed ${action} on ${readable} (ID: ${log.record_id})`;
+};
+
 export default function StudViolationDashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -75,40 +192,35 @@ export default function StudViolationDashboard() {
 
       if (logError) throw logError;
 
+      // 2. Resolve performed_by UUIDs to user names
+      const uniqueUuids = [...new Set(logData.map(l => l.performed_by).filter(Boolean))];
+      let userMap = {};
+      if (uniqueUuids.length > 0) {
+        const { data: users } = await supabase
+          .from('users_with_roles')
+          .select('id, first_name, last_name')
+          .in('id', uniqueUuids);
+        if (users) {
+          users.forEach(u => {
+            userMap[u.id] = `${u.first_name} ${u.last_name}`;
+          });
+        }
+      }
+
+      // 3. Format log data with human-readable details
       const formattedData = logData.map((log) => {
         let displayType = "System Activity";
-        let colorType = "text-neutral-500";
-        if (log.action_type === 'INSERT') {
-          displayType = "New Record";
-          colorType = "text-info";
-        } else if (log.action_type === 'UPDATE') {
-          displayType = "Record update";
-          colorType = "text-success";
-        } else if (log.action_type === 'DELETE') {
-          displayType = "Record removed";
-          colorType = "text-destructive-semantic";
-        }
+        if (log.action_type === 'INSERT') displayType = "New Record";
+        else if (log.action_type === 'UPDATE') displayType = "Record Updated";
+        else if (log.action_type === 'DELETE') displayType = "Record Removed";
 
-        // Make table names human readable, including the newly added evidence tables
-        const tableMap = {
-          'students_sv': 'Student',
-          'violations_sv': 'Violation',
-          'sanctions_sv': 'Sanction Matrix',
-          'offense_types_sv': 'Offense Type',
-          'student_sanctions_sv': 'Student Sanction',
-          'violation_evidence_sv': 'Violation Evidence',
-          'compliance_evidence_sv': 'Compliance Evidence'
-        };
-        const readableTable = tableMap[log.table_name] || log.table_name;
-
-        let detailMsg = `Action on ${readableTable}`;
-        if (log.record_id) {
-          detailMsg = `${log.action_type} on ${readableTable} (ID: ${log.record_id})`;
-        }
+        const performerName = userMap[log.performed_by] || 'System';
+        const detailMsg = buildDetailMessage(log, performerName.split(' ')[0]);
 
         return {
           id: log.log_id,
           type: displayType,
+          performedBy: performerName,
           detail: detailMsg,
           time: formatTimeAgo(log.created_at)
         };
@@ -172,26 +284,33 @@ export default function StudViolationDashboard() {
     {
       headerName: "Activity Type",
       field: "type",
-      flex: 1,
+      flex: 0.8,
       cellRenderer: (params) => {
         let color = "text-neutral-500";
-        if (params.value.includes("New")) color = "text-destructive-semantic";
-        if (params.value.includes("removed")) color = "text-destructive-semantic";
-        if (params.value.includes("update")) color = "text-info";
+        if (params.value.includes("New")) color = "text-info";
+        if (params.value.includes("Removed")) color = "text-destructive-semantic";
+        if (params.value.includes("Updated")) color = "text-success";
         return <span className={`font-semibold ${color}`}>{params.value}</span>;
       }
+    },
+    {
+      headerName: "Performed By",
+      field: "performedBy",
+      flex: 0.8,
+      cellStyle: { color: 'var(--neutral-700)', fontWeight: '600' }
     },
     {
       headerName: "Details",
       field: "detail",
       flex: 2,
+      filter: true,
       tooltipField: "detail",
       cellStyle: { color: 'var(--neutral-900)', fontWeight: '500' }
     },
     {
       headerName: "Time",
       field: "time",
-      flex: 0.8,
+      flex: 0.7,
       cellStyle: { color: 'var(--neutral-500)', fontStyle: 'italic' }
     }
   ], []);
