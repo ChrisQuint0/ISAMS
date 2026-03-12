@@ -17,7 +17,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Settings, Edit, ChevronRight, Plus, Trash2, Check, ArrowLeft, Save } from "lucide-react";
+import { Settings, Edit, ChevronRight, Plus, Trash2, Check, ArrowLeft, Save, Calendar } from "lucide-react";
 import { thesisService } from "../services/thesisService";
 import { AgGridReact } from 'ag-grid-react';
 import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-community';
@@ -93,7 +93,24 @@ const ActionCellRenderer = (params) => {
     };
 
     return (
-        <div className="flex items-center justify-center w-full h-full">
+        <div className="flex items-center justify-center w-full h-full gap-2">
+            {params.context && params.context.view === 'years' && (
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        if (params.context.handleToggleActive) {
+                            params.context.handleToggleActive(params.data);
+                        }
+                    }}
+                    className={`p-1.5 rounded-md transition-all duration-200 ${params.data.is_active
+                        ? "bg-emerald-100 text-emerald-600 hover:bg-emerald-200"
+                        : "hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600"
+                        }`}
+                    title={params.data.is_active ? "This is the active year" : "Set as active year"}
+                >
+                    <Check className={`h-4 w-4 ${params.data.is_active ? "stroke-[3px]" : ""}`} />
+                </button>
+            )}
             <button
                 onClick={handleClick}
                 disabled={isRecentSave}
@@ -115,10 +132,11 @@ const ActionCellRenderer = (params) => {
 
 export function ThesisSettingsModal({ variant = "dark" }) {
     const isDark = variant === "dark";
-    const [view, setView] = useState('settings'); // 'settings' | 'advisers' | 'categories' | 'sections'
+    const [view, setView] = useState('settings'); // 'settings' | 'advisers' | 'categories' | 'sections' | 'years'
     const [advisers, setAdvisers] = useState([]);
     const [categories, setCategories] = useState([]);
     const [sections, setSections] = useState([]);
+    const [academicYears, setAcademicYears] = useState([]);
     const [loading, setLoading] = useState(false);
 
     // Form states
@@ -126,6 +144,7 @@ export function ThesisSettingsModal({ variant = "dark" }) {
     const [newCategoryName, setNewCategoryName] = useState("");
     const [newSectionName, setNewSectionName] = useState("");
     const [newSectionProgram, setNewSectionProgram] = useState("Computer Science");
+    const [newYearName, setNewYearName] = useState("");
 
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState(null);
@@ -137,14 +156,16 @@ export function ThesisSettingsModal({ variant = "dark" }) {
     const fetchInitialData = async () => {
         setLoading(true);
         try {
-            const [advData, catData, secData] = await Promise.all([
+            const [advData, catData, secData, yearData] = await Promise.all([
                 thesisService.getAdvisers(),
                 thesisService.getCategories(),
-                thesisService.getSections()
+                thesisService.getSections(),
+                thesisService.getAcademicYears()
             ]);
             setAdvisers(advData.map(a => ({ id: a.id, name: a.display_name || a.name })));
             setCategories(catData);
             setSections(secData);
+            setAcademicYears(yearData.map(y => ({ ...y, name: y.name || '' })));
         } catch (error) {
             console.error("Failed to fetch settings data:", error);
         } finally {
@@ -187,10 +208,43 @@ export function ThesisSettingsModal({ variant = "dark" }) {
         }
     };
 
+    const handleAddYear = async () => {
+        if (!newYearName.trim()) return;
+        try {
+            const data = await thesisService.addAcademicYear({
+                name: newYearName,
+                is_active: academicYears.length === 0 // Make active if it's the first one
+            });
+            setAcademicYears([...academicYears, data]);
+            setNewYearName("");
+        } catch (error) {
+            console.error("Failed to add academic year:", error);
+        }
+    };
+
+    const handleToggleActive = async (year) => {
+        if (year.is_active) return; // Already active
+
+        try {
+            await thesisService.updateAcademicYear(year.id, { is_active: true });
+            // Update local state to reflect deactivations
+            setAcademicYears(prev => prev.map(y => ({
+                ...y,
+                is_active: y.id === year.id
+            })));
+        } catch (error) {
+            console.error("Failed to set active year:", error);
+        }
+    };
+
     const handleDelete = (id) => {
         const item = view === 'advisers'
             ? advisers.find(a => a.id === id)
-            : categories.find(c => c.id === id);
+            : view === 'categories'
+                ? categories.find(c => c.id === id)
+                : view === 'sections'
+                    ? sections.find(s => s.id === id)
+                    : academicYears.find(y => y.id === id);
         setItemToDelete(item);
         setIsDeleteDialogOpen(true);
     };
@@ -205,6 +259,9 @@ export function ThesisSettingsModal({ variant = "dark" }) {
                 } else if (view === 'sections') {
                     await thesisService.deleteSection(itemToDelete.id);
                     setSections(sections.filter(s => s.id !== itemToDelete.id));
+                } else if (view === 'years') {
+                    await thesisService.deleteAcademicYear(itemToDelete.id);
+                    setAcademicYears(academicYears.filter(y => y.id !== itemToDelete.id));
                 }
             } catch (error) {
                 console.error("Delete failed:", error);
@@ -214,7 +271,7 @@ export function ThesisSettingsModal({ variant = "dark" }) {
         }
     };
 
-    const handleCellValueChanged = (event) => {
+    const handleCellValueChanged = async (event) => {
         if (view === 'advisers') {
             setAdvisers(prevAdvisers =>
                 prevAdvisers.map(adviser =>
@@ -223,7 +280,7 @@ export function ThesisSettingsModal({ variant = "dark" }) {
                         : adviser
                 )
             );
-        } else {
+        } else if (view === 'categories') {
             setCategories(prevCategories =>
                 prevCategories.map(category =>
                     category.id === event.data.id
@@ -231,12 +288,25 @@ export function ThesisSettingsModal({ variant = "dark" }) {
                         : category
                 )
             );
+        } else if (view === 'years') {
+            try {
+                await thesisService.updateAcademicYear(event.data.id, { name: event.data.name });
+                setAcademicYears(prev => prev.map(y => y.id === event.data.id ? event.data : y));
+            } catch (error) {
+                console.error("Update year failed:", error);
+            }
         }
     };
 
 
     const columnDefs = useMemo(() => {
-        const headerName = view === 'advisers' ? "Name" : view === 'categories' ? "Category Name" : "Section Name";
+        const headerName = view === 'advisers'
+            ? "Name"
+            : view === 'categories'
+                ? "Category Name"
+                : view === 'sections'
+                    ? "Section Name"
+                    : "Academic Year";
 
         const cols = [
             {
@@ -261,10 +331,29 @@ export function ThesisSettingsModal({ variant = "dark" }) {
             });
         }
 
+        if (view === 'years') {
+            cols.push({
+                field: "is_active",
+                headerName: "Status",
+                width: 100,
+                cellRenderer: (params) => (
+                    <div className="flex items-center h-full">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${params.value
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-neutral-100 text-neutral-500"
+                            }`}>
+                            {params.value ? "Active" : "Inactive"}
+                        </span>
+                    </div>
+                ),
+                editable: false
+            });
+        }
+
         cols.push({
             field: "actions",
             headerName: "Action",
-            width: 80,
+            width: view === 'years' ? 120 : 80,
             cellRenderer: ActionCellRenderer,
             editable: false
         });
@@ -360,6 +449,18 @@ export function ThesisSettingsModal({ variant = "dark" }) {
                                     Edit / Add Sections
                                 </Button>
                             </div>
+
+                            <div className="flex items-center gap-4">
+                                <Label className="text-base w-48 text-neutral-900">Academic Years</Label>
+                                <Button
+                                    variant="outline"
+                                    className="flex-1 justify-start gap-2 h-10 px-4 font-normal text-base bg-white border-neutral-200 text-neutral-900 hover:bg-neutral-50 hover:text-neutral-900 hover:border-neutral-300"
+                                    onClick={() => setView('years')}
+                                >
+                                    <Edit className="h-4 w-4" />
+                                    Edit / Add Academic Years
+                                </Button>
+                            </div>
                         </div>
 
                         <div className="flex justify-end pt-2 border-t border-neutral-200 mt-auto">
@@ -418,6 +519,63 @@ export function ThesisSettingsModal({ variant = "dark" }) {
                                         resizable: true,
                                     }}
                                     context={{ handleDelete }}
+                                    animateRows={true}
+                                    stopEditingWhenCellsLoseFocus={true}
+                                    onCellValueChanged={handleCellValueChanged}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                ) : view === 'years' ? (
+                    <div className="flex flex-col h-full gap-4">
+                        <DialogHeader>
+                            <div className="flex items-center gap-1 text-sm mb-1">
+                                <button
+                                    onClick={handleBack}
+                                    className="text-neutral-600 hover:text-neutral-900 transition-colors flex items-center"
+                                >
+                                    Settings
+                                </button>
+                                <ChevronRight className="h-4 w-4 text-neutral-400" />
+                                <span className="text-neutral-900 font-medium">Academic Years</span>
+                            </div>
+                            <DialogTitle className="text-xl font-semibold text-neutral-900">Manage Academic Years</DialogTitle>
+                            <DialogDescription className="text-neutral-600 text-sm">
+                                Define academic years for thesis archiving metrics and filters.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="flex gap-2 items-center">
+                            <Input
+                                placeholder="Year Name (e.g. 2025-2026)"
+                                value={newYearName}
+                                onChange={(e) => setNewYearName(e.target.value)}
+                                className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-neutral-300"
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleAddYear();
+                                }}
+                            />
+                            <Button
+                                variant="outline"
+                                className="bg-primary-500 text-white hover:bg-primary-600 border-none font-medium shrink-0"
+                                onClick={handleAddYear}
+                            >
+                                Add
+                            </Button>
+                        </div>
+
+                        <div className="border border-neutral-200 rounded-md overflow-hidden bg-white" style={{ height: '350px' }}>
+                            <div style={{ height: '100%', width: '100%' }}>
+                                <AgGridReact
+                                    theme={customTheme}
+                                    rowData={academicYears}
+                                    columnDefs={columnDefs}
+                                    defaultColDef={{
+                                        sortable: true,
+                                        filter: true,
+                                        resizable: true,
+                                    }}
+                                    context={{ handleDelete, handleToggleActive, view }}
                                     animateRows={true}
                                     stopEditingWhenCellsLoseFocus={true}
                                     onCellValueChanged={handleCellValueChanged}

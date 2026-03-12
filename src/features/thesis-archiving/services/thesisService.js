@@ -344,5 +344,58 @@ export const thesisService = {
             console.error("Delete error:", error);
             throw error;
         }
+    },
+
+    /**
+     * Academic Year Management
+     */
+    async getAcademicYears() {
+        const { data, error } = await supabase
+            .from("thesis_academic_years")
+            .select("*")
+            .order("name", { ascending: false });
+
+        if (error) throw error;
+        return data;
+    },
+
+    async addAcademicYear(yearData) {
+        const { data, error } = await supabase
+            .from("thesis_academic_years")
+            .insert([yearData])
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
+    async updateAcademicYear(id, updates) {
+        // If we are setting a year as active, we should deactivate others first
+        if (updates.is_active === true) {
+            await supabase
+                .from("thesis_academic_years")
+                .update({ is_active: false })
+                .neq("id", id);
+        }
+
+        const { data, error } = await supabase
+            .from("thesis_academic_years")
+            .update(updates)
+            .eq("id", id)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
+    async deleteAcademicYear(id) {
+        const { error } = await supabase
+            .from("thesis_academic_years")
+            .delete()
+            .eq("id", id);
+
+        if (error) throw error;
     }
 };
