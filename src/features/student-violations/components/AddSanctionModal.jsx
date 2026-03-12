@@ -12,12 +12,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/lib/supabaseClient";
-import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { CheckCircle2, AlertCircle, Loader2, Clock } from "lucide-react";
 
-export function AddSanctionModal({ isOpen, onClose, onSuccess, editingSanction }) { 
+export function AddSanctionModal({ isOpen, onClose, onSuccess, editingSanction }) {
     const [isSaving, setIsSaving] = useState(false);
     const [errorMsg, setErrorMsg] = useState(null);
     const [successMsg, setSuccessMsg] = useState(null);
+    const [createdByName, setCreatedByName] = useState('Unknown');
+    const [updatedByName, setUpdatedByName] = useState('Unknown');
 
     const [formData, setFormData] = useState({
         severity: "",
@@ -25,6 +27,24 @@ export function AddSanctionModal({ isOpen, onClose, onSuccess, editingSanction }
         sanction_name: "",
         sanction_description: ""
     });
+
+    const resolveAuditNames = async (data) => {
+        const uuids = [data.created_by, data.updated_by].filter(Boolean);
+        if (uuids.length === 0) return;
+        try {
+            const { data: users, error } = await supabase
+                .from('users_with_roles')
+                .select('id, first_name, last_name')
+                .in('id', uuids);
+            if (error || !users) return;
+            const map = {};
+            users.forEach(u => { map[u.id] = `${u.first_name} ${u.last_name}`; });
+            if (data.created_by && map[data.created_by]) setCreatedByName(map[data.created_by]);
+            if (data.updated_by && map[data.updated_by]) setUpdatedByName(map[data.updated_by]);
+        } catch (err) {
+            console.error('Error resolving audit names:', err);
+        }
+    };
 
     useEffect(() => {
         if (isOpen) {
@@ -35,6 +55,7 @@ export function AddSanctionModal({ isOpen, onClose, onSuccess, editingSanction }
                     sanction_name: editingSanction.sanction_name,
                     sanction_description: editingSanction.sanction_description || ""
                 });
+                resolveAuditNames(editingSanction);
             } else {
                 setFormData({
                     severity: "",
@@ -42,6 +63,8 @@ export function AddSanctionModal({ isOpen, onClose, onSuccess, editingSanction }
                     sanction_name: "",
                     sanction_description: ""
                 });
+                setCreatedByName('Unknown');
+                setUpdatedByName('Unknown');
             }
             setErrorMsg(null);
             setSuccessMsg(null);
@@ -184,6 +207,27 @@ export function AddSanctionModal({ isOpen, onClose, onSuccess, editingSanction }
                                 className="bg-white border-neutral-200 focus-visible:ring-warning focus-visible:border-warning min-h-[80px] text-sm resize-none text-neutral-900 placeholder:text-neutral-400"
                             />
                         </div>
+
+                        {editingSanction && (
+                            <div className="bg-amber-50/50 border border-amber-100 rounded-lg p-3 grid grid-cols-2 gap-3 text-xs shadow-sm">
+                                <div>
+                                    <p className="text-amber-700 uppercase tracking-wider font-bold mb-0.5 flex items-center gap-1"><Clock className="w-3 h-3" /> Created</p>
+                                    <p className="text-neutral-900 font-bold">{editingSanction.created_at ? new Date(editingSanction.created_at).toLocaleString() : 'N/A'}</p>
+                                    <p className="text-neutral-500 font-medium">by {createdByName}</p>
+                                </div>
+                                <div>
+                                    <p className="text-amber-700 uppercase tracking-wider font-bold mb-0.5 flex items-center gap-1"><Clock className="w-3 h-3" /> Last Modified</p>
+                                    {editingSanction.updated_at ? (
+                                        <>
+                                            <p className="text-neutral-900 font-bold">{new Date(editingSanction.updated_at).toLocaleString()}</p>
+                                            <p className="text-neutral-500 font-medium">by {updatedByName}</p>
+                                        </>
+                                    ) : (
+                                        <p className="text-neutral-400 italic">Not yet modified</p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
 
                         <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-neutral-100">
                             <Button type="button" variant="ghost" onClick={onClose} className="text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 h-9 px-4 text-sm font-bold">

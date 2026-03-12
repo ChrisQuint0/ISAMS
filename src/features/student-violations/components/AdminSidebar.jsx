@@ -35,66 +35,32 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+import { useAuth } from "@/features/auth/hooks/useAuth";
+
 export function AdminSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [stats, setStats] = useState({
-    activeViolations: 0,
-    pendingReports: 0,
-    systemStatus: "Online",
-  });
+  const { user } = useAuth();
+  const [systemStatus, setSystemStatus] = useState("Online");
 
   const isActive = (path) => location.pathname === path;
 
   useEffect(() => {
-    fetchSidebarStats();
-    const interval = setInterval(fetchSidebarStats, 60000);
-    return () => clearInterval(interval);
+    const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+    setSystemStatus(isTauri ? "Online" : "Dev");
   }, []);
-
-  const fetchSidebarStats = async () => {
-    try {
-      const isTauri =
-        typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-      if (!isTauri) {
-        setStats({
-          activeViolations: 12,
-          pendingReports: 3,
-          systemStatus: "Dev",
-        });
-        return;
-      }
-      const [vCount, rCount] = await Promise.all([
-        invoke("get_active_violations_count"),
-        invoke("get_pending_reports_count"),
-      ]);
-      setStats({
-        activeViolations: vCount || 0,
-        pendingReports: rCount || 0,
-        systemStatus: "Online",
-      });
-    } catch (error) {
-      console.error("Failed to update stats:", error);
-    }
-  };
 
   const navItems = [
     { path: "/student-violations", label: "Dashboard", icon: LayoutDashboard },
     { path: "/students", label: "Students Record", icon: Users },
-    {
-      path: "/violations",
-      label: "Student Violations",
-      icon: ShieldAlert,
-      badge: stats.activeViolations,
-    },
-    {
-      path: "/generate-report",
-      label: "Generate Report",
-      icon: FileText,
-      badge: stats.pendingReports,
-    },
+    { path: "/violations", label: "Student Violations", icon: ShieldAlert },
+    { path: "/generate-report", label: "Generate Report", icon: FileText },
     { path: "/analytics", label: "Analytics", icon: BarChart3 },
   ];
+
+  const userName = user?.user_metadata?.first_name && user?.user_metadata?.last_name
+    ? `${user.user_metadata.first_name} ${user.user_metadata.last_name}`
+    : user?.email?.split("@")[0] ?? "User";
 
   return (
     <Sidebar
@@ -148,11 +114,6 @@ export function AdminSidebar() {
                     <span className="text-[14px] font-medium">
                       {item.label}
                     </span>
-                    {item.badge > 0 && (
-                      <SidebarMenuBadge className={isActive(item.path) ? "bg-white text-primary-700 font-bold" : "bg-primary-600 text-white"}>
-                        {item.badge}
-                      </SidebarMenuBadge>
-                    )}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -187,13 +148,10 @@ export function AdminSidebar() {
                   </div>
                   <div className="flex-1 text-left text-neutral-900 text-sm leading-tight group-data-[collapsible=icon]:hidden overflow-hidden min-w-0 ml-3">
                     <span className="truncate font-bold block">
-                      Admin's Office
+                      {userName}
                     </span>
-                    <span className="truncate text-[10px] flex items-center gap-1.5 text-neutral-500">
-                      <span
-                        className={`h-1.5 w-1.5 rounded-full ${stats.systemStatus === "Online" ? "bg-emerald-500" : "bg-amber-500"}`}
-                      />
-                      {stats.systemStatus}
+                    <span className="truncate text-[10px] text-neutral-500">
+                      Logged in
                     </span>
                   </div>
                   <ChevronUp className="ml-auto size-4 text-neutral-400 group-data-[collapsible=icon]:hidden shrink-0" />
