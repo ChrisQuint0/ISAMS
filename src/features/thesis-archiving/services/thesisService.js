@@ -344,5 +344,287 @@ export const thesisService = {
             console.error("Delete error:", error);
             throw error;
         }
+    },
+
+    /**
+     * Academic Year Management
+     */
+    async getAcademicYears() {
+        const { data, error } = await supabase
+            .from("thesis_academic_years")
+            .select("*")
+            .order("name", { ascending: false });
+
+        if (error) throw error;
+        return data;
+    },
+
+    async addAcademicYear(yearData) {
+        const { data, error } = await supabase
+            .from("thesis_academic_years")
+            .insert([yearData])
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
+    async updateAcademicYear(id, updates) {
+        // If we are setting a year as active, we should deactivate others first
+        if (updates.is_active === true) {
+            await supabase
+                .from("thesis_academic_years")
+                .update({ is_active: false })
+                .neq("id", id);
+        }
+
+        const { data, error } = await supabase
+            .from("thesis_academic_years")
+            .update(updates)
+            .eq("id", id)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
+    async deleteAcademicYear(id) {
+        const { error } = await supabase
+            .from("thesis_academic_years")
+            .delete()
+            .eq("id", id);
+
+        if (error) throw error;
+    },
+
+    /**
+     * Dashboard Data Aggregates (Views)
+     */
+    async getDashboardMetrics() {
+        try {
+            const { data, error } = await supabase
+                .from("vw_dashboard_metrics")
+                .select("*")
+                .single();
+
+            if (!error && data) {
+                // Map archived_this_term to archived_this_year for component compatibility
+                return {
+                    ...data,
+                    archived_this_year: data.archived_this_year || data.archived_this_term || 0,
+                    total_trend: data.total_records_delta || 0,
+                    archive_trend: data.archived_delta || 0
+                };
+            }
+
+            // Fallback
+            const currentYear = new Date().getFullYear();
+            const [total, thisYear] = await Promise.all([
+                supabase.from("thesis_entries").select("id", { count: 'exact', head: true }).eq('is_deleted', false),
+                supabase.from("thesis_entries").select("id", { count: 'exact', head: true }).eq('is_deleted', false).eq('publication_year', currentYear)
+            ]);
+
+            return {
+                total_records: total.count || 0,
+                total_trend: 0,
+                archived_this_year: thisYear.count || 0,
+                archive_trend: 0,
+                completion_rate: 100
+            };
+        } catch (error) {
+            console.error("Error in getDashboardMetrics:", error);
+            return {
+                total_records: 0,
+                total_trend: 0,
+                archived_this_year: 0,
+                archive_trend: 0,
+                completion_rate: 0
+            };
+        }
+    },
+
+    async getDashboardMonthlyTrend() {
+        try {
+            const { data, error } = await supabase
+                .from("vw_dashboard_monthly_trend")
+                .select("*")
+                .order("month", { ascending: true });
+
+            if (!error && data && data.length > 0) return data;
+
+            // Fallback: Last 6 months with dummy data
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const currentMonth = new Date().getMonth();
+            const fallbackData = [];
+            
+            for (let i = 5; i >= 0; i--) {
+                let mIndex = currentMonth - i;
+                if (mIndex < 0) mIndex += 12;
+                fallbackData.push({
+                    month: mIndex + 1,
+                    month_name: months[mIndex],
+                    new_submissions: 0,
+                    archived: 0,
+                    completion_rate: 100
+                });
+            }
+            return fallbackData;
+        } catch (error) {
+            console.error("Error in getDashboardMonthlyTrend fallback:", error);
+            return [];
+        }
+    },
+
+    async getDashboardYearlyTrend() {
+        try {
+            // Get data from thesis_entries grouped by publication_year
+            const { data, error } = await supabase
+                .from("thesis_entries")
+                .select("publication_year")
+                .eq("is_deleted", false);
+
+            if (error) throw error;
+
+            // Group by year and count
+            const yearCounts = (data || []).reduce((acc, entry) => {
+                const year = entry.publication_year;
+                acc[year] = (acc[year] || 0) + 1;
+                return acc;
+            }, {});
+
+            // Convert to array and sort by year
+            const trendData = Object.entries(yearCounts)
+                .map(([year, count]) => ({
+                    year: parseInt(year),
+                    new_submissions: count,
+                    archived: count,
+                    completion_rate: 100
+                }))
+                .sort((a, b) => a.year - b.year);
+
+            if (trendData.length > 0) return trendData;
+
+            // Fallback: Last 5 years with dummy data
+            const currentYear = new Date().getFullYear();
+            const fallbackData = [];
+            for (let i = 4; i >= 0; i--) {
+                fallbackData.push({
+                    year: currentYear - i,
+                    new_submissions: 0,
+                    archived: 0,
+                    completion_rate: 100
+                });
+            }
+            return fallbackData;
+        } catch (error) {
+            console.error("Error in getDashboardYearlyTrend:", error);
+            return [];
+        }
+    },
+
+    async getDashboardRecentSubmissions() {
+        try {
+            const { data, error } = await supabase
+                .from("vw_dashboard_recent_submissions")
+                .select("*")
+                .limit(10);
+
+            if (!error && data) return data;
+
+            // Fallback
+            const { data: entries, error: entError } = await supabase
+                .from("thesis_entries")
+                .select(`
+                    id, 
+                    title, 
+                    publication_year, 
+                    category:thesis_categories(name)
+                `)
+                .eq('is_deleted', false)
+                .order('created_at', { ascending: false })
+                .limit(10);
+
+            if (entError) throw entError;
+            
+            // Map to match view structure
+            return (entries || []).map(e => ({
+                id: e.id,
+                title: e.title,
+                publication_year: e.publication_year,
+                category: e.category?.name || "Uncategorized",
+                authors: "Author list..." // Simplified for dashboard view
+            }));
+        } catch (error) {
+            console.error("Error in getDashboardRecentSubmissions fallback:", error);
+            return [];
+        }
+    },
+
+    async getDashboardRecentActivity() {
+        try {
+            const { data, error } = await supabase
+                .from("vw_dashboard_recent_activity")
+                .select("*")
+                .limit(10);
+
+            if (!error && data) return data;
+
+            // Fallback: Using ta_audit_logs if it exists
+            const { data: logs, error: logError } = await supabase
+                .from("ta_audit_logs")
+                .select("*")
+                .order('created_at', { ascending: false })
+                .limit(10);
+
+            if (logError) throw logError;
+
+            return (logs || []).map(l => ({
+                text: l.description,
+                action_time: l.created_at
+            }));
+        } catch (error) {
+            console.error("Error in getDashboardRecentActivity fallback:", error);
+            return [];
+        }
+    },
+
+    async getDashboardQuickStats() {
+        try {
+            const { data, error } = await supabase
+                .from("vw_dashboard_quick_stats")
+                .select("*")
+                .single();
+
+            if (!error && data) {
+                // Map view keys to component keys
+                return {
+                    repository_count: data.total_thesis || 0,
+                    flagged_count: data.pending_similarity || 0,
+                    hte_student_count: data.incomplete_trainees || 0
+                };
+            }
+            
+            // Fallback: Manually count if view is missing or empty
+            const [repoRes, flaggedRes, hteRes] = await Promise.all([
+                supabase.from("thesis_entries").select("id", { count: 'exact', head: true }).eq('is_deleted', false),
+                supabase.from("similarity_flagged_reviews").select("id", { count: 'exact', head: true }).eq('review_status', 'Pending'),
+                supabase.from("hte_ojt_students").select("id", { count: 'exact', head: true }).eq('is_active', true)
+            ]);
+
+            return {
+                repository_count: repoRes.count || 0,
+                flagged_count: flaggedRes.count || 0,
+                hte_student_count: hteRes.count || 0
+            };
+        } catch (error) {
+            console.error("Error in getDashboardQuickStats:", error);
+            return {
+                repository_count: 0,
+                flagged_count: 0,
+                hte_student_count: 0
+            };
+        }
     }
 };
