@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
 import { HTEArchivingHeader } from "./HTEDocumentArchivePage";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared constants
@@ -89,6 +90,14 @@ export default function HTEStudentPage(props) {
     var student   = props.student;
     var docFields = props.docFields;
     var onUpload  = props.onUpload;
+    const { user } = useAuth();
+
+    const actorInfo = React.useMemo(() => ({
+        actorUserId: user?.id,
+        actorName: user?.user_metadata?.first_name 
+            ? `${user.user_metadata.first_name} ${user.user_metadata.last_name || ""}`.trim()
+            : user?.email || "System User"
+    }), [user]);
 
     var pa = React.useState(PAGE.OVERVIEW); var activePage = pa[0]; var setActivePage = pa[1];
     var ta = React.useState(null);          var toast = ta[0];      var setToast = ta[1];
@@ -98,7 +107,7 @@ export default function HTEStudentPage(props) {
     function handleUpload(fieldId, file) {
         var err = validateFile(file);
         if (err) { handleError(err); return; }
-        onUpload(student.id, fieldId, file);
+        onUpload(student.id, fieldId, file, actorInfo);
         handleUploadSuccess(file.name);
     }
 

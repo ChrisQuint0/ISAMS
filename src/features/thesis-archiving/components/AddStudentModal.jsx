@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { thesisService } from "../services/thesisService";
 import { useToast } from "@/components/ui/toast/toaster";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 
 const PROGRAMS = [
     { value: "Computer Science", label: "Computer Science" },
@@ -49,6 +50,14 @@ export default function AddStudentModal({ open, onOpenChange, onAdd }) {
     const [sections, setSections] = useState([]);
     const [fetchingData, setFetchingData] = useState(false);
     const { addToast } = useToast();
+    const { user } = useAuth();
+
+    const actorInfo = {
+        actorUserId: user?.id,
+        actorName: user?.user_metadata?.first_name 
+            ? `${user.user_metadata.first_name} ${user.user_metadata.last_name || ""}`.trim()
+            : user?.email || "System User"
+    };
 
     // Single Entry States
     const [formData, setFormData] = useState({
@@ -130,7 +139,8 @@ export default function AddStudentModal({ open, onOpenChange, onAdd }) {
                 },
                 password: formData.password,
                 academicYear: "2023-2024", // This should ideally be dynamic
-                semester: "2nd Semester"    // This should ideally be dynamic
+                semester: "2nd Semester",    // This should ideally be dynamic
+                actorInfo
             });
 
             if (onAdd) onAdd(formData);

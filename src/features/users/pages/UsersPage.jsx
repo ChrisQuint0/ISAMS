@@ -20,6 +20,7 @@ import {
 import { supabase } from "@/lib/supabaseClient";
 import { useToast } from "@/components/ui/toast/toaster";
 import { updateUser } from "@/features/users/services/usersService";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -183,6 +184,14 @@ function makeModuleColDef(headerName, activeField, roleField, roleOptions) {
 export default function UsersPage() {
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const { user } = useAuth();
+
+  const actorInfo = {
+    actorUserId: user?.id,
+    actorName: user?.user_metadata?.first_name 
+      ? `${user.user_metadata.first_name} ${user.user_metadata.last_name || ""}`.trim()
+      : user?.email || "System User"
+  };
   const [moduleFilter, setModuleFilter] = useState("all");
   const [addUserOpen, setAddUserOpen] = useState(false);
 
@@ -216,7 +225,7 @@ export default function UsersPage() {
       }
 
       try {
-        const { data, error } = await updateUser(updatedRow.id, updatedRow);
+        const { data, error } = await updateUser(updatedRow.id, updatedRow, actorInfo);
 
         if (error) {
           throw error;
@@ -277,7 +286,11 @@ export default function UsersPage() {
       const res = await fetch("http://localhost:3000/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          actorName: actorInfo.actorName,
+          actorUserId: actorInfo.actorUserId
+        }),
       });
       const result = await res.json();
 
@@ -301,7 +314,11 @@ export default function UsersPage() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ password: payload.password }),
+          body: JSON.stringify({ 
+            password: payload.password,
+            actorName: actorInfo.actorName,
+            actorUserId: actorInfo.actorUserId
+          }),
         },
       );
 

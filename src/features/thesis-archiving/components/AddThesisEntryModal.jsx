@@ -22,6 +22,7 @@ import { Separator } from "@/components/ui/separator";
 import { thesisService } from "../services/thesisService";
 import { useToast } from "@/components/ui/toast/toaster";
 import { supabase } from "@/lib/supabaseClient";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 
 export default function AddThesisEntryModal({ open, onOpenChange, onSuccess }) {
     const [view, setView] = useState("form"); // "form" | "editor"
@@ -43,6 +44,14 @@ export default function AddThesisEntryModal({ open, onOpenChange, onSuccess }) {
     const [loading, setLoading] = useState(false);
     const [fetchingData, setFetchingData] = useState(true);
     const { addToast } = useToast();
+    const { user } = useAuth();
+
+    const actorInfo = {
+        actorUserId: user?.id,
+        actorName: user?.user_metadata?.first_name 
+            ? `${user.user_metadata.first_name} ${user.user_metadata.last_name || ""}`.trim()
+            : user?.email || "System User"
+    };
 
     const years = Array.from({ length: 11 }, (_, i) => (new Date().getFullYear() - i).toString());
 
@@ -98,11 +107,9 @@ export default function AddThesisEntryModal({ open, onOpenChange, onSuccess }) {
         setLoading(true);
         try {
             // 1. Upload to GDrive
-            const gdriveFile = await thesisService.uploadToDrive(file);
+            const gdriveFile = await thesisService.uploadToDrive(file, actorInfo);
 
             // 2. Save to Supabase
-            const { data: { user } } = await supabase.auth.getUser();
-
             const entryData = {
                 title,
                 description,
@@ -118,7 +125,8 @@ export default function AddThesisEntryModal({ open, onOpenChange, onSuccess }) {
             await thesisService.saveThesisEntry({
                 entry: entryData,
                 authors,
-                gdriveFile
+                gdriveFile,
+                actorInfo
             });
 
             addToast({

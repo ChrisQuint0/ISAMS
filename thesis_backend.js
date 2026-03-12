@@ -143,6 +143,18 @@ app.post("/api/thesis/upload", upload.single("file"), async (req, res) => {
         });
 
         res.json(file.data);
+
+        // Activity Log
+        await logAuditTrail(req, {
+            action: "Upload",
+            description: `Uploaded thesis file: "${fileName}"`,
+            moduleAffected: "Thesis Archiving",
+            recordId: file.data.id,
+            recordType: "thesis_files",
+            newValues: { fileName, folderId: THESIS_ROOT_FOLDER_ID },
+            actorUserId: req.body.actorUserId || null,
+            actorName: req.body.actorName || "Admin"
+        });
     } catch (error) {
         console.error("Error uploading thesis file:", error);
         res.status(500).json({ error: error.message });
@@ -219,15 +231,17 @@ app.post("/api/thesis/create", async (req, res) => {
 
         if (fileError) throw fileError;
 
-        await supabaseAdmin.from("ta_audit_logs").insert([{
-            actor_user_id: entry.added_by,
-            actor_name: "System User (Admin)",
+        // Log the event
+        await logAuditTrail(req, {
             action: "Add",
             description: `Archived new thesis: "${entry.title}"`,
-            record_id: thesis.id,
-            record_type: "thesis_entries",
-            new_values: entry
-        }]);
+            moduleAffected: "Thesis Archiving",
+            recordId: thesis.id,
+            recordType: "thesis_entries",
+            newValues: entry,
+            actorUserId: entry.added_by,
+            actorName: req.body.actorName || "System User"
+        });
 
         res.json({ success: true, thesis });
     } catch (error) {
@@ -244,6 +258,52 @@ app.use((err, req, res, next) => {
         path: req.path
     });
 });
+
+/**
+ * Global Audit Log Helper
+ */
+async function logAuditTrail(req, {
+    action,
+    description,
+    moduleAffected = "Thesis Archiving",
+    recordId = null,
+    recordType = null,
+    oldValues = null,
+    newValues = null,
+    actorUserId = null,
+    actorName = null
+}) {
+    if (!supabaseAdmin) return;
+
+    // Prioritize info passed in the options, then from req.body (from frontend), then defaults
+    const finalActorId = actorUserId || req.body?.actorUserId || null;
+    const finalActorName = actorName || req.body?.actorName || "System";
+
+    try {
+        const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+        const userAgent = req.headers['user-agent'];
+
+        const { error } = await supabaseAdmin
+            .from("ta_audit_logs")
+            .insert([{
+                actor_user_id: finalActorId,
+                actor_name: finalActorName,
+                action,
+                description,
+                module_affected: moduleAffected,
+                record_id: recordId ? String(recordId) : null,
+                record_type: recordType,
+                old_values: oldValues,
+                new_values: newValues,
+                ip_address: ipAddress || null,
+                user_agent: userAgent
+            }]);
+
+        if (error) console.error("[AuditLog] Error inserting log:", error);
+    } catch (err) {
+        console.error("[AuditLog] Unexpected error:", err);
+    }
+}
 
 app.listen(port, () => {
     console.log(`Thesis Backend running at http://localhost:${port}`);
