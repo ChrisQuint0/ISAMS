@@ -586,14 +586,23 @@ export const thesisService = {
 
     async getDashboardRecentActivity() {
         try {
+            // Priority 1: Use the standard audit trail view used by the Audit Trail page
             const { data, error } = await supabase
-                .from("vw_dashboard_recent_activity")
+                .from("vw_audit_trail")
                 .select("*")
+                .order("time", { ascending: false })
                 .limit(10);
 
-            if (!error && data) return data;
+            if (!error && data) {
+                // Ensure field names are consistent for the dashboard UI
+                return data.map(l => ({
+                    ...l,
+                    text: l.description,
+                    action_time: l.time
+                }));
+            }
 
-            // Fallback: Using ta_audit_logs if it exists
+            // Fallback: Using ta_audit_logs directly if view is missing
             const { data: logs, error: logError } = await supabase
                 .from("ta_audit_logs")
                 .select("*")
@@ -603,11 +612,14 @@ export const thesisService = {
             if (logError) throw logError;
 
             return (logs || []).map(l => ({
+                ...l,
+                name: l.actor_name,
+                action: l.action,
                 text: l.description,
                 action_time: l.created_at
             }));
         } catch (error) {
-            console.error("Error in getDashboardRecentActivity fallback:", error);
+            console.error("Error in getDashboardRecentActivity:", error);
             return [];
         }
     },

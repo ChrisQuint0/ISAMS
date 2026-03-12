@@ -89,6 +89,23 @@ const getCategoryConfig = (category) => {
     };
 };
 
+const getActionBadgeStyle = (action) => {
+    const badgeStyles = {
+        Add: "bg-emerald-50 text-emerald-700 border-emerald-200",
+        Edit: "bg-blue-50 text-blue-700 border-blue-200",
+        Delete: "bg-rose-50 text-rose-700 border-rose-200",
+        Archive: "bg-violet-50 text-violet-700 border-violet-200",
+        Restore: "bg-cyan-50 text-cyan-700 border-cyan-200",
+        Upload: "bg-indigo-50 text-indigo-700 border-indigo-200",
+        Similarity_Run: "bg-amber-50 text-amber-700 border-amber-200",
+        Export: "bg-orange-50 text-orange-700 border-orange-200",
+        Notify: "bg-sky-50 text-sky-700 border-sky-200",
+        Settings: "bg-slate-50 text-slate-700 border-slate-200",
+        Login: "bg-gray-50 text-gray-700 border-gray-200"
+    };
+    return badgeStyles[action] || "bg-gray-50 text-gray-700 border-gray-200";
+};
+
 // Fallback/Initial metric structure
 const initialMetrics = [
     {
@@ -519,23 +536,48 @@ export default function ThesisArchivingDashboardPage() {
                                     </div>
                                 ) : (
                                     recentActivity.map((activity, i) => (
-                                        <div key={i} className="group flex gap-4 px-6 py-4 hover:bg-neutral-50 transition-colors relative border-b border-neutral-100 last:border-0">
-                                            <div className="relative flex flex-col items-center">
-                                                <div className="h-2.5 w-2.5 rounded-full bg-primary-500 shadow-[0_0_8px_rgba(34,197,94,0.3)] flex-shrink-0 mt-1.5 z-10" />
-                                                {i !== recentActivity.length - 1 && (
-                                                    <div className="w-[1px] h-full bg-neutral-200 group-hover:bg-neutral-300 absolute top-5 bottom-[-1.5rem] transition-colors" />
-                                                )}
+                                        <div key={i} className="group flex flex-col sm:flex-row sm:items-center gap-4 px-6 py-4 hover:bg-neutral-50 transition-colors relative border-b border-neutral-100 last:border-0">
+                                            <div className="flex items-center gap-3 min-w-[140px]">
+                                                <div className="relative flex flex-col items-center">
+                                                    <div className={`h-2.5 w-2.5 rounded-full ${activity.action === 'Delete' ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.3)]' : 'bg-primary-500 shadow-[0_0_8px_rgba(34,197,94,0.3)]'} flex-shrink-0 z-10`} />
+                                                    {i !== recentActivity.length - 1 && (
+                                                        <div className="w-[1px] h-full bg-neutral-200 group-hover:bg-neutral-300 absolute top-5 bottom-[-1.5rem] transition-colors hidden sm:block" />
+                                                    )}
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <Badge variant="outline" className={`${getActionBadgeStyle(activity.action)} text-[10px] font-bold px-1.5 py-0 rounded uppercase tracking-wider w-fit`}>
+                                                        {activity.action || 'Default'}
+                                                    </Badge>
+                                                    <span className="text-[10px] text-neutral-400 font-medium mt-1 uppercase tracking-tight truncate max-w-[120px]">
+                                                        {activity.name || 'System'}
+                                                    </span>
+                                                </div>
                                             </div>
-                                            <div className="space-y-1 pb-0.5">
-                                                <p className="text-sm font-medium text-neutral-800 group-hover:text-primary-600 transition-colors leading-snug">{activity.text}</p>
-                                                <p className="text-xs text-neutral-400 font-medium">
+
+                                            <div className="flex-1 space-y-1">
+                                                <p className="text-sm font-medium text-neutral-800 group-hover:text-primary-600 transition-colors leading-snug">
+                                                    {activity.text}
+                                                </p>
+                                                <div className="flex items-center gap-2 text-[11px] text-neutral-400 font-medium">
+                                                    <Clock className="h-3 w-3" />
                                                     {new Date(activity.action_time).toLocaleDateString(undefined, {
                                                         month: 'short',
                                                         day: 'numeric',
                                                         hour: '2-digit',
                                                         minute: '2-digit'
                                                     })}
-                                                </p>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="hidden xl:block">
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="icon" 
+                                                    className="h-8 w-8 text-neutral-300 hover:text-primary-500 hover:bg-white"
+                                                    onClick={() => navigate('/thesis-archiving/insights/audit-trail')}
+                                                >
+                                                    <ArrowRight className="h-4 w-4" />
+                                                </Button>
                                             </div>
                                         </div>
                                     ))
