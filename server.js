@@ -121,6 +121,17 @@ app.post("/api/users", async (req, res) => {
     }
 
     res.json({ message: "User created successfully", user: authData.user });
+
+    // Log the event
+    await logAuditTrail(req, {
+      action: "Add",
+      description: `Created new user: ${firstName} ${lastName} (${email})`,
+      moduleAffected: "Auth",
+      recordId: userId,
+      newValues: { firstName, lastName, email, role, module },
+      actorUserId: req.body.actorUserId || null,
+      actorName: req.body.actorName || "Admin"
+    });
   } catch (error) {
     console.error("Error creating user:", error);
     res.status(500).json({ error: error.message });
@@ -177,6 +188,18 @@ app.patch("/api/users/:id", async (req, res) => {
     }
 
     res.json({ message: "User updated successfully" });
+
+    // Log the event
+    await logAuditTrail(req, {
+      action: "Edit",
+      description: `Updated user profile for: ${updates.email || userId}`,
+      moduleAffected: "Auth",
+      recordId: userId,
+      recordType: "auth.users",
+      newValues: updates,
+      actorUserId: req.body.actorUserId || null,
+      actorName: req.body.actorName || "Admin"
+    });
   } catch (error) {
     console.error("Error updating user:", error);
     res.status(500).json({ error: error.message });
@@ -205,6 +228,17 @@ app.post("/api/users/:id/reset-password", async (req, res) => {
     if (error) throw error;
 
     res.json({ message: "Password updated successfully", user: data.user });
+
+    // Log the event
+    await logAuditTrail(req, {
+      action: "Edit",
+      description: `Reset password for user: ${userId}`,
+      moduleAffected: "Auth",
+      recordId: userId,
+      recordType: "auth.users",
+      actorUserId: req.body.actorUserId || null,
+      actorName: req.body.actorName || "Admin"
+    });
   } catch (error) {
     console.error("Error resetting password:", error);
     res.status(500).json({ error: error.message });
@@ -283,6 +317,18 @@ app.post("/api/hte/students/create", async (req, res) => {
     if (studentError) throw studentError;
 
     res.json({ success: true, student });
+
+    // Log the event
+    await logAuditTrail(req, {
+      action: "Add",
+      description: `Enrolled new HTE student: ${studentData.firstName} ${studentData.lastName} (${studentData.studentId})`,
+      moduleAffected: "HTE Archiving",
+      recordId: student.id,
+      recordType: "hte_ojt_students",
+      newValues: student,
+      actorUserId: req.body.actorUserId || null,
+      actorName: req.body.actorName || "Admin"
+    });
   } catch (error) {
     console.error("Error creating student:", error);
     res.status(500).json({ error: error.message });
@@ -396,6 +442,18 @@ app.post("/api/hte/upload", upload.single("file"), async (req, res) => {
 
     res.json({ success: true, upload: finalUploadData });
 
+    // Log the event
+    await logAuditTrail(req, {
+      action: "Upload",
+      description: `Uploaded document: "${file.originalname}" for student ID ${studentId}`,
+      moduleAffected: "HTE Archiving",
+      recordId: finalUploadData.id,
+      recordType: "hte_document_uploads",
+      newValues: { fieldId, status: "uploaded" },
+      actorUserId: req.body.actorUserId || req.body.userId || null,
+      actorName: req.body.actorName || (uploadedByRole === 'student' ? 'Student' : 'Coordinator')
+    });
+
   } catch (error) {
     console.error("Error uploading document:", error);
     res.status(500).json({ error: error.message });
@@ -444,6 +502,17 @@ app.post("/api/hte/delete", async (req, res) => {
     }
 
     res.json({ success: true, message: "Document deleted successfully" });
+
+    // Log the event
+    await logAuditTrail(req, {
+      action: "Delete",
+      description: `Removed HTE document (Field ID: ${fieldId}) for student ID ${studentId}`,
+      moduleAffected: "HTE Archiving",
+      recordId: studentId,
+      recordType: "hte_ojt_students",
+      actorUserId: req.body.actorUserId || null,
+      actorName: req.body.actorName || "Coordinator"
+    });
   } catch (error) {
     console.error("Error deleting document:", error);
     res.status(500).json({ error: error.message });
@@ -483,8 +552,68 @@ app.post("/api/similarity/threshold", async (req, res) => {
       .eq("key", "similarity_threshold");
     if (error) throw error;
     res.json({ success: true, value });
+
+    // Log the event
+    await logAuditTrail(req, {
+      action: "Settings",
+      description: `Updated similarity threshold to ${value}%`,
+      moduleAffected: "Similarity Check",
+      recordId: "similarity_threshold",
+      recordType: "thesis_settings",
+      newValues: { threshold: value },
+      actorUserId: req.body.actorUserId || updatedBy || null,
+      actorName: req.body.actorName || "Admin"
+    });
   } catch (err) {
     console.error("[Similarity Threshold] Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// S0c. Mark a scan result as reviewed
+app.post("/api/similarity/review", async (req, res) => {
+  const { scanResultId, reviewStatus, actionTaken, notes, actorUserId, actorName } = req.body;
+  if (!scanResultId) return res.status(400).json({ error: "scanResultId is required" });
+
+  const client = supabaseAdmin || supabase;
+  try {
+    // 1. Find the flagged review
+    const { data: reviewRow, error: findErr } = await client
+      .from("similarity_flagged_reviews")
+      .select("id, scan_result_id")
+      .eq("scan_result_id", scanResultId)
+      .single();
+    if (findErr) throw findErr;
+
+    // 2. Update the review
+    const { error: updateErr } = await client
+      .from("similarity_flagged_reviews")
+      .update({
+        review_status: reviewStatus || "Reviewed",
+        action_taken: actionTaken || null,
+        coordinator_notes: notes || null,
+        reviewed_by: actorUserId || null,
+        reviewed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", reviewRow.id);
+    if (updateErr) throw updateErr;
+
+    res.json({ success: true });
+
+    // 3. Log the event
+    await logAuditTrail(req, {
+      action: "Review",
+      description: `Reviewed similarity report for Scan ID: ${scanResultId}. Status: ${reviewStatus}, Action: ${actionTaken || 'None'}`,
+      moduleAffected: "Similarity Check",
+      recordId: reviewRow.id,
+      recordType: "similarity_flagged_reviews",
+      newValues: { reviewStatus, actionTaken, notes },
+      actorUserId: actorUserId || null,
+      actorName: actorName || "Coordinator"
+    });
+  } catch (err) {
+    console.error("[Similarity Review] Error:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -521,6 +650,18 @@ app.post("/api/similarity/job", async (req, res) => {
 
     if (error) throw error;
     res.json({ scanId: data.id });
+
+    // Log the event
+    await logAuditTrail(req, {
+      action: "Upload",
+      description: `Initiated similarity scan for: "${fileName}"`,
+      moduleAffected: "Similarity Check",
+      recordId: data.id,
+      recordType: "similarity_scan_queue",
+      newValues: { fileName, proposedTitle, scanType },
+      actorUserId: req.body.actorUserId || userId || null,
+      actorName: req.body.actorName || "User"
+    });
   } catch (err) {
     console.error("[Similarity Job] Error:", err);
     res.status(500).json({ error: err.message });
@@ -863,6 +1004,18 @@ app.post("/api/similarity/analyze", async (req, res) => {
     };
 
     res.json(fullResult);
+
+    // Log the event
+    await logAuditTrail(req, {
+      action: "Similarity",
+      description: `Completed analysis for "${fileName}". Result: ${finalScore}% match [${resultRow.integrity_status}]`,
+      moduleAffected: "Similarity Check",
+      recordId: scanId,
+      recordType: "similarity_scan_results",
+      newValues: { overallScore: finalScore, status: resultRow.integrity_status, durationMs },
+      actorUserId: req.body.actorUserId || userId || null,
+      actorName: req.body.actorName || "User"
+    });
   } catch (err) {
     console.error("[Similarity Analyze] Error:", err);
     // Mark job as failed
@@ -1138,6 +1291,52 @@ app.get("/api/reports/ojt", async (req, res) => {
 });
 
 // ── END REPORTS & ANALYTICS ────────────────────────────────────────────────────
+
+/**
+ * Global Audit Log Helper
+ */
+async function logAuditTrail(req, {
+  action,
+  description,
+  moduleAffected = "Thesis Archiving",
+  recordId = null,
+  recordType = null,
+  oldValues = null,
+  newValues = null,
+  actorUserId = null,
+  actorName = null
+}) {
+  if (!supabaseAdmin) return;
+
+  // Prioritize info passed in the options, then from req.body (from frontend), then defaults
+  const finalActorId = actorUserId || req.body?.actorUserId || null;
+  const finalActorName = actorName || req.body?.actorName || "System";
+
+  try {
+    const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+
+    const { error } = await supabaseAdmin
+      .from("ta_audit_logs")
+      .insert([{
+        actor_user_id: finalActorId,
+        actor_name: finalActorName,
+        action,
+        description,
+        module_affected: moduleAffected,
+        record_id: recordId ? String(recordId) : null,
+        record_type: recordType,
+        old_values: oldValues,
+        new_values: newValues,
+        ip_address: ipAddress || null,
+        user_agent: userAgent
+      }]);
+
+    if (error) console.error("[AuditLog] Error inserting log:", error);
+  } catch (err) {
+    console.error("[AuditLog] Unexpected error:", err);
+  }
+}
 
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);

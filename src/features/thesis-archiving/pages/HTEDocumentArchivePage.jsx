@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import AddStudentModal from "../components/AddStudentModal";
 import { thesisService } from "../services/thesisService";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import { AgGridReact } from 'ag-grid-react';
 import { ModuleRegistry, AllCommunityModule, themeQuartz } from 'ag-grid-community';
 
@@ -281,6 +282,14 @@ export default function HTEDocumentArchivePage() {
     var ctx = useRole();
     var role = ctx.role;
     var studentId = ctx.studentId;
+    const { user } = useAuth();
+
+    const actorInfo = React.useMemo(() => ({
+        actorUserId: user?.id,
+        actorName: user?.user_metadata?.first_name 
+            ? `${user.user_metadata.first_name} ${user.user_metadata.last_name || ""}`.trim()
+            : user?.email || "System User"
+    }), [user]);
 
     var s1 = React.useState([]); var students = s1[0]; var setStudents = s1[1];
     var s2 = React.useState([]); var docFields = s2[0]; var setDocFields = s2[1];
@@ -557,7 +566,7 @@ export default function HTEDocumentArchivePage() {
 
         setUploadingFieldId(fieldId);
         try {
-            const result = await thesisService.uploadHTEDocument(sId, fieldId, file, uploaderRole === "admin" ? "coordinator" : "student");
+            const result = await thesisService.uploadHTEDocument(sId, fieldId, file, uploaderRole === "admin" ? "coordinator" : "student", actorInfo);
 
             setStudents(function (prev) {
                 return prev.map(function (s) {
@@ -603,7 +612,7 @@ export default function HTEDocumentArchivePage() {
 
     async function handleRemoveUpload(sId, fieldId) {
         try {
-            await thesisService.deleteHTEDocument(sId, fieldId);
+            await thesisService.deleteHTEDocument(sId, fieldId, actorInfo);
             setStudents(function (prev) {
                 return prev.map(function (s) {
                     if (s.id !== sId) return s;

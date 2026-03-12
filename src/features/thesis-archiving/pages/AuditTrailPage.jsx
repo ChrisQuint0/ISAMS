@@ -3,10 +3,11 @@ import { ThesisArchivingHeader } from "../components/ThesisArchivingHeader";
 import {
     Search, Filter,
     Calendar, Activity, User, Clock,
-    FileSpreadsheet
+    FileSpreadsheet, Loader2, AlertCircle
 } from "lucide-react";
 import { AgGridReact } from 'ag-grid-react';
 import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-community';
+import { useAuditLogs } from "../hooks/useAuditLogs";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -24,62 +25,7 @@ const auditTheme = themeBalham.withParams({
 
 export default function AuditTrailPage() {
     const gridRef = useRef();
-    const [searchText, setSearchText] = useState("");
-    const [dateValue, setDateValue] = useState("");
-    const [actionFilter, setActionFilter] = useState("all");
-
-    const [rowData] = useState([
-        {
-            id: 1,
-            name: "Super Admin",
-            action: "Edit",
-            description: "Updated employee information for user ID 1052",
-            module_affected: "Employee Management",
-            record_id: "222",
-            user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-            time: "2026-02-28 16:28:03"
-        },
-        {
-            id: 2,
-            name: "Dr. Reyes",
-            action: "Add",
-            description: "Uploaded new thesis document: 'Smart Traffic Management'",
-            module_affected: "Thesis Archiving",
-            record_id: "1056",
-            user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-            time: "2026-03-01 09:15:22"
-        },
-        {
-            id: 3,
-            name: "Prof. Santos",
-            action: "Delete",
-            description: "Removed duplicate HTE record",
-            module_affected: "HTE Archiving",
-            record_id: "892",
-            user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-            time: "2026-03-02 11:45:00"
-        },
-        {
-            id: 4,
-            name: "Admin Assistant",
-            action: "Login",
-            description: "User logged into the system",
-            module_affected: "Auth",
-            record_id: "77",
-            user_agent: "Mozilla/5.0 (X11; Linux x86_64)",
-            time: "2026-03-03 08:00:15"
-        },
-        {
-            id: 5,
-            name: "Super Admin",
-            action: "Export",
-            description: "Generated similarity report for CCS Department",
-            module_affected: "Reports",
-            record_id: "N/A",
-            user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-            time: "2026-03-04 14:30:10"
-        }
-    ]);
+    const { logs, loading, error, filters, updateFilters, refresh } = useAuditLogs();
 
     const columnDefs = useMemo(() => [
         {
@@ -101,11 +47,17 @@ export default function AuditTrailPage() {
             width: 120,
             cellRenderer: (p) => {
                 const badgeStyles = {
-                    Edit: "bg-amber-50 text-amber-700 border-amber-200",
                     Add: "bg-emerald-50 text-emerald-700 border-emerald-200",
+                    Edit: "bg-blue-50 text-blue-700 border-blue-200",
                     Delete: "bg-rose-50 text-rose-700 border-rose-200",
-                    Login: "bg-blue-50 text-blue-700 border-blue-200",
-                    Export: "bg-purple-50 text-purple-700 border-purple-200"
+                    Archive: "bg-violet-50 text-violet-700 border-violet-200",
+                    Restore: "bg-cyan-50 text-cyan-700 border-cyan-200",
+                    Upload: "bg-indigo-50 text-indigo-700 border-indigo-200",
+                    Similarity_Run: "bg-amber-50 text-amber-700 border-amber-200",
+                    Export: "bg-orange-50 text-orange-700 border-orange-200",
+                    Notify: "bg-sky-50 text-sky-700 border-sky-200",
+                    Settings: "bg-slate-50 text-slate-700 border-slate-200",
+                    Login: "bg-gray-50 text-gray-700 border-gray-200"
                 };
                 const defaultStyle = "bg-gray-50 text-gray-700 border-gray-200";
                 const style = badgeStyles[p.value] || defaultStyle;
@@ -144,7 +96,7 @@ export default function AuditTrailPage() {
         },
         {
             headerName: "Time",
-            field: "time",
+            field: "time_display",
             width: 180,
             cellRenderer: (p) => (
                 <div className="flex items-center gap-2 h-full text-gray-500">
@@ -171,8 +123,7 @@ export default function AuditTrailPage() {
     }, []);
 
     const onSearchChange = (e) => {
-        setSearchText(e.target.value);
-        gridRef.current?.api.setGridOption('quickFilterText', e.target.value);
+        updateFilters({ search: e.target.value });
     };
 
     return (
@@ -198,7 +149,7 @@ export default function AuditTrailPage() {
                             <input
                                 type="text"
                                 placeholder="Search logs..."
-                                value={searchText}
+                                value={filters.search}
                                 onChange={onSearchChange}
                                 className="w-full bg-white border border-gray-300 rounded-lg pl-10 pr-4 py-2 text-sm text-gray-900 outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all shadow-sm"
                             />
@@ -213,15 +164,21 @@ export default function AuditTrailPage() {
                             <Activity size={14} className="text-gray-500" />
                             <select
                                 className="bg-transparent text-sm text-gray-700 outline-none cursor-pointer pr-5"
-                                value={actionFilter}
-                                onChange={(e) => setActionFilter(e.target.value)}
+                                value={filters.action}
+                                onChange={(e) => updateFilters({ action: e.target.value })}
                             >
-                                <option value="all">Filter by actions</option>
+                                <option value="all">All actions</option>
                                 <option value="Add">Add</option>
                                 <option value="Edit">Edit</option>
                                 <option value="Delete">Delete</option>
-                                <option value="Login">Login</option>
+                                <option value="Archive">Archive</option>
+                                <option value="Restore">Restore</option>
+                                <option value="Upload">Upload</option>
+                                <option value="Similarity_Run">Similarity Scan</option>
                                 <option value="Export">Export</option>
+                                <option value="Notify">Notification</option>
+                                <option value="Settings">Settings</option>
+                                <option value="Login">Login</option>
                             </select>
                         </div>
 
@@ -229,29 +186,48 @@ export default function AuditTrailPage() {
                             <Calendar size={14} className="text-gray-500" />
                             <input
                                 type="date"
-                                value={dateValue}
-                                onChange={(e) => setDateValue(e.target.value)}
+                                value={filters.date}
+                                onChange={(e) => updateFilters({ date: e.target.value })}
                                 className="bg-transparent text-sm text-gray-700 outline-none cursor-pointer"
                             />
                         </div>
+
+                        {error && (
+                            <div className="flex items-center gap-2 text-rose-600 text-sm font-medium animate-in fade-in slide-in-from-left-2">
+                                <AlertCircle size={14} />
+                                {error}
+                            </div>
+                        )}
                     </div>
 
-                    <button
-                        onClick={onExportClick}
-                        className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
-                    >
-                        <FileSpreadsheet size={16} />
-                        Generate CSV
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {loading && <Loader2 size={16} className="text-emerald-600 animate-spin mr-2" />}
+                        <button
+                            onClick={onExportClick}
+                            disabled={loading}
+                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <FileSpreadsheet size={16} />
+                            Generate CSV
+                        </button>
+                    </div>
                 </div>
 
                 {/* Table Section */}
-                <div className="border border-neutral-200 rounded-xl overflow-hidden bg-white shadow-sm" style={{ height: "600px" }}>
+                <div className="border border-neutral-200 rounded-xl overflow-hidden bg-white shadow-sm relative" style={{ height: "600px" }}>
+                    {loading && logs.length === 0 ? (
+                        <div className="absolute inset-0 z-10 bg-white/50 backdrop-blur-[1px] flex items-center justify-center">
+                            <div className="flex flex-col items-center gap-3">
+                                <Loader2 size={32} className="text-emerald-600 animate-spin" />
+                                <span className="text-sm font-medium text-gray-500">Loading activity logs...</span>
+                            </div>
+                        </div>
+                    ) : null}
                     <div style={{ height: "100%", width: "100%" }}>
                         <AgGridReact
                             ref={gridRef}
                             theme={auditTheme}
-                            rowData={rowData}
+                            rowData={logs}
                             columnDefs={columnDefs}
                             defaultColDef={defaultColDef}
                             animateRows={true}

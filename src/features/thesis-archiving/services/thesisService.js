@@ -32,9 +32,11 @@ export const thesisService = {
     /**
      * Upload research PDF to Google Drive via modular backend
      */
-    async uploadToDrive(file) {
+    async uploadToDrive(file, actorInfo = {}) {
         const formData = new FormData();
         formData.append("file", file);
+        if (actorInfo.actorName) formData.append("actorName", actorInfo.actorName);
+        if (actorInfo.actorUserId) formData.append("actorUserId", actorInfo.actorUserId);
 
         const response = await fetch(`${BACKEND_URL}/upload`, {
             method: "POST",
@@ -59,13 +61,19 @@ export const thesisService = {
     /**
      * Complete multi-step thesis entry creation via backend to bypass RLS
      */
-    async saveThesisEntry({ entry, authors, gdriveFile }) {
+    async saveThesisEntry({ entry, authors, gdriveFile, actorInfo = {} }) {
         const response = await fetch(`${BACKEND_URL}/create`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify({ entry, authors, gdriveFile }),
+            body: JSON.stringify({ 
+                entry, 
+                authors, 
+                gdriveFile,
+                actorName: actorInfo.actorName,
+                actorUserId: actorInfo.actorUserId
+            }),
         });
 
         const text = await response.text();
@@ -238,13 +246,20 @@ export const thesisService = {
 
         if (error) throw error;
     },
-    async createHTEStudent({ studentData, password, academicYear, semester }) {
+    async createHTEStudent({ studentData, password, academicYear, semester, actorInfo = {} }) {
         const response = await fetch("http://localhost:3000/api/hte/students/create", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify({ studentData, password, academicYear, semester }),
+            body: JSON.stringify({ 
+                studentData, 
+                password, 
+                academicYear, 
+                semester,
+                actorName: actorInfo.actorName,
+                actorUserId: actorInfo.actorUserId
+            }),
         });
 
         const data = await response.json();
@@ -289,12 +304,14 @@ export const thesisService = {
     /**
      * Upload an HTE document
      */
-    async uploadHTEDocument(studentId, fieldId, file, uploaderRole) {
+    async uploadHTEDocument(studentId, fieldId, file, uploaderRole, actorInfo = {}) {
         const formData = new FormData();
         formData.append("studentId", studentId);
         formData.append("fieldId", fieldId);
         formData.append("file", file);
         if (uploaderRole) formData.append("uploadedByRole", uploaderRole);
+        if (actorInfo.actorName) formData.append("actorName", actorInfo.actorName);
+        if (actorInfo.actorUserId) formData.append("actorUserId", actorInfo.actorUserId);
 
         // Since the backend uses /api/hte/upload on localhost:3000, 
         // we'll use the BACKEND_URL, but thesis backend is 3001, global server is 3000.
@@ -324,14 +341,19 @@ export const thesisService = {
     /**
      * Delete an HTE document
      */
-    async deleteHTEDocument(studentId, fieldId) {
+    async deleteHTEDocument(studentId, fieldId, actorInfo = {}) {
         try {
             const response = await fetch(`http://localhost:3000/api/hte/delete`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ studentId, fieldId }),
+                body: JSON.stringify({ 
+                    studentId, 
+                    fieldId,
+                    actorName: actorInfo.actorName,
+                    actorUserId: actorInfo.actorUserId
+                }),
             });
 
             if (!response.ok) {

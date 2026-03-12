@@ -53,6 +53,11 @@ export function useSimilarityCheck() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error("Not authenticated");
 
+            const actorInfo = {
+                actorUserId: user.id,
+                actorName: user.user_metadata?.full_name || `${user.user_metadata?.first_name || ""} ${user.user_metadata?.last_name || ""}`.trim() || user.email
+            };
+
             // Step 1: Extract text from file
             const extracted = await similarityService.extractText(file);
             const { title, abstract, keywords, content } = extracted;
@@ -65,6 +70,7 @@ export function useSimilarityCheck() {
                 fileSize: file.size,
                 mimeType: file.type,
                 scanType,
+                actorInfo
             });
             setCurrentScanId(scanId);
 
@@ -77,6 +83,7 @@ export function useSimilarityCheck() {
                 keywords,
                 content,
                 scanType,
+                actorInfo
             });
 
             setScanResult(result);
@@ -127,7 +134,12 @@ export function useSimilarityCheck() {
     const handleMarkAsReviewed = useCallback(async ({ reviewStatus = "Reviewed", actionTaken, notes } = {}) => {
         if (!scanResult?.resultId) return;
         try {
-            await similarityService.markAsReviewed(scanResult.resultId, { reviewStatus, actionTaken, notes });
+            const { data: { user } } = await supabase.auth.getUser();
+            const actorInfo = {
+                actorUserId: user?.id,
+                actorName: user?.user_metadata?.full_name || `${user?.user_metadata?.first_name || ""} ${user?.user_metadata?.last_name || ""}`.trim() || user?.email
+            };
+            await similarityService.markAsReviewed(scanResult.resultId, { reviewStatus, actionTaken, notes, actorInfo });
         } catch (err) {
             console.error("[useSimilarityCheck] Mark as reviewed failed:", err);
             throw err;
@@ -140,7 +152,11 @@ export function useSimilarityCheck() {
     const handleSaveThreshold = useCallback(async (newValue) => {
         try {
             const { data: { user } } = await supabase.auth.getUser();
-            await similarityService.saveThreshold(newValue, user?.id);
+            const actorInfo = {
+                actorUserId: user?.id,
+                actorName: user?.user_metadata?.full_name || `${user?.user_metadata?.first_name || ""} ${user?.user_metadata?.last_name || ""}`.trim() || user?.email
+            };
+            await similarityService.saveThreshold(newValue, user?.id, actorInfo);
             setThreshold(newValue);
         } catch (err) {
             console.error("[useSimilarityCheck] Save threshold failed:", err);

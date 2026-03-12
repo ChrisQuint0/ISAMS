@@ -4,14 +4,19 @@ import { supabase } from "@/lib/supabaseClient";
  * Updates a user record in the database.
  * @param {string} userId - The UUID of the user to update.
  * @param {object} updates - An object containing the fields to update.
+ * @param {object} actorInfo - Information about the user performing the update.
  * @returns {Promise<{ data: object, error: object }>}
  */
-export async function updateUser(userId, updates) {
+export async function updateUser(userId, updates, actorInfo = {}) {
     try {
         const res = await fetch(`http://localhost:3000/api/users/${userId}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(updates),
+            body: JSON.stringify({
+                ...updates,
+                actorName: actorInfo.actorName,
+                actorUserId: actorInfo.actorUserId
+            }),
         });
 
         const result = await res.json();

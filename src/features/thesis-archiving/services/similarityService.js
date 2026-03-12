@@ -23,11 +23,15 @@ export const similarityService = {
     /**
      * Create a scan queue job via backend (supabaseAdmin bypasses RLS)
      */
-    async createScanJob({ userId, proposedTitle, fileName, fileSize, mimeType, scanType = "standard" }) {
+    async createScanJob({ userId, proposedTitle, fileName, fileSize, mimeType, scanType = "standard", actorInfo = {} }) {
         const res = await fetch(`${SERVER_URL}/api/similarity/job`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId, proposedTitle, fileName, fileSize, mimeType, scanType }),
+            body: JSON.stringify({ 
+                userId, proposedTitle, fileName, fileSize, mimeType, scanType,
+                actorName: actorInfo.actorName,
+                actorUserId: actorInfo.actorUserId
+            }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Failed to create scan job");
@@ -37,11 +41,15 @@ export const similarityService = {
     /**
      * Run NLP analysis via the backend — returns full result object
      */
-    async runAnalysis({ scanId, userId, title, abstract, keywords, content, scanType }) {
+    async runAnalysis({ scanId, userId, title, abstract, keywords, content, scanType, actorInfo = {} }) {
         const res = await fetch(`${SERVER_URL}/api/similarity/analyze`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ scanId, userId, title, abstract, keywords, content, scanType }),
+            body: JSON.stringify({ 
+                scanId, userId, title, abstract, keywords, content, scanType,
+                actorName: actorInfo.actorName,
+                actorUserId: actorInfo.actorUserId
+            }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Analysis failed");
@@ -87,11 +95,16 @@ export const similarityService = {
     /**
      * Save a new threshold value to thesis_settings (via backend to bypass RLS)
      */
-    async saveThreshold(newValue, userId) {
+    async saveThreshold(newValue, userId, actorInfo = {}) {
         const res = await fetch(`${SERVER_URL}/api/similarity/threshold`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ value: newValue, updatedBy: userId }),
+            body: JSON.stringify({ 
+                value: newValue, 
+                updatedBy: userId,
+                actorName: actorInfo.actorName,
+                actorUserId: actorInfo.actorUserId
+            }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Failed to save threshold");
@@ -100,28 +113,21 @@ export const similarityService = {
     /**
      * Mark a flagged review as reviewed / cleared
      */
-    async markAsReviewed(scanResultId, { reviewStatus, actionTaken, notes }) {
-        // First find the flagged review by scan_result_id
-        const { data: reviewRow, error: findErr } = await supabase
-            .from("similarity_flagged_reviews")
-            .select("id")
-            .eq("scan_result_id", scanResultId)
-            .single();
-        if (findErr) throw findErr;
-
-        const { data: { user } } = await supabase.auth.getUser();
-        const { error } = await supabase
-            .from("similarity_flagged_reviews")
-            .update({
-                review_status: reviewStatus,
-                action_taken: actionTaken || null,
-                coordinator_notes: notes || null,
-                reviewed_by: user?.id ?? null,
-                reviewed_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-            })
-            .eq("id", reviewRow.id);
-        if (error) throw error;
+    async markAsReviewed(scanResultId, { reviewStatus, actionTaken, notes, actorInfo = {} }) {
+        const res = await fetch(`${SERVER_URL}/api/similarity/review`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+                scanResultId, 
+                reviewStatus, 
+                actionTaken, 
+                notes,
+                actorName: actorInfo.actorName,
+                actorUserId: actorInfo.actorUserId
+            }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to mark as reviewed");
     },
 
     /**
