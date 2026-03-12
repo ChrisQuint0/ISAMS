@@ -4,6 +4,16 @@ import multer from "multer";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import fs from "fs";
+import Tesseract from "tesseract.js";
+import JSZip from "jszip";
+import { Readable } from "stream";
+import { createRequire } from "module";
+
+// Load CJS-only packages safely from an ESM context
+const require = createRequire(import.meta.url);
+const natural = require("natural");
+const pdfParse = require("pdf-parse");
+const mammoth = require("mammoth");
 
 // Load environment variables from .env.local
 dotenv.config({ path: "./.env.local" });
@@ -205,313 +215,929 @@ app.post("/api/users/:id/reset-password", async (req, res) => {
 
 
 
-// ─────────────────────────────────────────────────────────────
-// REPORTS API ENDPOINTS
-// ─────────────────────────────────────────────────────────────
+// Removed duplicate deprecated Report endpoints that queried the old digital_repository schema.
+// The new definitions are located further down in the file.
 
-// Middleware to verify user has reports access
-async function verifyReportsAccess(req, res, next) {
+// 11. Create HTE Student (Auth + GDrive + DB)
+app.post("/api/hte/students/create", async (req, res) => {
+  const { studentData, password, academicYear, semester } = req.body;
+  const HTE_PARENT_FOLDER_ID = "1AmN8A4Q-D7eUWH7vIE_C_ybV4DWvm99V";
+
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      return res.status(401).json({ error: "Missing authorization header" });
-    }
+    const auth = await loadToken();
+    if (!auth) return res.status(401).json({ error: "Google Drive not authenticated" });
+    const drive = google.drive({ version: "v3", auth });
 
-    const token = authHeader.split(" ")[1];
-    if (!token) {
-      return res.status(401).json({ error: "Invalid token format" });
-    }
+    // 1. Create Auth User
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email: studentData.email,
+      password: password,
+      email_confirm: true,
+      user_metadata: {
+        first_name: studentData.firstName,
+        last_name: studentData.lastName,
+      },
+    });
 
-    // Verify token and get user
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    if (error || !user) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
+    if (authError) throw authError;
+    const userId = authData.user.id;
 
-    // Fetch user role from user_rbac
-    const { data: userData, error: roleError } = await supabase
-      .from("user_rbac")
-      .select("*")
-      .eq("user_id", user.id)
+    // 2. Set RBAC
+    await supabaseAdmin.from("user_rbac").upsert({
+      user_id: userId,
+      thesis: true, // Thesis Archiving module
+      thesis_role: "student",
+      status: "active"
+    });
+
+    // 3. Create GDrive Folder
+    // Pattern: {studentNo}_{lastName}_{semester}
+    const folderName = `${studentData.studentId}_${studentData.lastName}_${semester}`;
+    const folderId = await getOrCreateFolder(drive, folderName, HTE_PARENT_FOLDER_ID);
+    const folderLink = `https://drive.google.com/drive/folders/${folderId}`;
+
+    // 4. Insert Student Record
+    const { data: student, error: studentError } = await supabaseAdmin
+      .from("hte_ojt_students")
+      .insert([{
+        user_id: userId,
+        student_no: studentData.studentId,
+        first_name: studentData.firstName,
+        middle_name: studentData.middleName,
+        last_name: studentData.lastName,
+        email: studentData.email,
+        program: studentData.program,
+        section: studentData.sectionName || "", // For legacy compatibility
+        section_id: studentData.sectionId,
+        adviser_id: studentData.adviserId,
+        academic_year: academicYear,
+        semester: semester,
+        gdrive_folder_id: folderId,
+        gdrive_folder_link: folderLink,
+        overall_status: "incomplete",
+        is_active: true
+      }])
+      .select()
       .single();
 
-    if (roleError || !userData) {
-      return res.status(403).json({ error: "User role not found" });
-    }
+    if (studentError) throw studentError;
 
-    // Check if user has any of the coordinator/admin roles
-    const isAdmin = userData.thesis === true && userData.thesis_role === "admin";
-    const isOJTCoordinator = userData.ojt === true && userData.ojt_role === "coordinator";
-    const isResearchCoordinator = userData.similarity === true && userData.similarity_role === "coordinator";
-
-    if (!isAdmin && !isOJTCoordinator && !isResearchCoordinator) {
-      return res.status(403).json({ error: "Access denied. Insufficient permissions for reports." });
-    }
-
-    // Attach user info to request
-    req.user = user;
-    req.userRole = userData;
-    next();
+    res.json({ success: true, student });
   } catch (error) {
-    console.error("Error in verifyReportsAccess:", error);
-    res.status(500).json({ error: "Server error during authorization" });
+    console.error("Error creating student:", error);
+    res.status(500).json({ error: error.message });
   }
+});
+// 12. Upload HTE/OJT Document
+app.post("/api/hte/upload", upload.single("file"), async (req, res) => {
+  const { studentId, fieldId, uploadedByRole } = req.body;
+  const file = req.file;
+
+  if (!studentId || !fieldId || !file) {
+    return res.status(400).json({ error: "Missing required fields or file" });
+  }
+
+  try {
+    const auth = await loadToken();
+    if (!auth) return res.status(401).json({ error: "Google Drive not authenticated" });
+    const drive = google.drive({ version: "v3", auth });
+
+    // 1. Find existing upload record
+    const { data: existingUpload } = await supabaseAdmin
+      .from("hte_document_uploads")
+      .select("id, gdrive_file_id")
+      .eq("student_id", studentId)
+      .eq("field_id", fieldId)
+      .maybeSingle();
+
+    // 2. If exists, delete old file from GDrive
+    if (existingUpload && existingUpload.gdrive_file_id) {
+      try {
+        await drive.files.delete({ fileId: existingUpload.gdrive_file_id });
+      } catch (delErr) {
+        console.warn(`Failed to delete old file (${existingUpload.gdrive_file_id}) from GDrive during overwrite.`, delErr.message);
+      }
+    }
+
+    // 3. Get student's GDrive folder ID
+    const { data: student, error: studentError } = await supabaseAdmin
+      .from("hte_ojt_students")
+      .select("gdrive_folder_id")
+      .eq("id", studentId)
+      .single();
+
+    if (studentError || !student) {
+      throw new Error("Student not found or missing GDrive folder");
+    }
+
+    const maxFileSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxFileSize) {
+      return res.status(400).json({ error: "File exceeds 10MB limit" });
+    }
+
+    // 4. Upload new file to GDrive
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const fileName = `${timestamp}-${file.originalname}`;
+
+    const fileMetadata = {
+      name: fileName,
+      parents: [student.gdrive_folder_id],
+    };
+    const media = {
+      mimeType: file.mimetype,
+      body: Readable.from(file.buffer),
+    };
+
+    const gdriveRes = await drive.files.create({
+      resource: fileMetadata,
+      media: media,
+      fields: "id, webViewLink, name",
+    });
+
+    const gdriveFileId = gdriveRes.data.id;
+    const gdriveViewLink = gdriveRes.data.webViewLink;
+
+    let dbError2;
+    let finalUploadData;
+
+    const payload = {
+      student_id: studentId,
+      field_id: fieldId,
+      status: "uploaded",
+      original_filename: file.originalname,
+      gdrive_file_id: gdriveFileId,
+      gdrive_view_link: gdriveViewLink,
+      file_size_bytes: file.size,
+      uploaded_by_role: uploadedByRole || 'student',
+      uploaded_at: new Date().toISOString()
+    };
+
+    if (existingUpload) {
+      payload.updated_at = new Date().toISOString();
+      const { data, error } = await supabaseAdmin
+        .from("hte_document_uploads")
+        .update(payload)
+        .eq("id", existingUpload.id)
+        .select()
+        .single();
+      dbError2 = error;
+      finalUploadData = data;
+    } else {
+      const { data, error } = await supabaseAdmin
+        .from("hte_document_uploads")
+        .insert([payload])
+        .select()
+        .single();
+      dbError2 = error;
+      finalUploadData = data;
+    }
+
+    if (dbError2) throw dbError2;
+
+    res.json({ success: true, upload: finalUploadData });
+
+  } catch (error) {
+    console.error("Error uploading document:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 13. Delete HTE/OJT Document
+app.post("/api/hte/delete", async (req, res) => {
+  const { studentId, fieldId } = req.body;
+  if (!studentId || !fieldId) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+
+  try {
+    const auth = await loadToken();
+    if (!auth) return res.status(401).json({ error: "Google Drive not authenticated" });
+    const drive = google.drive({ version: "v3", auth });
+
+    // 1. Find existing upload record
+    const { data: existingUpload, error: fetchErr } = await supabaseAdmin
+      .from("hte_document_uploads")
+      .select("id, gdrive_file_id")
+      .eq("student_id", studentId)
+      .eq("field_id", fieldId)
+      .maybeSingle();
+
+    if (fetchErr) throw fetchErr;
+
+    if (existingUpload) {
+      // 2. Delete from GDrive
+      if (existingUpload.gdrive_file_id) {
+        try {
+          await drive.files.delete({ fileId: existingUpload.gdrive_file_id });
+        } catch (delErr) {
+          console.warn(`Failed to delete file (${existingUpload.gdrive_file_id}) from GDrive during removal.`, delErr.message);
+        }
+      }
+
+      // 3. Delete from database
+      const { error: dbDelErr } = await supabaseAdmin
+        .from("hte_document_uploads")
+        .delete()
+        .eq("id", existingUpload.id);
+
+      if (dbDelErr) throw dbDelErr;
+    }
+
+    res.json({ success: true, message: "Document deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting document:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ── SIMILARITY CHECK ──────────────────────────────────────────────────────────
+
+// S0. Get similarity threshold
+app.get("/api/similarity/threshold", async (req, res) => {
+  const client = supabaseAdmin || supabase;
+  try {
+    const { data, error } = await client
+      .from("thesis_settings")
+      .select("value")
+      .eq("key", "similarity_threshold")
+      .single();
+    if (error) throw error;
+    res.json({ value: parseFloat(data?.value ?? "20") });
+  } catch (err) {
+    // Return default if not found
+    res.json({ value: 20 });
+  }
+});
+
+// S0. Save similarity threshold (uses supabaseAdmin to bypass RLS)
+app.post("/api/similarity/threshold", async (req, res) => {
+  const { value, updatedBy } = req.body;
+  if (value === undefined || value === null) {
+    return res.status(400).json({ error: "value is required" });
+  }
+  const client = supabaseAdmin || supabase;
+  try {
+    const { error } = await client
+      .from("thesis_settings")
+      .update({ value: String(value), updated_by: updatedBy || null, updated_at: new Date().toISOString() })
+      .eq("key", "similarity_threshold");
+    if (error) throw error;
+    res.json({ success: true, value });
+  } catch (err) {
+    console.error("[Similarity Threshold] Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// S0b. Create a scan job (uses supabaseAdmin to bypass RLS on insert)
+app.post("/api/similarity/job", async (req, res) => {
+  const { userId, proposedTitle, fileName, fileSize, mimeType, scanType = "standard" } = req.body;
+  if (!userId) return res.status(400).json({ error: "userId is required" });
+
+  const client = supabaseAdmin || supabase;
+  try {
+    // Get current threshold
+    const { data: settingRow } = await client
+      .from("thesis_settings")
+      .select("value")
+      .eq("key", "similarity_threshold")
+      .single();
+    const threshold = parseFloat(settingRow?.value ?? "20");
+
+    const { data, error } = await client
+      .from("similarity_scan_queue")
+      .insert({
+        submitted_by: userId,
+        proposed_title: proposedTitle || null,
+        original_filename: fileName,
+        file_size_bytes: fileSize || null,
+        mime_type: mimeType || null,
+        scan_type: scanType,
+        threshold_at_scan: threshold,
+        status: "pending",
+      })
+      .select("id")
+      .single();
+
+    if (error) throw error;
+    res.json({ scanId: data.id });
+  } catch (err) {
+    console.error("[Similarity Job] Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// S0c. Fetch recent scans for a user (uses supabaseAdmin to bypass RLS)
+app.get("/api/similarity/recent/:userId", async (req, res) => {
+  const { userId } = req.params;
+  if (!userId) return res.status(400).json({ error: "userId is required" });
+
+  const client = supabaseAdmin || supabase;
+  try {
+    const { data, error } = await client
+      .from("similarity_scan_queue")
+      .select(`
+        id, proposed_title, original_filename, status, submitted_at,
+        result:similarity_scan_results(overall_score, integrity_status, top_match_title)
+      `)
+      .eq("submitted_by", userId)
+      .order("submitted_at", { ascending: false })
+      .limit(10);
+
+    if (error) throw error;
+    res.json(data || []);
+  } catch (err) {
+    console.error("[Similarity Recent] Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// S0d. Fetch full scan result for PDF export (uses supabaseAdmin to bypass RLS)
+app.get("/api/similarity/result/:scanId", async (req, res) => {
+  const { scanId } = req.params;
+  if (!scanId) return res.status(400).json({ error: "scanId is required" });
+
+  const client = supabaseAdmin || supabase;
+  try {
+    const { data: queueRow, error: qErr } = await client
+      .from("similarity_scan_queue")
+      .select("*")
+      .eq("id", scanId)
+      .single();
+    if (qErr) throw qErr;
+
+    const { data: result, error: rErr } = await client
+      .from("similarity_scan_results")
+      .select("*, field_scores:similarity_scan_field_scores(*), top_matches:similarity_scan_matches(*)")
+      .eq("scan_id", scanId)
+      .single();
+    if (rErr && rErr.code !== "PGRST116") throw rErr;
+
+    res.json({ queue: queueRow, result });
+  } catch (err) {
+    console.error("[Similarity Result] Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Helper: compute TF-IDF cosine similarity between two texts
+function cosineSimilarity(textA, textB) {
+  const strA = String(textA || "");
+  const strB = String(textB || "");
+  if (!strA || !strB) return 0;
+
+  const TfIdf = natural.TfIdf;
+  const tfidf = new TfIdf();
+  tfidf.addDocument(strA);
+  tfidf.addDocument(strB);
+
+  const vecA = {};
+  const vecB = {};
+  const terms = new Set();
+
+  // listTerms(0) gets the TF-IDF vector for strA
+  tfidf.listTerms(0).forEach(item => {
+    terms.add(item.term);
+    vecA[item.term] = item.tfidf;
+  });
+  // listTerms(1) gets the TF-IDF vector for strB
+  tfidf.listTerms(1).forEach(item => {
+    terms.add(item.term);
+    vecB[item.term] = item.tfidf;
+  });
+
+  let dot = 0;
+  let magA = 0;
+  let magB = 0;
+
+  for (const t of terms) {
+    const valA = vecA[t] || 0;
+    const valB = vecB[t] || 0;
+    dot += valA * valB;
+    magA += valA * valA;
+    magB += valB * valB;
+  }
+
+  magA = Math.sqrt(magA);
+  magB = Math.sqrt(magB);
+
+  if (magA === 0 || magB === 0) return 0;
+  return Math.min(100, (dot / (magA * magB)) * 100);
 }
 
-// 8. GET Thesis Archive Reports
-app.get("/api/reports/thesis", verifyReportsAccess, async (req, res) => {
+// Helper: simple field extraction from raw text
+function extractFields(rawText) {
+  const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
+  let title = '';
+  let abstract = '';
+  let keywords = '';
+  let content = rawText;
+
+  // Heuristic: first non-empty line is likely the title
+  if (lines.length > 0) title = lines[0];
+
+  // Look for ABSTRACT section
+  const abstractMatch = rawText.match(/abstract[:\s]*\n([\s\S]{50,1500}?)(?=\n[A-Z\s]{3,}:|keywords?:|introduction|$)/i);
+  if (abstractMatch) abstract = abstractMatch[1].trim();
+
+  // Look for KEYWORDS section
+  const kwMatch = rawText.match(/keywords?[:\s]+([^\n]{10,300})/i);
+  if (kwMatch) keywords = kwMatch[1].trim();
+
+  return { title, abstract, keywords, content };
+}
+
+// S1. Extract text from uploaded file (PDF / DOCX / DOC)
+app.post("/api/similarity/extract", upload.single("file"), async (req, res) => {
   try {
-    const { page = 1, limit = 10, fullDataset = false, dateFrom, dateTo, department, category } = req.query;
-    const pageNum = parseInt(page);
-    const limitNum = parseInt(limit);
-    const offset = (pageNum - 1) * limitNum;
+    if (!req.file) return res.status(400).json({ error: "No file provided" });
 
-    // Build query based on available columns in digital_repository table
-    let query = supabase
-      .from("digital_repository")
-      .select("*", { count: "exact" });
+    const { mimetype, buffer, originalname } = req.file;
+    let rawText = "";
 
-    // Apply filters
-    if (dateFrom) {
-      query = query.gte("date_added", dateFrom);
-    }
-    if (dateTo) {
-      query = query.lte("date_added", dateTo);
-    }
-    if (department && department !== "All") {
-      query = query.eq("department", department);
-    }
-    if (category && category !== "All") {
-      query = query.eq("category", category);
-    }
-
-    // If fullDataset is true, return all records without pagination for export
-    if (fullDataset === "true") {
-      const { data: allData, error } = await query;
-      if (error) throw error;
-
-      // Get summary by year and category
-      const submissionSummary = {};
-      allData.forEach(record => {
-        const year = new Date(record.date_added).getFullYear();
-        const cat = record.category || "Other";
-        const key = `${year}_${cat}`;
-        if (!submissionSummary[key]) {
-          submissionSummary[key] = { year, category: cat, count: 0 };
-        }
-        submissionSummary[key].count++;
-      });
-
-      return res.json({
-        archiveInventory: allData,
-        submissionSummary: Object.values(submissionSummary),
-      });
-    }
-
-    // Otherwise, apply pagination
-    const { data: paginatedData, error: dataError, count } = await query
-      .range(offset, offset + limitNum - 1);
-
-    if (dataError) throw dataError;
-
-    // Get summary for display
-    const { data: allForSummary, error: summaryError } = await supabase
-      .from("digital_repository")
-      .select("date_added, category");
-
-    if (summaryError) throw summaryError;
-
-    const submissionSummary = {};
-    allForSummary.forEach(record => {
-      const year = new Date(record.date_added).getFullYear();
-      const cat = record.category || "Other";
-      const key = `${year}_${cat}`;
-      if (!submissionSummary[key]) {
-        submissionSummary[key] = { year, category: cat, count: 0 };
+    if (mimetype === "application/pdf") {
+      const result = await pdfParse(buffer);
+      rawText = result.text;
+    } else if (
+      mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      originalname.endsWith(".docx")
+    ) {
+      const result = await mammoth.extractRawText({ buffer });
+      rawText = result.value;
+    } else if (originalname.endsWith(".doc")) {
+      // Fallback: try mammoth (works for some older .doc files)
+      try {
+        const result = await mammoth.extractRawText({ buffer });
+        rawText = result.value;
+      } catch {
+        return res.status(422).json({ error: "Legacy .doc format not fully supported. Please convert to .docx or .pdf." });
       }
-      submissionSummary[key].count++;
-    });
+    } else {
+      return res.status(422).json({ error: "Unsupported file type" });
+    }
 
-    res.json({
-      archiveInventory: paginatedData,
-      submissionSummary: Object.values(submissionSummary),
-      totalCount: count,
-      page: pageNum,
-      limit: limitNum,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error("Error fetching thesis reports:", error);
-    res.status(500).json({ error: error.message || "Server error fetching thesis reports" });
+    if (!rawText || rawText.trim().length < 50) {
+      return res.status(422).json({ error: "Could not extract sufficient text from the file. Please ensure the document contains selectable text (not scanned images)." });
+    }
+
+    const fields = extractFields(rawText);
+    res.json({ rawText, ...fields });
+  } catch (err) {
+    console.error("[Similarity Extract] Error:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-// 9. GET Similarity Reports
-app.get("/api/reports/similarity", verifyReportsAccess, async (req, res) => {
+// S2. Run NLP similarity analysis against the thesis repository
+app.post("/api/similarity/analyze", async (req, res) => {
+  const {
+    scanId, userId,
+    title, abstract, keywords, content,
+    fileName, fileSize, mimeType,
+    scanType = "standard"
+  } = req.body;
+
+  if (!scanId || !userId) {
+    return res.status(400).json({ error: "scanId and userId are required" });
+  }
+
+  const client = supabaseAdmin || supabase;
+  if (!client) {
+    return res.status(500).json({ error: "Supabase not configured" });
+  }
+
+  const startTime = Date.now();
+
   try {
-    const { page = 1, limit = 10, fullDataset = false, dateFrom, dateTo, department, category } = req.query;
-    const pageNum = parseInt(page);
-    const limitNum = parseInt(limit);
-    const offset = (pageNum - 1) * limitNum;
+    // 1. Mark job as processing
+    await client.from("similarity_scan_queue").update({ status: "processing" }).eq("id", scanId);
 
-    // Build query for plagiarism_reports or similarity_checks table
-    let query = supabase
-      .from("plagiarism_reports")
-      .select("*", { count: "exact" })
-      .eq("status", "flagged");
+    // 2. Fetch active threshold
+    const { data: settingRow } = await client
+      .from("thesis_settings")
+      .select("value")
+      .eq("key", "similarity_threshold")
+      .single();
+    const threshold = parseFloat(settingRow?.value ?? "20");
 
-    // Apply filters
-    if (dateFrom) {
-      query = query.gte("submission_date", dateFrom);
-    }
-    if (dateTo) {
-      query = query.lte("submission_date", dateTo);
-    }
-    if (category && category !== "All") {
-      query = query.eq("category", category);
-    }
+    // 3. Fetch all thesis entries (title, abstract, description as keywords)
+    const { data: theses, error: thesisError } = await client
+      .from("thesis_entries")
+      .select(`
+        id, title, abstract, description,
+        publication_year,
+        authors:thesis_authors(first_name, last_name)
+      `)
+      .eq("is_deleted", false)
+      .eq("status", "archived");
 
-    // If fullDataset is true, return all records for export
-    if (fullDataset === "true") {
-      const { data: allData, error } = await query;
-      if (error) throw error;
+    if (thesisError) throw thesisError;
 
-      // Get distribution by category
-      const similarityDistribution = {};
-      allData.forEach(record => {
-        const cat = record.category || "Other";
-        if (!similarityDistribution[cat]) {
-          similarityDistribution[cat] = { category: cat, scores: [], avgSimilarity: 0 };
-        }
-        similarityDistribution[cat].scores.push(record.similarity_score || 0);
-      });
+    const repositorySize = theses?.length ?? 0;
 
-      // Calculate averages
-      Object.values(similarityDistribution).forEach(item => {
-        if (item.scores.length > 0) {
-          item.avgSimilarity = (item.scores.reduce((a, b) => a + b, 0) / item.scores.length).toFixed(1);
-        }
-        delete item.scores;
-      });
+    // 4. Compute per-thesis cosine similarity scores
+    const fullDocText = [title, abstract, keywords, content].filter(Boolean).join(" \n ");
+    const scoredTheses = (theses || []).map(thesis => {
+      const thesisText = [thesis.title, thesis.abstract, thesis.description].filter(Boolean).join(" ");
+      const titleScore = cosineSimilarity(title || "", thesis.title || "");
+      const abstractScore = cosineSimilarity(abstract || "", thesis.abstract || "");
+      const kwScore = cosineSimilarity(keywords || "", thesis.description || "");
+      const contentScore = cosineSimilarity(fullDocText, thesisText);
 
-      return res.json({
-        flaggedSubmissions: allData,
-        similarityDistribution: Object.values(similarityDistribution),
-      });
-    }
+      // Weighted overall: 25% title, 35% abstract, 20% keywords, 20% content
+      const weighted = titleScore * 0.25 + abstractScore * 0.35 + kwScore * 0.20 + contentScore * 0.20;
 
-    // Apply pagination
-    const { data: paginatedData, error: dataError, count } = await query
-      .range(offset, offset + limitNum - 1);
+      const matchedFields = [];
+      if (abstractScore > threshold) matchedFields.push("Abstract");
+      if (titleScore > threshold) matchedFields.push("Title");
+      if (kwScore > threshold) matchedFields.push("Keywords");
 
-    if (dataError) throw dataError;
-
-    // Get distribution summary
-    const { data: allForDistribution, error: distError } = await supabase
-      .from("plagiarism_reports")
-      .select("category, similarity_score")
-      .eq("status", "flagged");
-
-    if (distError) throw distError;
-
-    const similarityDistribution = {};
-    allForDistribution.forEach(record => {
-      const cat = record.category || "Other";
-      if (!similarityDistribution[cat]) {
-        similarityDistribution[cat] = { category: cat, scores: [], avgSimilarity: 0 };
-      }
-      similarityDistribution[cat].scores.push(record.similarity_score || 0);
+      return {
+        thesis,
+        titleScore,
+        abstractScore,
+        kwScore,
+        contentScore,
+        weighted,
+        matchType: matchedFields.length > 0 ? matchedFields.join(" & ") : "Content",
+      };
     });
 
-    // Calculate averages
-    Object.values(similarityDistribution).forEach(item => {
-      if (item.scores.length > 0) {
-        item.avgSimilarity = (item.scores.reduce((a, b) => a + b, 0) / item.scores.length).toFixed(1);
-      }
-      delete item.scores;
-    });
+    // Sort descending, take top 10
+    scoredTheses.sort((a, b) => b.weighted - a.weighted);
+    const topMatches = scoredTheses.slice(0, 10);
 
-    res.json({
-      flaggedSubmissions: paginatedData,
-      similarityDistribution: Object.values(similarityDistribution),
-      totalCount: count,
-      page: pageNum,
-      limit: limitNum,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error("Error fetching similarity reports:", error);
-    res.status(500).json({ error: error.message || "Server error fetching similarity reports" });
+    // 5. Compute aggregate field scores (avg across all theses, weighted by top matches)
+    const topN = Math.min(10, scoredTheses.length);
+    const avgField = (field) => topN === 0 ? 0 : scoredTheses.slice(0, topN).reduce((s, t) => s + t[field], 0) / topN;
+    const overallScore = topN === 0 ? 0 : avgField("weighted");
+
+    // Final overall = highest single match influences more
+    const topMatchScore = topMatches[0]?.weighted ?? 0;
+    // Blend: 60% top match, 40% average of top 10
+    const finalScore = parseFloat(Math.min(99.99, topMatchScore * 0.6 + overallScore * 0.4).toFixed(2));
+    const fieldTitle = parseFloat((topMatches[0]?.titleScore ?? 0).toFixed(2));
+    const fieldAbstract = parseFloat((topMatches[0]?.abstractScore ?? 0).toFixed(2));
+    const fieldKeywords = parseFloat((topMatches[0]?.kwScore ?? 0).toFixed(2));
+    const fieldContent = parseFloat((topMatches[0]?.contentScore ?? 0).toFixed(2));
+
+    const durationMs = Date.now() - startTime;
+
+    // 6. Update scan queue with metadata
+    await client.from("similarity_scan_queue").update({
+      status: "completed",
+      completed_at: new Date().toISOString(),
+      repository_size_at_scan: repositorySize,
+      analysis_duration_ms: durationMs,
+      engine_version: "ISAMS-NLP v1.0",
+      threshold_at_scan: threshold,
+    }).eq("id", scanId);
+
+    // 7. Insert scan result (triggers DB trigger for integrity_status derivation)
+    const topMatchEntry = topMatches[0];
+    const { data: resultRow, error: resultErr } = await client
+      .from("similarity_scan_results")
+      .insert({
+        scan_id: scanId,
+        overall_score: finalScore,
+        integrity_status: finalScore > 50 ? "high_similarity" : finalScore > threshold ? "flagged" : "safe",
+        analysis_method: "TF-IDF Cosine Similarity",
+        top_match_score: parseFloat((topMatchEntry?.weighted ?? 0).toFixed(2)),
+        top_match_title: topMatchEntry?.thesis?.title ?? null,
+      })
+      .select()
+      .single();
+
+    if (resultErr) throw resultErr;
+    const resultId = resultRow.id;
+
+    // 8. Insert field scores
+    const getSeverity = (score) => score > 50 ? "high" : score > threshold ? "moderate" : "low";
+    await client.from("similarity_scan_field_scores").insert([
+      { result_id: resultId, field_name: "title", score: fieldTitle, severity: getSeverity(fieldTitle), display_label: "Title match", display_order: 1 },
+      { result_id: resultId, field_name: "abstract", score: fieldAbstract, severity: getSeverity(fieldAbstract), display_label: "Abstract match", display_order: 2 },
+      { result_id: resultId, field_name: "content", score: fieldContent, severity: getSeverity(fieldContent), display_label: "Content match", display_order: 3 },
+      { result_id: resultId, field_name: "keywords", score: fieldKeywords, severity: getSeverity(fieldKeywords), display_label: "Keywords match", display_order: 4 },
+    ]);
+
+    // 9. Insert top match records
+    const matchInserts = topMatches
+      .filter(m => m.weighted > 1)
+      .slice(0, 5)
+      .map((m, idx) => ({
+        result_id: resultId,
+        match_rank: idx + 1,
+        matched_thesis_id: m.thesis.id,
+        matched_title: m.thesis.title,
+        matched_authors: (m.thesis.authors || []).map(a => `${a.first_name} ${a.last_name}`),
+        matched_year: m.thesis.publication_year,
+        match_score: parseFloat(m.weighted.toFixed(2)),
+        match_type: m.matchType,
+        match_source: "internal",
+      }));
+
+    if (matchInserts.length > 0) {
+      await client.from("similarity_scan_matches").insert(matchInserts);
+    }
+
+    // 10. Return full result
+    const fullResult = {
+      scanId,
+      resultId,
+      overall_score: finalScore,
+      integrity_status: resultRow.integrity_status,
+      integrity_label: resultRow.integrity_label,
+      integrity_detail: resultRow.integrity_detail,
+      analysis_method: "TF-IDF Cosine Similarity",
+      analysis_duration_ms: durationMs,
+      repository_size: repositorySize,
+      engine_version: "ISAMS-NLP v1.0",
+      threshold,
+      field_scores: [
+        { field_name: "title", score: fieldTitle, display_label: "Title match", severity: getSeverity(fieldTitle), display_order: 1 },
+        { field_name: "abstract", score: fieldAbstract, display_label: "Abstract match", severity: getSeverity(fieldAbstract), display_order: 2 },
+        { field_name: "content", score: fieldContent, display_label: "Content match", severity: getSeverity(fieldContent), display_order: 3 },
+        { field_name: "keywords", score: fieldKeywords, display_label: "Keywords match", severity: getSeverity(fieldKeywords), display_order: 4 },
+      ],
+      top_matches: matchInserts,
+    };
+
+    res.json(fullResult);
+  } catch (err) {
+    console.error("[Similarity Analyze] Error:", err);
+    // Mark job as failed
+    try {
+      await client.from("similarity_scan_queue").update({
+        status: "failed",
+        status_message: err.message,
+        completed_at: new Date().toISOString(),
+      }).eq("id", scanId);
+    } catch (_) { }
+
+    res.status(500).json({ error: err.message });
   }
 });
 
-// 10. GET OJT/HTE Reports
-app.get("/api/reports/ojt", verifyReportsAccess, async (req, res) => {
+// ── END SIMILARITY CHECK ───────────────────────────────────────────────────────
+
+// ── REPORTS & ANALYTICS ────────────────────────────────────────────────────────
+
+// Helper to get active user from token
+async function getUserFromReq(req, res) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    res.status(401).json({ error: "No auth token provided" });
+    return null;
+  }
+  const token = authHeader.replace("Bearer ", "");
+  const client = supabaseAdmin || supabase;
+  const { data: { user }, error } = await client.auth.getUser(token);
+  if (error || !user) {
+    res.status(401).json({ error: "Invalid auth token" });
+    return null;
+  }
+  return user;
+}
+
+// 1. Thesis Reports
+app.get("/api/reports/thesis", async (req, res) => {
+  const user = await getUserFromReq(req, res);
+  if (!user) return;
+
+  const { dateFrom, dateTo, department = "All", category = "All", page = 1, limit = 10, fullDataset = false } = req.query;
+  const client = supabaseAdmin || supabase;
+
   try {
-    const { page = 1, limit = 10, fullDataset = false, dateFrom, dateTo, coordinator, completionStatus } = req.query;
+    // THESIS SUMMARY
+    let summaryQuery = client.from("vw_report_thesis_summary").select("*");
+    if (category !== "All") summaryQuery = summaryQuery.eq("category", category);
+    // Removed department filter
+
+    // Aggregate by year and category across departments
+    const { data: rawSummary, error: sumErr } = await summaryQuery;
+    if (sumErr) throw sumErr;
+
+    // Grouping logic for summary (sum up the counts if multiple departments match)
+    const summaryMap = new Map();
+    (rawSummary || []).forEach(row => {
+      const key = `${row.year}_${row.category}`;
+      if (!summaryMap.has(key)) summaryMap.set(key, { year: row.year, category: row.category, count: 0 });
+      summaryMap.get(key).count += Number(row.count);
+    });
+    const submissionSummary = Array.from(summaryMap.values()).sort((a, b) => a.year - b.year || a.category.localeCompare(b.category));
+
+    // ARCHIVE INVENTORY
+    let invQuery = client.from("vw_report_archive_inventory").select("*", { count: 'exact' });
+    if (category !== "All") invQuery = invQuery.eq("category_name", category);
+    if (dateFrom) invQuery = invQuery.gte("date_added", dateFrom);
+    if (dateTo) invQuery = invQuery.lte("date_added", dateTo);
+
+    // Pagination (unless fullDataset is true)
     const pageNum = parseInt(page);
-    const limitNum = parseInt(limit);
-    const offset = (pageNum - 1) * limitNum;
-
-    // Build query
-    let query = supabase
-      .from("hte_archive")
-      .select("*", { count: "exact" });
-
-    // Apply filters
-    if (dateFrom) {
-      query = query.gte("created_at", dateFrom);
-    }
-    if (dateTo) {
-      query = query.lte("created_at", dateTo);
-    }
-    if (coordinator && coordinator !== "All") {
-      query = query.eq("assigned_coordinator", coordinator);
-    }
-    if (completionStatus && completionStatus !== "All") {
-      query = query.eq("overall_status", completionStatus);
+    const perPage = parseInt(limit);
+    if (fullDataset !== "true") {
+      const start = (pageNum - 1) * perPage;
+      invQuery = invQuery.range(start, start + perPage - 1);
     }
 
-    // If fullDataset is true, return all records for export
-    if (fullDataset === "true") {
-      const { data: allData, error } = await query;
-      if (error) throw error;
-      return res.json({ traineeStatus: allData });
+    invQuery = invQuery.order("date_added", { ascending: false });
+
+    const { data: archiveInventoryRaw, count: totalCount, error: invErr } = await invQuery;
+    if (invErr) throw invErr;
+
+    // Format output to match frontend expectation
+    const archiveInventory = (archiveInventoryRaw || []).map(row => ({
+      id: row.id,
+      title: row.title,
+      authors: row.authors,
+      category: row.category_name, // Return category_name mapped to category for UI
+      year: row.publication_year,
+      dateAdded: row.date_added
+    }));
+
+    res.json({
+      submissionSummary,
+      archiveInventory,
+      totalCount: totalCount || 0,
+      page: pageNum,
+      totalPages: fullDataset === "true" ? 1 : Math.ceil((totalCount || 0) / perPage)
+    });
+  } catch (error) {
+    console.error("Thesis report error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 2. Similarity Reports
+app.get("/api/reports/similarity", async (req, res) => {
+  const user = await getUserFromReq(req, res);
+  if (!user) return;
+
+  const { dateFrom, dateTo, category = "All", page = 1, limit = 10, fullDataset = false } = req.query;
+  const client = supabaseAdmin || supabase;
+
+  try {
+    // DISTRIBUTION
+    let distQuery = client.from("vw_report_similarity_distribution").select("*");
+    const { data: rawDist, error: distErr } = await distQuery;
+    if (distErr) throw distErr;
+
+    const similarityDistribution = (rawDist || []).map(row => ({
+      category: row.category,
+      avgSimilarity: parseFloat(row.avg_similarity) || 0
+    }));
+
+    // ALL SUBMISSION CHECKS (Fetching from base tables to ensure "all all all" are included)
+    let flagQuery = client
+      .from("similarity_scan_queue")
+      .select(`
+        id,
+        title:proposed_title,
+        status,
+        submission_date:submitted_at,
+        thesis_id,
+        result:similarity_scan_results(overall_score, integrity_status),
+        thesis:thesis_entries(
+          category:thesis_categories(name)
+        )
+      `, { count: 'exact' });
+
+    if (category !== "All") {
+      flagQuery = flagQuery.eq("thesis.category.name", category);
+    }
+    if (dateFrom) flagQuery = flagQuery.gte("submitted_at", dateFrom);
+    if (dateTo) flagQuery = flagQuery.lte("submitted_at", dateTo);
+
+    const pageNum = parseInt(page);
+    const perPage = parseInt(limit);
+    if (fullDataset !== "true") {
+      const start = (pageNum - 1) * perPage;
+      flagQuery = flagQuery.range(start, start + perPage - 1);
     }
 
-    // Apply pagination
-    const { data: paginatedData, error: dataError, count } = await query
-      .range(offset, offset + limitNum - 1);
+    flagQuery = flagQuery.order("submitted_at", { ascending: false });
 
-    if (dataError) throw dataError;
+    const { data: rawData, count: totalCount, error: flagErr } = await flagQuery;
+    if (flagErr) throw flagErr;
 
-    // Calculate stats from all data
-    const { data: allData, error: statsError } = await supabase
-      .from("hte_archive")
-      .select("overall_status");
+    const flaggedSubmissions = (rawData || []).map(row => {
+      // result might be an array or single object depending on select
+      const resultData = Array.isArray(row.result) ? row.result[0] : row.result;
+      const score = resultData?.overall_score || 0;
+      const categoryName = row.thesis?.category?.name || "Uncategorized";
 
-    if (statsError) throw statsError;
+      return {
+        id: row.id,
+        title: row.title || "Untitled Scan",
+        category: categoryName,
+        submissionDate: row.submission_date ? new Date(row.submission_date).toLocaleDateString() : "N/A",
+        similarityScore: parseFloat(score) || 0,
+        // Strictly "Flagged" or "Safe".
+        reviewStatus: score > 20 ? "Flagged" : "Safe"
+      };
+    });
 
-    const total = allData.length;
-    const complete = allData.filter(t => t.overall_status === "Complete").length;
+    res.json({
+      similarityDistribution: [], // kept for backward compatibility if needed, but empty
+      flaggedSubmissions,
+      totalCount: totalCount || 0,
+      page: pageNum,
+      totalPages: fullDataset === "true" ? 1 : Math.ceil((totalCount || 0) / perPage)
+    });
+  } catch (error) {
+    console.error("Similarity report error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 3. OJT Reports
+app.get("/api/reports/coordinators", async (req, res) => {
+  const client = supabaseAdmin || supabase;
+  try {
+    const { data, error } = await client
+      .from("vw_report_ojt_trainee_status")
+      .select("coordinator");
+
+    if (error) throw error;
+
+    // Get unique coordinators, filter out null/empty
+    const uniqueCoordinators = [...new Set((data || []).map(r => r.coordinator).filter(Boolean))].sort();
+
+    res.json(uniqueCoordinators);
+  } catch (error) {
+    console.error("Coordinators fetch error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/reports/ojt", async (req, res) => {
+  const user = await getUserFromReq(req, res);
+  if (!user) return;
+
+  const { department = "All", coordinator = "All", completionStatus = "All", page = 1, limit = 10, fullDataset = false } = req.query;
+  const client = supabaseAdmin || supabase;
+
+  try {
+    // TRAINEE STATUS
+    let ojtQuery = client.from("vw_report_ojt_trainee_status").select("*", { count: 'exact' });
+
+    // Filters
+    if (department !== "All") ojtQuery = ojtQuery.eq("department", department);
+    if (coordinator !== "All") ojtQuery = ojtQuery.eq("coordinator", coordinator);
+    if (completionStatus !== "All" && completionStatus !== "total") {
+      ojtQuery = ojtQuery.ilike("overall_status", completionStatus);
+    }
+
+    // Also get completion stats without pagination
+    let countQuery = client.from("vw_report_ojt_trainee_status").select("overall_status");
+    if (department !== "All") countQuery = countQuery.eq("department", department);
+    if (coordinator !== "All") countQuery = countQuery.eq("coordinator", coordinator);
+    // don't apply completionStatus to overall counts
+
+    const { data: allStats, error: countErr } = await countQuery;
+    if (countErr) throw countErr;
+
+    const total = allStats.length;
+    const complete = allStats.filter(r => r.overall_status.toLowerCase() === "complete").length;
     const incomplete = total - complete;
-    const rate = ((complete / total) * 100).toFixed(1);
+    const rate = total > 0 ? ((complete / total) * 100).toFixed(1) : "0.0";
+
+    const pageNum = parseInt(page);
+    const perPage = parseInt(limit);
+    if (fullDataset !== "true") {
+      const start = (pageNum - 1) * perPage;
+      ojtQuery = ojtQuery.range(start, start + perPage - 1);
+    }
+
+    const { data: traineeRaw, error: ojtErr } = await ojtQuery;
+    if (ojtErr) throw ojtErr;
+
+    const traineeStatus = (traineeRaw || []).map(row => ({
+      id: row.id,
+      studentName: row.student_name,
+      studentId: row.student_id,
+      academicYear: row.academic_year,
+      semester: row.semester,
+      coordinator: row.coordinator,
+      totalRequired: parseInt(row.total_required) || 0,
+      totalUploaded: parseInt(row.total_uploaded) || 0,
+      overallStatus: row.overall_status.charAt(0).toUpperCase() + row.overall_status.slice(1)
+    }));
 
     res.json({
-      traineeStatus: paginatedData,
+      traineeStatus,
       stats: { total, complete, incomplete, rate },
-      totalCount: count,
+      totalCount: fullDataset === "true" ? traineeStatus.length : (completionStatus === "All" || completionStatus === "total" ? total : (completionStatus.toLowerCase() === "complete" ? complete : incomplete)),
       page: pageNum,
-      limit: limitNum,
-      timestamp: new Date().toISOString(),
+      totalPages: fullDataset === "true" ? 1 : Math.ceil((completionStatus === "All" || completionStatus === "total" ? total : (completionStatus.toLowerCase() === "complete" ? complete : incomplete)) / perPage)
     });
   } catch (error) {
-    console.error("Error fetching OJT reports:", error);
-    res.status(500).json({ error: error.message || "Server error fetching OJT reports" });
+    console.error("OJT report error:", error);
+    res.status(500).json({ error: error.message });
   }
 });
 
-
+// ── END REPORTS & ANALYTICS ────────────────────────────────────────────────────
 
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);

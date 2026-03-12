@@ -177,3 +177,34 @@ export async function fetchOJTReport({
     throw error;
   }
 }
+
+/**
+ * Fetch Unique OJT Coordinators
+ * @returns {Promise<string[]>} List of coordinator names
+ */
+export async function fetchCoordinators() {
+  try {
+    const token = await getAuthToken();
+    if (!token) {
+      throw new Error("Not authenticated");
+    }
+
+    const response = await fetch(`${API_BASE_URL}/coordinators`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Failed to fetch coordinators");
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching coordinators:", error);
+    throw error;
+  }
+}

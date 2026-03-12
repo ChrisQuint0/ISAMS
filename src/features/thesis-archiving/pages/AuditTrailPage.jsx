@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useCallback, useRef } from "react";
 import { ThesisArchivingHeader } from "../components/ThesisArchivingHeader";
 import {
-    History, Search, Download, Filter,
-    Calendar, Clock, User, Shield,
-    ChevronDown, FileSpreadsheet, Activity
+    Search, Filter,
+    Calendar, Activity, User, Clock,
+    FileSpreadsheet
 } from "lucide-react";
 import { AgGridReact } from 'ag-grid-react';
 import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-community';
@@ -11,13 +11,13 @@ import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-communi
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 const auditTheme = themeBalham.withParams({
-    accentColor: '#3b82f6',
-    backgroundColor: '#020617',
-    foregroundColor: '#e2e8f0',
-    borderColor: '#1e293b',
-    headerBackgroundColor: '#0f172a',
-    headerTextColor: '#94a3b8',
-    oddRowBackgroundColor: '#020617',
+    accentColor: "#059669", // emerald-600
+    backgroundColor: "#ffffff",
+    foregroundColor: "#374151",
+    borderColor: "#e5e5e5",
+    headerBackgroundColor: "#f9fafb",
+    headerTextColor: "#374151",
+    oddRowBackgroundColor: "#ffffff",
     rowHeight: 48,
     headerHeight: 40,
 });
@@ -88,10 +88,10 @@ export default function AuditTrailPage() {
             flex: 1.5,
             cellRenderer: (p) => (
                 <div className="flex items-center gap-2 h-full">
-                    <div className="w-7 h-7 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
-                        <User size={12} className="text-blue-400" />
+                    <div className="w-7 h-7 rounded-full bg-neutral-100 border border-neutral-200 flex items-center justify-center shrink-0">
+                        <User size={12} className="text-gray-600" />
                     </div>
-                    <span className="text-xs font-medium text-slate-200">{p.value}</span>
+                    <span className="text-sm font-medium text-gray-900">{p.value}</span>
                 </div>
             )
         },
@@ -100,48 +100,56 @@ export default function AuditTrailPage() {
             field: "action",
             width: 120,
             cellRenderer: (p) => {
-                const colors = {
-                    Edit: "text-amber-400 font-semibold",
-                    Add: "text-emerald-400 font-semibold",
-                    Delete: "text-rose-400 font-semibold",
-                    Login: "text-blue-400 font-semibold",
-                    Export: "text-purple-400 font-semibold"
+                const badgeStyles = {
+                    Edit: "bg-amber-50 text-amber-700 border-amber-200",
+                    Add: "bg-emerald-50 text-emerald-700 border-emerald-200",
+                    Delete: "bg-rose-50 text-rose-700 border-rose-200",
+                    Login: "bg-blue-50 text-blue-700 border-blue-200",
+                    Export: "bg-purple-50 text-purple-700 border-purple-200"
                 };
-                return <span className={`text-xs ${colors[p.value] || "text-slate-400"}`}>{p.value}</span>;
+                const defaultStyle = "bg-gray-50 text-gray-700 border-gray-200";
+                const style = badgeStyles[p.value] || defaultStyle;
+                return (
+                    <div className="flex items-center h-full">
+                        <span className={`border text-xs font-semibold px-2.5 py-0.5 rounded-lg ${style}`}>
+                            {p.value}
+                        </span>
+                    </div>
+                );
             }
         },
         {
             headerName: "Description",
             field: "description",
             flex: 2.5,
-            cellRenderer: (p) => <span className="text-xs text-slate-400">{p.value}</span>
+            cellRenderer: (p) => <div className="flex items-center h-full"><span className="text-sm text-gray-600">{p.value}</span></div>
         },
         {
-            headerName: "Module_Affected",
+            headerName: "Module Affected",
             field: "module_affected",
             flex: 1.5,
-            cellRenderer: (p) => <span className="text-xs text-slate-300 font-medium">{p.value}</span>
+            cellRenderer: (p) => <div className="flex items-center h-full"><span className="text-[13px] text-gray-700 font-medium">{p.value}</span></div>
         },
         {
             headerName: "Record ID",
             field: "record_id",
             width: 110,
-            cellRenderer: (p) => <span className="text-xs text-slate-400 font-mono">{p.value}</span>
+            cellRenderer: (p) => <div className="flex items-center h-full"><span className="text-[13px] text-gray-500 font-mono">{p.value}</span></div>
         },
         {
             headerName: "User Agent",
             field: "user_agent",
             flex: 2,
-            cellRenderer: (p) => <span className="text-[10px] text-slate-500 truncate block max-w-full">{p.value}</span>
+            cellRenderer: (p) => <div className="flex items-center h-full"><span className="text-[11px] text-gray-400 truncate block max-w-full">{p.value}</span></div>
         },
         {
             headerName: "Time",
             field: "time",
             width: 180,
             cellRenderer: (p) => (
-                <div className="flex items-center gap-2 h-full text-slate-400">
-                    <Clock size={12} className="shrink-0 opacity-50" />
-                    <span className="text-[11px] font-mono">{p.value}</span>
+                <div className="flex items-center gap-2 h-full text-gray-500">
+                    <Clock size={12} className="shrink-0 opacity-70" />
+                    <span className="text-xs font-mono">{p.value}</span>
                 </div>
             )
         }
@@ -168,72 +176,78 @@ export default function AuditTrailPage() {
     };
 
     return (
-        <div className="flex flex-col min-h-screen bg-slate-950">
-            <ThesisArchivingHeader title="Audit Trail" />
-            <main className="flex-1 px-8 py-10 lg:px-12 lg:py-12">
-                <div className="max-w-[1600px] mx-auto space-y-6">
-                    {/* Header Section */}
-                    <div className="flex flex-col gap-1">
-                        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-blue-500 mb-1">Security & Monitoring</p>
-                        <div className="flex items-center justify-between">
-                            <h1 className="text-4xl font-bold text-slate-50 tracking-tight">Audit Trail</h1>
+        <div className="min-h-screen bg-neutral-100 flex flex-col">
+            <ThesisArchivingHeader title="Audit Trail" variant="light" />
+            <main className="flex-1 max-w-7xl mx-auto px-6 py-8 w-full flex flex-col gap-6">
 
-                            {/* Search Bar */}
-                            <div className="relative group w-80">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 group-focus-within:text-blue-400 transition-colors" />
-                                <input
-                                    type="text"
-                                    placeholder="Search logs..."
-                                    value={searchText}
-                                    onChange={onSearchChange}
-                                    className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-200 outline-none focus:border-blue-500/50 shadow-lg transition-all"
-                                />
-                            </div>
+                {/* Header Section */}
+                <div className="flex flex-col gap-1">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h1 className="text-2xl font-semibold text-gray-900">
+                                Audit Trail
+                            </h1>
+                            <p className="text-sm text-gray-600 mt-0.5">
+                                System security & monitoring activity logs
+                            </p>
+                        </div>
+
+                        {/* Search Bar */}
+                        <div className="relative group w-80">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-emerald-600 transition-colors" />
+                            <input
+                                type="text"
+                                placeholder="Search logs..."
+                                value={searchText}
+                                onChange={onSearchChange}
+                                className="w-full bg-white border border-gray-300 rounded-lg pl-10 pr-4 py-2 text-sm text-gray-900 outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all shadow-sm"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Filters Bar */}
+                <div className="flex items-center justify-between gap-4 p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-neutral-50 border border-gray-200 rounded-lg">
+                            <Activity size={14} className="text-gray-500" />
+                            <select
+                                className="bg-transparent text-sm text-gray-700 outline-none cursor-pointer pr-5"
+                                value={actionFilter}
+                                onChange={(e) => setActionFilter(e.target.value)}
+                            >
+                                <option value="all">Filter by actions</option>
+                                <option value="Add">Add</option>
+                                <option value="Edit">Edit</option>
+                                <option value="Delete">Delete</option>
+                                <option value="Login">Login</option>
+                                <option value="Export">Export</option>
+                            </select>
+                        </div>
+
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-neutral-50 border border-gray-200 rounded-lg">
+                            <Calendar size={14} className="text-gray-500" />
+                            <input
+                                type="date"
+                                value={dateValue}
+                                onChange={(e) => setDateValue(e.target.value)}
+                                className="bg-transparent text-sm text-gray-700 outline-none cursor-pointer"
+                            />
                         </div>
                     </div>
 
-                    {/* Filters Bar */}
-                    <div className="flex items-center justify-between gap-4 p-2 bg-slate-900/30 border border-slate-800/50 rounded-2xl">
-                        <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl">
-                                <Activity size={14} className="text-slate-500" />
-                                <select
-                                    className="bg-transparent text-xs text-slate-300 outline-none cursor-pointer pr-5"
-                                    value={actionFilter}
-                                    onChange={(e) => setActionFilter(e.target.value)}
-                                >
-                                    <option value="all" className="bg-slate-900">Filter by actions</option>
-                                    <option value="Add" className="bg-slate-900">Add</option>
-                                    <option value="Edit" className="bg-slate-900">Edit</option>
-                                    <option value="Delete" className="bg-slate-900">Delete</option>
-                                    <option value="Login" className="bg-slate-900">Login</option>
-                                    <option value="Export" className="bg-slate-900">Export</option>
-                                </select>
-                            </div>
+                    <button
+                        onClick={onExportClick}
+                        className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+                    >
+                        <FileSpreadsheet size={16} />
+                        Generate CSV
+                    </button>
+                </div>
 
-                            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl">
-                                <Calendar size={14} className="text-slate-500" />
-                                <input
-                                    type="date"
-                                    value={dateValue}
-                                    onChange={(e) => setDateValue(e.target.value)}
-                                    className="bg-transparent text-xs text-slate-300 outline-none [color-scheme:dark] cursor-pointer"
-                                />
-                                <span className="text-[10px] text-slate-600 font-bold ml-1 uppercase">Filter by Date</span>
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={onExportClick}
-                            className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg active:scale-95"
-                        >
-                            <FileSpreadsheet size={16} />
-                            Generate CSV
-                        </button>
-                    </div>
-
-                    {/* Table Section */}
-                    <div className="bg-slate-900/50 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl relative" style={{ height: "650px" }}>
+                {/* Table Section */}
+                <div className="border border-neutral-200 rounded-xl overflow-hidden bg-white shadow-sm" style={{ height: "600px" }}>
+                    <div style={{ height: "100%", width: "100%" }}>
                         <AgGridReact
                             ref={gridRef}
                             theme={auditTheme}
@@ -246,23 +260,23 @@ export default function AuditTrailPage() {
                             paginationPageSizeSelector={[20, 50, 100]}
                             rowSelection="single"
                             suppressCellFocus={true}
-                            overlayNoRowsTemplate='<span class="text-slate-500">No activity logs found matching your filters</span>'
+                            overlayNoRowsTemplate='<span class="text-gray-500">No activity logs found matching your filters</span>'
                         />
                     </div>
-
-                    {/* Bottom Info */}
-                    <div className="flex justify-between items-center px-2 py-1">
-                        <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-2">
-                                <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                                <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">System Status: Monitoring</span>
-                            </div>
-                        </div>
-                        <p className="text-[10px] text-slate-600 font-medium tracking-tight">
-                            Showing latest activity logs within the PLP-ISAMS Security Framework
-                        </p>
-                    </div>
                 </div>
+
+                {/* Navigation/Footer Space Replacement */}
+                <footer className="border-t border-neutral-200 bg-white shadow-sm rounded-xl mt-2 overflow-hidden flex justify-between items-center px-6 py-4">
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-xs text-gray-600 font-medium">System Status: Monitoring</span>
+                        </div>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                        ISAMS - Integrated Smart Academic Management System • Security Framework
+                    </p>
+                </footer>
             </main>
         </div>
     );

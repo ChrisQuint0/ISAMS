@@ -53,6 +53,18 @@ const StudViolations = () => {
   const fetchDistilledData = async () => {
     setIsLoading(true);
     try {
+      // 0. Fetch Users Map
+      const { data: userData, error: userError } = await supabase
+        .from('users_with_roles')
+        .select('id, first_name, last_name');
+        
+      const userMap = {};
+      if (userData) {
+          userData.forEach(u => {
+              userMap[u.id] = `${u.first_name} ${u.last_name}`;
+          });
+      }
+
       // 1. Fetch Violations
       const { data: vData, error: vError } = await supabase
         .from('violations_sv')
@@ -66,14 +78,37 @@ const StudViolations = () => {
       if (vError) {
         console.error("Error fetching violations:", vError.message);
       } else if (vData) {
-        const formattedData = vData.map(v => ({
-          ...v,
-          student_number: v.student_number,
-          name: v.students_sv ? `${v.students_sv.first_name} ${v.students_sv.last_name}` : 'Unknown',
-          section: v.student_course_year_section || (v.students_sv && v.students_sv.course_year_section) || 'N/A',
-          violation: v.offense_types_sv ? `${v.offense_types_sv.name}: ${v.offense_types_sv.severity}` : `Type ID ${v.offense_type_id}`,
-          status: v.status || "Pending"
-        }));
+        const formattedData = vData.map(v => {
+          // Format date and time for better readability
+          let incidentDisplay = "N/A";
+          if (v.incident_date) {
+              const dateObj = new Date(v.incident_date);
+              const dateStr = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+              
+              let timeStr = "";
+              if (v.incident_time) {
+                 // Convert 'HH:MM:SS' to something like '3:00 PM'
+                 const [hours, minutes] = v.incident_time.split(':');
+                 const h = parseInt(hours, 10);
+                 const ampm = h >= 12 ? 'PM' : 'AM';
+                 const h12 = h % 12 || 12;
+                 timeStr = ` at ${h12}:${minutes} ${ampm}`;
+              }
+              incidentDisplay = `${dateStr}${timeStr}`;
+          }
+
+          return {
+            ...v,
+            student_number: v.student_number,
+            name: v.students_sv ? `${v.students_sv.first_name} ${v.students_sv.last_name}` : 'Unknown',
+            section: v.student_course_year_section || (v.students_sv && v.students_sv.course_year_section) || 'N/A',
+            violation: v.offense_types_sv ? `${v.offense_types_sv.name}: ${v.offense_types_sv.severity}` : `Type ID ${v.offense_type_id}`,
+            incident_display: incidentDisplay,
+            status: v.status || "Pending",
+            reported_by_name: userMap[v.reported_by] || v.reported_by || 'Unknown',
+            updated_by_name: userMap[v.updated_by] || v.updated_by || 'Unknown'
+          };
+        });
         setViolations(formattedData);
       }
 
@@ -100,6 +135,8 @@ const StudViolations = () => {
           sanction_name: s.penalty_name,
           status: s.status,
           due_date: s.deadline_date || 'None',
+          assigned_by_name: userMap[s.assigned_by] || s.assigned_by || 'Unknown',
+          updated_by_name: userMap[s.updated_by] || s.updated_by || 'Unknown',
           original_data: s
         }));
         setSanctionsList(formattedSanctions);
@@ -118,17 +155,9 @@ const StudViolations = () => {
 
   const columnDefs = useMemo(() => [
     {
-      headerName: "Student ID",
-      field: "student_number",
-      width: 130,
-      filter: true,
-      tooltipField: "student_number",
-      cellStyle: { color: 'var(--neutral-500)', fontWeight: '500' }
-    },
-    {
       headerName: "Student Name",
       field: "name",
-      flex: 1,
+      flex: 1.2,
       filter: true, // Enabled filtering for names
       tooltipField: "name",
       cellStyle: { color: 'var(--neutral-900)', fontWeight: '600' }
@@ -136,7 +165,7 @@ const StudViolations = () => {
     {
       headerName: "Section",
       field: "section",
-      flex: 1,
+      width: 120,
       filter: true, // Enabled filtering for sections
       tooltipField: "section",
       cellStyle: { color: 'var(--neutral-500)', fontWeight: '500' }
@@ -150,9 +179,17 @@ const StudViolations = () => {
       cellStyle: { color: 'var(--neutral-500)', fontWeight: '500' }
     },
     {
+      headerName: "Incident Date",
+      field: "incident_display",
+      flex: 1,
+      filter: true, 
+      tooltipField: "incident_display",
+      cellStyle: { color: 'var(--neutral-500)', fontWeight: '500' }
+    },
+    {
       headerName: "Status",
       field: "status",
-      flex: 1,
+      width: 140,
       filter: true, // Enabled filtering for status
       cellRenderer: (params) => {
         const isResolved = params.value === 'Resolved' || params.value === 'Dismissed';
@@ -169,7 +206,7 @@ const StudViolations = () => {
     {
       headerName: "Action",
       field: "action",
-      width: 120,
+      width: 100,
       pinned: 'right',
       cellRenderer: (params) => (
         <div className="flex items-center justify-end h-full pr-2">

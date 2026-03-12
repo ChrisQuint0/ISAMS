@@ -5,70 +5,137 @@ import {
     FileText, Upload, CheckCircle2, Clock, RefreshCw, X,
     AlertTriangle, User, Calendar, Building2, ChevronRight,
     MinusCircle, Eye, Info, GraduationCap,
-    LayoutDashboard, BookOpen, LogOut,
+    LayoutDashboard, BookOpen, LogOut, Loader2
 } from "lucide-react";
 import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
 import { HTEArchivingHeader } from "./HTEDocumentArchivePage";
-
-const STUDENT_DATA = {
-    "user-1": { id: "STU-2025-001", name: "Christopher Quinto", year: "2024-2025", semester: "2nd Semester", email: "quinto_christopher@plpasig.edu.ph" },
-    "user-2": { id: "STU-2025-002", name: "Maria Santos",       year: "2024-2025", semester: "2nd Semester", email: "santos_maria@plpasig.edu.ph" },
-};
-
-const INITIAL_DOC_FIELDS = [
-    { id: "f-1",  name: "Curriculum Vitae",                               category: "ojt", order: 1,  active: true  },
-    { id: "f-2",  name: "Certificate of Registration (COR)",              category: "ojt", order: 2,  active: true  },
-    { id: "f-3",  name: "OJT Seminar Certificate",                        category: "ojt", order: 3,  active: true  },
-    { id: "f-4",  name: "Received Copy of the OJT Recommendation Letter", category: "ojt", order: 4,  active: true  },
-    { id: "f-5",  name: "OJT Waiver",                                     category: "ojt", order: 5,  active: true  },
-    { id: "f-6",  name: "Training Agreement",                             category: "ojt", order: 6,  active: true  },
-    { id: "f-7",  name: "Job Description",                                category: "ojt", order: 7,  active: true  },
-    { id: "f-8",  name: "Attendance Record",                              category: "ojt", order: 8,  active: true  },
-    { id: "f-9",  name: "OJT Progress Report",                            category: "ojt", order: 9,  active: true },
-    { id: "f-10", name: "Job Proficiency Rating / Evaluation Sheet",      category: "ojt", order: 10, active: true  },
-    { id: "f-11", name: "OJT Certificate",                                category: "ojt", order: 11, active: true  },
-    { id: "f-12", name: "Narrative Report",                               category: "ojt", order: 12, active: true  },
-    { id: "f-13", name: "Pictures with Captions",                         category: "ojt", order: 13, active: true }, 
-    { id: "f-14", name: "Company Profile",                                category: "hte", order: 1,  active: true  },
-    { id: "f-15", name: "Company Evaluation of Internship",               category: "hte", order: 2,  active: true }, 
-];
-
-function buildInitialUploads(fieldIds) {
-    var records = {};
-    for (var i = 0; i < fieldIds.length; i++) {
-        records[fieldIds[i]] = { fieldId: fieldIds[i], status: "pending", file: null, uploadedBy: null, uploadedAt: null };
-    }
-    return records;
-}
-
-const ALL_FIELD_IDS = INITIAL_DOC_FIELDS.map(function(f) { return f.id; });
+import { thesisService } from "../services/thesisService";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function StudentDocumentPortal() {
     const { user, loading, signOut } = useAuth();
     const navigate = useNavigate();
-    const [docFields] = React.useState(INITIAL_DOC_FIELDS);
+    const [docFields, setDocFields] = React.useState([]);
     const [studentData, setStudentData] = React.useState(null);
+    const [dataLoading, setDataLoading] = React.useState(true);
+    const [dataError, setDataError] = React.useState(null);
 
     React.useEffect(() => {
         if (loading) return;
         if (!user) return;
-        const userId = user.id;
-        let student = STUDENT_DATA[userId];
-        if (!student) {
-            student = { id: `STU-${Date.now()}`, name: user.email?.split("@")[0] || "Student", year: "2024-2025", semester: "2nd Semester", email: user.email || "" };
-        }
-        if (!student.uploads) student.uploads = buildInitialUploads(ALL_FIELD_IDS);
-        setStudentData(student);
+        loadStudentData(user.id);
     }, [user, loading]);
 
-    const handleUpload = React.useCallback((studentId, fieldId, file) => {
+    async function loadStudentData(userId) {
+        setDataLoading(true);
+        setDataError(null);
+        try {
+            // 1. Load ALL doc fields (including inactive) so students see "Not Required" slots
+            const fields = await thesisService.getHTEDocumentFieldsAll();
+            const fieldsMapped = fields.map(f => ({
+                ...f,
+                active: f.is_active,
+                order: f.display_order,
+            }));
+            setDocFields(fieldsMapped);
+
+            // 2. Load the student record linked to this Supabase auth user
+            const { data: studentRow, error: studentError } = await supabase
+                .from("hte_ojt_students")
+                .select(`
+                    *,
+                    adviser:thesis_advisers(first_name, last_name),
+                    section_ref:hte_sections(name),
+                    uploads:hte_document_uploads(*)
+                `)
+                .eq("user_id", userId)
+                .eq("is_active", true)
+                .maybeSingle();
+
+            if (studentError) throw studentError;
+
+            if (!studentRow) {
+                setDataError("No student record found for your account. Please contact your coordinator.");
+                return;
+            }
+
+            // 3. Build uploads map keyed by field_id (mirrors coordinator view)
+            const uploadsMap = {};
+            fields.forEach(f => {
+                uploadsMap[f.id] = { fieldId: f.id, status: "pending", file: null };
+            });
+            (studentRow.uploads || []).forEach(u => {
+                uploadsMap[u.field_id] = {
+                    fieldId: u.field_id,
+                    status: u.status,
+                    file: u.status === "uploaded" ? { name: u.original_filename, size: u.file_size_bytes } : null,
+                    uploadedBy: u.uploaded_by_role,
+                    uploadedAt: u.uploaded_at,
+                    gdrive_file_id: u.gdrive_file_id,
+                    gdrive_view_link: u.gdrive_view_link,
+                };
+            });
+
+            setStudentData({
+                ...studentRow,
+                // id is the real DB UUID — critical for the upload API
+                id: studentRow.id,
+                student_no: studentRow.student_no,
+                firstName: studentRow.first_name,
+                lastName: studentRow.last_name,
+                name: `${studentRow.first_name} ${studentRow.last_name}`,
+                year: studentRow.academic_year,
+                semester: studentRow.semester,
+                section: studentRow.section_ref?.name || studentRow.section,
+                adviser: studentRow.adviser
+                    ? `${studentRow.adviser.first_name} ${studentRow.adviser.last_name}`
+                    : "None",
+                email: studentRow.email,
+                uploads: uploadsMap,
+            });
+        } catch (err) {
+            console.error("StudentDocumentPortal: Failed to load data", err);
+            setDataError(err.message || "Failed to load student data.");
+        } finally {
+            setDataLoading(false);
+        }
+    }
+
+    const handleUpload = React.useCallback(async (studentId, fieldId, file) => {
+        const result = await thesisService.uploadHTEDocument(studentId, fieldId, file, "student");
         setStudentData((prev) => {
             if (!prev) return null;
             return {
                 ...prev,
                 uploads: {
                     ...prev.uploads,
-                    [fieldId]: { fieldId, status: "uploaded", file: { name: file.name, size: file.size }, uploadedBy: "student", uploadedAt: new Date().toISOString() },
+                    [fieldId]: {
+                        fieldId,
+                        status: "uploaded",
+                        file: { name: file.name, size: file.size },
+                        uploadedBy: "student",
+                        uploadedAt: result.upload?.uploaded_at || new Date().toISOString()
+                    },
+                },
+            };
+        });
+    }, []);
+
+    const handleRemove = React.useCallback(async (studentId, fieldId) => {
+        await thesisService.deleteHTEDocument(studentId, fieldId);
+        setStudentData((prev) => {
+            if (!prev) return null;
+            return {
+                ...prev,
+                uploads: {
+                    ...prev.uploads,
+                    [fieldId]: {
+                        fieldId,
+                        status: "pending",
+                        file: null,
+                        uploadedBy: null,
+                        uploadedAt: null
+                    },
                 },
             };
         });
@@ -78,11 +145,23 @@ export default function StudentDocumentPortal() {
         try { await signOut(); navigate("/login"); } catch (error) { console.error("Error signing out:", error); }
     }, [signOut, navigate]);
 
-    if (loading) {
+    if (loading || dataLoading) {
         return (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "var(--background, #0f172a)" }}>
                 <div style={{ width: 40, height: 40, border: "4px solid rgba(255,255,255,0.1)", borderTopColor: "rgba(255,255,255,0.6)", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
                 <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            </div>
+        );
+    }
+
+    if (dataError) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-neutral-100">
+                <div className="text-center max-w-sm px-4">
+                    <GraduationCap className="h-12 w-12 text-neutral-300 mx-auto mb-3" />
+                    <p className="text-neutral-700 text-sm font-semibold mb-1">Unable to load student data</p>
+                    <p className="text-neutral-500 text-xs">{dataError}</p>
+                </div>
             </div>
         );
     }
@@ -100,7 +179,7 @@ export default function StudentDocumentPortal() {
 
     return (
         <SidebarProvider>
-            <StudentDocumentPortalContent student={studentData} docFields={docFields} onUpload={handleUpload} onSignOut={handleSignOut} />
+            <StudentDocumentPortalContent student={studentData} docFields={docFields} onUpload={handleUpload} onRemove={handleRemove} onSignOut={handleSignOut} />
         </SidebarProvider>
     );
 }
@@ -108,15 +187,16 @@ export default function StudentDocumentPortal() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared constants
 // ─────────────────────────────────────────────────────────────────────────────
-const ACCEPTED_FORMATS    = ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "image/jpeg", "image/png"];
+const ACCEPTED_FORMATS = ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "image/jpeg", "image/png"];
 const ACCEPTED_EXTENSIONS = [".pdf", ".docx", ".jpg", ".jpeg", ".png"];
-const MAX_FILE_SIZE_MB    = 10;
+const MAX_FILE_SIZE_MB = 10;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 // Button tokens
-const btnBase        = "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 cursor-pointer";
-const btnIconGhost   = btnBase + " size-7 text-neutral-500 border border-neutral-200 bg-white hover:bg-neutral-100 hover:text-neutral-900 hover:border-neutral-300 shadow-xs";
-const btnSmDefault   = btnBase + " h-8 px-3 text-xs gap-1.5 bg-primary-500 text-white hover:bg-primary-600 shadow-sm border border-primary-600";
+const btnBase = "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 cursor-pointer";
+const btnIconGhost = btnBase + " size-7 text-neutral-500 border border-neutral-200 bg-white hover:bg-neutral-100 hover:text-neutral-900 hover:border-neutral-300 shadow-xs";
+const btnIconDestructive = btnBase + " size-7 text-red-500 border border-red-200/50 bg-red-50 hover:bg-red-100 hover:border-red-300 shadow-xs";
+const btnSmDefault = btnBase + " h-8 px-3 text-xs gap-1.5 bg-primary-500 text-white hover:bg-primary-600 shadow-sm border border-primary-600";
 const btnSmSecondary = btnBase + " h-8 px-3 text-xs gap-1.5 bg-neutral-100 text-neutral-900 hover:bg-neutral-200 shadow-xs border border-neutral-300 hover:border-neutral-400";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -145,22 +225,22 @@ function resolveStatus(field, rec) {
 }
 
 const STATUS_CONFIG = {
-    "uploaded":     {
+    "uploaded": {
         icon: CheckCircle2,
         text: "Uploaded",
-        badge:   "bg-success/10 border-success/40 text-success",
+        badge: "bg-success/10 border-success/40 text-success",
         wrapper: "bg-success/10 border-success/30 text-success",
     },
-    "pending":      {
+    "pending": {
         icon: Clock,
         text: "Pending",
-        badge:   "bg-warning/10 border-warning/40 text-warning",
+        badge: "bg-warning/10 border-warning/40 text-warning",
         wrapper: "bg-warning/10 border-warning/30 text-warning",
     },
     "not_required": {
         icon: MinusCircle,
         text: "Not Required",
-        badge:   "bg-neutral-500/10 border-neutral-500/40 text-neutral-500",
+        badge: "bg-neutral-500/10 border-neutral-500/40 text-neutral-500",
         wrapper: "bg-neutral-500/10 border-neutral-500/30 text-neutral-500",
     },
 };
@@ -187,39 +267,52 @@ function formatFileSize(bytes) {
 // Main UI Component
 // ─────────────────────────────────────────────────────────────────────────────
 function StudentDocumentPortalContent(props) {
-    var student   = props.student;
+    var student = props.student;
     var docFields = props.docFields;
-    var onUpload  = props.onUpload;
+    var onUpload = props.onUpload;
+    var onRemove = props.onRemove;
     var onSignOut = props.onSignOut;
 
     var pa = React.useState(PAGE.OVERVIEW); var activePage = pa[0]; var setActivePage = pa[1];
-    var ta = React.useState(null);          var toast = ta[0];      var setToast = ta[1];
+    var ta = React.useState(null); var toast = ta[0]; var setToast = ta[1];
+    var up = React.useState(null); var uploadingFieldId = up[0]; var setUploadingFieldId = up[1];
 
-    function handleError(msg) { setToast({ type: "error", msg }); setTimeout(function() { setToast(null); }, 4000); }
-    function handleUploadSuccess(name) { setToast({ type: "success", msg: '"' + name + '" uploaded successfully.' }); setTimeout(function() { setToast(null); }, 3500); }
-    function handleUpload(fieldId, file) {
+    function handleError(msg) { setToast({ type: "error", msg }); setTimeout(function () { setToast(null); }, 4000); }
+    function handleUploadSuccess(name) { setToast({ type: "success", msg: '"' + name + '" uploaded successfully.' }); setTimeout(function () { setToast(null); }, 3500); }
+    async function handleUpload(fieldId, file) {
         var err = validateFile(file);
         if (err) { handleError(err); return; }
-        onUpload(student.id, fieldId, file);
-        handleUploadSuccess(file.name);
+        setUploadingFieldId(fieldId);
+        try {
+            await onUpload(student.id, fieldId, file);
+            handleUploadSuccess(file.name);
+        } catch (error) {
+            handleError(error.message || "Failed to upload.");
+        } finally {
+            setUploadingFieldId(null);
+        }
+    }
+    function handleRemoveWrap(fieldId) {
+        if (onRemove) onRemove(student.id, fieldId);
+        setToast({ type: "success", msg: 'Document removed successfully.' }); setTimeout(function () { setToast(null); }, 3500);
     }
 
     // Separate all fields by category — inactive fields are NOT filtered out,
     // they are passed through and displayed with "Not Required" status.
-    var ojtFields = docFields.filter(function(f) { return f.category === "ojt"; }).sort(function(a,b) { return a.order - b.order; });
-    var hteFields = docFields.filter(function(f) { return f.category === "hte"; }).sort(function(a,b) { return a.order - b.order; });
+    var ojtFields = docFields.filter(function (f) { return f.category === "ojt"; }).sort(function (a, b) { return a.order - b.order; });
+    var hteFields = docFields.filter(function (f) { return f.category === "hte"; }).sort(function (a, b) { return a.order - b.order; });
 
     // Active-only subsets are only used for completion counting — NOT for rendering
-    var ojtActive = ojtFields.filter(function(f) { return f.active; });
-    var hteActive = hteFields.filter(function(f) { return f.active; });
+    var ojtActive = ojtFields.filter(function (f) { return f.active; });
+    var hteActive = hteFields.filter(function (f) { return f.active; });
 
-    var ojtUploaded = ojtActive.filter(function(f) { var r = student.uploads[f.id]; return resolveStatus(f, r) === "uploaded"; }).length;
-    var hteUploaded = hteActive.filter(function(f) { var r = student.uploads[f.id]; return resolveStatus(f, r) === "uploaded"; }).length;
+    var ojtUploaded = ojtActive.filter(function (f) { var r = student.uploads[f.id]; return resolveStatus(f, r) === "uploaded"; }).length;
+    var hteUploaded = hteActive.filter(function (f) { var r = student.uploads[f.id]; return resolveStatus(f, r) === "uploaded"; }).length;
 
-    var ojtPct   = ojtActive.length === 0 ? 100 : Math.round(ojtUploaded / ojtActive.length * 100);
-    var htePct   = hteActive.length === 0 ? 100 : Math.round(hteUploaded / hteActive.length * 100);
+    var ojtPct = ojtActive.length === 0 ? 100 : Math.round(ojtUploaded / ojtActive.length * 100);
+    var htePct = hteActive.length === 0 ? 100 : Math.round(hteUploaded / hteActive.length * 100);
     var totalAct = ojtActive.length + hteActive.length;
-    var totalUp  = ojtUploaded + hteUploaded;
+    var totalUp = ojtUploaded + hteUploaded;
     var totalPct = totalAct === 0 ? 100 : Math.round(totalUp / totalAct * 100);
     var isComplete = totalPct === 100;
 
@@ -229,15 +322,15 @@ function StudentDocumentPortalContent(props) {
             <div className="flex flex-col flex-1 w-0 min-w-0">
                 <HTEArchivingHeader role="student" students={[student]} studentId={student.id} showFieldConfig={false} />
                 <main className="flex-1 w-full p-6">
-                    {activePage === PAGE.OVERVIEW   && <OverviewPage   student={student} ojtFields={ojtFields} ojtActive={ojtActive} hteActive={hteActive} ojtUploaded={ojtUploaded} hteUploaded={hteUploaded} ojtPct={ojtPct} htePct={htePct} totalPct={totalPct} totalUp={totalUp} totalAct={totalAct} isComplete={isComplete} onNavigate={setActivePage} />}
-                    {activePage === PAGE.OJT        && <OJTPage        student={student} fields={ojtFields} uploaded={ojtUploaded} total={ojtActive.length} pct={ojtPct} onUpload={handleUpload} onError={handleError} />}
-                    {activePage === PAGE.HTE        && <HTEPage        student={student} fields={hteFields} uploaded={hteUploaded} total={hteActive.length} pct={htePct} onUpload={handleUpload} onError={handleError} />}
+                    {activePage === PAGE.OVERVIEW && <OverviewPage student={student} ojtFields={ojtFields} ojtActive={ojtActive} hteActive={hteActive} ojtUploaded={ojtUploaded} hteUploaded={hteUploaded} ojtPct={ojtPct} htePct={htePct} totalPct={totalPct} totalUp={totalUp} totalAct={totalAct} isComplete={isComplete} onNavigate={setActivePage} />}
+                    {activePage === PAGE.OJT && <OJTPage student={student} fields={ojtFields} uploaded={ojtUploaded} total={ojtActive.length} pct={ojtPct} onUpload={handleUpload} onRemove={handleRemoveWrap} onError={handleError} uploadingFieldId={uploadingFieldId} />}
+                    {activePage === PAGE.HTE && <HTEPage student={student} fields={hteFields} uploaded={hteUploaded} total={hteActive.length} pct={htePct} onUpload={handleUpload} onRemove={handleRemoveWrap} onError={handleError} uploadingFieldId={uploadingFieldId} />}
                     {activePage === PAGE.GUIDELINES && <GuidelinesPage />}
                 </main>
             </div>
             {toast && (
                 <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[60] w-96 pointer-events-auto">
-                    <Toast type={toast.type} message={toast.msg} onClose={function() { setToast(null); }} />
+                    <Toast type={toast.type} message={toast.msg} onClose={function () { setToast(null); }} />
                 </div>
             )}
         </div>
@@ -251,17 +344,17 @@ function StudentSidebar(props) {
     const { state, openMobile, isMobile } = useSidebar();
     var activePage = props.activePage;
     var onNavigate = props.onNavigate;
-    var student    = props.student;
-    var onSignOut  = props.onSignOut;
+    var student = props.student;
+    var onSignOut = props.onSignOut;
 
     if (isMobile && !openMobile) return null;
     var isCollapsed = !isMobile && state === "collapsed";
 
     var navItems = [
-        { page: PAGE.OVERVIEW,   icon: LayoutDashboard, label: "Overview" },
-        { page: PAGE.OJT,        icon: FileText,        label: "OJT Documents", badge: "OJT" },
-        { page: PAGE.HTE,        icon: Building2,       label: "HTE Documents" },
-        { page: PAGE.GUIDELINES, icon: Info,            label: "Guidelines" },
+        { page: PAGE.OVERVIEW, icon: LayoutDashboard, label: "Overview" },
+        { page: PAGE.OJT, icon: FileText, label: "OJT Documents", badge: "OJT" },
+        { page: PAGE.HTE, icon: Building2, label: "HTE Documents" },
+        { page: PAGE.GUIDELINES, icon: Info, label: "Guidelines" },
     ];
 
     return (
@@ -282,10 +375,10 @@ function StudentSidebar(props) {
             <nav className={"flex-1 overflow-y-auto " + (isCollapsed ? "px-2 py-3" : "p-3")}>
                 {!isCollapsed && <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider px-2 pt-1 pb-2">Menu</p>}
                 <div className="space-y-0.5">
-                    {navItems.map(function(item) {
+                    {navItems.map(function (item) {
                         var active = activePage === item.page;
                         return (
-                            <button key={item.page} title={isCollapsed ? item.label : undefined} onClick={function() { onNavigate(item.page); }}
+                            <button key={item.page} title={isCollapsed ? item.label : undefined} onClick={function () { onNavigate(item.page); }}
                                 className={"w-full flex items-center rounded-lg text-sm font-medium transition-all " + (isCollapsed ? "justify-center p-2.5 " : "gap-2.5 px-3 py-2.5 ") + (active ? "bg-primary-500/10 text-primary-600" : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900")}>
                                 <item.icon className={"h-4 w-4 flex-shrink-0 " + (active ? "text-primary-500" : "text-neutral-400")} />
                                 {!isCollapsed && (
@@ -339,22 +432,22 @@ function StudentSidebar(props) {
 // Overview Page
 // ─────────────────────────────────────────────────────────────────────────────
 function OverviewPage(props) {
-    var student     = props.student;
-    var ojtFields   = props.ojtFields;   // ALL ojt fields including inactive
-    var ojtActive   = props.ojtActive;
-    var hteActive   = props.hteActive;
+    var student = props.student;
+    var ojtFields = props.ojtFields;   // ALL ojt fields including inactive
+    var ojtActive = props.ojtActive;
+    var hteActive = props.hteActive;
     var ojtUploaded = props.ojtUploaded;
     var hteUploaded = props.hteUploaded;
-    var ojtPct      = props.ojtPct;
-    var htePct      = props.htePct;
-    var totalPct    = props.totalPct;
-    var totalUp     = props.totalUp;
-    var totalAct    = props.totalAct;
-    var isComplete  = props.isComplete;
-    var onNavigate  = props.onNavigate;
+    var ojtPct = props.ojtPct;
+    var htePct = props.htePct;
+    var totalPct = props.totalPct;
+    var totalUp = props.totalUp;
+    var totalAct = props.totalAct;
+    var isComplete = props.isComplete;
+    var onNavigate = props.onNavigate;
 
     // Pending list only counts active fields that are not yet uploaded
-    var pendingOjt = ojtActive.filter(function(f) {
+    var pendingOjt = ojtActive.filter(function (f) {
         return resolveStatus(f, student.uploads[f.id]) === "pending";
     });
 
@@ -382,7 +475,7 @@ function OverviewPage(props) {
 
             {/* Stat cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <button onClick={function() { onNavigate(PAGE.OJT); }} className="group text-left bg-white border border-neutral-200 rounded-xl p-5 shadow-sm hover:shadow-md hover:border-primary-500/30 transition-all">
+                <button onClick={function () { onNavigate(PAGE.OJT); }} className="group text-left bg-white border border-neutral-200 rounded-xl p-5 shadow-sm hover:shadow-md hover:border-primary-500/30 transition-all">
                     <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-xl bg-primary-500/10 border border-primary-500/20 flex items-center justify-center"><FileText className="h-5 w-5 text-primary-500" /></div>
@@ -398,7 +491,7 @@ function OverviewPage(props) {
                         <span className="text-xs text-primary-500 font-semibold flex items-center gap-1 group-hover:gap-1.5 transition-all">Upload docs <ChevronRight className="h-3 w-3" /></span>
                     </div>
                 </button>
-                <button onClick={function() { onNavigate(PAGE.HTE); }} className="group text-left bg-white border border-neutral-200 rounded-xl p-5 shadow-sm hover:shadow-md hover:border-neutral-300 transition-all">
+                <button onClick={function () { onNavigate(PAGE.HTE); }} className="group text-left bg-white border border-neutral-200 rounded-xl p-5 shadow-sm hover:shadow-md hover:border-neutral-300 transition-all">
                     <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-xl bg-neutral-100 border border-neutral-200 flex items-center justify-center"><Building2 className="h-5 w-5 text-neutral-500" /></div>
@@ -427,10 +520,10 @@ function OverviewPage(props) {
                                 <p className="text-xs text-neutral-500">{pendingOjt.length} document{pendingOjt.length !== 1 ? "s" : ""} awaiting upload</p>
                             </div>
                         </div>
-                        <button onClick={function() { onNavigate(PAGE.OJT); }} className={btnSmDefault}><Upload className="h-3.5 w-3.5" /><span>Upload now</span></button>
+                        <button onClick={function () { onNavigate(PAGE.OJT); }} className={btnSmDefault}><Upload className="h-3.5 w-3.5" /><span>Upload now</span></button>
                     </div>
                     <div className="divide-y divide-neutral-50">
-                        {pendingOjt.slice(0, 6).map(function(field) {
+                        {pendingOjt.slice(0, 6).map(function (field) {
                             return (
                                 <div key={field.id} className="flex items-center gap-3 px-5 py-3 hover:bg-neutral-50 transition-colors">
                                     <span className="h-1.5 w-1.5 rounded-full bg-warning flex-shrink-0" />
@@ -440,7 +533,7 @@ function OverviewPage(props) {
                             );
                         })}
                         {pendingOjt.length > 6 && (
-                            <button onClick={function() { onNavigate(PAGE.OJT); }} className="w-full px-5 py-3 text-left text-xs text-neutral-500 hover:text-primary-500 hover:bg-neutral-50 transition-colors">
+                            <button onClick={function () { onNavigate(PAGE.OJT); }} className="w-full px-5 py-3 text-left text-xs text-neutral-500 hover:text-primary-500 hover:bg-neutral-50 transition-colors">
                                 +{pendingOjt.length - 6} more — view all documents →
                             </button>
                         )}
@@ -467,13 +560,15 @@ function OverviewPage(props) {
 //       "Not Required" — they are never hidden.
 // ─────────────────────────────────────────────────────────────────────────────
 function OJTPage(props) {
-    var student  = props.student;
-    var fields   = props.fields;   // ALL ojt fields, sorted
+    var student = props.student;
+    var fields = props.fields;   // ALL ojt fields, sorted
     var uploaded = props.uploaded;
-    var total    = props.total;    // count of active fields only (for progress)
-    var pct      = props.pct;
+    var total = props.total;    // count of active fields only (for progress)
+    var pct = props.pct;
     var onUpload = props.onUpload;
-    var onError  = props.onError;
+    var onRemove = props.onRemove;
+    var onError = props.onError;
+    var uploadingFieldId = props.uploadingFieldId;
     var isComplete = pct === 100;
 
     return (
@@ -518,10 +613,10 @@ function OJTPage(props) {
                     <span className="text-xs px-2.5 py-1 rounded-full bg-white/15 border border-white/25 text-white font-semibold">{uploaded} / {total} uploaded</span>
                 </div>
                 <div className="divide-y divide-neutral-100">
-                    {fields.map(function(field, idx) {
-                        var rec    = student.uploads[field.id];
+                    {fields.map(function (field, idx) {
+                        var rec = student.uploads[field.id];
                         var status = resolveStatus(field, rec); // always "uploaded" | "pending" | "not_required"
-                        return <OJTDocRow key={field.id} index={idx + 1} field={field} rec={rec} status={status} onUpload={onUpload} />;
+                        return <OJTDocRow key={field.id} index={idx + 1} field={field} rec={rec} status={status} onUpload={onUpload} onRemove={onRemove} isUploading={uploadingFieldId === field.id} />;
                     })}
                 </div>
             </div>
@@ -534,19 +629,22 @@ function OJTPage(props) {
 // status is always exactly one of: "uploaded" | "pending" | "not_required"
 // ─────────────────────────────────────────────────────────────────────────────
 function OJTDocRow(props) {
-    var index    = props.index;
-    var field    = props.field;
-    var rec      = props.rec;
-    var status   = props.status; // guaranteed to be one of the three valid values
+    var index = props.index;
+    var field = props.field;
+    var rec = props.rec;
+    var status = props.status; // guaranteed to be one of the three valid values
     var onUpload = props.onUpload;
+    var onRemove = props.onRemove;
+    var isUploading = props.isUploading;
+    var isUploading = props.isUploading;
 
     var fileInputRef = React.useRef(null);
     var exp = React.useState(false); var expanded = exp[0]; var setExpanded = exp[1];
 
-    var cfg        = STATUS_CONFIG[status]; // always defined — no fallback needed
+    var cfg = STATUS_CONFIG[status]; // always defined — no fallback needed
     var StatusIcon = cfg.icon;
-    var isUploaded    = status === "uploaded";
-    var isPending     = status === "pending";
+    var isUploaded = status === "uploaded";
+    var isPending = status === "pending";
     var isNotRequired = status === "not_required";
 
     function handleFileChange(e) { var file = e.target.files[0]; if (!file) return; onUpload(field.id, file); e.target.value = ""; }
@@ -585,7 +683,7 @@ function OJTDocRow(props) {
                 {/* Actions */}
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                     {isUploaded && (
-                        <button title={expanded ? "Hide details" : "View details"} onClick={function() { setExpanded(function(p) { return !p; }); }} className={btnIconGhost}>
+                        <button title={expanded ? "Hide details" : "View details"} onClick={function () { setExpanded(function (p) { return !p; }); }} className={btnIconGhost}>
                             <Eye className="h-3.5 w-3.5" />
                         </button>
                     )}
@@ -593,10 +691,15 @@ function OJTDocRow(props) {
                     {!isNotRequired && (
                         <React.Fragment>
                             <input ref={fileInputRef} type="file" accept={ACCEPTED_EXTENSIONS.join(",")} onChange={handleFileChange} className="hidden" />
-                            <button onClick={function() { if (fileInputRef.current) fileInputRef.current.click(); }} className={isUploaded ? btnSmSecondary : btnSmDefault}>
-                                {isUploaded ? <RefreshCw className="h-3.5 w-3.5" /> : <Upload className="h-3.5 w-3.5" />}
-                                <span>{isUploaded ? "Replace" : "Upload"}</span>
+                            <button disabled={isUploading} onClick={function () { if (fileInputRef.current) fileInputRef.current.click(); }} className={isUploaded ? btnSmSecondary : btnSmDefault}>
+                                {isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : isUploaded ? <RefreshCw className="h-3.5 w-3.5" /> : <Upload className="h-3.5 w-3.5" />}
+                                <span>{isUploading ? "Uploading..." : isUploaded ? "Replace" : "Upload"}</span>
                             </button>
+                            {isUploaded && onRemove && !isUploading && (
+                                <button onClick={function () { onRemove(field.id); }} className={btnIconDestructive} title="Remove Document">
+                                    <X className="h-3.5 w-3.5" />
+                                </button>
+                            )}
                         </React.Fragment>
                     )}
                 </div>
@@ -624,13 +727,15 @@ function OJTDocRow(props) {
 // Students can upload to active HTE slots just like OJT slots.
 // ─────────────────────────────────────────────────────────────────────────────
 function HTEPage(props) {
-    var student  = props.student;
-    var fields   = props.fields;
+    var student = props.student;
+    var fields = props.fields;
     var uploaded = props.uploaded;
-    var total    = props.total;
-    var pct      = props.pct;
+    var total = props.total;
+    var pct = props.pct;
     var onUpload = props.onUpload;
-    var onError  = props.onError;
+    var onRemove = props.onRemove;
+    var onError = props.onError;
+    var uploadingFieldId = props.uploadingFieldId;
     var isComplete = pct === 100;
 
     return (
@@ -672,10 +777,10 @@ function HTEPage(props) {
                     <span className="text-xs px-2.5 py-1 rounded-full bg-white/15 border border-white/20 text-white/90 font-semibold">{uploaded} / {total} uploaded</span>
                 </div>
                 <div className="divide-y divide-neutral-100">
-                    {fields.map(function(field, idx) {
-                        var rec    = student.uploads[field.id];
+                    {fields.map(function (field, idx) {
+                        var rec = student.uploads[field.id];
                         var status = resolveStatus(field, rec);
-                        return <HTEDocRow key={field.id} index={idx + 1} field={field} rec={rec} status={status} onUpload={onUpload} />;
+                        return <HTEDocRow key={field.id} index={idx + 1} field={field} rec={rec} status={status} onUpload={onUpload} onRemove={onRemove} isUploading={uploadingFieldId === field.id} />;
                     })}
                 </div>
             </div>
@@ -685,18 +790,20 @@ function HTEPage(props) {
 
 // Mirrors OJTDocRow — students can upload/replace active HTE slots
 function HTEDocRow(props) {
-    var index    = props.index;
-    var field    = props.field;
-    var rec      = props.rec;
-    var status   = props.status;
+    var index = props.index;
+    var field = props.field;
+    var rec = props.rec;
+    var status = props.status;
     var onUpload = props.onUpload;
+    var onRemove = props.onRemove;
+    var isUploading = props.isUploading;
 
     var fileInputRef = React.useRef(null);
     var exp = React.useState(false); var expanded = exp[0]; var setExpanded = exp[1];
 
-    var cfg           = STATUS_CONFIG[status];
-    var StatusIcon    = cfg.icon;
-    var isUploaded    = status === "uploaded";
+    var cfg = STATUS_CONFIG[status];
+    var StatusIcon = cfg.icon;
+    var isUploaded = status === "uploaded";
     var isNotRequired = status === "not_required";
 
     function handleFileChange(e) { var file = e.target.files[0]; if (!file) return; onUpload(field.id, file); e.target.value = ""; }
@@ -721,17 +828,22 @@ function HTEDocRow(props) {
                 <span className={"text-xs px-2.5 py-1 rounded-full border font-semibold flex-shrink-0 " + cfg.badge}>{cfg.text}</span>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                     {isUploaded && (
-                        <button title={expanded ? "Hide details" : "View details"} onClick={function() { setExpanded(function(p) { return !p; }); }} className={btnIconGhost}>
+                        <button title={expanded ? "Hide details" : "View details"} onClick={function () { setExpanded(function (p) { return !p; }); }} className={btnIconGhost}>
                             <Eye className="h-3.5 w-3.5" />
                         </button>
                     )}
                     {!isNotRequired && (
                         <React.Fragment>
                             <input ref={fileInputRef} type="file" accept={ACCEPTED_EXTENSIONS.join(",")} onChange={handleFileChange} className="hidden" />
-                            <button onClick={function() { if (fileInputRef.current) fileInputRef.current.click(); }} className={isUploaded ? btnSmSecondary : btnSmDefault}>
-                                {isUploaded ? <RefreshCw className="h-3.5 w-3.5" /> : <Upload className="h-3.5 w-3.5" />}
-                                <span>{isUploaded ? "Replace" : "Upload"}</span>
+                            <button disabled={isUploading} onClick={function () { if (fileInputRef.current) fileInputRef.current.click(); }} className={isUploaded ? btnSmSecondary : btnSmDefault}>
+                                {isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : isUploaded ? <RefreshCw className="h-3.5 w-3.5" /> : <Upload className="h-3.5 w-3.5" />}
+                                <span>{isUploading ? "Uploading..." : isUploaded ? "Replace" : "Upload"}</span>
                             </button>
+                            {isUploaded && onRemove && !isUploading && (
+                                <button onClick={function () { onRemove(field.id); }} className={btnIconDestructive} title="Remove Document">
+                                    <X className="h-3.5 w-3.5" />
+                                </button>
+                            )}
                         </React.Fragment>
                     )}
                 </div>
@@ -756,9 +868,9 @@ function HTEDocRow(props) {
 // ─────────────────────────────────────────────────────────────────────────────
 function GuidelinesPage() {
     var sections = [
-        { accent: "bg-primary-500", icon: <FileText className="h-4 w-4 text-primary-500" />, title: "Required OJT Documents (13 fields)", items: ["Curriculum Vitae","Certificate of Registration (COR)","OJT Seminar Certificate","Received Copy of the OJT Recommendation Letter","OJT Waiver","Training Agreement","Job Description","Attendance Record","OJT Progress Report","Job Proficiency Rating / Evaluation Sheet","OJT Certificate","Narrative Report","Pictures with Captions"] },
-        { accent: "bg-warning",     icon: <Upload className="h-4 w-4 text-warning" />,       title: "Upload Rules", items: ["Accepted formats: PDF, DOCX, JPG, JPEG, PNG only","Maximum file size: 10 MB per document","You may replace a previously uploaded document at any time","Upload timestamp and your identity are recorded automatically","Unsupported formats or oversized files will be rejected with an error"] },
-        { accent: "bg-neutral-400", icon: <Building2 className="h-4 w-4 text-neutral-500" />,title: "HTE Documents", items: ["Company Profile and Company Evaluation are required HTE documents","Upload them just like OJT documents — PDF, DOCX, JPG, PNG up to 10 MB","Both students and coordinators may upload to HTE slots"] },
+        { accent: "bg-primary-500", icon: <FileText className="h-4 w-4 text-primary-500" />, title: "Required OJT Documents (13 fields)", items: ["Curriculum Vitae", "Certificate of Registration (COR)", "OJT Seminar Certificate", "Received Copy of the OJT Recommendation Letter", "OJT Waiver", "Training Agreement", "Job Description", "Attendance Record", "OJT Progress Report", "Job Proficiency Rating / Evaluation Sheet", "OJT Certificate", "Narrative Report", "Pictures with Captions"] },
+        { accent: "bg-warning", icon: <Upload className="h-4 w-4 text-warning" />, title: "Upload Rules", items: ["Accepted formats: PDF, DOCX, JPG, JPEG, PNG only", "Maximum file size: 10 MB per document", "You may replace a previously uploaded document at any time", "Upload timestamp and your identity are recorded automatically", "Unsupported formats or oversized files will be rejected with an error"] },
+        { accent: "bg-neutral-400", icon: <Building2 className="h-4 w-4 text-neutral-500" />, title: "HTE Documents", items: ["Company Profile and Company Evaluation are required HTE documents", "Upload them just like OJT documents — PDF, DOCX, JPG, PNG up to 10 MB", "Both students and coordinators may upload to HTE slots"] },
         {
             accent: "bg-neutral-300", icon: <MinusCircle className="h-4 w-4 text-neutral-400" />, title: "Document Statuses",
             items: [
@@ -777,14 +889,14 @@ function GuidelinesPage() {
                     <p className="text-xs text-neutral-500 mt-0.5">Read carefully before uploading your documents</p>
                 </div>
             </div>
-            {sections.map(function(sec, i) {
+            {sections.map(function (sec, i) {
                 return (
                     <div key={i} className="bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm">
                         <div className={"h-1 " + sec.accent} />
                         <div className="p-5">
                             <div className="flex items-center gap-2 mb-3">{sec.icon}<h3 className="text-sm font-bold text-neutral-900">{sec.title}</h3></div>
                             <ul className="space-y-2">
-                                {sec.items.map(function(item, j) {
+                                {sec.items.map(function (item, j) {
                                     return <li key={j} className="flex items-start gap-2.5 text-sm text-neutral-600"><span className="h-1.5 w-1.5 rounded-full bg-neutral-300 flex-shrink-0 mt-[7px]" />{item}</li>;
                                 })}
                             </ul>

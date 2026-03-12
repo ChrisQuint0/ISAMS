@@ -23,12 +23,45 @@ export default function DigitalRepositoryPage() {
 
     const [entries, setEntries] = React.useState([]);
     const [loading, setLoading] = React.useState(true);
+    const [categories, setCategories] = React.useState([]);
+    const [years, setYears] = React.useState([]);
     const { addToast } = useToast();
+
+    // Filter states
+    const [searchQuery, setSearchQuery] = React.useState("");
+    const [debouncedSearch, setDebouncedSearch] = React.useState("");
+    const [selectedYear, setSelectedYear] = React.useState("all");
+    const [selectedCategory, setSelectedCategory] = React.useState("all");
+
+    // Debounce search query
+    React.useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchQuery);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    const fetchDropdownData = React.useCallback(async () => {
+        try {
+            const [categoriesData, yearsData] = await Promise.all([
+                thesisService.getCategories(),
+                thesisService.getPublicationYears()
+            ]);
+            setCategories(categoriesData);
+            setYears(yearsData);
+        } catch (error) {
+            console.error("Error fetching dropdown data:", error);
+        }
+    }, []);
 
     const fetchEntries = React.useCallback(async () => {
         try {
             setLoading(true);
-            const data = await thesisService.getThesisEntries();
+            const data = await thesisService.getThesisEntries({
+                search: debouncedSearch,
+                year: selectedYear,
+                categoryId: selectedCategory
+            });
 
             // Map the Supabase data to match the UI's expected structure
             const mappedData = data.map(entry => ({
@@ -55,52 +88,58 @@ export default function DigitalRepositoryPage() {
         } finally {
             setLoading(false);
         }
-    }, [addToast]);
+    }, [addToast, debouncedSearch, selectedYear, selectedCategory]);
+
+    React.useEffect(() => {
+        fetchDropdownData();
+    }, [fetchDropdownData]);
 
     React.useEffect(() => {
         fetchEntries();
     }, [fetchEntries]);
 
     return (
-        <div className="flex flex-col min-h-screen w-full bg-slate-950 text-slate-100">
-            <ThesisArchivingHeader title="Digital Repository" />
+        <div className="flex flex-col min-h-screen w-full bg-neutral-100 text-neutral-900">
+            <ThesisArchivingHeader title="Digital Repository" variant="light" />
 
             {/* Main Content */}
             <main className="flex-1 p-6">
                 <div className="max-w-7xl mx-auto space-y-8">
                     {/* Search and Filters */}
-                    <div className="flex flex-wrap items-center gap-4 bg-slate-900/40 p-4 rounded-xl border border-slate-800/50">
+                    <div className="flex flex-wrap items-center gap-4 bg-white p-4 rounded-xl border border-neutral-200">
                         <div className="relative flex-1 min-w-[300px]">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
                             <Input
                                 placeholder="Search Title, Authors etc."
-                                className="pl-10 bg-slate-950/50 border-slate-800 text-slate-100 placeholder:text-slate-500 focus-visible:ring-slate-700"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="pl-10 bg-neutral-50 border-neutral-200 text-neutral-900 placeholder:text-neutral-500 focus-visible:ring-neutral-900/20"
                             />
                         </div>
-                        <Select defaultValue="all">
-                            <SelectTrigger className="w-[140px] bg-slate-950/50 border-slate-800 text-slate-100">
+                        <Select value={selectedYear} onValueChange={setSelectedYear}>
+                            <SelectTrigger className="w-[140px] bg-neutral-50 border-neutral-200 text-neutral-900">
                                 <SelectValue placeholder="All Years" />
                             </SelectTrigger>
-                            <SelectContent className="bg-slate-900 border-slate-800 text-slate-100">
+                            <SelectContent className="bg-white border-neutral-200 text-neutral-900">
                                 <SelectItem value="all">All Years</SelectItem>
-                                <SelectItem value="2025">2025</SelectItem>
-                                <SelectItem value="2024">2024</SelectItem>
-                                <SelectItem value="2023">2023</SelectItem>
+                                {years.map(year => (
+                                    <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
-                        <Select defaultValue="all">
-                            <SelectTrigger className="w-[140px] bg-slate-950/50 border-slate-800 text-slate-100">
+                        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                            <SelectTrigger className="w-[140px] bg-neutral-50 border-neutral-200 text-neutral-900">
                                 <SelectValue placeholder="Category" />
                             </SelectTrigger>
-                            <SelectContent className="bg-slate-900 border-slate-800 text-slate-100">
-                                <SelectItem value="all">Category</SelectItem>
-                                <SelectItem value="iot">Internet of Things</SelectItem>
-                                <SelectItem value="ai">Artificial Intelligence</SelectItem>
-                                <SelectItem value="ml">Machine Learning</SelectItem>
+                            <SelectContent className="bg-white border-neutral-200 text-neutral-900">
+                                <SelectItem value="all">All Categories</SelectItem>
+                                {categories.map(cat => (
+                                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                         <Button
-                            className="bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20"
+                            className="bg-primary-500 hover:bg-primary-600 text-white shadow-sm border border-primary-600"
                             onClick={() => setIsAddEntryModalOpen(true)}
                         >
                             <Plus className="h-4 w-4 mr-2" />
@@ -118,7 +157,7 @@ export default function DigitalRepositoryPage() {
                     {loading ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {[1, 2, 3].map((i) => (
-                                <div key={i} className="h-64 rounded-xl bg-slate-900/40 animate-pulse border border-slate-800/50" />
+                                <div key={i} className="h-64 rounded-xl bg-neutral-200 animate-pulse border border-neutral-300" />
                             ))}
                         </div>
                     ) : entries.length > 0 ? (
@@ -132,7 +171,7 @@ export default function DigitalRepositoryPage() {
                             ))}
                         </div>
                     ) : (
-                        <div className="flex flex-col items-center justify-center py-20 text-slate-500 border-2 border-dashed border-slate-800 rounded-2xl">
+                        <div className="flex flex-col items-center justify-center py-20 text-neutral-500 border-2 border-dashed border-neutral-300 rounded-2xl">
                             <span className="text-lg font-medium mb-1">No researches found</span>
                             <p className="text-sm">Click the button above to archive your first entry.</p>
                         </div>
@@ -147,28 +186,28 @@ function ThesisCard({ entry, onClick }) {
     return (
         <div
             onClick={onClick}
-            className="group relative bg-slate-900/60 border border-slate-800 rounded-xl p-6 hover:bg-slate-900/80 hover:border-slate-700 transition-all duration-300 cursor-pointer flex flex-col h-full shadow-sm hover:shadow-xl hover:shadow-blue-900/10"
+            className="group relative bg-white border border-neutral-200 rounded-xl p-6 hover:bg-neutral-50 hover:border-neutral-300 transition-all duration-300 cursor-pointer flex flex-col h-full shadow-sm hover:shadow-md"
         >
             <div className="flex justify-between items-start mb-4">
-                <Badge variant="outline" className="bg-blue-500/10 border-blue-500/20 text-blue-400 font-medium">
+                <Badge variant="outline" className="bg-primary-500/10 border-primary-500/20 text-primary-600 font-medium">
                     {entry.category}
                 </Badge>
-                <span className="text-xs text-slate-500 flex items-center gap-1">
+                <span className="text-xs text-neutral-500 flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
                     {entry.year}
                 </span>
             </div>
 
-            <h3 className="text-lg font-bold text-slate-100 mb-3 group-hover:text-blue-400 transition-colors line-clamp-2">
+            <h3 className="text-lg font-bold text-neutral-900 mb-3 group-hover:text-primary-600 transition-colors line-clamp-2">
                 {entry.title}
             </h3>
 
-            <p className="text-sm text-slate-400 mb-6 line-clamp-3 leading-relaxed flex-grow">
+            <p className="text-sm text-neutral-600 mb-6 line-clamp-3 leading-relaxed flex-grow">
                 {entry.description}
             </p>
 
-            <div className="pt-4 border-t border-slate-800/50 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs text-slate-400 overflow-hidden">
+            <div className="pt-4 border-t border-neutral-200 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs text-neutral-600 overflow-hidden">
                     <User className="h-3 w-3 shrink-0" />
                     <span className="truncate">
                         {entry.authors.join(" • ")}

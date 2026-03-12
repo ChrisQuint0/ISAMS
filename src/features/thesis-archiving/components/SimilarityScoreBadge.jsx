@@ -7,21 +7,18 @@ export function SimilarityScoreBadge({ score, className, threshold = 20 }) {
     const isFlagged = score > threshold;
     const isHigh = score > 50;
 
-    let variant = "default";
     let Icon = CheckCircle2;
     let label = "Safe";
-    let colorClass = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+    let colorClass = "bg-green-500/10 text-green-700 border-green-500/30";
 
     if (isHigh) {
-        variant = "destructive";
         Icon = AlertCircle;
         label = "High Similarity";
-        colorClass = "bg-red-500/10 text-red-400 border-red-500/20";
+        colorClass = "bg-red-500/10 text-red-600 border-red-500/30";
     } else if (isFlagged) {
-        variant = "secondary";
         Icon = AlertTriangle;
         label = "Flagged";
-        colorClass = "bg-amber-500/10 text-amber-400 border-amber-500/20";
+        colorClass = "bg-amber-500/10 text-amber-600 border-amber-500/30";
     }
 
     return (
