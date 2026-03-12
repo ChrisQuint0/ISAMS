@@ -185,7 +185,8 @@ export const settingsService = {
         course_name: courseName || null,
         file_url: publicUrl,
         file_size_bytes: file.size,
-        is_active_default: true
+        is_active_default: true,
+        font_color: '#006B35' // Default to institutional green for new templates
       })
       .select('*')
       .single();
@@ -207,10 +208,14 @@ export const settingsService = {
     if (error) throw error;
   },
 
-  updateTemplateCoordinates: async (templateId, x, y) => {
+  updateTemplateCoordinates: async (templateId, x, y, fontColor = null, fontSize = null) => {
+    const payload = { x_coord: x, y_coord: y };
+    if (fontColor) payload.font_color = fontColor;
+    if (fontSize) payload.font_size = fontSize;
+
     const { error } = await supabase
       .from('templates_fs')
-      .update({ x_coord: x, y_coord: y })
+      .update(payload)
       .eq('template_id', templateId);
     if (error) throw error;
   },
@@ -264,7 +269,7 @@ export const settingsService = {
       if (data && data.needsServerOcr) {
         console.log("[OCR] Image detected. Falling back to local Express server...");
         try {
-          const fallbackRes = await fetch("http://localhost:3000/api/validate-image", {
+          const fallbackRes = await fetch("http://localhost:3002/api/validate-image", {
             method: "POST",
             body: formData,
           });
@@ -280,7 +285,7 @@ export const settingsService = {
         } catch (fallbackError) {
           console.error("Local Fallback Error Detail:", fallbackError);
           const detail = fallbackError.message || JSON.stringify(fallbackError);
-          return { success: false, error: `Local OCR validation failed: ${detail}. Please ensure your Express server is running on port 3000.` };
+          return { success: false, error: `Local OCR validation failed: ${detail}. Please ensure your Express server is running on port 3002.` };
         }
       }
 
@@ -350,6 +355,7 @@ export const settingsService = {
     if (field === 'emp_id') payload.p_emp_id = value;
     if (field === 'employment_type') payload.p_employment_type = value;
     if (field === 'is_active') payload.p_is_active = value;
+    if (field === 'gdrive_folder_id') payload.p_gdrive_folder_id = value;
     const { error } = await supabase.rpc('upsert_faculty_management_fs', payload);
     if (error) throw error;
   },
@@ -428,13 +434,6 @@ export const settingsService = {
     if (error) throw error;
     if (data && data.success === false) throw new Error(data.message || "Failed to upsert holiday.");
   },
-
-  deleteHoliday: async (holidayId) => {
-    const { data, error } = await supabase.rpc('delete_holiday_fs', { p_id: holidayId });
-    if (error) throw error;
-    if (data && data.success === false) throw new Error(data.message || "Failed to delete holiday");
-  },
-
   // DANGER ZONE: Reset Semester
   resetSemester: async (semester, year) => {
     const { data, error } = await supabase.rpc('reset_semester_fs', {

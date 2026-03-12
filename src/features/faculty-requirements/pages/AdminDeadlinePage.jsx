@@ -153,8 +153,7 @@ export default function AdminDeadlinePage() {
   const nextUpcoming = useMemo(() => {
     return deadlines
       .filter(d => d.status === 'Upcoming')
-      .sort((a, b) => new Date(a.issue_date) - new Date(b.issue_date))
-      .slice(0, 3);
+      .sort((a, b) => new Date(a.issue_date) - new Date(b.issue_date));
   }, [deadlines]);
 
   const nextActive = useMemo(() => {
@@ -164,8 +163,7 @@ export default function AdminDeadlinePage() {
         const dateDiff = new Date(a.deadline_date) - new Date(b.deadline_date);
         if (dateDiff !== 0) return dateDiff;
         return a.type_name.localeCompare(b.type_name);
-      })
-      .slice(0, 3);
+      });
   }, [deadlines]);
 
   const sortedDeadlines = useMemo(() => {
@@ -351,7 +349,7 @@ export default function AdminDeadlinePage() {
       setConfirmDialog({
         isOpen: true,
         title: "Extend All Deadlines",
-        message: "Are you sure? This will extend ALL active deadlines by 7 days.",
+        message: "Are you sure? This will extend ALL non-passed deadlines by 7 days.",
         confirmText: "Extend Deadlines",
         onConfirm: () => {
           handleBulkAction('EXTEND', 7);
@@ -362,7 +360,7 @@ export default function AdminDeadlinePage() {
       setConfirmDialog({
         isOpen: true,
         title: "Apply Bulk Grace Periods",
-        message: `Add ${settings.default_grace || 3} extra grace days to ALL active deadlines? This will move the Hard Cutoff dates.`,
+        message: `Add ${settings.default_grace || 3} extra grace days to ALL non-passed deadlines? This will move the Hard Cutoff dates.`,
         confirmText: "Add Grace",
         onConfirm: () => {
           handleBulkAction('GRACE', settings.default_grace || 3);
@@ -640,7 +638,7 @@ export default function AdminDeadlinePage() {
                     No active deadlines
                   </div>
                 ) : (
-                  nextActive.map((d, idx) => {
+                  nextActive.slice(0, 6).map((d, idx) => {
                     const daysLeft = getDaysLeft(d.deadline_date, d.grace_period_days);
                     const isUrgent = daysLeft.includes('today') || daysLeft.includes('tomorrow') || (parseInt(daysLeft) <= 3 && !daysLeft.includes('Grace'));
                     const isGrace = d.status === 'Grace Period';
@@ -697,7 +695,7 @@ export default function AdminDeadlinePage() {
                     No upcoming items
                   </div>
                 ) : (
-                  nextUpcoming.map((d, idx) => {
+                  nextUpcoming.slice(0, 6).map((d, idx) => {
                     const daysUntil = getDaysUntil(d.issue_date);
                     return (
                       <div

@@ -167,6 +167,29 @@ export const FacultySubmissionService = {
                 });
 
             if (insertError) throw insertError;
+
+            // 7. Status Lifecycle Logic: If this was a revision request, mark as RESUBMITTED
+            // This ensures the "Revision Request Success" flow
+            const { data: currentSub } = await supabase
+                .from('submissions_fs')
+                .select('submission_status')
+                .eq('faculty_id', faculty.faculty_id)
+                .eq('course_id', courseId)
+                .eq('doc_type_id', docTypeId)
+                .single();
+
+            if (currentSub?.submission_status === 'REVISION_REQUESTED') {
+                await supabase
+                    .from('submissions_fs')
+                    .update({ 
+                        submission_status: 'RESUBMITTED',
+                        approval_remarks: 'File re-submitted by faculty after revision request.'
+                    })
+                    .eq('faculty_id', faculty.faculty_id)
+                    .eq('course_id', courseId)
+                    .eq('doc_type_id', docTypeId);
+            }
+
             return data;
 
         } catch (error) {
@@ -315,6 +338,37 @@ export const FacultySubmissionService = {
             return data;
         } catch (error) {
             console.error('Error fetching submission history:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Clear Submission History for Faculty
+     */
+    async clearSubmissionHistory() {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error('User not authenticated');
+
+            // 1. Get faculty ID
+            const { data: faculty } = await supabase
+                .from('faculty_fs')
+                .select('faculty_id')
+                .eq('user_id', user.id)
+                .single();
+
+            if (!faculty) throw new Error('Faculty profile not found');
+
+            // 2. Delete submissions
+            const { error } = await supabase
+                .from('submissions_fs')
+                .delete()
+                .eq('faculty_id', faculty.faculty_id);
+
+            if (error) throw error;
+            return true;
+        } catch (error) {
+            console.error('Error clearing submission history:', error);
             throw error;
         }
     }

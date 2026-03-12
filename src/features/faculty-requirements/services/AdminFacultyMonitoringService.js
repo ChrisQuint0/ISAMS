@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
+import { getFolderLink, getFolderId, uploadToGDrive, ensureFolderStructure, deleteGDriveFile } from './gdriveSettings';
 
 export const facultyMonitorService = {
   /**
@@ -8,7 +9,8 @@ export const facultyMonitorService = {
     const { data, error } = await supabase.rpc('get_faculty_monitoring_fs', {
       p_semester: filters.semester === 'All Semesters' ? null : filters.semester,
       p_academic_year: filters.academic_year === 'All Years' ? null : filters.academic_year,
-      p_department: filters.department === 'All Departments' ? null : filters.department,
+      p_course_code: filters.course === 'All Courses' ? null : filters.course,
+      p_section: filters.section === 'All Sections' ? null : filters.section,
       p_status: filters.status === 'All Status' ? null : filters.status,
       p_search: filters.search || null
     });
@@ -38,15 +40,44 @@ export const facultyMonitorService = {
    * Helper options
    */
   getOptions: async () => {
-    const [depts, courses] = await Promise.all([
-      supabase.from('faculty_fs').select('department').neq('department', null),
-      supabase.from('courses_fs').select('course_code')
+    // 1. Get current semester/year settings for filtering
+    const { data: settings } = await supabase
+      .from('systemsettings_fs')
+      .select('setting_key, setting_value')
+      .in('setting_key', ['current_semester', 'current_academic_year']);
+
+    const currentSem = settings?.find(s => s.setting_key === 'current_semester')?.setting_value;
+    const currentYear = settings?.find(s => s.setting_key === 'current_academic_year')?.setting_value;
+
+    // Fallbacks if settings missing
+    const fallbackSem = (EXTRACT_MONTH) => {
+      const month = new Date().getMonth() + 1;
+      if (month >= 1 && month <= 5) return '2nd Semester';
+      if (month >= 6 && month <= 7) return 'Summer';
+      return '1st Semester';
+    };
+    const fallbackYear = `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
+
+    const sem = currentSem || fallbackSem();
+    const year = currentYear || fallbackYear;
+
+    // 2. Fetch unique sections and courses for the CURRENT semester/year
+    const [sections, courses] = await Promise.all([
+      supabase.from('courses_fs')
+        .select('section')
+        .eq('semester', sem)
+        .eq('academic_year', year)
+        .neq('section', null),
+      supabase.from('courses_fs')
+        .select('course_code')
+        .eq('semester', sem)
+        .eq('academic_year', year)
     ]);
 
     // Unique values
     return {
-      departments: [...new Set(depts.data?.map(d => d.department))],
-      courses: [...new Set(courses.data?.map(c => c.course_code))]
+      sections: [...new Set(sections.data?.map(s => s.section))].sort(),
+      courses: [...new Set(courses.data?.map(c => c.course_code))].sort()
     };
   },
 
@@ -117,7 +148,7 @@ export const facultyMonitorService = {
   exportToCSV: (data, filename = 'faculty_monitoring_report.csv') => {
     if (!data || !data.length) return;
 
-    const headers = ["Faculty ID", "Name", "Department", "Status", "Overall Progress", "Pending", "Late", "Assigned Courses"];
+    const headers = ["EMP ID", "Name", "Status", "Overall Progress", "Submitted", "Pending", "Late", "Assigned Courses"];
 
     const escapeCsv = (str) => {
       if (str === null || str === undefined) return '';
@@ -129,17 +160,17 @@ export const facultyMonitorService = {
     };
 
     const rows = data.map(f => [
-      escapeCsv(f.faculty_id),
+      escapeCsv(f.emp_id || f.faculty_id),
       escapeCsv(`${f.first_name} ${f.last_name}`),
-      escapeCsv(f.department),
       escapeCsv(f.status),
       `${f.overall_progress}%`,
+      f.submitted_submissions,
       f.pending_submissions,
       f.late_submissions,
-      escapeCsv(f.courses ? f.courses.map(c => c.course_code).join('; ') : '')
+      escapeCsv(f.courses ? f.courses.map(c => c.course_code).join('; ') : 'N/A')
     ]);
 
-    const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
 
     // Create download link
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -151,5 +182,193 @@ export const facultyMonitorService = {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  },
+
+  /**
+   * Admin Force Upload Submission
+   * Bypasses OCR/Validation and uploads on behalf of faculty
+   */
+  adminUploadSubmission: async ({ file, facultyId, courseId, docTypeId }) => {
+    try {
+      // 1. Get faculty profile
+      const { data: faculty } = await supabase
+        .from('faculty_fs')
+        .select('*')
+        .eq('faculty_id', facultyId)
+        .single();
+      if (!faculty) throw new Error('Faculty profile not found');
+
+      const facultyName = `${faculty.first_name || ''} ${faculty.last_name || ''}`.trim();
+
+      // 2. Get course details
+      const { data: course } = await supabase
+        .from('courses_fs')
+        .select('course_code, section, semester, academic_year')
+        .eq('course_id', courseId)
+        .single();
+
+      // 3. Get document type name
+      const { data: docType } = await supabase
+        .from('documenttypes_fs')
+        .select('type_name, gdrive_folder_name')
+        .eq('doc_type_id', docTypeId)
+        .single();
+
+      const technicalFolder = docType?.gdrive_folder_name || docType?.type_name || 'Other';
+      const displayDocType = docType?.type_name || 'Document';
+
+      // 4. Resolve GDrive Folder
+      const folderLink = await getFolderLink();
+      const rootFolderId = getFolderId(folderLink);
+      if (!rootFolderId) throw new Error('GDrive root folder not configured in Admin Settings.');
+
+      const targetFolderId = await ensureFolderStructure(rootFolderId, {
+        academicYear: course?.academic_year,
+        semester: course?.semester,
+        facultyName,
+        courseCode: course?.course_code,
+        section: course?.section,
+        docTypeName: technicalFolder,
+      });
+
+      // 5. Standardize Filename
+      const cleanLastName = (faculty.last_name || '').replace(/\s+/g, '_');
+      const cleanFirstName = (faculty.first_name || '').replace(/\s+/g, '_');
+      const cleanDocType = displayDocType.replace(/\s+/g, '_');
+      const cleanOriginal = file.name.substring(0, file.name.lastIndexOf('.')).replace(/[^a-zA-Z0-9]/g, '_');
+      const extension = file.name.substring(file.name.lastIndexOf('.'));
+      const standardizedName = `${course?.course_code || 'COURSE'}_${cleanLastName}_${cleanFirstName}_${cleanDocType}_${cleanOriginal}${extension}`;
+
+      const renamedFile = new File([file], standardizedName, { type: file.type });
+
+      // 6. Upload
+      const gdriveFile = await uploadToGDrive(renamedFile, targetFolderId);
+
+      // 7. Database Update (RPC)
+      const { data, error: rpcError } = await supabase.rpc('upsert_submission_with_versioning_fs', {
+        p_faculty_id: facultyId,
+        p_course_id: courseId,
+        p_doc_type_id: docTypeId,
+        p_original_filename: file.name,
+        p_standardized_filename: gdriveFile.name,
+        p_file_size_bytes: file.size,
+        p_mime_type: file.type,
+        p_file_checksum: null,
+        p_gdrive_file_id: gdriveFile.id,
+        p_gdrive_web_view_link: gdriveFile.webViewLink,
+        p_gdrive_download_link: gdriveFile.webContentLink || gdriveFile.webViewLink,
+        p_is_staged: false
+      });
+
+      if (rpcError) throw rpcError;
+
+      return data;
+    } catch (error) {
+      console.error('Error in adminUploadSubmission:', error);
+      throw error;
+    }
+  },
+
+
+  /**
+   * Request a revision for a submitted document
+   * Updates the submission status and creates a notification
+   */
+  requestRevision: async ({ submissionId, submissionIds, gdriveFileIds, shouldDelete, facultyId, reason, courseDetails, docType, filenames }) => {
+    // Standardize IDs into an array
+    const ids = submissionIds || (submissionId ? [submissionId] : []);
+    const gIds = gdriveFileIds || [];
+    if (ids.length === 0) return true;
+
+    // 1. Move files to GDrive Trash (Soft Delete) if requested
+    if (shouldDelete && gIds.length > 0) {
+      await Promise.all(gIds.map(gid => deleteGDriveFile(gid)));
+    }
+
+    // 2. Update submission status for all selected IDs
+    const { error: updateError } = await supabase
+      .from('submissions_fs')
+      .update({
+        submission_status: 'REVISION_REQUESTED',
+        approval_remarks: reason
+      })
+      .in('submission_id', ids);
+
+    if (updateError) throw updateError;
+
+    // 3. Notify the faculty
+    const { error: notifError } = await supabase.from('notifications_fs').insert({
+      faculty_id: facultyId,
+      notification_type: 'REVISION_REQUEST',
+      subject: 'Document Revision Required',
+      message: reason || 'Please review and resubmit your document — the admin has requested a revision.'
+    });
+
+    if (notifError) throw notifError;
+
+    // Fire a real email — non-blocking (don't fail if email fails)
+    try {
+      await adminFacultyMonitoringService.sendEmail({
+        facultyId,
+        template: 'revision_request',
+        message: reason,
+        courseDetails,
+        docType,
+        filenames
+      });
+    } catch (emailErr) {
+      console.warn('Email send failed (non-critical):', emailErr.message);
+    }
+
+    return true;
+  },
+
+  /**
+   * Send a real email via the local Express server (SendGrid)
+   */
+  sendEmail: async ({ facultyId, template = 'deadline_reminder', subject, message, pendingCount, lateCount, courseDetails, docType, filenames }) => {
+    const res = await fetch('http://localhost:3002/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        faculty_id: facultyId,
+        template,
+        subject,
+        message,
+        pending_count: pendingCount,
+        late_count: lateCount,
+        courseDetails,
+        docType,
+        filenames
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Email send failed');
+    return data; // { success: true, email_sent_to: '...', template }
+  },
+
+  /**
+   * Send bulk reminder emails to a list of faculty
+   */
+  sendBulkEmails: async (facultyList, { subject, message, template = 'deadline_reminder' } = {}) => {
+    const results = await Promise.allSettled(
+      facultyList.map(f =>
+        adminFacultyMonitoringService.sendEmail({
+          facultyId: f.faculty_id || f.id,
+          template,
+          subject,
+          message,
+          pendingCount: f.pending_submissions,
+          lateCount: f.late_submissions
+        })
+      )
+    );
+
+    const succeeded = results.filter(r => r.status === 'fulfilled').length;
+    const failed = results.filter(r => r.status === 'rejected').length;
+    return { succeeded, failed, total: facultyList.length };
   }
 };
+
+// Self-reference so internal methods (requestRevision) can call sendEmail
+const adminFacultyMonitoringService = facultyMonitorService;

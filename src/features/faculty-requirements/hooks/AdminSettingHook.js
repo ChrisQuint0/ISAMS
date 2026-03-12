@@ -68,13 +68,26 @@ export function useAdminSettings() {
 
   const deleteDocRequirement = async (id) => {
     try {
+      // Check if doc type is active in Deadline Manager
+      const { data: deadlines, error: deadlineError } = await supabase
+        .from('deadlines_fs')
+        .select('deadline_id')
+        .eq('doc_type_id', id)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (deadlineError) throw deadlineError;
+      if (deadlines) {
+        throw new Error("Cannot Delete since its active on the Deadline Manager.");
+      }
+
       await settingsService.deleteDocType(id);
       setDocRequirements(prev => prev.filter(item => item.id !== id));
       setSuccess("Requirement deleted.");
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      setError("Failed to delete: " + err.message);
-      setTimeout(() => setError(null), 3000);
+      setError(err.message);
+      setTimeout(() => setError(null), 4000);
     } finally {
       setLoading(false);
     }
@@ -155,9 +168,9 @@ export function useAdminSettings() {
   };
 
   // Template Coordinate Handlers
-  const updateTemplateCoordinates = async (id, x, y) => {
+  const updateTemplateCoordinates = async (id, x, y, fontColor = null, fontSize = null) => {
     try {
-      await settingsService.updateTemplateCoordinates(id, x, y);
+      await settingsService.updateTemplateCoordinates(id, x, y, fontColor, fontSize);
       await fetchData();
       return true;
     } catch (err) {
@@ -179,6 +192,21 @@ export function useAdminSettings() {
       return;
     }
 
+    // --- Duplicate Emp ID pre-check (before DB call) ---
+    if (field === 'emp_id' && value) {
+      const conflict = facultyList.find(f =>
+        f.faculty_id !== facultyId &&
+        f.emp_id?.trim().toLowerCase() === value.trim().toLowerCase()
+      );
+      if (conflict) {
+        const conflictName = `${conflict.first_name} ${conflict.last_name}`.trim();
+        setError(`Failed to save Emp ID since faculty "${conflictName}" already has the same Emp ID.`);
+        setTimeout(() => setError(null), 5000);
+        fetchData(); // Immediately re-sync grid to revert the cell back to the old value
+        return;
+      }
+    }
+
     setFacultyList(prev => prev.map(f =>
       f.faculty_id === facultyId ? { ...f, [field]: value } : f
     ));
@@ -189,8 +217,21 @@ export function useAdminSettings() {
       setTimeout(() => setSuccess(null), 1500);
     } catch (err) {
       console.error('updateFacultyManagement failed:', { facultyId, field, value, err });
-      setError('Failed to update: ' + err.message);
-      setTimeout(() => setError(null), 4000);
+      const isUniqueViolation = err.message?.includes('uq_faculty_emp_id') || err.message?.includes('unique constraint');
+      if (isUniqueViolation && field === 'emp_id') {
+        // Look up who has the conflicting emp_id
+        const conflict = facultyList.find(f =>
+          f.faculty_id !== facultyId &&
+          f.emp_id?.trim().toLowerCase() === value?.trim().toLowerCase()
+        );
+        const conflictName = conflict
+          ? `"${conflict.first_name} ${conflict.last_name}"`
+          : 'another faculty member';
+        setError(`Failed to save Emp ID since faculty ${conflictName} already has the same Emp ID.`);
+      } else {
+        setError('Failed to update: ' + err.message);
+      }
+      setTimeout(() => setError(null), 5000);
       await fetchData();
     }
   };
@@ -368,20 +409,6 @@ export function useAdminSettings() {
     }
   };
 
-  const handleDeleteHoliday = async (id) => {
-    setLoading(true);
-    try {
-      await settingsService.deleteHoliday(id);
-      setHolidays(prev => prev.filter(h => h.holiday_id !== id));
-      setSuccess("Holiday deleted.");
-      setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
-      setError("Failed to delete holiday: " + err.message);
-      setTimeout(() => setError(null), 3000);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Initial Load
   const fetchData = useCallback(async () => {
@@ -433,6 +460,8 @@ export function useAdminSettings() {
         updated: new Date(t.created_at).toLocaleDateString(),
         x_coord: t.x_coord,
         y_coord: t.y_coord,
+        font_color: t.font_color,
+        font_size: t.font_size,
         file_url: t.file_url
       })));
 
@@ -523,7 +552,7 @@ export function useAdminSettings() {
     masterCourseList, handleAddMasterCourse, handleDeleteMasterCourse, handleUpdateMasterCourseField,
     courseList, handleAddCourse, handleDeleteCourse,
     runTestOCR,
-    systemHealth, holidays, handleAddHoliday, handleBulkAddHolidays, handleDeleteHoliday,
+    systemHealth, holidays, handleAddHoliday, handleBulkAddHolidays,
     availableSystemUsers,
     refresh: fetchData
   };
