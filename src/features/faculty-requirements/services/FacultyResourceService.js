@@ -186,7 +186,7 @@ export const FacultyResourceService = {
             });
 
             // 3. POST the payload to your Node server
-            const response = await fetch('http://localhost:3000/api/faculty/export', {
+            const response = await fetch('http://localhost:3002/api/faculty/export', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ courseId, files: payloadFiles })

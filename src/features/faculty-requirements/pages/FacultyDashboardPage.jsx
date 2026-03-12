@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import {
@@ -13,16 +13,24 @@ import {
   Send,
   Download,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  GraduationCap,
+  Award,
+  CheckCircle
 } from "lucide-react";
 import { useFacultyDashboard } from "../hooks/FacultyDashboardHook";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { DataTable } from "@/components/DataTable"; // Using your standardized wrapper
+import { DataTable } from "@/components/DataTable";
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { saveAs } from 'file-saver';
 
 export default function FacultyDashboardPage() {
   const navigate = useNavigate();
-  const { stats, settings, courses, recentActivity, loading, error } = useFacultyDashboard();
+  const { stats, settings, courses, recentActivity, loading, error, facultyProfile, templates } = useFacultyDashboard();
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [success, setSuccess] = useState(null);
+  const [localError, setLocalError] = useState(null);
 
   const recentActivityColDefs = useMemo(() => [
     {
@@ -77,6 +85,71 @@ export default function FacultyDashboardPage() {
     }
   ], []);
 
+  const hexToRgbHelper = (hex) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+      r: parseInt(result[1], 16) / 255,
+      g: parseInt(result[2], 16) / 255,
+      b: parseInt(result[3], 16) / 255
+    } : { r: 0, g: 107 / 255, b: 53 / 255 }; // Fallback to green
+  };
+
+  const handleDownloadCertificate = async () => {
+    const certificateTemplate = templates.find(t => t.system_category === 'CLEARANCE_CERTIFICATE');
+
+    if (!certificateTemplate) {
+      setLocalError("Active Clearance Certificate template not found in System Settings.");
+      return;
+    }
+
+    setIsGenerating(true);
+    setLocalError(null);
+    try {
+      // Fetch PDF bytes
+      const bytes = await fetch(certificateTemplate.file_url).then(res => res.arrayBuffer());
+      const pdfDoc = await PDFDocument.load(bytes);
+
+      const pages = pdfDoc.getPages();
+      const firstPage = pages[0];
+      const { width } = firstPage.getSize();
+      const helveticaFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+      // Stamp faculty name
+      const firstName = facultyProfile?.first_name || '';
+      const lastName = facultyProfile?.last_name || 'Faculty';
+      const name = firstName || lastName ? `${firstName} ${lastName}`.trim().toUpperCase() : "FACULTY NAME";
+
+      const fontSize = certificateTemplate.font_size ? Number(certificateTemplate.font_size) : 24;
+      const textWidth = helveticaFont.widthOfTextAtSize(name, fontSize);
+
+      // Horizontal centering logic
+      const centerX = (width - textWidth) / 2;
+      const y = certificateTemplate.y_coord ? Number(certificateTemplate.y_coord) : 300;
+
+      const colorHex = certificateTemplate.font_color || '#006B35';
+      const rgbColor = hexToRgbHelper(colorHex);
+
+      firstPage.drawText(name, {
+        x: centerX,
+        y: y,
+        size: fontSize,
+        font: helveticaFont,
+        color: rgb(rgbColor.r, rgbColor.g, rgbColor.b),
+      });
+
+      const pdfBytes = await pdfDoc.save();
+      saveAs(new Blob([pdfBytes], { type: 'application/pdf' }), `Clearance_${facultyProfile?.last_name || 'Certificate'}.pdf`);
+      setSuccess("Certificate generated successfully!");
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      console.error(err);
+      setLocalError("Failed to generate certificate.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Error is handled in the main return for better visibility
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-96">
@@ -86,17 +159,23 @@ export default function FacultyDashboardPage() {
     );
   }
 
-  if (error) {
-    return (
-      <Alert variant="destructive" className="border-destructive/30 bg-destructive/5 text-destructive shadow-sm">
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription className="font-medium">{error}</AlertDescription>
-      </Alert>
-    );
-  }
-
   return (
     <div className="space-y-6 flex flex-col h-full bg-neutral-50/30">
+      {/* Alerts */}
+      {(error || localError) && (
+        <Alert variant="destructive" className="border-destructive/30 bg-destructive/5 text-destructive shadow-sm animate-in fade-in slide-in-from-top-1">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="font-medium">{error || localError}</AlertDescription>
+        </Alert>
+      )}
+
+      {success && (
+        <Alert className="bg-emerald-50 border-emerald-200 text-emerald-800 shadow-sm animate-in fade-in slide-in-from-top-1">
+          <CheckCircle className="h-4 w-4 text-emerald-600" />
+          <AlertDescription className="font-medium">{success}</AlertDescription>
+        </Alert>
+      )}
+
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-neutral-900 mb-1">To-Do Command Center</h1>
@@ -203,11 +282,12 @@ export default function FacultyDashboardPage() {
             </p>
           </div>
           <Button
-            disabled={stats.pending_count > 0}
+            disabled={stats.pending_count > 0 || isGenerating}
+            onClick={handleDownloadCertificate}
             className={`w-full font-bold shadow-sm transition-all ${stats.pending_count === 0 ? 'bg-success hover:bg-success/90 text-white active:scale-95' : 'bg-neutral-100 text-neutral-400 border border-neutral-200 cursor-not-allowed'}`}
           >
-            <Download className="h-4 w-4 mr-2" />
-            Download Certificate
+            {isGenerating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+            {isGenerating ? 'Generating...' : 'Download Certificate'}
           </Button>
         </div>
       </div>

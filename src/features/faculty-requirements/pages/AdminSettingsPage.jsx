@@ -90,6 +90,99 @@ const CourseFacultyEditor = React.forwardRef(({ value: initialValue, facultyList
 });
 CourseFacultyEditor.displayName = 'CourseFacultyEditor';
 
+
+// System Status Card Component to isolate re-renders
+const SystemStatusCard = ({ systemHealth }) => {
+    const [uptimeSeconds, setUptimeSeconds] = useState(0);
+
+    useEffect(() => {
+        const key = 'isams_admin_session_start';
+        if (!sessionStorage.getItem(key)) {
+            sessionStorage.setItem(key, Date.now().toString());
+        }
+        const tick = setInterval(() => {
+            const start = parseInt(sessionStorage.getItem(key) || Date.now().toString(), 10);
+            setUptimeSeconds(Math.floor((Date.now() - start) / 1000));
+        }, 1000);
+        return () => clearInterval(tick);
+    }, []);
+
+    const formatUptime = (secs) => {
+        const h = Math.floor(secs / 3600);
+        const m = Math.floor((secs % 3600) / 60);
+        const s = secs % 60;
+        if (h > 0) return `${h}h ${m}m ${s}s`;
+        if (m > 0) return `${m}m ${s}s`;
+        return `${s}s`;
+    };
+
+    const isHealthy = !!systemHealth?.db_size;
+
+    return (
+        <Card className="bg-white border-neutral-200 shadow-sm">
+            <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
+                <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
+                    <Server className="h-4 w-4 text-primary-600" /> System Status
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-4">
+                <div className={`rounded-xl border p-4 space-y-3 transition-all duration-500 ${isHealthy
+                    ? 'border-success/30 bg-success/5'
+                    : 'border-destructive/30 bg-destructive/5'
+                    }`}>
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-widest text-neutral-500">Operational Status</span>
+                        <span className={`flex items-center gap-1.5 text-xs font-bold ${isHealthy ? 'text-success' : 'text-destructive'}`}>
+                            <span className={`inline-block h-2 w-2 rounded-full animate-pulse ${isHealthy ? 'bg-success' : 'bg-destructive'}`} />
+                            {isHealthy ? 'All Systems Go' : 'Degraded'}
+                        </span>
+                    </div>
+
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-sm text-neutral-600 font-medium">
+                                {isHealthy ? <Wifi className="h-4 w-4 text-success" /> : <WifiOff className="h-4 w-4 text-destructive" />}
+                                <span>Database</span>
+                            </div>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${isHealthy
+                                ? 'bg-success/10 text-success border border-success/20'
+                                : 'bg-destructive/10 text-destructive border border-destructive/20'
+                                }`}>
+                                {isHealthy ? 'HEALTHY' : 'UNREACHABLE'}
+                            </span>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-sm text-neutral-600 font-medium">
+                                <Clock className="h-4 w-4 text-info" />
+                                <span>Operational Time</span>
+                            </div>
+                            <span className="text-xs font-mono font-bold text-neutral-900">
+                                {formatUptime(uptimeSeconds)}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="space-y-1 pt-2">
+                    <div className="flex justify-between items-center py-1.5 border-b border-neutral-50 last:border-0 hover:bg-neutral-50/50 transition-colors px-1 rounded-md">
+                        <span className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Version</span>
+                        <span className="text-xs font-bold text-neutral-900">ISAMS v1.0.0</span>
+                    </div>
+                    <div className="flex justify-between items-center py-1.5 border-b border-neutral-50 last:border-0 hover:bg-neutral-50/50 transition-colors px-1 rounded-md">
+                        <span className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Last Backup</span>
+                        <span className="text-xs font-bold text-neutral-900">{systemHealth?.last_backup ? new Date(systemHealth.last_backup).toLocaleString() : "Never"}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-1.5 border-b border-neutral-50 last:border-0 hover:bg-neutral-50/50 transition-colors px-1 rounded-md">
+                        <span className="text-xs font-bold text-neutral-500 uppercase tracking-widest">DB Size</span>
+                        <span className="text-xs font-bold text-neutral-900">{systemHealth?.db_size || "Unknown"}</span>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+};
+
 export default function AdminSettingsPage() {
     const {
         loading, processing, setProcessing, error, success, setError, setSuccess,
@@ -100,7 +193,7 @@ export default function AdminSettingsPage() {
         facultyList, handleUpdateFacultyField,
         masterCourseList, handleAddMasterCourse, handleDeleteMasterCourse, handleUpdateMasterCourseField,
         courseList, handleAddCourse, handleDeleteCourse,
-        systemHealth, holidays, handleAddHoliday, handleBulkAddHolidays, handleDeleteHoliday,
+        systemHealth, holidays, handleAddHoliday, handleBulkAddHolidays,
         fetchDocTypeRules, saveDocTypeRules
     } = useAdminSettings();
 
@@ -111,6 +204,7 @@ export default function AdminSettingsPage() {
 
     const [newReq, setNewReq] = useState({ name: '', folder: '', description: '', required: true });
     const [newHoliday, setNewHoliday] = useState({ startDate: '', endDate: '', description: '' });
+    const [isHolidayConfirmOpen, setIsHolidayConfirmOpen] = useState(false);
     const todayStr = useMemo(() => new Date().toLocaleDateString('en-CA'), []);
     const holidayIsPast = newHoliday.startDate && newHoliday.startDate < todayStr;
     const holidayEndDateInvalid = newHoliday.startDate && newHoliday.endDate && newHoliday.endDate < newHoliday.startDate;
@@ -179,7 +273,6 @@ export default function AdminSettingsPage() {
     );
 
     const canAddDocType = newReq.name.trim() && newReq.folder.trim() && !isDuplicateRequirement && !isDuplicateFolder;
-    const [pendingHolidayDeleteId, setPendingHolidayDeleteId] = useState(null);
 
     // Template Hub state
     const [isTemplateModalOpen, setTemplateModalOpen] = useState(false);
@@ -224,48 +317,32 @@ export default function AdminSettingsPage() {
             )
         },
         {
-            headerName: 'Actions',
-            width: 170,
-            sortable: false,
-            filter: false,
+            headerName: 'Status',
+            width: 150,
+            sortable: true,
             cellRenderer: (params) => {
-                const id = params.data.holiday_id || params.data.id;
-                if (pendingHolidayDeleteId === id) {
-                    return (
-                        <div className="flex items-center gap-1 mt-1.5">
-                            <Button
-                                size="xs"
-                                variant="destructive"
-                                onClick={() => { setPendingHolidayDeleteId(null); handleDeleteHoliday(id); }}
-                            >
-                                Confirm
-                            </Button>
-                            <Button
-                                size="xs"
-                                variant="ghost"
-                                className="text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100"
-                                onClick={() => setPendingHolidayDeleteId(null)}
-                            >
-                                Cancel
-                            </Button>
-                        </div>
-                    );
+                const holidayDateStr = new Date(params.data.holiday_date || params.data.date).toLocaleDateString('en-CA');
+                const todayStr = new Date().toLocaleDateString('en-CA');
+
+                let status = 'Upcoming';
+                let style = 'bg-info/10 text-info border-info/20';
+
+                if (todayStr === holidayDateStr) {
+                    status = 'Ongoing';
+                    style = 'bg-primary-500/10 text-primary-600 border-primary-500/20 animate-pulse';
+                } else if (todayStr > holidayDateStr) {
+                    status = 'Passed';
+                    style = 'bg-neutral-100 text-neutral-500 border-neutral-200';
                 }
+
                 return (
-                    <div className="flex items-center mt-1.5">
-                        <Button
-                            size="xs"
-                            variant="ghost"
-                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            onClick={() => setPendingHolidayDeleteId(id)}
-                        >
-                            Remove
-                        </Button>
-                    </div>
+                    <span className={`font-bold text-xs px-2 py-0.5 rounded-full border ${style}`}>
+                        {status}
+                    </span>
                 );
             }
         }
-    ], [handleDeleteHoliday, pendingHolidayDeleteId]);
+    ], []);
 
     // Name Calibrator state
     const [isCalibratorOpen, setIsCalibratorOpen] = useState(false);
@@ -574,29 +651,7 @@ export default function AdminSettingsPage() {
         }
     ], [archiveTemplate]);
 
-    // Uptime tracking
-    const [uptimeSeconds, setUptimeSeconds] = useState(0);
-    React.useEffect(() => {
-        const key = 'isams_admin_session_start';
-        if (!sessionStorage.getItem(key)) {
-            sessionStorage.setItem(key, Date.now().toString());
-        }
-        const tick = setInterval(() => {
-            const start = parseInt(sessionStorage.getItem(key) || Date.now().toString(), 10);
-            setUptimeSeconds(Math.floor((Date.now() - start) / 1000));
-        }, 1000);
-        return () => clearInterval(tick);
-    }, []);
-
-    // Format uptime
-    const formatUptime = (secs) => {
-        const h = Math.floor(secs / 3600);
-        const m = Math.floor((secs % 3600) / 60);
-        const s = secs % 60;
-        if (h > 0) return `${h}h ${m}m ${s}s`;
-        if (m > 0) return `${m}m ${s}s`;
-        return `${s}s`;
-    };
+    // formatUptime (moved to SystemStatusCard)
 
     // Course Form State
     const [newCourse, setNewCourse] = useState({
@@ -935,7 +990,7 @@ export default function AdminSettingsPage() {
                                                         size="sm"
                                                         variant="ghost"
                                                         className="text-neutral-500 hover:text-primary hover:bg-primary/10 transition-colors"
-                                                        onClick={() => window.open('/api/auth', '_blank')}
+                                                        onClick={() => window.open(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/auth`, '_blank')}
                                                     >
                                                         <RefreshCw className="mr-2 h-3 w-3" /> Refresh Auth
                                                     </Button>
@@ -1011,70 +1066,7 @@ export default function AdminSettingsPage() {
 
                                 {/* Right Col: System Info */}
                                 <div className="space-y-6">
-                                    <Card className="bg-white border-neutral-200 shadow-sm">
-                                        <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
-                                            <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
-                                                <Server className="h-4 w-4 text-primary-600" /> System Status
-                                            </CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="pt-6 space-y-4">
-
-                                            {/* Operational Status Box */}
-                                            {(() => {
-                                                const isHealthy = !!systemHealth?.db_size;
-                                                return (
-                                                    <div className={`rounded-xl border p-4 space-y-3 transition-all duration-500 ${isHealthy
-                                                        ? 'border-success/30 bg-success/5'
-                                                        : 'border-destructive/30 bg-destructive/5'
-                                                        }`}>
-                                                        <div className="flex items-center justify-between">
-                                                            <span className="text-xs font-bold uppercase tracking-widest text-neutral-500">Operational Status</span>
-                                                            <span className={`flex items-center gap-1.5 text-xs font-bold ${isHealthy ? 'text-success' : 'text-destructive'}`}>
-                                                                <span className={`inline-block h-2 w-2 rounded-full animate-pulse ${isHealthy ? 'bg-success' : 'bg-destructive'}`} />
-                                                                {isHealthy ? 'All Systems Go' : 'Degraded'}
-                                                            </span>
-                                                        </div>
-
-                                                        <div className="space-y-2">
-                                                            {/* Database row */}
-                                                            <div className="flex items-center justify-between">
-                                                                <div className="flex items-center gap-2 text-sm text-neutral-600 font-medium">
-                                                                    {isHealthy
-                                                                        ? <Wifi className="h-4 w-4 text-success" />
-                                                                        : <WifiOff className="h-4 w-4 text-destructive" />
-                                                                    }
-                                                                    <span>Database</span>
-                                                                </div>
-                                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${isHealthy
-                                                                    ? 'bg-success/10 text-success border border-success/20'
-                                                                    : 'bg-destructive/10 text-destructive border border-destructive/20'
-                                                                    }`}>
-                                                                    {isHealthy ? 'HEALTHY' : 'UNREACHABLE'}
-                                                                </span>
-                                                            </div>
-
-                                                            {/* Operational Time row */}
-                                                            <div className="flex items-center justify-between">
-                                                                <div className="flex items-center gap-2 text-sm text-neutral-600 font-medium">
-                                                                    <Clock className="h-4 w-4 text-info" />
-                                                                    <span>Operational Time</span>
-                                                                </div>
-                                                                <span className="text-xs font-mono font-bold text-neutral-900">
-                                                                    {formatUptime(uptimeSeconds)}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })()}
-
-                                            <div className="space-y-1 pt-2">
-                                                <InfoRow label="Version" value="ISAMS v1.0.0" />
-                                                <InfoRow label="Last Backup" value={systemHealth?.last_backup ? new Date(systemHealth.last_backup).toLocaleString() : "Never"} />
-                                                <InfoRow label="DB Size" value={systemHealth?.db_size || "Unknown"} />
-                                            </div>
-                                        </CardContent>
-                                    </Card>
+                                    <SystemStatusCard systemHealth={systemHealth} />
                                 </div>
                             </div>
                         </TabsContent>
@@ -1821,7 +1813,9 @@ export default function AdminSettingsPage() {
                                     <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
                                         <Clock className="h-4 w-4 text-primary-600" /> Holiday Scheduling
                                     </CardTitle>
-                                    <CardDescription className="text-neutral-500">Manage holidays to pause automated email reminders.</CardDescription>
+                                    <CardDescription className="text-neutral-500 as-div">
+                                        <div className="mt-1">Manage blackout dates for submissions.</div>
+                                    </CardDescription>
                                 </CardHeader>
                                 <CardContent className="pt-6 space-y-6">
                                     {/* Add Holiday Date Range */}
@@ -1861,12 +1855,7 @@ export default function AdminSettingsPage() {
                                             disabled={!canAddHoliday}
                                             onClick={async () => {
                                                 if (canAddHoliday) {
-                                                    const success = await handleBulkAddHolidays(
-                                                        newHoliday.startDate,
-                                                        newHoliday.endDate,
-                                                        newHoliday.description
-                                                    );
-                                                    if (success) setNewHoliday({ startDate: '', endDate: '', description: '' });
+                                                    setIsHolidayConfirmOpen(true);
                                                 }
                                             }}
                                         >
@@ -1904,6 +1893,54 @@ export default function AdminSettingsPage() {
                                             </p>
                                         )}
                                     </div>
+
+                                    {/* Holiday Confirm Dialog */}
+                                    <Dialog open={isHolidayConfirmOpen} onOpenChange={setIsHolidayConfirmOpen}>
+                                        <DialogContent className="bg-white border-neutral-200 text-neutral-900 sm:max-w-[420px] shadow-xl">
+                                            <DialogHeader>
+                                                <DialogTitle className="text-neutral-900 font-bold flex items-center gap-2">
+                                                    <AlertCircle className="h-5 w-5 text-warning" />
+                                                    Confirm Schedule Shift
+                                                </DialogTitle>
+                                                <DialogDescription className="text-neutral-500 font-medium pb-2">
+                                                    Adding a holiday will push active and upcoming deadlines forward. <strong className="text-amber-700">This action cannot be undone.</strong>
+                                                </DialogDescription>
+                                            </DialogHeader>
+
+                                            <div className="space-y-3 py-2 border-y border-neutral-100">
+                                                <div className="space-y-1">
+                                                    <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Description</p>
+                                                    <p className="font-semibold text-neutral-900 bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm">{newHoliday.description}</p>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Date Range</p>
+                                                    <p className="font-semibold text-primary-700 bg-primary-50 border border-primary-200 rounded-lg px-3 py-2 text-sm">
+                                                        {newHoliday.startDate} {newHoliday.endDate ? `to ${newHoliday.endDate}` : ''}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <DialogFooter className="gap-2 mt-4 pt-2">
+                                                <Button variant="outline" className="border-neutral-200 text-neutral-600 shadow-sm" onClick={() => setIsHolidayConfirmOpen(false)}>
+                                                    Cancel
+                                                </Button>
+                                                <Button
+                                                    className="bg-primary-600 hover:bg-primary-700 text-white font-bold shadow-sm"
+                                                    onClick={async () => {
+                                                        setIsHolidayConfirmOpen(false);
+                                                        const success = await handleBulkAddHolidays(
+                                                            newHoliday.startDate,
+                                                            newHoliday.endDate,
+                                                            newHoliday.description
+                                                        );
+                                                        if (success) setNewHoliday({ startDate: '', endDate: '', description: '' });
+                                                    }}
+                                                >
+                                                    Yes, Add Holiday
+                                                </Button>
+                                            </DialogFooter>
+                                        </DialogContent>
+                                    </Dialog>
 
                                     {/* List */}
                                     <div className="space-y-2 mt-6">

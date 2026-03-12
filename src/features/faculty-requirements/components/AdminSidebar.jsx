@@ -75,7 +75,7 @@ export function AppSidebar() {
   // Navigation items for the sidebar
   const navItems = [
     { path: '/admin-dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { path: '/faculty-monitor', label: 'Faculty Monitoring & Details', icon: Users },
+    { path: '/faculty-monitor', label: 'Faculty Monitoring', icon: Users },
     { path: '/deadlines', label: 'Deadline Manager', icon: Calendar },
     { path: '/semester-management', label: 'Semester Manager', icon: Clock },
     { path: '/reports', label: 'Reports', icon: BarChart },

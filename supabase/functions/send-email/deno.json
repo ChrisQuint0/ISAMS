@@ -1,0 +1,7 @@
+{
+  "compilerOptions": {
+    "types": [
+      "https://unpkg.com/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts"
+    ]
+  }
+}

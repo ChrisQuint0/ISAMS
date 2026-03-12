@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabaseClient';
  */
 
 const STORAGE_KEY = 'fsFolderLink';
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000';
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3002';
 
 /**
  * Get the saved Google Drive folder link from localStorage
@@ -157,6 +157,39 @@ export const listGDriveFiles = async (folderId) => {
     if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Failed to list files' }));
         throw new Error(err.error || 'Failed to list Google Drive files');
+    }
+    return res.json();
+};
+
+/**
+ * Get metadata for a specific Google Drive file ID.
+ * @param {string} fileId - The Google Drive file ID
+ * @returns {Promise<Object>}
+ */
+export const getGDriveFileMetadata = async (fileId) => {
+    const res = await fetch(`${API_BASE}/api/files/metadata?fileId=${fileId}`);
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to get file metadata' }));
+        throw new Error(err.error || 'Failed to fetch Google Drive file metadata');
+    }
+    return res.json();
+};
+
+/**
+ * Search for files in Google Drive by name pattern.
+ * @param {string} parentId - Optional parent folder ID to search within.
+ * @param {string} query - The name pattern to search for.
+ * @returns {Promise<Array>}
+ */
+export const searchGDriveFiles = async (parentId, query) => {
+    const url = new URL(`${API_BASE}/api/files/search`);
+    if (parentId) url.searchParams.append('parentId', parentId);
+    if (query) url.searchParams.append('query', query);
+
+    const res = await fetch(url.toString());
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to search files' }));
+        throw new Error(err.error || 'Failed to search Google Drive files');
     }
     return res.json();
 };

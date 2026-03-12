@@ -1,4 +1,6 @@
-import { RefreshCw } from 'lucide-react';
+import {
+    LayoutTemplate, Loader2, Save, Move, Eye, CheckCircle, RefreshCw
+} from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
@@ -6,13 +8,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LayoutTemplate, Loader2, Save, Move, Eye } from 'lucide-react';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 
 export default function NameCalibratorModal({ isOpen, onClose, template, onSave }) {
     const [x, setX] = useState(100);
     const [y, setY] = useState(100);
     const [fontSize, setFontSize] = useState(24);
+    const [fontColor, setFontColor] = useState('#006B35');
     const [previewUrl, setPreviewUrl] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -21,13 +23,24 @@ export default function NameCalibratorModal({ isOpen, onClose, template, onSave 
     // Initialize state when template opens
     useEffect(() => {
         if (template && isOpen) {
-            setX(template.x_coord ?? 100);
+            setX(template.x_coord ?? 0); // Not used for center
             setY(template.y_coord ?? 300);
+            setFontSize(template.font_size ?? 24);
+            setFontColor(template.font_color ?? '#006B35');
             setPreviewUrl(template.file_url);
         }
     }, [template, isOpen]);
 
-    const generatePreview = async (currentX, currentY) => {
+    const hexToRgb = (hex) => {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? {
+            r: parseInt(result[1], 16) / 255,
+            g: parseInt(result[2], 16) / 255,
+            b: parseInt(result[3], 16) / 255
+        } : { r: 0, g: 107 / 255, b: 53 / 255 };
+    };
+
+    const generatePreview = async (currentX, currentY, currentColor, currentColorFontSize) => {
         if (!template?.file_url) return;
         setLoading(true);
         setError(null);
@@ -38,28 +51,36 @@ export default function NameCalibratorModal({ isOpen, onClose, template, onSave 
 
             const pages = pdfDoc.getPages();
             const firstPage = pages[0];
+            const { width } = firstPage.getSize();
 
             // Get a standard font
             const helveticaFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
             const sampleName = "JUAN DELA CRUZ";
-            const textWidth = helveticaFont.widthOfTextAtSize(sampleName, fontSize);
+            const currentFontSize = Number(currentColorFontSize || fontSize);
+            const textWidth = helveticaFont.widthOfTextAtSize(sampleName, currentFontSize);
+
+            const rgbColor = hexToRgb(currentColor);
+
+            // Centering logic
+            const centerX = (width - textWidth) / 2;
 
             // Draw the name
             firstPage.drawText(sampleName, {
-                x: Number(currentX),
+                x: centerX,
                 y: Number(currentY),
-                size: fontSize,
+                size: currentFontSize,
                 font: helveticaFont,
-                color: rgb(0, 107 / 255, 53 / 255),
+                color: rgb(rgbColor.r, rgbColor.g, rgbColor.b),
             });
 
             // Draw a red bounding box
+            const padding = 4;
             firstPage.drawRectangle({
-                x: Number(currentX) - 2,
-                y: Number(currentY) - 5,
-                width: textWidth + 4,
-                height: fontSize + 10,
+                x: centerX - padding,
+                y: Number(currentY) - padding,
+                width: textWidth + (padding * 2),
+                height: currentFontSize + (padding * 1),
                 borderColor: rgb(1, 0, 0),
                 borderWidth: 1,
             });
@@ -85,15 +106,15 @@ export default function NameCalibratorModal({ isOpen, onClose, template, onSave 
 
         if (debounceTimer.current) clearTimeout(debounceTimer.current);
         debounceTimer.current = setTimeout(() => {
-            generatePreview(x, y);
+            generatePreview(x, y, fontColor, fontSize);
         }, 600);
 
         return () => clearTimeout(debounceTimer.current);
-    }, [x, y, fontSize, template, isOpen]);
+    }, [x, y, fontSize, fontColor, template, isOpen]);
 
     const handleSave = async () => {
         setLoading(true);
-        const success = await onSave(template.id, Number(x), Number(y));
+        const success = await onSave(template.id, Number(x), Number(y), fontColor, Number(fontSize));
         setLoading(false);
         if (success) {
             onClose();
@@ -127,27 +148,60 @@ export default function NameCalibratorModal({ isOpen, onClose, template, onSave 
                         <div className="bg-white p-6 border border-neutral-200 rounded-xl shadow-sm space-y-6">
                             <div className="space-y-4">
                                 <h3 className="text-sm font-bold text-neutral-900 uppercase tracking-wider flex items-center gap-2">
-                                    <LayoutTemplate className="h-4 w-4 text-primary-600" /> Position Coordinates
+                                    <LayoutTemplate className="h-4 w-4 text-primary-600" /> Style & Position
                                 </h3>
-                                <div className="space-y-1.5">
-                                    <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">X Coordinate (Left)</Label>
-                                    <Input
-                                        type="number"
-                                        value={x}
-                                        onChange={e => setX(e.target.value)}
-                                        className="bg-neutral-50 border-neutral-200 text-primary-600 focus-visible:ring-primary-500 font-mono text-lg font-bold shadow-sm"
-                                    />
-                                    <p className="text-[10px] text-neutral-500 font-medium">Distance from the left edge</p>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Font Size</Label>
+                                        <Input
+                                            type="number"
+                                            value={fontSize}
+                                            onChange={e => setFontSize(e.target.value)}
+                                            className="bg-neutral-50 border-neutral-200 text-primary-600 font-mono font-bold focus-visible:ring-primary-600 focus-visible:border-primary-600"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Y Coordinate</Label>
+                                        <Input
+                                            type="number"
+                                            value={y}
+                                            onChange={e => setY(e.target.value)}
+                                            className="bg-neutral-50 border-neutral-200 text-primary-600 font-mono font-bold focus-visible:ring-primary-600 focus-visible:border-primary-600"
+                                        />
+                                    </div>
                                 </div>
+
+                                <div className="space-y-1.5 bg-primary-50/50 p-3 rounded-lg border border-primary-100">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <CheckCircle className="h-3 w-3 text-primary-600" />
+                                        <span className="text-[10px] font-bold text-primary-700 uppercase">Automatic Alignment</span>
+                                    </div>
+                                    <p className="text-[10px] text-neutral-600 font-medium leading-relaxed">
+                                        Names are now <b>Horizontally Centered</b> by default to ensure perfect balance regardless of length.
+                                    </p>
+                                </div>
+
                                 <div className="space-y-1.5">
-                                    <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Y Coordinate (Bottom)</Label>
-                                    <Input
-                                        type="number"
-                                        value={y}
-                                        onChange={e => setY(e.target.value)}
-                                        className="bg-neutral-50 border-neutral-200 text-primary-600 focus-visible:ring-primary-500 font-mono text-lg font-bold shadow-sm"
-                                    />
-                                    <p className="text-[10px] text-neutral-500 font-medium">Distance from the BOTTOM edge (0 is bottom)</p>
+                                    <Label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Custom Font Color</Label>
+                                    <div className="flex items-center gap-3">
+                                        <Input
+                                            type="color"
+                                            value={fontColor}
+                                            onChange={e => setFontColor(e.target.value)}
+                                            className="h-12 w-16 p-1 bg-white border-neutral-200 cursor-pointer shadow-sm rounded-md focus-visible:ring-primary-600"
+                                        />
+                                        <div className="flex-1">
+                                            <Input
+                                                type="text"
+                                                value={fontColor.toUpperCase()}
+                                                onChange={e => setFontColor(e.target.value)}
+                                                className="bg-neutral-50 border-neutral-200 text-neutral-600 font-mono text-sm uppercase focus-visible:ring-primary-600 focus-visible:border-primary-600"
+                                                placeholder="#006B35"
+                                            />
+                                        </div>
+                                    </div>
+                                    <p className="text-[10px] text-neutral-500 font-medium">Pick a solid color for the dynamic text</p>
                                 </div>
                             </div>
 
@@ -155,10 +209,10 @@ export default function NameCalibratorModal({ isOpen, onClose, template, onSave 
 
                             <div className="space-y-3">
                                 <h3 className="text-sm font-bold text-neutral-900 uppercase tracking-wider flex items-center gap-2">
-                                    <Eye className="h-4 w-4 text-info" /> Visual Preview
+                                    <Eye className="h-4 w-4 text-primary-600" /> Visual Preview
                                 </h3>
                                 <p className="text-xs text-neutral-500 font-medium leading-relaxed">
-                                    The sample name <strong className="text-neutral-700">JUAN DELA CRUZ</strong> is automatically stamped on the preview PDF.
+                                    The sample name <strong className="text-primary-600">JUAN DELA CRUZ</strong> is automatically stamped on the preview PDF.
                                     Adjust X and Y to move the red bounding box.
                                 </p>
                             </div>
@@ -194,7 +248,7 @@ export default function NameCalibratorModal({ isOpen, onClose, template, onSave 
                         className="bg-primary-600 hover:bg-primary-700 text-white shadow-sm transition-all active:scale-95"
                     >
                         {loading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                        Save Coordinates
+                        Save Configuration
                     </Button>
                 </DialogFooter>
             </DialogContent>

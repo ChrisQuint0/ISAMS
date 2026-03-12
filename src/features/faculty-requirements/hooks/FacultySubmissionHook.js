@@ -101,6 +101,8 @@ export function useFacultySubmission() {
         currentAcademicYear,
         ocrEnabled,
         loadRequiredDocs,
+        loadCourses,
+        loadSettings,
         submitDocument
     };
 }

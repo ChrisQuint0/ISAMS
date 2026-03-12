@@ -11,11 +11,11 @@ export function useFacultyMonitor() {
 
   // Filters State
   const [filters, setFilters] = useState({
-    department: 'All Departments',
     semester: 'All Semesters',
     academic_year: 'All Years',
     status: 'All Status',
     course: 'All Courses',
+    section: 'All Sections', // New filter
     search: ''
   });
 
@@ -29,16 +29,7 @@ export function useFacultyMonitor() {
     setLoading(true);
     try {
       const data = await facultyMonitorService.getMonitoringData(filters);
-
-      // FIX 1: Frontend Filtering - Removed undefined course_name to prevent crash
-      let filteredData = data;
-      if (filters.course !== 'All Courses') {
-        filteredData = data.filter(f =>
-          f.courses.some(c => c.course_code === filters.course)
-        );
-      }
-
-      setFacultyList(filteredData);
+      setFacultyList(data);
     } catch (err) {
       console.error(err);
       setError("Failed to load faculty data.");
