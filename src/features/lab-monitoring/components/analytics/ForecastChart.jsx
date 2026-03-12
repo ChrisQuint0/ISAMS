@@ -1,27 +1,84 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Line, LineChart, CartesianGrid, XAxis, YAxis } from "recharts";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-
-const data = [
-    { week: "W1", actual: 820, predicted: 810 },
-    { week: "W2", actual: 910, predicted: 890 },
-    { week: "W3", actual: 875, predicted: 920 },
-    { week: "W4", actual: 960, predicted: 950 },
-    { week: "W5", actual: null, predicted: 985 },
-    { week: "W6", actual: null, predicted: 1020 },
-    { week: "W7", actual: null, predicted: 970 },
-    { week: "W8", actual: null, predicted: 1050 },
-];
+import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
 
 const chartConfig = {
     actual: { label: "Actual", color: "#38bdf8" },
     predicted: { label: "Predicted", color: "#f59e0b" },
 };
 
-export default function ForecastChart() {
+export default function ForecastChart({ rawLogs = [] }) {
+    
+    const chartData = useMemo(() => {
+        if (!rawLogs.length) return [];
+
+        // Group logs by Week
+        const weeklyCounts = {};
+        
+        rawLogs.forEach(log => {
+            if (!log.time_in) return;
+            const dateObj = new Date(log.time_in);
+            
+            // Get the Monday of this week to use as a generic "Week Of" label
+            const day = dateObj.getDay();
+            const diff = dateObj.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Sunday
+            const monday = new Date(dateObj.setDate(diff));
+            const weekKey = monday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+            weeklyCounts[weekKey] = (weeklyCounts[weekKey] || 0) + 1;
+        });
+
+        // Convert to array and sort chronologically
+        const actualWeeks = Object.keys(weeklyCounts)
+            .sort((a, b) => new Date(a) - new Date(b))
+            .map(week => ({
+                week,
+                actual: weeklyCounts[week],
+                predicted: Math.round(weeklyCounts[week] * (1 + (Math.random() * 0.05 - 0.02))) // Dummy historical prediction
+            }));
+
+        // We need at least 2 weeks of data to draw a meaningful trend line
+        if (actualWeeks.length < 2) return [];
+
+        // The "Forecast Engine": Generate 3 future weeks using a simple Moving Average
+        const futureWeeks = [];
+        let lastActualWeekDate = new Date(actualWeeks[actualWeeks.length - 1].week + " 2026"); // Assuming current year for simplicity
+        
+        for (let i = 1; i <= 3; i++) {
+            // Calculate the date for the next week
+            const nextWeekDate = new Date(lastActualWeekDate);
+            nextWeekDate.setDate(lastActualWeekDate.getDate() + (7 * i));
+            const weekStr = nextWeekDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+            // Calculate predicted value based on the average of the last 2 actual weeks + a slight upward trend
+            const prev1 = actualWeeks[actualWeeks.length - 1].actual;
+            const prev2 = actualWeeks[actualWeeks.length - 2].actual;
+            const movingAvg = (prev1 + prev2) / 2;
+            
+            // Add a synthetic 3% growth trend per week
+            const forecastedValue = Math.round(movingAvg * (1 + (0.03 * i)));
+
+            futureWeeks.push({
+                week: weekStr,
+                actual: null, // It's in the future, so Actual is null (which stops the solid blue line from drawing)
+                predicted: forecastedValue
+            });
+        }
+
+        return [...actualWeeks, ...futureWeeks];
+    }, [rawLogs]);
+
+    if (!chartData.length) {
+        return (
+            <div className="w-full h-[250px] mt-4 flex items-center justify-center text-slate-500 font-mono text-xs uppercase tracking-widest border border-dashed border-slate-800 rounded-lg">
+                Not enough data to generate forecast
+            </div>
+        );
+    }
+
     return (
-        <ChartContainer config={chartConfig} className="w-full h-[250px]">
-            <LineChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 10 }}>
+        <ChartContainer config={chartConfig} className="w-full h-[250px] mt-4">
+            <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                 <XAxis dataKey="week" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} dy={10} />
                 <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
@@ -31,7 +88,7 @@ export default function ForecastChart() {
                         if (!active || !payload?.length) return null;
                         return (
                             <div style={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: 8, padding: "8px 12px", boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}>
-                                <p style={{ color: "#94a3b8", fontSize: 11, marginBottom: 4, fontWeight: 700 }}>{label}</p>
+                                <p style={{ color: "#94a3b8", fontSize: 11, marginBottom: 4, fontWeight: 700 }}>Week of {label}</p>
                                 {payload.map((entry, i) => (
                                     <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
                                         <div style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: entry.color }} />
@@ -46,14 +103,16 @@ export default function ForecastChart() {
                 <Line
                     type="monotone"
                     dataKey="actual"
+                    name="Actual Traffic"
                     stroke="var(--color-actual)"
                     strokeWidth={3}
                     dot={{ r: 4, fill: "#020617", stroke: "var(--color-actual)", strokeWidth: 2 }}
-                    connectNulls={false}
+                    connectNulls={false} // CRITICAL: This breaks the line exactly where the 'actual' data ends!
                 />
                 <Line
                     type="monotone"
                     dataKey="predicted"
+                    name="Forecasted Traffic"
                     stroke="var(--color-predicted)"
                     strokeWidth={2}
                     strokeDasharray="6 4"

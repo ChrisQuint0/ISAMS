@@ -1,14 +1,74 @@
-import React from "react";
+import React, { useMemo } from "react";
 
-const sections = [
-    { section: "BSIT-3A", total: 692, avg: 34.6, rate: "94%", trend: "+3%" },
-    { section: "BSIT-1C", total: 625, avg: 31.3, rate: "91%", trend: "+1%" },
-    { section: "BSCS-1A", total: 580, avg: 29.0, rate: "88%", trend: "-2%" },
-    { section: "BSCS-2B", total: 478, avg: 23.9, rate: "82%", trend: "+5%" },
-    { section: "BSIT-4A", total: 410, avg: 20.5, rate: "78%", trend: "-1%" },
-];
+export default function SectionAttendanceTable({ rawLogs = [] }) {
+    
+    const tableData = useMemo(() => {
+        if (!rawLogs || rawLogs.length === 0) return [];
 
-export default function SectionAttendanceTable() {
+        const sectionsData = {};
+
+        // Group logs by section and count daily attendance
+        rawLogs.forEach(log => {
+            if (!log.time_in) return;
+
+            // STITCHING LOGIC: Combine Course, Year, and Block
+            const student = log.students_lists_lm;
+            const section = student 
+                ? `${student.course || ''}${student.year_level || ''}${student.section_block || ''}` 
+                : "Unknown";
+                
+            const dateKey = new Date(log.time_in).toISOString().split('T')[0];
+
+            if (!sectionsData[section]) {
+                sectionsData[section] = {
+                    total: 0,
+                    days: new Set(),
+                    dailyCounts: {}
+                };
+            }
+
+            sectionsData[section].total += 1;
+            sectionsData[section].days.add(dateKey);
+            sectionsData[section].dailyCounts[dateKey] = (sectionsData[section].dailyCounts[dateKey] || 0) + 1;
+        });
+
+        // Calculate the metrics for each section
+        return Object.keys(sectionsData).map(section => {
+            const data = sectionsData[section];
+            const uniqueDays = data.days.size || 1;
+            const avg = (data.total / uniqueDays).toFixed(1); // e.g. 34.6
+            
+            // Clever Rate Calculation: 
+            // Assume the day with the absolute highest attendance represents the 100% enrolled class size.
+            const estimatedClassSize = Math.max(...Object.values(data.dailyCounts));
+            const expectedTotal = estimatedClassSize * uniqueDays;
+            
+            const rateStr = expectedTotal > 0 
+                ? Math.round((data.total / expectedTotal) * 100) + "%" 
+                : "N/A";
+
+            return {
+                section,
+                total: data.total,
+                avg,
+                rate: rateStr,
+                // Trend comparison would require historical data; using a visual dash for now
+                trend: "-" 
+            };
+        })
+        .sort((a, b) => b.total - a.total) // Sort by highest total sessions
+        .slice(0, 5); // Perfectly fits your UI card
+
+    }, [rawLogs]);
+
+    if (!tableData.length) {
+        return (
+            <div className="w-full h-[200px] flex items-center justify-center text-slate-500 font-mono text-xs uppercase tracking-widest border border-dashed border-slate-800 rounded-lg">
+                No Data Available
+            </div>
+        );
+    }
+
     return (
         <div className="overflow-hidden">
             <div className="grid grid-cols-5 gap-2 px-3 py-2 text-[9px] font-black uppercase tracking-widest text-slate-600 border-b border-[#1e293b]">
@@ -18,13 +78,13 @@ export default function SectionAttendanceTable() {
                 <span className="text-right">Rate</span>
                 <span className="text-right">Trend</span>
             </div>
-            {sections.map((s, i) => (
+            {tableData.map((s, i) => (
                 <div key={i} className="grid grid-cols-5 gap-2 px-3 py-2.5 text-xs border-b border-[#1e293b]/50 last:border-b-0 hover:bg-slate-800/30 transition-colors">
                     <span className="font-bold text-slate-100">{s.section}</span>
                     <span className="text-right text-slate-400 font-mono">{s.total}</span>
                     <span className="text-right text-slate-400 font-mono">{s.avg}</span>
                     <span className="text-right text-slate-300 font-bold">{s.rate}</span>
-                    <span className={`text-right font-bold ${s.trend.startsWith("+") ? "text-emerald-400" : "text-rose-400"}`}>{s.trend}</span>
+                    <span className="text-right font-bold text-slate-600">{s.trend}</span>
                 </div>
             ))}
         </div>
