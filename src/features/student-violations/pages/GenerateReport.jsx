@@ -18,6 +18,27 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabaseClient";
 
+// Assets
+import plpLogo from "@/assets/images/plp_logo.png";
+import ccsLogo from "@/assets/images/ccs_logo.png";
+
+// Helper: Convert URL/Asset to Base64 for PDF/Excel logos
+const imageUrlToBase64 = async (url) => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error("Error converting image to base64:", error);
+    return null;
+  }
+};
+
 
 // AG Grid theme
 const customTheme = themeQuartz.withParams({
@@ -310,22 +331,63 @@ const GenerateReport = () => {
       const title = getReportTitle();
       const now = new Date().toLocaleString();
 
-      // Header
-      doc.setFontSize(18);
+      // Load logos
+      const [plpBase64, ccsBase64] = await Promise.all([
+        imageUrlToBase64(plpLogo),
+        imageUrlToBase64(ccsLogo)
+      ]);
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 14;
+
+      // 1. Header Logos & Text
+      if (plpBase64) {
+        doc.addImage(plpBase64, "PNG", margin, 10, 25, 25);
+      }
+      if (ccsBase64) {
+        doc.addImage(ccsBase64, "PNG", pageWidth - 25 - margin, 10, 25, 25);
+      }
+
+      // 2. Institution Text
+      doc.setTextColor(0, 0, 0);
       doc.setFont(undefined, "bold");
-      doc.text(title, 14, 20);
+      doc.setFontSize(14);
+      doc.text("Pamantasan ng Lungsod ng Pasig", pageWidth / 2, 18, { align: "center" });
+
+      doc.setFontSize(11);
+      doc.setFont(undefined, "normal");
+      doc.text("College of Computer Studies", pageWidth / 2, 24, { align: "center" });
+
       doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.text("Student Violation Management System", pageWidth / 2, 30, { align: "center" });
+
+      // 3. Report Specific Title
+      doc.setTextColor(0, 0, 0);
+      doc.setFont(undefined, "bold");
+      doc.setFontSize(16);
+      doc.text(title.toUpperCase(), pageWidth / 2, 42, { align: "center" });
+
+      // 4. Meta Information
+      doc.setFontSize(9);
       doc.setFont(undefined, "normal");
       doc.setTextColor(100);
-      doc.text(`Generated: ${now}`, 14, 28);
+      doc.text(`Date Generated: ${now}`, pageWidth / 2, 52, { align: "center" });
 
       if (startDate || endDate) {
-        doc.text(`Date Range: ${startDate || "—"} to ${endDate || "—"}`, 14, 34);
+        doc.text(`Date Range: ${startDate || "—"} to ${endDate || "—"}`, margin, 57);
       }
-      if (statusFilter) doc.text(`Status: ${statusFilter}`, startDate || endDate ? 140 : 14, 34);
-      if (severityFilter) doc.text(`Severity: ${severityFilter}`, 200, 34);
 
-      // Table
+      let filterX = margin;
+      if (statusFilter) {
+        doc.text(`Status: ${statusFilter}`, filterX, 62);
+        filterX += 60;
+      }
+      if (severityFilter) {
+        doc.text(`Severity: ${severityFilter}`, filterX, 62);
+      }
+
+      // 5. Table
       const headers = columnDefs.map(c => c.headerName);
       const fields = columnDefs.map(c => c.field);
       const rows = previewData.map(row => fields.map(f => row[f] ?? ""));
@@ -333,20 +395,20 @@ const GenerateReport = () => {
       autoTable(doc, {
         head: [headers],
         body: rows,
-        startY: startDate || endDate || statusFilter || severityFilter ? 40 : 34,
+        startY: 68,
         styles: { fontSize: 8, cellPadding: 3 },
         headStyles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: "bold" },
         alternateRowStyles: { fillColor: [245, 245, 245] },
-        margin: { left: 14, right: 14 },
+        margin: { left: margin, right: margin, bottom: 20 },
       });
 
-      // Footer
+      // 6. Footer
       const pageCount = doc.internal.getNumberOfPages();
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
         doc.setFontSize(8);
         doc.setTextColor(150);
-        doc.text(`ISAMS - ${title} | Page ${i} of ${pageCount}`, 14, doc.internal.pageSize.height - 8);
+        doc.text(`ISAMS - CCS | Page ${i} of ${pageCount}`, margin, doc.internal.pageSize.height - 8);
       }
 
       doc.save(`${selectedType}_report_${new Date().toISOString().slice(0, 10)}.pdf`);
@@ -367,11 +429,80 @@ const GenerateReport = () => {
 
       const ws = wb.addWorksheet(title);
 
-      // Header row
+      // Load logos
+      const [plpBase64, ccsBase64] = await Promise.all([
+        imageUrlToBase64(plpLogo),
+        imageUrlToBase64(ccsLogo)
+      ]);
+
+      // Add Headers manually to manage space for the formal header
       const headers = columnDefs.map(c => c.headerName);
       const fields = columnDefs.map(c => c.field);
-      const headerRow = ws.addRow(headers);
+      const startDataRow = 8;
 
+      // School Name
+      ws.mergeCells(1, 1, 1, headers.length);
+      const schoolCell = ws.getCell(1, 1);
+      schoolCell.value = "Pamantasan ng Lungsod ng Pasig";
+      schoolCell.font = { bold: true, size: 16 };
+      schoolCell.alignment = { horizontal: "center", vertical: "middle" };
+
+      // College name
+      ws.mergeCells(2, 1, 2, headers.length);
+      const collegeCell = ws.getCell(2, 1);
+      collegeCell.value = "College of Computer Studies";
+      collegeCell.font = { size: 12 };
+      collegeCell.alignment = { horizontal: "center", vertical: "middle" };
+
+      // System name
+      ws.mergeCells(3, 1, 3, headers.length);
+      const systemCell = ws.getCell(3, 1);
+      systemCell.value = "Student Violation Management System";
+      systemCell.font = { size: 10, italic: true, color: { argb: "FF666666" } };
+      systemCell.alignment = { horizontal: "center", vertical: "middle" };
+
+      // Report Title
+      ws.mergeCells(5, 1, 5, headers.length);
+      const titleCell = ws.getCell(5, 1);
+      titleCell.value = title.toUpperCase();
+      titleCell.font = { bold: true, size: 14 };
+      titleCell.alignment = { horizontal: "center", vertical: "middle" };
+
+      // Generation Info
+      ws.mergeCells(6, 1, 6, headers.length);
+      const genCell = ws.getCell(6, 1);
+      genCell.value = `Date Generated: ${new Date().toLocaleString()}`;
+      genCell.font = { size: 9, color: { argb: "FF666666" } };
+      genCell.alignment = { horizontal: "center", vertical: "middle" };
+
+      // Add Logos to Excel if available
+      if (plpBase64) {
+        const plpImage = wb.addImage({
+          base64: plpBase64.split(",")[1],
+          extension: "png",
+        });
+        ws.addImage(plpImage, {
+          tl: { col: 0, row: 0 },
+          ext: { width: 80, height: 80 },
+          editAs: "oneCell"
+        });
+      }
+
+      if (ccsBase64) {
+        const ccsImage = wb.addImage({
+          base64: ccsBase64.split(",")[1],
+          extension: "png",
+        });
+        ws.addImage(ccsImage, {
+          tl: { col: headers.length - 1, row: 0 },
+          ext: { width: 80, height: 80 },
+          editAs: "oneCell"
+        });
+      }
+
+      // Render Table Headers
+      const headerRow = ws.getRow(startDataRow);
+      headerRow.values = headers;
       headerRow.eachCell(cell => {
         cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF16A34A" } };
@@ -382,18 +513,18 @@ const GenerateReport = () => {
       });
 
       // Data rows
-      previewData.forEach(row => {
+      previewData.forEach((row, idx) => {
         ws.addRow(fields.map(f => row[f] ?? ""));
       });
 
       // Auto-width columns
       ws.columns.forEach((col, i) => {
-        let maxLen = headers[i].length;
+        let maxLen = headers[i]?.length || 10;
         previewData.forEach(row => {
           const val = String(row[fields[i]] ?? "");
           if (val.length > maxLen) maxLen = val.length;
         });
-        col.width = Math.min(maxLen + 4, 40);
+        col.width = Math.min(maxLen + 4, 50);
       });
 
       const buffer = await wb.xlsx.writeBuffer();
