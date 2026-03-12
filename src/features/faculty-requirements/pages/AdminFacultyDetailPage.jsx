@@ -72,7 +72,7 @@ export default function AdminFacultyDetailPage() {
     const [isViewerLoading, setIsViewerLoading] = useState(false);
     const [selectedViewerFile, setSelectedViewerFile] = useState(null);
     const [selectedFiles, setSelectedFiles] = useState([]);
-    const [shouldTrash, setShouldTrash] = useState(true);
+    const [shouldTrash, setShouldTrash] = useState(false);
     const [viewerCourseContext, setViewerCourseContext] = useState(null);
     const [viewerDocContext, setViewerDocContext] = useState(null);
     const [isPdfViewerOpen, setIsPdfViewerOpen] = useState(false);
@@ -363,7 +363,8 @@ export default function AdminFacultyDetailPage() {
                         mergedFiles.push({
                             ...dbMatch,
                             gdrive_file_id: gFile.id,
-                            original_filename: gFile.name,
+                            original_filename: dbMatch.original_filename || gFile.name,
+                            standardized_filename: dbMatch.standardized_filename || gFile.name,
                             gdrive_web_view_link: gFile.webViewLink,
                             file_size_bytes: gFile.size || dbMatch.file_size_bytes,
                             submitted_at: gFile.createdTime || dbMatch.submitted_at
@@ -373,6 +374,7 @@ export default function AdminFacultyDetailPage() {
                             submission_id: gFile.id,
                             gdrive_file_id: gFile.id,
                             original_filename: gFile.name,
+                            standardized_filename: gFile.name, // For manual uploads, we use the name from GDrive
                             submission_status: "MANUAL UPLOAD",
                             gdrive_web_view_link: gFile.webViewLink,
                             file_size_bytes: gFile.size || 0,
@@ -406,7 +408,9 @@ export default function AdminFacultyDetailPage() {
 
                 dbOnlyFiles.push({
                     ...db,
-                    submission_status: "FILE DELETED/MISSING"
+                    submission_status: db.submission_status === 'REVISION_REQUESTED'
+                        ? 'REVISION_REQUESTED'
+                        : "FILE DELETED/MISSING"
                 });
             }
 
@@ -437,7 +441,14 @@ export default function AdminFacultyDetailPage() {
     };
 
     const handleRequestRevision = (doc, courseCode) => {
-        setRevisionDoc({ ...doc, courseCode, filenames: [doc.original_filename] });
+        setRevisionDoc({ 
+            ...doc, 
+            courseCode, 
+            filenames: [doc.original_filename], 
+            standardized_filename: doc.standardized_filename,
+            course_id: doc.course_id || viewerCourseContext?.course_id,
+            doc_type_id: doc.doc_type_id || viewerDocContext?.doc_type_id
+        });
         setRevisionReason("");
         setIsRevisionDialogOpen(true);
     };
@@ -447,31 +458,70 @@ export default function AdminFacultyDetailPage() {
             addToast({ title: "Reason Required", description: "Please provide a revision reason.", variant: "warning" });
             return;
         }
+
         setIsSavingRevision(true);
         try {
-            const submissionIds = selectedFiles.length > 0
-                ? selectedFiles.map(f => f.submission_id)
-                : [revisionDoc.submission_id];
+            // Unified Targets: Prefer selected files if any, otherwise fallback to the single revisionDoc
+            const revisionTargets = selectedFiles.length > 0 ? selectedFiles : (revisionDoc ? [revisionDoc] : []);
 
-            const gdriveFileIds = selectedFiles.length > 0
-                ? selectedFiles.map(f => f.gdrive_file_id).filter(Boolean)
-                : [revisionDoc.gdrive_file_id].filter(Boolean);
+            if (revisionTargets.length === 0) {
+                console.warn("[Revision] No files targeted for revision.");
+                setIsRevisionDialogOpen(false);
+                return;
+            }
 
+            // 1. Extract Submission IDs (numeric only)
+            const submissionIds = revisionTargets
+                .map(f => f.submission_id)
+                .filter(id => id && /^\d+$/.test(String(id)));
+
+            // 2. Extract GDrive IDs
+            const gdriveFileIds = revisionTargets
+                .map(f => f.gdrive_file_id)
+                .filter(Boolean);
+
+            // 3. Identify Manual Uploads (non-numeric submission_id)
+            const manualUploads = revisionTargets
+                .filter(f => !/^\d+$/.test(String(f.submission_id)))
+                .map(f => ({
+                    gdrive_file_id: f.gdrive_file_id,
+                    original_filename: f.original_filename || f.filenames?.[0] || "Unknown",
+                    standardized_filename: f.standardized_filename || f.original_filename
+                }));
+
+            // 4. Construct metadata for notification
             const courseDetails = viewerCourseContext
                 ? `${viewerCourseContext.course_code} - ${viewerCourseContext.section}`
                 : revisionDoc?.courseCode || "N/A";
 
             const docType = viewerDocContext?.doc_type || revisionDoc?.doc_type || "N/A";
 
-            const filenames = selectedFiles.length > 0
-                ? selectedFiles.map(f => f.original_filename).join(", ")
-                : (revisionDoc?.original_filename || revisionDoc?.filenames?.join(", ") || "N/A");
+            const filenames = revisionTargets
+                .map(f => f.original_filename || f.filenames?.[0] || "N/A")
+                .join(", ");
 
             await facultyMonitorService.requestRevision({
-                submissionIds, gdriveFileIds, shouldDelete: shouldTrash, facultyId: id,
-                reason: revisionReason, courseDetails, docType, filenames
+                submissionIds,
+                gdriveFileIds,
+                shouldDelete: shouldTrash,
+                facultyId: id,
+                reason: revisionReason,
+                courseDetails,
+                docType,
+                filenames,
+                manualUploads,
+                courseId: viewerCourseContext?.course_id || revisionDoc?.course_id,
+                docTypeId: viewerDocContext?.doc_type_id || revisionDoc?.doc_type_id
             });
-            addToast({ title: "Revision Requested", description: `Faculty notified for ${submissionIds.length} file(s).`, variant: "success" });
+
+            // Count is exactly the set of targets processed
+            const totalFileCount = revisionTargets.length;
+            addToast({
+                title: "Revision Requested",
+                description: `Faculty notified for ${totalFileCount} file(s): ${filenames.length > 30 ? filenames.substring(0, 30) + '...' : filenames}`,
+                variant: "success"
+            });
+
             setIsRevisionDialogOpen(false);
             setSelectedFiles([]);
             loadData();
@@ -479,7 +529,7 @@ export default function AdminFacultyDetailPage() {
                 handleOpenDocViewer(viewerDocContext, viewerCourseContext);
             }
         } catch (err) {
-            console.error(err);
+            console.error("[Revision Error]", err);
             addToast({ title: "Error", description: "Failed to request revision.", variant: "destructive" });
         } finally {
             setIsSavingRevision(false);
@@ -1059,7 +1109,8 @@ export default function AdminFacultyDetailPage() {
                                                                             setSelectedFiles([...selectedFiles, {
                                                                                 submission_id: file.submission_id,
                                                                                 gdrive_file_id: file.gdrive_file_id,
-                                                                                original_filename: file.original_filename
+                                                                                original_filename: file.original_filename,
+                                                                                standardized_filename: file.standardized_filename
                                                                             }]);
                                                                         }
                                                                     }}
@@ -1076,8 +1127,8 @@ export default function AdminFacultyDetailPage() {
                                                                         {file.original_filename || "Document"}
                                                                     </p>
                                                                     <div className="flex flex-wrap gap-1.5 mt-2 min-h-[14px]">
-                                                                        {/* If the specific file is requested OR if the parent requirement is in Revision mode and this file is one of the submissions */}
-                                                                        {(file.submission_status === 'REVISION_REQUESTED' || file.status === 'REVISION_REQUESTED' || (viewerDocContext?.status === 'REVISION_REQUESTED' && file.submission_id)) && (
+                                                                        {/* Only show badge if the specific file is requested for revision */}
+                                                                        {(file.submission_status === 'REVISION_REQUESTED' || file.status === 'REVISION_REQUESTED') && (
                                                                             <Badge className="text-[7px] font-black bg-warning/10 text-warning border-warning/20 px-1 py-0 h-3.5 shrink-0 uppercase tracking-tighter">
                                                                                 Request Revision
                                                                             </Badge>
@@ -1112,7 +1163,9 @@ export default function AdminFacultyDetailPage() {
                                                             setRevisionDoc({
                                                                 doc_type: viewerDocContext.doc_type,
                                                                 courseCode: viewerCourseContext.course_code,
-                                                                filenames
+                                                                filenames,
+                                                                course_id: viewerCourseContext.course_id,
+                                                                doc_type_id: viewerDocContext.doc_type_id
                                                             });
                                                             setRevisionReason("");
                                                             setIsRevisionDialogOpen(true);
@@ -1181,12 +1234,14 @@ export default function AdminFacultyDetailPage() {
                                     <p className="text-sm font-bold text-neutral-900 mb-2 truncate">{revisionDoc?.courseCode} — {revisionDoc?.doc_type}</p>
 
                                     <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1 mt-3">Target Files</p>
-                                    <div className="max-h-24 overflow-y-auto pr-2 custom-scrollbar bg-white border border-neutral-200 rounded-md p-2">
+                                    <div className="max-h-24 overflow-y-auto pr-2 custom-scrollbar bg-white border border-neutral-200 rounded-md p-2 w-full min-w-0 overflow-hidden">
                                         {revisionDoc?.filenames?.map((name, i) => (
-                                            <p key={i} className="text-[11px] font-bold text-neutral-700 flex items-center gap-2 mb-1 truncate">
+                                            <div key={i} className="grid grid-cols-[min-content_1fr] items-center gap-2 mb-1 w-full min-w-0">
                                                 <span className="w-1 h-1 rounded-full bg-warning shrink-0" />
-                                                {name}
-                                            </p>
+                                                <p className="text-[11px] font-bold text-neutral-700 truncate min-w-0" title={name}>
+                                                    {name}
+                                                </p>
+                                            </div>
                                         ))}
                                     </div>
                                 </div>
@@ -1194,16 +1249,14 @@ export default function AdminFacultyDetailPage() {
 
                             <div className="bg-amber-50 border border-warning/30 rounded-lg p-3 shadow-sm">
                                 <div className="flex items-start gap-3">
-                                    <div
-                                        className="pt-0.5 cursor-pointer"
-                                        onClick={() => setShouldTrash(!shouldTrash)}
-                                    >
+                                    <div className="pt-0.5">
                                         <Checkbox
                                             checked={shouldTrash}
+                                            onCheckedChange={(checked) => setShouldTrash(!!checked)}
                                             className="border-warning data-[state=checked]:bg-warning data-[state=checked]:border-warning h-4 w-4 rounded shadow-sm"
                                         />
                                     </div>
-                                    <div className="flex-1">
+                                    <div className="flex-1 min-w-0">
                                         <p className="text-xs font-bold text-amber-900">Move target files to Google Drive Trash?</p>
                                         <p className="text-[10px] font-medium text-amber-800 leading-relaxed mt-0.5">
                                             Recommended to prevent folder clutter. Files can be recovered from trash within 30 days.
@@ -1222,7 +1275,7 @@ export default function AdminFacultyDetailPage() {
                                 />
                             </div>
                         </div>
-                        <DialogFooter className="px-5 py-4 border-t border-neutral-200 bg-neutral-50/50 gap-2 sm:gap-3">
+                        <DialogFooter className="px-5 py-4 border-t border-neutral-200 bg-neutral-50/50 gap-2 sm:gap-3 flex-wrap sm:justify-end">
                             <Button variant="outline" onClick={() => setIsRevisionDialogOpen(false)} className="border-neutral-200 text-neutral-600 hover:bg-neutral-100 font-bold shadow-sm h-9">
                                 Cancel
                             </Button>
