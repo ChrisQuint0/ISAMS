@@ -35,6 +35,7 @@ const ManageSanctions = () => {
     const [gridApi, setGridApi] = useState(null);
     const [sanctions, setSanctions] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [searchText, setSearchText] = useState("");
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -113,6 +114,7 @@ const ManageSanctions = () => {
             field: "frequency",
             flex: 1,
             filter: true,
+            getQuickFilterText: (params) => formatFrequency(params.value),
             cellRenderer: (params) => (
                 <span className="text-neutral-600 font-medium">{formatFrequency(params.value)}</span>
             )
@@ -128,6 +130,7 @@ const ManageSanctions = () => {
             headerName: "Description",
             field: "sanction_description",
             flex: 2,
+            filter: true,
             tooltipField: "sanction_description",
             cellStyle: { color: 'var(--neutral-500)' }
         },
@@ -204,7 +207,8 @@ const ManageSanctions = () => {
                             <Input
                                 placeholder="Search sanctions..."
                                 className="pl-9 h-8 bg-white border-neutral-200 text-neutral-900 placeholder:text-neutral-400 text-xs font-medium rounded focus-visible:ring-warning focus-visible:border-warning transition-all"
-                                onChange={(e) => gridApi?.setQuickFilter(e.target.value)}
+                                value={searchText}
+                                onChange={(e) => setSearchText(e.target.value)}
                             />
                         </div>
                         <Button variant="outline" className="h-8 px-3 bg-white border-neutral-200 text-neutral-600 hover:text-warning hover:bg-amber-50">
@@ -225,6 +229,7 @@ const ManageSanctions = () => {
                             columnDefs={columnDefs}
                             defaultColDef={defaultColDef}
                             onGridReady={(params) => setGridApi(params.api)}
+                            quickFilterText={searchText}
                             animateRows={true}
                             rowHeight={48}
                             headerHeight={44}

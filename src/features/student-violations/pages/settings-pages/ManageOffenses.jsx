@@ -35,6 +35,7 @@ const ManageOffenses = () => {
     const [gridApi, setGridApi] = useState(null);
     const [offenses, setOffenses] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [searchText, setSearchText] = useState("");
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -120,6 +121,7 @@ const ManageOffenses = () => {
             headerName: "Description",
             field: "description",
             flex: 2,
+            filter: true,
             tooltipField: "description",
             cellStyle: { color: 'var(--neutral-500)' }
         },
@@ -196,7 +198,8 @@ const ManageOffenses = () => {
                             <Input
                                 placeholder="Search offenses..."
                                 className="pl-9 h-8 bg-white border-neutral-200 text-neutral-900 placeholder:text-neutral-400 text-xs font-medium rounded focus-visible:ring-primary-500 focus-visible:border-primary-500 transition-all"
-                                onChange={(e) => gridApi?.setQuickFilter(e.target.value)}
+                                value={searchText}
+                                onChange={(e) => setSearchText(e.target.value)}
                             />
                         </div>
                         <Button variant="outline" className="h-8 px-3 bg-white border-neutral-200 text-neutral-600 hover:text-primary-600 hover:bg-primary-50">
@@ -217,6 +220,7 @@ const ManageOffenses = () => {
                             columnDefs={columnDefs}
                             defaultColDef={defaultColDef}
                             onGridReady={(params) => setGridApi(params.api)}
+                            quickFilterText={searchText}
                             animateRows={true}
                             rowHeight={48}
                             headerHeight={44}
