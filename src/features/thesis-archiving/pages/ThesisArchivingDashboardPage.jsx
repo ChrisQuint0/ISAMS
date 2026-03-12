@@ -40,8 +40,53 @@ import {
     CheckCircle,
     RefreshCw,
     ArrowRight,
+    Cpu,
+    ShieldCheck,
+    Wifi,
+    HardDrive,
+    Network,
+    ScanEye,
+    Languages,
 } from "lucide-react";
 import { ThesisArchivingHeader } from "../components/ThesisArchivingHeader";
+
+const getCategoryConfig = (category) => {
+    const configs = {
+        "Artificial Intelligence": {
+            icon: Cpu,
+            class: "bg-blue-50 text-blue-700 border-blue-200"
+        },
+        "Cybersecurity": {
+            icon: ShieldCheck,
+            class: "bg-purple-50 text-purple-700 border-purple-200"
+        },
+        "Internet of Things": {
+            icon: Wifi,
+            class: "bg-emerald-50 text-emerald-700 border-emerald-200"
+        },
+        "Information Systems": {
+            icon: HardDrive,
+            class: "bg-amber-50 text-amber-700 border-amber-200"
+        },
+        "Machine Learning": {
+            icon: Network,
+            class: "bg-indigo-50 text-indigo-700 border-indigo-200"
+        },
+        "Computer Vision": {
+            icon: ScanEye,
+            class: "bg-cyan-50 text-cyan-700 border-cyan-200"
+        },
+        "Natural Language Processing": {
+            icon: Languages,
+            class: "bg-rose-50 text-rose-700 border-rose-200"
+        }
+    };
+
+    return configs[category] || {
+        icon: BookOpen,
+        class: "bg-neutral-50 text-neutral-700 border-neutral-200"
+    };
+};
 
 const dashboardMetrics = [
     {
@@ -63,27 +108,6 @@ const dashboardMetrics = [
             { month: "Dec", value: 220 },
             { month: "Jan", value: 236 },
             { month: "Feb", value: 248 },
-        ],
-    },
-    {
-        key: "pendingReviews",
-        title: "Pending Reviews",
-        value: "14",
-        sub: "Similarity and validation",
-        icon: Clock,
-        color: "text-amber-600",
-        chartTitle: "Pending Reviews Trend",
-        chartDescription: "Monthly queue for similarity and validation",
-        chartLabel: "Pending",
-        chartColor: "#f59e0b", // Not as dark as 600
-        yDomain: [0, 24],
-        chartData: [
-            { month: "Sep", value: 20 },
-            { month: "Oct", value: 18 },
-            { month: "Nov", value: 17 },
-            { month: "Dec", value: 16 },
-            { month: "Jan", value: 15 },
-            { month: "Feb", value: 14 },
         ],
     },
     {
@@ -149,7 +173,7 @@ export default function ThesisArchivingDashboardPage() {
         },
         {
             label: "Similarity Check",
-            description: "Review plagiarism and similarity results",
+            description: "Review similarity results",
             icon: FileSearch,
             path: "/thesis-archiving/similarity-check",
             accent: "text-amber-600",
@@ -176,38 +200,28 @@ export default function ThesisArchivingDashboardPage() {
     const recentSubmissions = [
         {
             title: "AI-Powered Traffic Management System",
-            group: "BSIT-4A • 2025",
-            status: "Ready for Archiving",
-            statusClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
-            iconClass: "text-emerald-600",
+            year: "2025",
+            category: "Artificial Intelligence",
         },
         {
             title: "Blockchain for Secure Medical Records",
-            group: "BSIT-4B • 2024",
-            status: "For Similarity Review",
-            statusClass: "bg-amber-50 text-amber-700 border-amber-200",
-            iconClass: "text-amber-500",
+            year: "2024",
+            category: "Cybersecurity",
         },
         {
             title: "IoT Smart Crop Monitoring",
-            group: "BSCS-4A • 2025",
-            status: "Archived",
-            statusClass: "bg-blue-50 text-blue-700 border-blue-200",
-            iconClass: "text-blue-600",
+            year: "2025",
+            category: "Internet of Things",
         },
         {
             title: "Virtual Reality Therapy Environment",
-            group: "BSCS-4B • 2025",
-            status: "For Similarity Review",
-            statusClass: "bg-amber-50 text-amber-700 border-amber-200",
-            iconClass: "text-amber-500",
+            year: "2025",
+            category: "Information Systems",
         },
         {
             title: "Machine Learning in Crop Disease Detection",
-            group: "BSIT-4A • 2025",
-            status: "Ready for Archiving",
-            statusClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
-            iconClass: "text-emerald-600",
+            year: "2025",
+            category: "Machine Learning",
         },
     ];
 
@@ -220,7 +234,7 @@ export default function ThesisArchivingDashboardPage() {
         { text: "Coordinator updated plagiarism thresholds", time: "Yesterday" },
     ];
 
-    const selectedMetric = dashboardMetrics.find((metric) => metric.key === activeMetric) || dashboardMetrics[2];
+    const selectedMetric = dashboardMetrics.find((metric) => metric.key === activeMetric) || dashboardMetrics[1];
 
     const chartData = selectedMetric.chartData;
     const chartConfig = {
@@ -259,7 +273,6 @@ export default function ThesisArchivingDashboardPage() {
                                         <SelectItem value="All Departments">All Departments</SelectItem>
                                         <SelectItem value="Computer Science">Computer Science</SelectItem>
                                         <SelectItem value="Information Technology">Information Technology</SelectItem>
-                                        <SelectItem value="Computer Engineering">Computer Engineering</SelectItem>
                                     </SelectContent>
                                 </Select>
                             )}
@@ -363,38 +376,37 @@ export default function ThesisArchivingDashboardPage() {
                                     </Button>
                                 </CardHeader>
                                 <CardContent className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-                                    {recentSubmissions.map((item) => (
-                                        <div
-                                            key={item.title}
-                                            className="group flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-neutral-100 bg-neutral-50/50 p-4 hover:bg-white hover:border-neutral-200 hover:shadow-sm transition-all"
-                                        >
-                                            <div className="flex items-start gap-4">
-                                                <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${item.statusClass.split(' ').filter(c => c.startsWith('bg-') || c.startsWith('text-')).join(' ')} bg-opacity-30`}>
-                                                    {item.status === 'Archived' ? <Archive className="h-5 w-5" /> :
-                                                        item.status === 'Ready for Archiving' ? <CheckCircle className="h-5 w-5" /> :
-                                                            <FileSearch className="h-5 w-5" />}
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm font-semibold text-neutral-800 group-hover:text-primary-600 transition-colors line-clamp-1">{item.title}</p>
-                                                    <div className="flex items-center gap-2 mt-1.5">
-                                                        <Badge variant="secondary" className="bg-neutral-200/50 hover:bg-neutral-200 text-neutral-600 text-[10px] px-1.5 py-0 rounded font-normal border border-neutral-200">
-                                                            {item.group.split(' • ')[0]}
-                                                        </Badge>
-                                                        <span className="text-xs text-neutral-400">•</span>
-                                                        <span className="text-xs text-neutral-500 flex items-center gap-1 font-medium">
-                                                            <Clock className="h-3 w-3" />
-                                                            {item.group.split(' • ')[1] || 'Recent'}
-                                                        </span>
+                                    {recentSubmissions.map((item) => {
+                                        const config = getCategoryConfig(item.category);
+                                        const CategoryIcon = config.icon;
+
+                                        return (
+                                            <div
+                                                key={item.title}
+                                                className="group flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-neutral-100 bg-neutral-50/50 p-4 hover:bg-white hover:border-neutral-200 hover:shadow-sm transition-all"
+                                            >
+                                                <div className="flex items-start gap-4">
+                                                    <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${config.class.split(' ').filter(c => c.startsWith('bg-') || c.startsWith('text-')).join(' ')} bg-opacity-30`}>
+                                                        <CategoryIcon className="h-5 w-5" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-semibold text-neutral-800 group-hover:text-primary-600 transition-colors line-clamp-1">{item.title}</p>
+                                                        <div className="flex items-center gap-2 mt-1.5">
+                                                            <span className="text-xs text-neutral-500 flex items-center gap-1 font-medium">
+                                                                <Clock className="h-3 w-3" />
+                                                                {item.year}
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                 </div>
+                                                <div className="flex items-center justify-end sm:w-auto w-full border-t border-neutral-200 sm:border-t-0 pt-3 sm:pt-0 mt-2 sm:mt-0">
+                                                    <Badge variant="outline" className={`${config.class} px-2.5 py-1 text-xs font-medium rounded-md border shadow-sm`}>
+                                                        {item.category}
+                                                    </Badge>
+                                                </div>
                                             </div>
-                                            <div className="flex items-center justify-end sm:w-auto w-full border-t border-neutral-200 sm:border-t-0 pt-3 sm:pt-0 mt-2 sm:mt-0">
-                                                <Badge variant="outline" className={`${item.statusClass} px-2.5 py-1 text-xs font-medium rounded-md border shadow-sm`}>
-                                                    {item.status}
-                                                </Badge>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </CardContent>
                             </Card>
                         </div>
@@ -406,7 +418,7 @@ export default function ThesisArchivingDashboardPage() {
                                 <CardHeader className="pb-4 border-b border-neutral-100">
                                     <CardTitle className="text-neutral-900 text-base">Key Metrics</CardTitle>
                                 </CardHeader>
-                                <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4 pt-4">
+                                <CardContent className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-4 pt-4">
                                     {dashboardMetrics.map((metric) => (
                                         <StatCard
                                             key={metric.key}
