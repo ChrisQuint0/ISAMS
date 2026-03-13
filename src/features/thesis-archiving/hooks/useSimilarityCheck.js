@@ -82,6 +82,7 @@ export function useSimilarityCheck() {
                 abstract,
                 keywords,
                 content,
+                fileName: file.name,
                 scanType,
                 actorInfo
             });

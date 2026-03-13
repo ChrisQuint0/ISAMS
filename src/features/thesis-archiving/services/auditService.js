@@ -32,5 +32,22 @@ export const auditService = {
 
         if (error) throw error;
         return data;
+    },
+
+    /**
+     * Fetch unique actions from vw_audit_trail for filters
+     */
+    async getUniqueActions() {
+        const { data, error } = await supabase
+            .from("vw_audit_trail")
+            .select("action")
+            .order("action");
+
+        if (error) throw error;
+        
+        // Get unique values manually since select('action', { count: 'exact', distinct: true }) 
+        // behavior can be inconsistent across Supabase versions/views.
+        const uniqueActions = [...new Set(data.map(item => item.action))].filter(Boolean);
+        return uniqueActions;
     }
 };
