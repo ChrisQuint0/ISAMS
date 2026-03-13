@@ -52,11 +52,11 @@ export function useFacultyAnalytics() {
         setError(null);
         try {
             const [overviewData, timelineData, historyData, courseData, onTimeData] = await Promise.all([
-                FacultyAnalyticsService.getAnalyticsOverview(),
+                FacultyAnalyticsService.getAnalyticsOverview(semester, academicYear),
                 FacultyAnalyticsService.getSubmissionTimeline(semester, academicYear),
                 FacultyAnalyticsService.getSubmissionHistory(),
                 FacultyAnalyticsService.getCourseAnalytics(),
-                FacultyAnalyticsService.getOnTimeStats()
+                FacultyAnalyticsService.getOnTimeStats(semester, academicYear)
             ]);
 
             setOverview(overviewData || {
