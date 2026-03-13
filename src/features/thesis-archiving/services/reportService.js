@@ -28,6 +28,7 @@ export async function fetchThesisReport({
   fullDataset = false,
   dateFrom = "",
   dateTo = "",
+  year = "All",
   department = "All",
   category = "All",
 } = {}) {
@@ -43,6 +44,7 @@ export async function fetchThesisReport({
       fullDataset,
       ...(dateFrom && { dateFrom }),
       ...(dateTo && { dateTo }),
+      ...(year && year !== "All" && { year }),
       ...(department && department !== "All" && { department }),
       ...(category && category !== "All" && { category }),
     });
@@ -137,8 +139,9 @@ export async function fetchOJTReport({
   page = 1,
   limit = 10,
   fullDataset = false,
-  dateFrom = "",
-  dateTo = "",
+  academicYear = "All",
+  program = "All",
+  section = "All",
   coordinator = "All",
   completionStatus = "All",
 } = {}) {
@@ -152,8 +155,9 @@ export async function fetchOJTReport({
       page,
       limit,
       fullDataset,
-      ...(dateFrom && { dateFrom }),
-      ...(dateTo && { dateTo }),
+      ...(academicYear && academicYear !== "All" && { academicYear }),
+      ...(program && program !== "All" && { program }),
+      ...(section && section !== "All" && { section }),
       ...(coordinator && coordinator !== "All" && { coordinator }),
       ...(completionStatus && completionStatus !== "All" && { completionStatus }),
     });
