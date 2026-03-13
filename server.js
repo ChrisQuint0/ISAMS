@@ -1209,33 +1209,42 @@ app.get("/api/reports/thesis", async (req, res) => {
   const user = await getUserFromReq(req, res);
   if (!user) return;
 
-  const { dateFrom, dateTo, department = "All", category = "All", page = 1, limit = 10, fullDataset = false } = req.query;
+  const { dateFrom, dateTo, year = "All", department = "All", category = "All", page = 1, limit = 10, fullDataset = false } = req.query;
   const client = supabaseAdmin || supabase;
 
   try {
     // THESIS SUMMARY
-    let summaryQuery = client.from("vw_report_thesis_summary").select("*");
-    if (category !== "All") summaryQuery = summaryQuery.eq("category", category);
-    // Removed department filter
+    // We aggregate from the inventory view to ensure thematic category filtering works correctly,
+    // as vw_report_thesis_summary only aggregates by research type (e.g. 'Thesis').
+    let summaryQuery = client.from("vw_report_archive_inventory").select("publication_year, category_name");
+    if (category !== "All") summaryQuery = summaryQuery.eq("category_name", category);
+    if (year !== "All") summaryQuery = summaryQuery.eq("publication_year", year);
 
-    // Aggregate by year and category across departments
     const { data: rawSummary, error: sumErr } = await summaryQuery;
     if (sumErr) throw sumErr;
 
-    // Grouping logic for summary (sum up the counts if multiple departments match)
+    // Grouping logic for summary
     const summaryMap = new Map();
     (rawSummary || []).forEach(row => {
-      const key = `${row.year}_${row.category}`;
-      if (!summaryMap.has(key)) summaryMap.set(key, { year: row.year, category: row.category, count: 0 });
-      summaryMap.get(key).count += Number(row.count);
+      const key = `${row.publication_year}_${row.category_name}`;
+      if (!summaryMap.has(key)) {
+        summaryMap.set(key, { 
+          year: row.publication_year, 
+          category: row.category_name, 
+          count: 0 
+        });
+      }
+      summaryMap.get(key).count += 1;
     });
-    const submissionSummary = Array.from(summaryMap.values()).sort((a, b) => a.year - b.year || a.category.localeCompare(b.category));
+    const submissionSummary = Array.from(summaryMap.values())
+      .sort((a, b) => b.year - a.year || String(a.category).localeCompare(String(b.category)));
 
     // ARCHIVE INVENTORY
     let invQuery = client.from("vw_report_archive_inventory").select("*", { count: 'exact' });
     if (category !== "All") invQuery = invQuery.eq("category_name", category);
     if (dateFrom) invQuery = invQuery.gte("date_added", dateFrom);
     if (dateTo) invQuery = invQuery.lte("date_added", dateTo);
+    if (year !== "All") invQuery = invQuery.eq("publication_year", year);
 
     // Pagination (unless fullDataset is true)
     const pageNum = parseInt(page);
@@ -1379,62 +1388,86 @@ app.get("/api/reports/ojt", async (req, res) => {
   const user = await getUserFromReq(req, res);
   if (!user) return;
 
-  const { department = "All", coordinator = "All", completionStatus = "All", page = 1, limit = 10, fullDataset = false } = req.query;
+  const { academicYear = "All", program = "All", section = "All", coordinator = "All", completionStatus = "All", page = 1, limit = 10, fullDataset = false } = req.query;
   const client = supabaseAdmin || supabase;
 
   try {
-    // TRAINEE STATUS
-    let ojtQuery = client.from("vw_report_ojt_trainee_status").select("*", { count: 'exact' });
+    // 1. Get filtered students
+    let studentQuery = client.from("hte_ojt_students")
+      .select(`
+        id, 
+        student_no, 
+        first_name, 
+        last_name, 
+        academic_year, 
+        semester, 
+        program, 
+        section, 
+        overall_status, 
+        adviser:thesis_advisers(first_name, last_name),
+        uploads:hte_document_uploads(status, field_id)
+      `, { count: 'exact' });
 
-    // Filters
-    if (department !== "All") ojtQuery = ojtQuery.eq("department", department);
-    if (coordinator !== "All") ojtQuery = ojtQuery.eq("coordinator", coordinator);
+    if (academicYear !== "All") studentQuery = studentQuery.eq("academic_year", academicYear);
+    if (program !== "All") studentQuery = studentQuery.eq("program", program);
+    if (section !== "All") studentQuery = studentQuery.eq("section", section);
     if (completionStatus !== "All" && completionStatus !== "total") {
-      ojtQuery = ojtQuery.ilike("overall_status", completionStatus);
+      studentQuery = studentQuery.ilike("overall_status", completionStatus);
     }
-
-    // Also get completion stats without pagination
-    let countQuery = client.from("vw_report_ojt_trainee_status").select("overall_status");
-    if (department !== "All") countQuery = countQuery.eq("department", department);
-    if (coordinator !== "All") countQuery = countQuery.eq("coordinator", coordinator);
-    // don't apply completionStatus to overall counts
-
-    const { data: allStats, error: countErr } = await countQuery;
-    if (countErr) throw countErr;
-
-    const total = allStats.length;
-    const complete = allStats.filter(r => r.overall_status.toLowerCase() === "complete").length;
-    const incomplete = total - complete;
-    const rate = total > 0 ? ((complete / total) * 100).toFixed(1) : "0.0";
+    
+    if (coordinator !== "All") {
+      studentQuery = studentQuery.or(`first_name.ilike.%${coordinator}%,last_name.ilike.%${coordinator}%`, { foreignTable: 'thesis_advisers' });
+    }
 
     const pageNum = parseInt(page);
     const perPage = parseInt(limit);
     if (fullDataset !== "true") {
       const start = (pageNum - 1) * perPage;
-      ojtQuery = ojtQuery.range(start, start + perPage - 1);
+      studentQuery = studentQuery.range(start, start + perPage - 1);
     }
 
-    const { data: traineeRaw, error: ojtErr } = await ojtQuery;
-    if (ojtErr) throw ojtErr;
+    const { data: students, count: totalCount, error: sErr } = await studentQuery;
+    if (sErr) throw sErr;
 
-    const traineeStatus = (traineeRaw || []).map(row => ({
-      id: row.id,
-      studentName: row.student_name,
-      studentId: row.student_id,
-      academicYear: row.academic_year,
-      semester: row.semester,
-      coordinator: row.coordinator,
-      totalRequired: parseInt(row.total_required) || 0,
-      totalUploaded: parseInt(row.total_uploaded) || 0,
-      overallStatus: row.overall_status.charAt(0).toUpperCase() + row.overall_status.slice(1)
-    }));
+    // 2. Get stats (total/complete/incomplete) for aggregate cards
+    let statsQuery = client.from("hte_ojt_students").select("overall_status");
+    if (academicYear !== "All") statsQuery = statsQuery.eq("academic_year", academicYear);
+    if (program !== "All") statsQuery = statsQuery.eq("program", program);
+    if (section !== "All") statsQuery = statsQuery.eq("section", section);
+    if (coordinator !== "All") {
+       statsQuery = statsQuery.or(`first_name.ilike.%${coordinator}%,last_name.ilike.%${coordinator}%`, { foreignTable: 'thesis_advisers' });
+    }
+
+    const { data: allStats, error: countErr } = await statsQuery;
+    if (countErr) throw countErr;
+
+    const stats_total = allStats.length;
+    const stats_complete = allStats.filter(r => r.overall_status?.toLowerCase() === "complete").length;
+    const stats_incomplete = stats_total - stats_complete;
+    const stats_rate = stats_total > 0 ? ((stats_complete / stats_total) * 100).toFixed(1) : "0.0";
+
+    // 3. Format result
+    const traineeStatus = (students || []).map(s => {
+      return {
+        id: s.id,
+        studentName: `${s.first_name} ${s.last_name}`,
+        studentId: s.student_no,
+        academicYear: s.academic_year,
+        semester: s.semester,
+        program: s.program || "N/A",
+        section: s.section || "N/A",
+        coordinator: s.adviser ? `${s.adviser.first_name} ${s.adviser.last_name}` : "N/A",
+        overallStatus: (s.overall_status || "incomplete").charAt(0).toUpperCase() + (s.overall_status || "incomplete").slice(1),
+        uploads: s.uploads || []
+      };
+    });
 
     res.json({
       traineeStatus,
-      stats: { total, complete, incomplete, rate },
-      totalCount: fullDataset === "true" ? traineeStatus.length : (completionStatus === "All" || completionStatus === "total" ? total : (completionStatus.toLowerCase() === "complete" ? complete : incomplete)),
+      stats: { total: stats_total, complete: stats_complete, incomplete: stats_incomplete, rate: stats_rate },
+      totalCount: fullDataset === "true" ? traineeStatus.length : totalCount,
       page: pageNum,
-      totalPages: fullDataset === "true" ? 1 : Math.ceil((completionStatus === "All" || completionStatus === "total" ? total : (completionStatus.toLowerCase() === "complete" ? complete : incomplete)) / perPage)
+      totalPages: fullDataset === "true" ? 1 : Math.ceil(totalCount / perPage)
     });
   } catch (error) {
     console.error("OJT report error:", error);

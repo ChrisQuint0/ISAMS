@@ -233,7 +233,7 @@ const inputCls =
   "focus:border-green-500 focus:ring-1 focus:ring-green-500/20 hover:border-gray-400 transition-colors rounded-lg shadow-sm";
 
 const triggerCls =
-  "h-10 text-sm bg-white border-gray-300 text-gray-900 " +
+  "w-full h-10 text-sm bg-white border-gray-300 text-gray-900 " +
   "focus:border-green-500 focus:ring-1 focus:ring-green-500/20 hover:border-gray-400 transition-colors rounded-lg shadow-sm";
 
 const dropdownCls = "bg-white border-gray-200 text-gray-900 rounded-lg shadow-xl";
@@ -243,21 +243,15 @@ const labelCls = "text-[10px] font-bold uppercase tracking-widest text-gray-500 
 // FILTERS
 // ─────────────────────────────────────────────────────────────
 function defaultFilters() {
-  return { dateFrom: "", dateTo: "", department: "All", category: "All", coordinator: "All", completionStatus: "All" };
+  return { dateFrom: "", dateTo: "", year: "All", academicYear: "All", program: "All", section: "All", department: "All", category: "All", coordinator: "All", completionStatus: "All" };
 }
 
-function ReportsFilters({ onFilterChange, showOJTFilters = false, reportType = "thesis", categories = [], coordinators = [] }) {
-  const [filters, setFilters] = useState(() => {
-    try {
-      const s = sessionStorage.getItem(`reportFilters_${reportType}`);
-      return s ? JSON.parse(s) : defaultFilters();
-    } catch { return defaultFilters(); }
-  });
+function ReportsFilters({ onFilterChange, showOJTFilters = false, reportType = "thesis", categories = [], coordinators = [], academicYears = [], sections = [] }) {
+  const [filters, setFilters] = useState(defaultFilters);
 
   useEffect(() => {
-    sessionStorage.setItem(`reportFilters_${reportType}`, JSON.stringify(filters));
     onFilterChange(filters);
-  }, [filters, reportType, onFilterChange]);
+  }, [filters, onFilterChange]);
 
   const set = (k) => (v) => setFilters((p) => ({ ...p, [k]: v }));
   const setEv = (k) => (e) => setFilters((p) => ({ ...p, [k]: e.target.value }));
@@ -286,29 +280,74 @@ function ReportsFilters({ onFilterChange, showOJTFilters = false, reportType = "
       </div>
 
       <div className={`p-6 grid gap-4 ${showOJTFilters ? "grid-cols-1 sm:grid-cols-3 lg:grid-cols-6" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"}`}>
-        <div>
-          <Label className={labelCls}>From Date</Label>
-          <Input type="date" value={filters.dateFrom} onChange={setEv("dateFrom")} className={inputCls} />
-        </div>
-        <div>
-          <Label className={labelCls}>To Date</Label>
-          <Input type="date" value={filters.dateTo} onChange={setEv("dateTo")} className={inputCls} />
-        </div>
-
-        {showOJTFilters && (
+        {reportType === "thesis" ? (
           <div>
-            <Label className={labelCls}>Department</Label>
-            <Select value={filters.department} onValueChange={set("department")}>
-              <SelectTrigger className={triggerCls}><SelectValue placeholder="All Departments" /></SelectTrigger>
+            <Label className={labelCls}>Publication Year</Label>
+            <Select value={filters.year} onValueChange={set("year")}>
+              <SelectTrigger className={triggerCls}><SelectValue placeholder="All Years" /></SelectTrigger>
               <SelectContent className={dropdownCls}>
-                <SelectItem value="All">All Departments</SelectItem>
-                {DEPARTMENTS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                <SelectItem value="All">All Years</SelectItem>
+                {Array.from({ length: new Date().getFullYear() - 2000 + 1 }, (_, i) => String(new Date().getFullYear() - i)).map((y) => (
+                  <SelectItem key={y} value={y}>{y}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
+        ) : reportType === "ojt" ? (
+          <div>
+            <Label className={labelCls}>Academic Year</Label>
+            <Select value={filters.academicYear} onValueChange={set("academicYear")}>
+              <SelectTrigger className={triggerCls}><SelectValue placeholder="All School Years" /></SelectTrigger>
+              <SelectContent className={dropdownCls}>
+                <SelectItem value="All">All School Years</SelectItem>
+                {academicYears.map((ay) => (
+                  <SelectItem key={ay} value={ay}>{ay}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : (
+          <>
+            <div>
+              <Label className={labelCls}>From Date</Label>
+              <Input type="date" value={filters.dateFrom} onChange={setEv("dateFrom")} className={inputCls} />
+            </div>
+            <div>
+              <Label className={labelCls}>To Date</Label>
+              <Input type="date" value={filters.dateTo} onChange={setEv("dateTo")} className={inputCls} />
+            </div>
+          </>
         )}
 
-        {reportType !== "ojt" && (
+        {showOJTFilters && (
+          <>
+            <div>
+              <Label className={labelCls}>Programs</Label>
+              <Select value={filters.program} onValueChange={set("program")}>
+                <SelectTrigger className={triggerCls}><SelectValue placeholder="All Programs" /></SelectTrigger>
+                <SelectContent className={dropdownCls}>
+                  <SelectItem value="All">All Programs</SelectItem>
+                  <SelectItem value="Information Technology">Information Technology</SelectItem>
+                  <SelectItem value="Computer Science">Computer Science</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className={labelCls}>Section</Label>
+              <Select value={filters.section} onValueChange={set("section")}>
+                <SelectTrigger className={triggerCls}><SelectValue placeholder="All Sections" /></SelectTrigger>
+                <SelectContent className={dropdownCls}>
+                  <SelectItem value="All">All Sections</SelectItem>
+                  {sections.map((sec) => (
+                    <SelectItem key={sec} value={sec}>{sec}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </>
+        )}
+
+        {reportType === "thesis" && (
           <div>
             <Label className={labelCls}>Category</Label>
             <Select value={filters.category} onValueChange={set("category")}>
@@ -642,6 +681,20 @@ function ReportsOJT({ filters }) {
   const [exporting, setExporting] = useState(null);
   const [page, setPage] = useState(1);
   const [error, setError] = useState(null);
+  const [docFields, setDocFields] = useState([]);
+
+  // Fetch document fields on mount
+  useEffect(() => {
+    async function loadFields() {
+      try {
+        const fields = await thesisService.getHTEDocumentFieldsAll();
+        setDocFields(fields);
+      } catch (err) {
+        console.error("Failed to load document fields:", err);
+      }
+    }
+    loadFields();
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -668,6 +721,23 @@ function ReportsOJT({ filters }) {
   const totalPages = data ? Math.ceil(data.totalCount / PER_PAGE) : 1;
   const stats = useMemo(() => data?.stats ?? { total: 0, complete: 0, incomplete: 0, rate: "0.0" }, [data]);
 
+  // Helper to calculate progress for a specific category
+  const getCategoryProgress = useCallback((uploads = [], category) => {
+    const activeFields = docFields.filter(f => f.category === category && f.is_active);
+    const total = activeFields.length;
+    if (total === 0) return { uploaded: 0, total: 0, pct: 0 };
+
+    const uploaded = activeFields.filter(f => 
+      uploads.some(u => u.field_id === f.id && u.status === "uploaded")
+    ).length;
+
+    return {
+      uploaded,
+      total,
+      pct: Math.round((uploaded / total) * 100)
+    };
+  }, [docFields]);
+
   const withExport = async (key, label, fn) => {
     setExporting(key);
     try {
@@ -685,11 +755,21 @@ function ReportsOJT({ filters }) {
   if (loading) return <ReportSkeleton />;
   if (error) return <div className="text-red-500 p-4">Error: {error}</div>;
 
-  const exportData = (fullData) => (fullData?.traineeStatus ?? []).map((i) => ({
-    "Student Name": i.studentName, "Student ID": i.studentId, "Academic Year": i.academicYear,
-    Semester: i.semester, "Assigned Coordinator": i.coordinator,
-    "Total Required": i.totalRequired, "Total Uploaded": i.totalUploaded, "Overall Status": i.overallStatus,
-  }));
+  const exportData = (fullData) => (fullData?.traineeStatus ?? []).map((i) => {
+    const ojt = getCategoryProgress(i.uploads, "ojt");
+    const hte = getCategoryProgress(i.uploads, "hte");
+    return {
+      "Student Name": i.studentName, 
+      "Student ID": i.studentId,
+      "Program": i.program, 
+      "Section": i.section,
+      "Academic Year": i.academicYear,
+      "Assigned Coordinator": i.coordinator,
+      "OJT Docs": `${ojt.uploaded}/${ojt.total} (${ojt.pct}%)`,
+      "HTE Docs": `${hte.uploaded}/${hte.total} (${hte.pct}%)`,
+      "Overall Status": i.overallStatus
+    };
+  });
 
   const STAT_CARDS = [
     { label: "Total Trainees", value: stats.total, sub: "enrolled trainees", border: "border-green-200", bg: "bg-green-50", val: "text-green-800", dot: "bg-green-500" },
@@ -697,6 +777,24 @@ function ReportsOJT({ filters }) {
     { label: "Incomplete", value: stats.incomplete, sub: "still pending", border: "border-red-200", bg: "bg-red-50", val: "text-red-700", dot: "bg-red-400" },
     { label: "Completion Rate", value: `${stats.rate}%`, sub: "overall completion", border: "border-blue-200", bg: "bg-blue-50", val: "text-blue-700", dot: "bg-blue-400" },
   ];
+
+  const ProgressRenderer = ({ uploads, category, colorClass }) => {
+    const { uploaded, total, pct } = getCategoryProgress(uploads, category);
+    return (
+      <div className="flex flex-col justify-center h-full space-y-1">
+        <div className="flex items-center gap-1.5 leading-none">
+          <span className="text-sm font-semibold text-gray-900">{uploaded}/{total}</span>
+          <span className="text-[10px] text-gray-500 font-medium">({pct}%)</span>
+        </div>
+        <div className="w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${pct === 100 ? "bg-green-500" : (pct >= 50 ? colorClass : "bg-red-400")}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-5">
@@ -728,7 +826,24 @@ function ReportsOJT({ filters }) {
             exporting={exporting}
             onExcel={() => withExport("excel", "Excel", (fullData) => exportToExcel(exportData(fullData), `${generateFilename("OJT")}.xlsx`, "OJT Reports"))}
             onCSV={() => withExport("csv", "CSV", (fullData) => exportToCSV(exportData(fullData), `${generateFilename("OJT")}.csv`))}
-            onPDF={() => withExport("pdf", "PDF", (fullData) => exportToPDF({ title: "HTE / OJT Reports", subtitle: "Trainee Completion Status", filters, timestamp: new Date().toLocaleString(), columns: ["Student Name", "Student ID", "Acad. Year", "Semester", "Coordinator", "Req.", "Uploaded", "Status"], data: (fullData?.traineeStatus ?? []).map((i) => [i.studentName, i.studentId, i.academicYear, i.semester, i.coordinator, i.totalRequired, i.totalUploaded, i.overallStatus]) }, `${generateFilename("OJT")}.pdf`))}
+            onPDF={() => withExport("pdf", "PDF", (fullData) => {
+              const rows = (fullData?.traineeStatus ?? []).map((i) => {
+                const ojt = getCategoryProgress(i.uploads, "ojt");
+                const hte = getCategoryProgress(i.uploads, "hte");
+                return [
+                  i.studentName, i.studentId, i.program, i.section, i.academicYear, i.coordinator, 
+                  `${ojt.uploaded}/${ojt.total}`, `${hte.uploaded}/${hte.total}`, i.overallStatus
+                ];
+              });
+              return exportToPDF({ 
+                title: "HTE / OJT Reports", 
+                subtitle: "Trainee Completion Status", 
+                filters, 
+                timestamp: new Date().toLocaleString(), 
+                columns: ["Student Name", "Student ID", "Prog.", "Sec.", "Year", "Coordinator", "OJT Docs", "HTE Docs", "Status"], 
+                data: rows 
+              }, `${generateFilename("OJT")}.pdf`);
+            })}
           />
         </div>
         <div className="w-full h-[400px]">
@@ -738,53 +853,29 @@ function ReportsOJT({ filters }) {
             columnDefs={[
               { field: "studentName", headerName: "Student Name", flex: 1.5, sortable: true, filter: true },
               { field: "studentId", headerName: "Student ID", width: 130, sortable: true, filter: true, cellClass: "font-mono tabular-nums text-xs" },
+              { field: "program", headerName: "Program", width: 140, sortable: true, filter: true },
+              { field: "section", headerName: "Section", width: 90, sortable: true, filter: true },
+              { field: "academicYear", headerName: "Year", width: 120, sortable: true, filter: true },
+              { field: "coordinator", headerName: "Coordinator", flex: 1.2, sortable: true, filter: true },
               {
-                headerName: "Academic Term",
-                flex: 1.2,
-                valueGetter: p => `${p.data.academicYear} ${p.data.semester}`,
-                cellRenderer: (params) => (
-                  <div>
-                    <p className="text-sm text-gray-700 font-medium leading-tight">{params.data.academicYear}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{params.data.semester}</p>
-                  </div>
-                )
+                headerName: "OJT Docs",
+                width: 140,
+                cellRenderer: (params) => <ProgressRenderer uploads={params.data.uploads} category="ojt" colorClass="bg-green-600" />
               },
-              { field: "coordinator", headerName: "Coordinator", flex: 1.5, sortable: true, filter: true },
               {
-                headerName: "Progress",
-                width: 150,
-                cellRenderer: (params) => {
-                  const isOk = params.data.overallStatus === "Complete";
-                  const pct = (params.data.totalUploaded / params.data.totalRequired) * 100;
-                  return (
-                    <div className="flex items-center gap-3 h-full">
-                      <div className="w-20 h-1.5 rounded-full bg-gray-200 overflow-hidden shrink-0">
-                        <div
-                          className={`h-full rounded-full transition-all duration-500 ${isOk ? "bg-green-500" : "bg-red-400"}`}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                      <span className={`font-mono text-xs font-bold whitespace-nowrap tabular-nums ${isOk ? "text-green-700" : "text-red-600"}`}>
-                        {params.data.totalUploaded}/{params.data.totalRequired}
-                      </span>
-                    </div>
-                  );
-                }
+                headerName: "HTE Docs",
+                width: 140,
+                cellRenderer: (params) => <ProgressRenderer uploads={params.data.uploads} category="hte" colorClass="bg-yellow-500" />
               },
               {
                 field: "overallStatus",
                 headerName: "Status",
-                width: 120,
-                sortable: true,
-                filter: true,
-                cellRenderer: (params) => {
-                  const isOk = params.value === "Complete";
-                  return (
-                    <Badge className={`text-xs font-semibold border rounded-lg px-2.5 py-1 ${isOk ? "bg-green-50 text-green-700 border-green-200" : "bg-red-50 text-red-700 border-red-200"}`}>
-                      {params.value}
-                    </Badge>
-                  );
-                }
+                width: 110,
+                cellRenderer: (params) => (
+                  <Badge className={`text-[10px] font-bold border rounded-lg px-2 py-0.5 ${params.value === "Complete" ? "bg-green-50 text-green-700 border-green-200" : "bg-red-50 text-red-700 border-red-200"}`}>
+                    {params.value}
+                  </Badge>
+                )
               }
             ]}
             pagination={false}
@@ -806,6 +897,8 @@ export default function ReportsAnalyticsPage() {
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [dbCategories, setDbCategories] = useState([]);
   const [dbCoordinators, setDbCoordinators] = useState([]);
+  const [dbAcademicYears, setDbAcademicYears] = useState([]);
+  const [dbSections, setDbSections] = useState([]);
 
   useEffect(() => {
     let active = true;
@@ -816,6 +909,17 @@ export default function ReportsAnalyticsPage() {
     fetchCoordinators().then(data => {
       if (active && data) setDbCoordinators(data);
     }).catch(err => console.error("Failed to fetch coordinators:", err));
+
+    thesisService.getAcademicYears().then(data => {
+      if (active && data) setDbAcademicYears(data.map(ay => ay.name));
+    }).catch(err => console.error("Failed to fetch academic years:", err));
+
+    thesisService.getSections().then(data => {
+      if (active && data) {
+        const uniqueSections = [...new Set(data.map(s => s.name))].sort();
+        setDbSections(uniqueSections);
+      }
+    }).catch(err => console.error("Failed to fetch sections:", err));
 
     return () => { active = false; };
   }, []);
@@ -878,7 +982,10 @@ export default function ReportsAnalyticsPage() {
                   return (
                     <button
                       key={t.value}
-                      onClick={() => setReportType(t.value)}
+                      onClick={() => {
+                        setReportType(t.value);
+                        setFilters(defaultFilters());
+                      }}
                       className={`relative flex-1 flex flex-col items-center justify-center gap-1.5 rounded-2xl border py-6 px-4 transition-all duration-200 outline-none cursor-pointer select-none overflow-hidden ${active
                         ? "border-green-300 bg-gradient-to-b from-green-50 to-white shadow-md shadow-green-100"
                         : "border-gray-200 bg-white hover:border-green-200 hover:bg-green-50/40 hover:shadow-sm"
@@ -916,11 +1023,14 @@ export default function ReportsAnalyticsPage() {
 
               {/* ── FILTERS ── */}
               <ReportsFilters
+                key={reportType}
                 onFilterChange={handleFilterChange}
                 showOJTFilters={reportType === "ojt"}
                 reportType={reportType}
                 categories={dbCategories}
                 coordinators={dbCoordinators}
+                academicYears={dbAcademicYears}
+                sections={dbSections}
               />
 
               {/* ── REPORT CONTENT ── */}

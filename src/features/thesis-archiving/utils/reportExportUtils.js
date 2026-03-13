@@ -564,6 +564,10 @@ export function getFilterSummary(filters) {
   const map = {
     dateFrom:         (v, f) => f.dateTo ? `${v} → ${f.dateTo}` : `From ${v}`,
     dateTo:           (v, f) => f.dateFrom ? null : `Until ${v}`,   // handled above
+    year:             (v) => `Year: ${v}`,
+    academicYear:     (v) => `SY: ${v}`,
+    program:          (v) => `Program: ${v}`,
+    section:          (v) => `Section: ${v}`,
     department:       (v) => `Dept: ${v}`,
     category:         (v) => `Category: ${v}`,
     coordinator:      (v) => `Coordinator: ${v}`,
