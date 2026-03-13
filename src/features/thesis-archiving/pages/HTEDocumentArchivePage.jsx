@@ -300,7 +300,7 @@ export default function HTEDocumentArchivePage() {
     var s19 = React.useState("all"); var adviserFilter = s19[0]; var setAdviserFilter = s19[1];
     var s20 = React.useState("all"); var sectionFilter = s20[0]; var setSectionFilter = s20[1];
     var [loading, setLoading] = React.useState(true);
-    var [filterOptions, setFilterOptions] = React.useState({ advisers: [], sections: [] });
+    var [filterOptions, setFilterOptions] = React.useState({ advisers: [], sections: [], academicYears: [] });
     var s6 = React.useState(new Set()); var selectedStudents = s6[0]; var setSelectedStudents = s6[1];
     var s7 = React.useState(false); var showBatchPreview = s7[0]; var setShowBatchPreview = s7[1];
     var s8 = React.useState(null); var detailStudent = s8[0]; var setDetailStudent = s8[1];
@@ -328,20 +328,21 @@ export default function HTEDocumentArchivePage() {
         setLoading(true);
         console.log("HTEArchive: Loading data...");
         try {
-            const [fields, studentRecords, advisers, sections] = await Promise.all([
+            const [fields, studentRecords, advisers, sections, academicYears] = await Promise.all([
                 thesisService.getHTEDocumentFields(),
                 thesisService.getHTEStudents(),
                 thesisService.getAdvisers(),
-                thesisService.getSections()
+                thesisService.getSections(),
+                thesisService.getAcademicYears()
             ]);
-            console.log("HTEArchive: Data loaded", { fields, studentRecords, advisers, sections });
+            console.log("HTEArchive: Data loaded", { fields, studentRecords, advisers, sections, academicYears });
             const fieldsMapped = fields.map(f => ({
                 ...f,
                 active: f.is_active,
                 order: f.display_order
             }));
             setDocFields(fieldsMapped);
-            setFilterOptions({ advisers, sections });
+            setFilterOptions({ advisers, sections, academicYears });
 
             // Transform DB students into UI-friendly format
             const transformed = studentRecords.map(s => {
@@ -744,25 +745,6 @@ export default function HTEDocumentArchivePage() {
         setDocFields(function (prev) { return prev.map(function (f) { return f.id !== fieldId ? f : { id: f.id, name: newName, category: f.category, order: f.order, active: f.active }; }); });
     }
 
-    function handleAddNewStudent(newStudentData) {
-        var newStudent = {
-            id: newStudentData.studentId,
-            lastName: newStudentData.lastName,
-            firstName: newStudentData.firstName,
-            middleInitial: newStudentData.middleName ? newStudentData.middleName.charAt(0) + "." : "",
-            year: "2024-2025",
-            semester: "2nd Semester",
-            section: newStudentData.section,
-            program: newStudentData.program,
-            adviser: newStudentData.adviser,
-            email: newStudentData.email,
-            gdrive_folder_link: "",
-            gdrive_folder_id: "",
-            name: newStudentData.firstName + " " + newStudentData.lastName,
-            uploads: buildInitialUploads(ALL_FIELD_IDS)
-        };
-        setStudents(function (prev) { return [newStudent].concat(prev); });
-    }
 
     var selectedNotified = students.filter(function (s) { return selectedStudents.has(s.id); });
     var liveDetail = detailStudent ? students.find(function (s) { return s.id === detailStudent.id; }) : null;
@@ -823,10 +805,10 @@ export default function HTEDocumentArchivePage() {
                                                     />
                                                 </div>
                                                 <SelectInput value={yearFilter} onChange={setYearFilter} options={[
-                                                    { value: "all", label: "All Years" },
-                                                    { value: "2024-2025", label: "2024-2025" },
-                                                    { value: "2023-2024", label: "2023-2024" },
-                                                ]} />
+                                                    { value: "all", label: "All Years" }
+                                                ].concat(filterOptions.academicYears.map(function (y) {
+                                                    return { value: y.name, label: y.name };
+                                                }))} />
                                                 <SelectInput value={statusFilter} onChange={setStatusFilter} options={[
                                                     { value: "all", label: "All Status" },
                                                     { value: "complete", label: "Complete" },

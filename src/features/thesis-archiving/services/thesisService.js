@@ -332,6 +332,26 @@ export const thesisService = {
         return data.student;
     },
 
+    async batchCreateHTEStudents({ students, academicYear, semester, actorInfo = {} }) {
+        const response = await fetch("http://localhost:3000/api/hte/students/batch-create", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ 
+                students, 
+                academicYear, 
+                semester,
+                actorName: actorInfo.actorName,
+                actorUserId: actorInfo.actorUserId
+            }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Failed to process batch creation");
+        return data.results;
+    },
+
     /**
      * Fetch all HTE students with joined data
      */
