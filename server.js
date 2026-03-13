@@ -80,6 +80,18 @@ function sanitizeFolderName(name) {
   return name.replace(/[\/\\:*?"<>|]/g, '').replace(/\s+/g, ' ').trim() || 'Untitled';
 }
 
+async function getSetting(key) {
+  if (!supabaseAdmin) return null;
+  const { data, error } = await supabaseAdmin
+    .from("thesis_settings")
+    .select("value")
+    .eq("key", key)
+    .maybeSingle();
+  return data?.value || null;
+}
+
+const DEFAULT_HTE_PARENT_FOLDER_ID = "1AmN8A4Q-D7eUWH7vIE_C_ybV4DWvm99V";
+
 async function getOrCreateFolder(drive, folderName, parentId) {
   const safeName = sanitizeFolderName(folderName);
   const query = `name='${safeName.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`;
@@ -302,7 +314,7 @@ app.post("/api/users/:id/reset-password", async (req, res) => {
 // 11. Create HTE Student (Auth + GDrive + DB)
 app.post("/api/hte/students/create", async (req, res) => {
   const { studentData, password, academicYear, semester } = req.body;
-  const HTE_PARENT_FOLDER_ID = "1AmN8A4Q-D7eUWH7vIE_C_ybV4DWvm99V";
+  const hteParentFolderId = (await getSetting("hte_parent_folder_id")) || DEFAULT_HTE_PARENT_FOLDER_ID;
 
   try {
     const auth = await loadToken();
@@ -334,7 +346,7 @@ app.post("/api/hte/students/create", async (req, res) => {
     // 3. Create GDrive Folder
     // Pattern: {studentNo}_{lastName}_{semester}
     const folderName = `${studentData.studentId}_${studentData.lastName}_${semester}`;
-    const folderId = await getOrCreateFolder(drive, folderName, HTE_PARENT_FOLDER_ID);
+    const folderId = await getOrCreateFolder(drive, folderName, hteParentFolderId);
     const folderLink = `https://drive.google.com/drive/folders/${folderId}`;
 
     // 4. Insert Student Record
@@ -385,7 +397,7 @@ app.post("/api/hte/students/create", async (req, res) => {
 // 11.1. Batch Create HTE Students
 app.post("/api/hte/students/batch-create", async (req, res) => {
   const { students, academicYear, semester } = req.body;
-  const HTE_PARENT_FOLDER_ID = "1AmN8A4Q-D7eUWH7vIE_C_ybV4DWvm99V";
+  const hteParentFolderId = (await getSetting("hte_parent_folder_id")) || DEFAULT_HTE_PARENT_FOLDER_ID;
 
   if (!Array.isArray(students) || students.length === 0) {
     return res.status(400).json({ error: "Invalid or empty student list" });
@@ -429,7 +441,7 @@ app.post("/api/hte/students/batch-create", async (req, res) => {
 
         // 3. Create GDrive Folder
         const folderName = `${studentData.studentId}_${studentData.lastName}_${semester}`;
-        const folderId = await getOrCreateFolder(drive, folderName, HTE_PARENT_FOLDER_ID);
+        const folderId = await getOrCreateFolder(drive, folderName, hteParentFolderId);
         const folderLink = `https://drive.google.com/drive/folders/${folderId}`;
 
         // 4. Insert Student Record
