@@ -10,8 +10,17 @@ export const FacultyResourceService = {
      */
     async getTemplates() {
         try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error('User not authenticated');
+
+            const { data: faculty } = await supabase
+                .from('faculty_fs')
+                .select('faculty_id')
+                .eq('user_id', user.id)
+                .single();
+
             const { data, error } = await supabase
-                .rpc('get_available_templates_fs');
+                .rpc('get_available_templates_fs', { p_faculty_id: faculty?.faculty_id });
 
             if (error) throw error;
             return data;
