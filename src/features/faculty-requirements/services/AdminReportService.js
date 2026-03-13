@@ -8,8 +8,7 @@ export const reportService = {
     const { data, error } = await supabase.rpc('generate_report_fs', {
       p_report_type: config.reportType,
       p_semester: config.semester,
-      p_academic_year: config.academicYear,
-      p_department: config.department === 'All Departments' ? null : config.department
+      p_academic_year: config.academicYear
     });
 
     if (error) throw error;
@@ -26,6 +25,9 @@ export const reportService = {
         labels = data.chart_data.map(d => d.label);
         values = data.chart_data.map(d => d.value);
       } else if (config.reportType === 'Clearance Status Report') {
+        labels = data.chart_data.map(d => d.label);
+        values = data.chart_data.map(d => d.value);
+      } else if (config.reportType === 'Faculty Performance Leaderboard') {
         labels = data.chart_data.map(d => d.label);
         values = data.chart_data.map(d => d.value);
       }
@@ -61,7 +63,8 @@ export const reportService = {
     ];
 
     const csvString = csvRows.join('\n');
-    const blob = new Blob([csvString], { type: 'text/csv' });
+    // Add UTF-8 BOM for Excel compatibility
+    const blob = new Blob(['\uFEFF' + csvString], { type: 'text/csv;charset=utf-8' });
     const url = window.URL.createObjectURL(blob);
 
     // Trigger download

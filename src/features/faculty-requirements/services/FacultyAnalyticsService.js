@@ -5,7 +5,7 @@ export const FacultyAnalyticsService = {
      * Get overall analytics overview (Completion Rate, Dept Avg, etc.)
      * RPC: get_faculty_analytics_overview
      */
-    async getAnalyticsOverview() {
+    async getAnalyticsOverview(semester = null, academicYear = null) {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('User not authenticated');
@@ -18,8 +18,12 @@ export const FacultyAnalyticsService = {
 
             if (!faculty) throw new Error('Faculty profile not found');
 
+            const params = { p_faculty_id: faculty.faculty_id };
+            if (semester) params.p_semester = semester;
+            if (academicYear) params.p_academic_year = academicYear;
+
             const { data, error } = await supabase
-                .rpc('get_faculty_analytics_overview_fs', { p_faculty_id: faculty.faculty_id });
+                .rpc('get_faculty_analytics_overview_fs', params);
 
             if (error) throw error;
             return data;
@@ -61,7 +65,7 @@ export const FacultyAnalyticsService = {
      * Get on-time vs late submission statistics
      * RPC: get_faculty_ontime_stats_fs
      */
-    async getOnTimeStats() {
+    async getOnTimeStats(semester = null, academicYear = null) {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             const { data: faculty } = await supabase
@@ -70,8 +74,12 @@ export const FacultyAnalyticsService = {
                 .eq('user_id', user.id)
                 .single();
 
+            const params = { p_faculty_id: faculty.faculty_id };
+            if (semester) params.p_semester = semester;
+            if (academicYear) params.p_academic_year = academicYear;
+
             const { data, error } = await supabase
-                .rpc('get_faculty_ontime_stats_fs', { p_faculty_id: faculty.faculty_id });
+                .rpc('get_faculty_ontime_stats_fs', params);
 
             if (error) throw error;
             return data || { on_time_count: 0, late_count: 0, total_count: 0, on_time_rate: 0 };

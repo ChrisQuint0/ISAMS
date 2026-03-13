@@ -215,21 +215,31 @@ export default function AdminFacultyMonitorPage() {
       }
     },
     {
-      headerName: "Completion",
+      headerName: "Progress",
       field: "overall_progress",
-      flex: 1.5,
-      minWidth: 170,
+      flex: 1.8,  // Slightly wider to fit all info
+      minWidth: 190,
       cellRenderer: (p) => {
         if (p.value == null) return null;
         const score = parseFloat(p.value);
+        const f = p.data;
         const color = score === 100 ? 'bg-success' : score > 50 ? 'bg-primary-500' : 'bg-warning';
         return (
-          <div className="flex flex-col justify-center h-full w-full pr-4">
-            <div className="flex justify-between text-[10px] mb-1.5 font-black uppercase tracking-widest text-neutral-400">
-              <span>Progress</span>
-              <span className={score === 100 ? 'text-success' : score > 50 ? 'text-primary-600' : 'text-warning'}>{score}%</span>
+          <div className="flex items-center gap-3 h-full w-full pr-2">
+            {/* Horizontal Bar */}
+            <div className="flex-1 bg-neutral-100 border border-neutral-200 rounded-full h-2 overflow-hidden shadow-inner">
+              <div
+                className={`h-full transition-all duration-700 ease-out ${color}`}
+                style={{ width: `${score}%` }}
+              ></div>
             </div>
-            <Progress value={score} className="h-1.5 bg-neutral-100" indicatorClassName={color} />
+
+            {/* Stat: Percentage */}
+            <div className="flex items-center shrink-0">
+              <span className={`text-[10px] font-black w-9 text-right ${score === 100 ? 'text-success' : score > 50 ? 'text-primary-600' : 'text-warning'}`}>
+                {score}%
+              </span>
+            </div>
           </div>
         );
       }
@@ -496,12 +506,6 @@ export default function AdminFacultyMonitorPage() {
               />
             )}
           </CardContent>
-          <div className="px-5 py-3 bg-neutral-50/80 border-t border-neutral-200 flex items-center shrink-0">
-            <p className="text-xs text-neutral-500 font-bold uppercase tracking-wider flex items-center gap-1.5">
-              <Info className="h-3.5 w-3.5 text-primary-500" />
-              Showing {facultyList.length} entries based on current filters
-            </p>
-          </div>
         </Card>
 
         {/* Send Reminder Dialog */}

@@ -24,13 +24,14 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DataTable } from "@/components/DataTable";
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { saveAs } from 'file-saver';
+import { useToast } from "@/components/ui/toast/toaster";
+import { useEffect as useToastEffect } from "react";
 
 export default function FacultyDashboardPage() {
   const navigate = useNavigate();
   const { stats, settings, courses, recentActivity, loading, error, facultyProfile, templates } = useFacultyDashboard();
+  const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
-  const [success, setSuccess] = useState(null);
-  const [localError, setLocalError] = useState(null);
 
   const recentActivityColDefs = useMemo(() => [
     {
@@ -98,7 +99,11 @@ export default function FacultyDashboardPage() {
     const certificateTemplate = templates.find(t => t.system_category === 'CLEARANCE_CERTIFICATE');
 
     if (!certificateTemplate) {
-      setLocalError("Active Clearance Certificate template not found in System Settings.");
+      toast({
+        variant: "destructive",
+        title: "Certificate Template Not Found",
+        description: "Active Clearance Certificate template not found in System Settings.",
+      });
       return;
     }
 
@@ -139,15 +144,32 @@ export default function FacultyDashboardPage() {
 
       const pdfBytes = await pdfDoc.save();
       saveAs(new Blob([pdfBytes], { type: 'application/pdf' }), `Clearance_${facultyProfile?.last_name || 'Certificate'}.pdf`);
-      setSuccess("Certificate generated successfully!");
-      setTimeout(() => setSuccess(null), 3000);
+      toast({
+        title: "Success",
+        description: "Certificate generated successfully!",
+      });
     } catch (err) {
       console.error(err);
-      setLocalError("Failed to generate certificate.");
+      toast({
+        variant: "destructive",
+        title: "Generation Failed",
+        description: "Failed to generate certificate.",
+      });
     } finally {
       setIsGenerating(false);
     }
   };
+
+  // Handle errors via toast
+  useToastEffect(() => {
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "Error Loading Dashboard",
+        description: error,
+      });
+    }
+  }, [error, toast]);
 
   // Error is handled in the main return for better visibility
   if (loading) {
@@ -161,20 +183,7 @@ export default function FacultyDashboardPage() {
 
   return (
     <div className="space-y-6 flex flex-col h-full bg-neutral-50/30">
-      {/* Alerts */}
-      {(error || localError) && (
-        <Alert variant="destructive" className="border-destructive/30 bg-destructive/5 text-destructive shadow-sm animate-in fade-in slide-in-from-top-1">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription className="font-medium">{error || localError}</AlertDescription>
-        </Alert>
-      )}
-
-      {success && (
-        <Alert className="bg-emerald-50 border-emerald-200 text-emerald-800 shadow-sm animate-in fade-in slide-in-from-top-1">
-          <CheckCircle className="h-4 w-4 text-emerald-600" />
-          <AlertDescription className="font-medium">{success}</AlertDescription>
-        </Alert>
-      )}
+      {/* Inline alerts removed in favor of Toast */}
 
       {/* Header */}
       <div>
