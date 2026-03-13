@@ -250,6 +250,163 @@ app.post("/api/thesis/create", async (req, res) => {
     }
 });
 
+// Update thesis entry endpoint (Bypasses RLS)
+app.post("/api/thesis/update", async (req, res) => {
+    const { id, entry, authors, gdriveFile } = req.body;
+
+    try {
+        // 1. Fetch old values for audit log and file deletion
+        const { data: oldEntry, error: fetchError } = await supabaseAdmin
+            .from("thesis_entries")
+            .select("*, files:thesis_files(*)")
+            .eq("id", id)
+            .single();
+
+        if (fetchError) throw fetchError;
+
+        // 2. Update thesis entry
+        const { error: entryUpdateError } = await supabaseAdmin
+            .from("thesis_entries")
+            .update(entry)
+            .eq("id", id);
+
+        if (entryUpdateError) throw entryUpdateError;
+
+        // 3. Update authors (Delete existing and re-insert)
+        const { error: authorsDeleteError } = await supabaseAdmin
+            .from("thesis_authors")
+            .delete()
+            .eq("thesis_id", id);
+
+        if (authorsDeleteError) throw authorsDeleteError;
+
+        const authorsToInsert = authors.map((author, index) => ({
+            thesis_id: id,
+            first_name: author.firstName,
+            last_name: author.lastName,
+            display_order: index + 1
+        }));
+
+        const { error: authorsInsertError } = await supabaseAdmin
+            .from("thesis_authors")
+            .insert(authorsToInsert);
+
+        if (authorsInsertError) throw authorsInsertError;
+
+        // 4. Update file if provided
+        if (gdriveFile) {
+            // Delete old file from Google Drive if it exists
+            const oldFileId = oldEntry.files?.[0]?.storage_path;
+            if (oldFileId) {
+                try {
+                    const auth = await loadToken();
+                    if (auth) {
+                        const drive = google.drive({ version: "v3", auth });
+                        console.log(`[Update] Deleting old file: ${oldFileId}`);
+                        await drive.files.delete({ fileId: oldFileId });
+                    }
+                } catch (deleteError) {
+                    console.error("Error deleting old file from GDrive:", deleteError);
+                    // We don't throw here to avoid failing the whole update if deletion fails
+                }
+            }
+
+            const fileMetadata = {
+                original_filename: entry.title + ".pdf",
+                storage_path: gdriveFile.id,
+                storage_bucket: "google-drive",
+                mime_type: "application/pdf"
+            };
+
+            const { error: fileUpdateError } = await supabaseAdmin
+                .from("thesis_files")
+                .update(fileMetadata)
+                .eq("thesis_id", id);
+
+            if (fileUpdateError) throw fileUpdateError;
+        }
+
+        // 5. Log the event
+        await logAuditTrail(req, {
+            action: "Update",
+            description: `Updated thesis details: "${entry.title}"`,
+            moduleAffected: "Thesis Archiving",
+            recordId: id,
+            recordType: "thesis_entries",
+            oldValues: oldEntry,
+            newValues: entry,
+            actorUserId: entry.updated_by || req.body.actorUserId,
+            actorName: req.body.actorName || "System User"
+        });
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error("Error updating thesis entry:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Deletion endpoint (Bypasses RLS)
+app.post("/api/thesis/delete", async (req, res) => {
+    const { id, actorName, actorUserId } = req.body;
+
+    try {
+        // 1. Fetch info for audit log and GDrive cleanup
+        const { data: thesis, error: fetchError } = await supabaseAdmin
+            .from("thesis_entries")
+            .select("title, files:thesis_files(storage_path)")
+            .eq("id", id)
+            .single();
+
+        if (fetchError) throw fetchError;
+
+        // 2. Delete files from Google Drive
+        const auth = await loadToken();
+        if (auth && thesis.files) {
+            const drive = google.drive({ version: "v3", auth });
+            for (const file of thesis.files) {
+                if (file.storage_path) {
+                    try {
+                        console.log(`[Delete] Removing file from GDrive: ${file.storage_path}`);
+                        await drive.files.delete({ fileId: file.storage_path });
+                    } catch (driveError) {
+                        console.error(`[Delete] Error deleting file ${file.storage_path}:`, driveError.message);
+                        // Continue deletion process even if GDrive delete fails (e.g. file already gone)
+                    }
+                }
+            }
+        }
+
+        // 3. Perform soft delete in DB
+        const { error: deleteError } = await supabaseAdmin
+            .from("thesis_entries")
+            .update({ 
+                is_deleted: true, 
+                deleted_at: new Date().toISOString() 
+            })
+            .eq("id", id);
+
+        if (deleteError) throw deleteError;
+
+        // 4. Log the action
+        await logAuditTrail(req, {
+            action: "Delete",
+            description: `Permanently removed thesis and files: "${thesis.title}"`,
+            moduleAffected: "Thesis Archiving",
+            recordId: id,
+            recordType: "thesis_entries",
+            oldValues: { title: thesis.title },
+            actorUserId: actorUserId || null,
+            actorName: actorName || "System"
+        });
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error("Error deleting thesis:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Generic Error Handler
 app.use((err, req, res, next) => {
     console.error("Global Error Handler:", err);
