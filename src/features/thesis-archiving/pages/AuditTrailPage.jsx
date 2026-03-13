@@ -25,7 +25,7 @@ const auditTheme = themeBalham.withParams({
 
 export default function AuditTrailPage() {
     const gridRef = useRef();
-    const { logs, loading, error, filters, updateFilters, refresh } = useAuditLogs();
+    const { logs, availableActions, loading, error, filters, updateFilters, refresh } = useAuditLogs();
 
     const columnDefs = useMemo(() => [
         {
@@ -168,17 +168,9 @@ export default function AuditTrailPage() {
                                 onChange={(e) => updateFilters({ action: e.target.value })}
                             >
                                 <option value="all">All actions</option>
-                                <option value="Add">Add</option>
-                                <option value="Edit">Edit</option>
-                                <option value="Delete">Delete</option>
-                                <option value="Archive">Archive</option>
-                                <option value="Restore">Restore</option>
-                                <option value="Upload">Upload</option>
-                                <option value="Similarity_Run">Similarity Scan</option>
-                                <option value="Export">Export</option>
-                                <option value="Notify">Notification</option>
-                                <option value="Settings">Settings</option>
-                                <option value="Login">Login</option>
+                                {(availableActions || []).map(action => (
+                                    <option key={action} value={action}>{action}</option>
+                                ))}
                             </select>
                         </div>
 

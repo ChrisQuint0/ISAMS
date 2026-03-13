@@ -41,12 +41,12 @@ export const similarityService = {
     /**
      * Run NLP analysis via the backend — returns full result object
      */
-    async runAnalysis({ scanId, userId, title, abstract, keywords, content, scanType, actorInfo = {} }) {
+    async runAnalysis({ scanId, userId, title, abstract, keywords, content, fileName, scanType, actorInfo = {} }) {
         const res = await fetch(`${SERVER_URL}/api/similarity/analyze`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ 
-                scanId, userId, title, abstract, keywords, content, scanType,
+                scanId, userId, title, abstract, keywords, content, fileName, scanType,
                 actorName: actorInfo.actorName,
                 actorUserId: actorInfo.actorUserId
             }),
