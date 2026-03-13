@@ -28,7 +28,6 @@ export function SimilarityReportModal({
     topMatches = [],
     analyzedFileName,
     threshold = 20,
-    onMarkAsReviewed,
     onExportPDF,
 }) {
     const [isExporting, setIsExporting] = useState(false);
@@ -77,7 +76,7 @@ export function SimilarityReportModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-6xl bg-white border-gray-200 text-gray-900 p-0 overflow-hidden">
+            <DialogContent className="min-w-3xl bg-white border-gray-200 text-gray-900 p-0 overflow-hidden">
                 <div className="p-6 border-b border-gray-200">
                     <div className="flex items-center justify-between mb-1">
                         <DialogTitle className="text-xl font-bold flex items-center gap-2 text-gray-900">

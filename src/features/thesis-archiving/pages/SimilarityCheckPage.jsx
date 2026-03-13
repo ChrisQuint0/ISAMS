@@ -4,7 +4,7 @@ import {
     ShieldAlert, ShieldCheck, AlertCircle,
     FileText, Download, RefreshCw, ArrowLeft,
     History, FileCheck, AlertTriangle, Loader2,
-    Info, BookOpen
+    Info, BookOpen, Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -37,6 +37,47 @@ export default function SimilarityCheckPage() {
 
     const { addToast } = useToast();
     const [reportModalOpen, setReportModalOpen] = useState(false);
+    const [downloadStatus, setDownloadStatus] = useState("idle"); // 'idle' | 'downloading' | 'done'
+    const [exportStatus, setExportStatus] = useState("idle"); // 'idle' | 'exporting' | 'done'
+
+    const handleDownloadTemplate = () => {
+        setDownloadStatus("downloading");
+
+        // Simulate a slight delay for better UX
+        setTimeout(() => {
+            const link = document.createElement("a");
+            link.href = "/thesis_template.docx";
+            link.download = "thesis_template.docx";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            setDownloadStatus("done");
+            addToast("success", "Template downloaded", "Fill it out and upload for similarity checking");
+
+            // Reset back to idle after a delay
+            setTimeout(() => {
+                setDownloadStatus("idle");
+            }, 3000);
+        }, 800);
+    };
+
+    const handleExportWithLoading = async () => {
+        setExportStatus("exporting");
+        try {
+            await handleExportPDF();
+            setExportStatus("done");
+            addToast("success", "Report Exported", "The similarity check report has been generated successfully");
+            
+            // Reset back to idle after a delay
+            setTimeout(() => {
+                setExportStatus("idle");
+            }, 3000);
+        } catch (err) {
+            setExportStatus("idle");
+            addToast("error", "Export Failed", "There was an error generating the PDF report");
+        }
+    };
 
     // Derive display data from scanResult
     const fieldScores = scanResult?.field_scores ?? [];
@@ -86,11 +127,31 @@ export default function SimilarityCheckPage() {
                                 {viewState === "result" && (
                                     <div className="flex items-center gap-3">
                                         <Button
-                                            onClick={handleExportPDF}
-                                            className="bg-green-700 hover:bg-green-800 text-white font-bold px-6 border-none shadow-lg"
+                                            onClick={handleExportWithLoading}
+                                            disabled={exportStatus !== "idle"}
+                                            className={cn(
+                                                "font-bold px-6 border-none shadow-lg transition-all",
+                                                exportStatus === "exporting" ? "bg-green-600 cursor-wait" :
+                                                    exportStatus === "done" ? "bg-green-500" :
+                                                        "bg-green-700 hover:bg-green-800 text-white"
+                                            )}
                                         >
-                                            <Download className="h-4 w-4 mr-2" />
-                                            Export PDF Report
+                                            {exportStatus === "exporting" ? (
+                                                <>
+                                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                    Exporting...
+                                                </>
+                                            ) : exportStatus === "done" ? (
+                                                <>
+                                                    <Check className="h-4 w-4 mr-2" />
+                                                    Exported
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Download className="h-4 w-4 mr-2" />
+                                                    Export PDF Report
+                                                </>
+                                            )}
                                         </Button>
                                     </div>
                                 )}
@@ -133,19 +194,31 @@ export default function SimilarityCheckPage() {
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className="shrink-0 border-blue-300 text-blue-700 hover:bg-blue-100 font-bold text-xs"
-                                        onClick={() => {
-                                            const link = document.createElement("a");
-                                            link.href = "/thesis_template.docx";
-                                            link.download = "thesis_template.docx";
-                                            document.body.appendChild(link);
-                                            link.click();
-                                            document.body.removeChild(link);
-                                            addToast("success", "Template downloaded", "Fill it out and upload for similarity checking");
-                                        }}
+                                        className={cn(
+                                            "shrink-0 border-blue-300 font-bold text-xs transition-all",
+                                            downloadStatus === "downloading" ? "bg-blue-100 text-blue-700" :
+                                                downloadStatus === "done" ? "bg-green-100 border-green-300 text-green-700" :
+                                                    "text-blue-700 hover:bg-blue-100"
+                                        )}
+                                        onClick={handleDownloadTemplate}
+                                        disabled={downloadStatus !== "idle"}
                                     >
-                                        <BookOpen className="h-3 w-3 mr-1.5" />
-                                        Download Template
+                                        {downloadStatus === "downloading" ? (
+                                            <>
+                                                <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                                                Downloading...
+                                            </>
+                                        ) : downloadStatus === "done" ? (
+                                            <>
+                                                <Check className="h-3 w-3 mr-1.5" />
+                                                Downloaded
+                                            </>
+                                        ) : (
+                                            <>
+                                                <BookOpen className="h-3 w-3 mr-1.5" />
+                                                Download Template
+                                            </>
+                                        )}
                                     </Button>
                                 </div>
 
@@ -416,16 +489,6 @@ export default function SimilarityCheckPage() {
                                                         <History className="h-4 w-4 mr-2" />
                                                         Full Report & History
                                                     </Button>
-                                                    {isFlagged && (
-                                                        <Button
-                                                            variant="outline"
-                                                            onClick={() => handleMarkAsReviewed({ reviewStatus: "Reviewed", actionTaken: "cleared" })}
-                                                            className="w-full bg-white hover:bg-amber-50 border-amber-300 text-amber-700 font-bold py-4"
-                                                        >
-                                                            <FileCheck className="h-4 w-4 mr-2" />
-                                                            Mark as Reviewed
-                                                        </Button>
-                                                    )}
                                                 </div>
 
                                                 {/* Engine info */}
