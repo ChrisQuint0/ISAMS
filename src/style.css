@@ -247,3 +247,24 @@
   background: #475569;
   /* slate-600 */
 }
+
+/* Custom Scrollbar for Light Themes (White/Clean) */
+.custom-scrollbar-white::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar-white::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 4px;
+}
+
+.custom-scrollbar-white::-webkit-scrollbar-thumb {
+  background: #e2e8f0; /* neutral-200 */
+  border-radius: 4px;
+  border: 1px solid white;
+}
+
+.custom-scrollbar-white::-webkit-scrollbar-thumb:hover {
+  background: #cbd5e1; /* neutral-300 */
+}

@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import fs from "fs";
 import Tesseract from "tesseract.js";
 import JSZip from "jszip";
+import { google } from "googleapis";
 import { Readable } from "stream";
 import { createRequire } from "module";
 
@@ -27,6 +28,7 @@ const GOOGLE_CLIENT_SECRET = process.env.VITE_GOOGLE_CLIENT_SECRET;
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const REDIRECT_URI = "http://localhost:3000/oauth2callback";
 
 // Middleware
 app.use(cors());
@@ -45,6 +47,51 @@ const supabaseAdmin = (SUPABASE_URL && SUPABASE_SERVICE_KEY)
 
 // Multer for file uploads
 const upload = multer({ storage: multer.memoryStorage() });
+
+// OAuth2 Client for GDrive
+const oauth2Client = (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET)
+  ? new google.auth.OAuth2(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, REDIRECT_URI)
+  : null;
+
+// ---------- GDrive Helpers ----------
+async function loadToken() {
+  if (!supabase || !oauth2Client) return null;
+  const { data, error } = await supabase
+    .from("google_auth_tokens")
+    .select("*")
+    .eq("id", 1)
+    .single();
+
+  if (error || !data) return null;
+
+  oauth2Client.setCredentials({
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+    scope: data.scope,
+    token_type: data.token_type,
+    expiry_date: data.expiry_date,
+  });
+
+  return oauth2Client;
+}
+
+function sanitizeFolderName(name) {
+  if (!name) return 'Untitled';
+  return name.replace(/[\/\\:*?"<>|]/g, '').replace(/\s+/g, ' ').trim() || 'Untitled';
+}
+
+async function getOrCreateFolder(drive, folderName, parentId) {
+  const safeName = sanitizeFolderName(folderName);
+  const query = `name='${safeName.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`;
+  const { data } = await drive.files.list({ q: query, fields: 'files(id, name)', pageSize: 1 });
+  if (data.files && data.files.length > 0) return data.files[0].id;
+  
+  const createRes = await drive.files.create({
+    resource: { name: safeName, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] },
+    fields: 'id',
+  });
+  return createRes.data.id;
+}
 
 // --- Routes ---
 
@@ -331,6 +378,110 @@ app.post("/api/hte/students/create", async (req, res) => {
     });
   } catch (error) {
     console.error("Error creating student:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 11.1. Batch Create HTE Students
+app.post("/api/hte/students/batch-create", async (req, res) => {
+  const { students, academicYear, semester } = req.body;
+  const HTE_PARENT_FOLDER_ID = "1AmN8A4Q-D7eUWH7vIE_C_ybV4DWvm99V";
+
+  if (!Array.isArray(students) || students.length === 0) {
+    return res.status(400).json({ error: "Invalid or empty student list" });
+  }
+
+  const results = {
+    total: students.length,
+    success: 0,
+    failed: 0,
+    errors: []
+  };
+
+  try {
+    const auth = await loadToken();
+    if (!auth) return res.status(401).json({ error: "Google Drive not authenticated" });
+    const drive = google.drive({ version: "v3", auth });
+
+    for (const studentData of students) {
+      try {
+        // 1. Create Auth User
+        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+          email: studentData.email,
+          password: studentData.password,
+          email_confirm: true,
+          user_metadata: {
+            first_name: studentData.firstName,
+            last_name: studentData.lastName,
+          },
+        });
+
+        if (authError) throw authError;
+        const userId = authData.user.id;
+
+        // 2. Set RBAC
+        await supabaseAdmin.from("user_rbac").upsert({
+          user_id: userId,
+          thesis: true,
+          thesis_role: "student",
+          status: "active"
+        });
+
+        // 3. Create GDrive Folder
+        const folderName = `${studentData.studentId}_${studentData.lastName}_${semester}`;
+        const folderId = await getOrCreateFolder(drive, folderName, HTE_PARENT_FOLDER_ID);
+        const folderLink = `https://drive.google.com/drive/folders/${folderId}`;
+
+        // 4. Insert Student Record
+        const { error: studentError } = await supabaseAdmin
+          .from("hte_ojt_students")
+          .insert([{
+            user_id: userId,
+            student_no: studentData.studentId,
+            first_name: studentData.firstName,
+            middle_name: studentData.middleName,
+            last_name: studentData.lastName,
+            email: studentData.email,
+            program: studentData.program,
+            section: studentData.sectionName || "",
+            section_id: studentData.sectionId,
+            adviser_id: studentData.adviserId,
+            academic_year: academicYear,
+            semester: semester,
+            gdrive_folder_id: folderId,
+            gdrive_folder_link: folderLink,
+            overall_status: "incomplete",
+            is_active: true
+          }]);
+
+        if (studentError) throw studentError;
+
+        results.success++;
+      } catch (err) {
+        results.failed++;
+        results.errors.push({
+          studentId: studentData.studentId,
+          name: `${studentData.firstName} ${studentData.lastName}`,
+          error: err.message
+        });
+      }
+    }
+
+    res.json({ success: true, results });
+
+    // Log the event
+    await logAuditTrail(req, {
+      action: "Add",
+      description: `Batch enrolled ${results.success} HTE students (${results.failed} failed)`,
+      moduleAffected: "HTE Archiving",
+      recordType: "hte_ojt_students",
+      newValues: results,
+      actorUserId: req.body.actorUserId || null,
+      actorName: req.body.actorName || "Admin"
+    });
+
+  } catch (error) {
+    console.error("Error in batch student creation:", error);
     res.status(500).json({ error: error.message });
   }
 });

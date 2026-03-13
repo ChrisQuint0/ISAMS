@@ -35,6 +35,7 @@ import {
 import { thesisService } from "../services/thesisService";
 import { useToast } from "@/components/ui/toast/toaster";
 import { useAuth } from "@/features/auth/hooks/useAuth";
+import * as XLSX from "xlsx";
 
 const PROGRAMS = [
     { value: "Computer Science", label: "Computer Science" },
@@ -48,6 +49,7 @@ export default function AddStudentModal({ open, onOpenChange, onAdd }) {
     const [loading, setLoading] = useState(false);
     const [advisers, setAdvisers] = useState([]);
     const [sections, setSections] = useState([]);
+    const [academicYears, setAcademicYears] = useState([]);
     const [fetchingData, setFetchingData] = useState(false);
     const { addToast } = useToast();
     const { user } = useAuth();
@@ -69,7 +71,9 @@ export default function AddStudentModal({ open, onOpenChange, onAdd }) {
         section: "",
         program: "",
         email: "",
-        password: ""
+        password: "",
+        academicYear: "",
+        semester: "1st Semester"
     });
 
     // Batch Entry States
@@ -90,7 +94,9 @@ export default function AddStudentModal({ open, onOpenChange, onAdd }) {
                 section: "",
                 program: "",
                 email: "",
-                password: ""
+                password: "",
+                academicYear: "",
+                semester: "1st Semester"
             });
             setBatchFile(null);
         }
@@ -99,12 +105,20 @@ export default function AddStudentModal({ open, onOpenChange, onAdd }) {
     const fetchInitialData = async () => {
         setFetchingData(true);
         try {
-            const [advData, secData] = await Promise.all([
+            const [advData, secData, ayData] = await Promise.all([
                 thesisService.getAdvisers(),
-                thesisService.getSections()
+                thesisService.getSections(),
+                thesisService.getAcademicYears()
             ]);
             setAdvisers(advData);
             setSections(secData);
+            setAcademicYears(ayData);
+
+            // Set default academic year if one is active
+            const activeYear = ayData.find(y => y.is_active);
+            if (activeYear) {
+                setFormData(prev => ({ ...prev, academicYear: activeYear.name }));
+            }
         } catch (error) {
             console.error("Failed to fetch initial data:", error);
         } finally {
@@ -138,8 +152,8 @@ export default function AddStudentModal({ open, onOpenChange, onAdd }) {
                     sectionName: selectedSection?.name
                 },
                 password: formData.password,
-                academicYear: "2023-2024", // This should ideally be dynamic
-                semester: "2nd Semester",    // This should ideally be dynamic
+                academicYear: formData.academicYear,
+                semester: formData.semester,
                 actorInfo
             });
 
@@ -161,21 +175,123 @@ export default function AddStudentModal({ open, onOpenChange, onAdd }) {
         }
     };
 
-    const handleBatchSubmit = (e) => {
+    const handleBatchSubmit = async (e) => {
         e.preventDefault();
         if (!batchFile) return;
 
         setLoading(true);
-        // Simulate Batch Processing
-        setTimeout(() => {
-            setLoading(false);
-            addToast({
-                title: "Batch Processing Complete",
-                description: `Successfully imported students from ${batchFile.name}.`,
-                variant: "success"
+        try {
+            const reader = new FileReader();
+            
+            const data = await new Promise((resolve, reject) => {
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = (e) => reject(e);
+                reader.readAsArrayBuffer(batchFile);
             });
+
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const json = XLSX.utils.sheet_to_json(worksheet);
+
+            if (json.length === 0) {
+                throw new Error("The uploaded file is empty.");
+            }
+
+            // Map columns and lookup IDs
+            const studentsToCreate = json.map((row, index) => {
+                // Column mapping (case-insensitive search for headers)
+                const getVal = (possibleHeaders) => {
+                    const header = Object.keys(row).find(k => 
+                        possibleHeaders.some(ph => k.toLowerCase().trim() === ph.toLowerCase())
+                    );
+                    return header ? row[header] : "";
+                };
+
+                const studentId = getVal(["Student ID", "ID", "StudentNo", "Student Number"]);
+                const firstName = getVal(["First Name", "FirstName", "First"]);
+                const middleName = getVal(["Middle Name", "MiddleName", "Middle"]);
+                const lastName = getVal(["Last Name", "LastName", "Last"]);
+                const email = getVal(["Email", "Email Address", "EmailAddress"]);
+                const password = String(getVal(["Password", "Pass", "Initial Password"]) || "Student123!");
+                const programName = getVal(["Program", "Course", "Degree"]);
+                const sectionName = getVal(["Section", "Class"]);
+                const adviserName = getVal(["Adviser", "Advisor", "Research Adviser"]);
+
+                // Find Program Value
+                const program = PROGRAMS.find(p => 
+                    p.label.toLowerCase() === programName.toString().toLowerCase() || 
+                    p.value.toLowerCase() === programName.toString().toLowerCase()
+                )?.value || (programName.toString().includes("IT") ? "Information Technology" : "Computer Science");
+
+                // Find Section ID
+                const section = sections.find(s => 
+                    s.name.toLowerCase().trim() === sectionName.toString().toLowerCase().trim()
+                );
+
+                // Find Adviser ID (Forgiving match for titles/suffixes)
+                const adviser = advisers.find(a => {
+                    const dn = (a.display_name || "").toLowerCase();
+                    const input = adviserName.toString().toLowerCase().trim();
+                    return dn === input || dn.includes(input);
+                });
+
+                if (!adviser) {
+                    throw new Error(`Row ${index + 2}: Adviser "${adviserName}" not found. All advisers must match existing records.`);
+                }
+
+                if (!section) {
+                    throw new Error(`Row ${index + 2}: Section "${sectionName}" not found. All sections must match existing records.`);
+                }
+
+                if (!studentId || !firstName || !lastName || !email) {
+                    throw new Error(`Row ${index + 2}: Missing required fields (ID, Name, or Email)`);
+                }
+
+                return {
+                    studentId: studentId.toString(),
+                    firstName: firstName.toString(),
+                    middleName: middleName.toString(),
+                    lastName: lastName.toString(),
+                    email: email.toString(),
+                    password: password.toString(),
+                    program,
+                    sectionId: section?.id,
+                    sectionName: section?.name || sectionName.toString(),
+                    adviserId: adviser?.id
+                };
+            });
+
+            const results = await thesisService.batchCreateHTEStudents({
+                students: studentsToCreate,
+                academicYear: formData.academicYear,
+                semester: formData.semester,
+                actorInfo
+            });
+
+            if (onAdd) onAdd();
+            
+            addToast({
+                title: "Batch Import Complete",
+                description: `Successfully created ${results.success} accounts. ${results.failed} failed.`,
+                variant: results.failed > 0 ? "warning" : "success"
+            });
+
+            if (results.failed > 0) {
+                console.error("Batch Creation Errors:", results.errors);
+            }
+
             onOpenChange(false);
-        }, 2000);
+        } catch (error) {
+            console.error("Batch processing failed:", error);
+            addToast({
+                title: "Import Failed",
+                description: error.message,
+                variant: "destructive"
+            });
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleFileChange = (e) => {
@@ -226,7 +342,7 @@ export default function AddStudentModal({ open, onOpenChange, onAdd }) {
                     </div>
                 )}
 
-                <div className="p-6">
+                <div className="p-6 max-h-[calc(90vh-160px)] overflow-y-auto custom-scrollbar-white">
                     {view === "selection" && (
                         <div className="grid grid-cols-2 gap-4">
                             <button
@@ -363,6 +479,26 @@ export default function AddStudentModal({ open, onOpenChange, onAdd }) {
                                         </Select>
                                     </div>
                                 </div>
+
+                                <div className="grid grid-cols-1 gap-4">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="academicYear" className="text-xs font-semibold">Academic Year <span className="text-red-500">*</span></Label>
+                                        <Select
+                                            value={formData.academicYear}
+                                            onValueChange={(v) => setFormData({ ...formData, academicYear: v })}
+                                            required
+                                        >
+                                            <SelectTrigger className="h-9 text-sm">
+                                                <SelectValue placeholder={fetchingData ? "Loading..." : "Select Year"} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {academicYears.map(y => (
+                                                    <SelectItem key={y.id} value={y.name}>{y.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
                             </div>
 
                             <div className="space-y-4">
@@ -397,6 +533,7 @@ export default function AddStudentModal({ open, onOpenChange, onAdd }) {
                                                 type="password"
                                                 required
                                                 placeholder="••••••••"
+                                                autoComplete="current-password"
                                                 value={formData.password}
                                                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                                                 className="h-9 pl-9 text-sm"
@@ -446,6 +583,27 @@ export default function AddStudentModal({ open, onOpenChange, onAdd }) {
 
                     {view === "batch" && (
                         <div className="space-y-6">
+                            <div className="grid grid-cols-1 gap-4">
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="batchAcademicYear" className="text-xs font-semibold">Target Academic Year <span className="text-red-500">*</span></Label>
+                                    <Select
+                                        value={formData.academicYear}
+                                        onValueChange={(v) => setFormData({ ...formData, academicYear: v })}
+                                        required
+                                    >
+                                        <SelectTrigger className="h-9 text-sm">
+                                            <SelectValue placeholder={fetchingData ? "Loading..." : "Select Year"} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {academicYears.map(y => (
+                                                <SelectItem key={y.id} value={y.name}>{y.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <p className="text-[10px] text-neutral-500 italic">Select the academic year to which these students will be enrolled.</p>
+                                </div>
+                            </div>
+
                             <div className="p-6 border-2 border-dashed border-neutral-200 rounded-xl bg-neutral-50/50 flex flex-col items-center justify-center text-center group hover:border-primary-400 transition-colors">
                                 <div className="h-16 w-16 rounded-full bg-white shadow-sm flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                                     <Upload className="h-8 w-8 text-primary-500" />
@@ -493,8 +651,11 @@ export default function AddStudentModal({ open, onOpenChange, onAdd }) {
                             <div className="space-y-4">
                                 <h5 className="text-xs font-bold text-neutral-700 flex items-center gap-2">
                                     <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                    Required Format Columns
+                                    Required Columns (Any Order)
                                 </h5>
+                                <p className="text-[10px] text-neutral-500 px-6 -mt-3">
+                                    The system automatically maps columns based on their names. The order doesn't matter.
+                                </p>
                                 <div className="grid grid-cols-2 gap-x-8 gap-y-2 px-6">
                                     {["Student ID", "First Name", "Middle Name", "Last Name", "Adviser", "Section", "Program", "Email", "Password"].map(col => (
                                         <div key={col} className="flex items-center gap-2 text-[10px] text-neutral-600">
