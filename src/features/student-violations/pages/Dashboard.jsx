@@ -9,7 +9,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 import {
   Users, ShieldAlert, FileText, BarChart3,
   History, PieChart, Clock, AlertTriangle,
-  CalendarCheck, RefreshCw, Search
+  CalendarCheck, RefreshCw, Search, X
 } from "lucide-react";
 
 
@@ -157,6 +157,8 @@ export default function StudViolationDashboard() {
   const [loading, setLoading] = useState(false);
   const [gridApi, setGridApi] = useState(null);
   const [rowData, setRowData] = useState([]);
+  const [overdueSanctions, setOverdueSanctions] = useState([]);
+  const [alertDismissed, setAlertDismissed] = useState(false);
   const [kpiStats, setKpiStats] = useState({
     complianceRate: "0%",
     activeCases: 0,
@@ -228,7 +230,21 @@ export default function StudViolationDashboard() {
 
       setRowData(formattedData);
 
-      // 2. Fetch KPI Data (Violations and Sanctions)
+      // 2. Fetch Overdue Sanctions for alert banner
+      const { data: overdueData } = await supabase
+        .from('student_sanctions_sv')
+        .select(`
+          sanction_id, penalty_name, deadline_date,
+          violations_sv (
+            students_sv (first_name, last_name)
+          )
+        `)
+        .eq('status', 'Overdue')
+        .order('deadline_date', { ascending: true });
+      setOverdueSanctions(overdueData || []);
+      setAlertDismissed(false);
+
+      // 3. Fetch KPI Data (Violations and Sanctions)
       const { data: violations } = await supabase.from('violations_sv').select('status, offense_type_id');
       const { data: sanctions } = await supabase.from('student_sanctions_sv').select('status');
       const { data: offenseTypes } = await supabase.from('offense_types_sv').select('offense_type_id, severity');
@@ -348,6 +364,61 @@ export default function StudViolationDashboard() {
           Refresh
         </Button>
       </div>
+
+      {/* OVERDUE SANCTIONS ALERT BANNER */}
+      {overdueSanctions.length > 0 && !alertDismissed && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 animate-in fade-in duration-300">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+              <div className="shrink-0 mt-0.5 p-1.5 rounded-md bg-red-100 border border-red-200">
+                <AlertTriangle className="h-4 w-4 text-red-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-red-800">
+                  {overdueSanctions.length} overdue sanction{overdueSanctions.length > 1 ? 's' : ''} require{overdueSanctions.length === 1 ? 's' : ''} attention
+                </p>
+                <div className="mt-2 flex flex-col gap-1">
+                  {overdueSanctions.slice(0, 5).map((s) => {
+                    const student = s.violations_sv?.students_sv;
+                    const studentName = student ? `${student.first_name} ${student.last_name}` : 'Unknown Student';
+                    const daysOverdue = s.deadline_date
+                      ? Math.floor((new Date() - new Date(s.deadline_date)) / (1000 * 60 * 60 * 24))
+                      : null;
+                    return (
+                      <div key={s.sanction_id} className="flex items-center gap-2 text-xs text-red-700">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
+                        <span className="font-semibold">{studentName}</span>
+                        <span className="text-red-400">—</span>
+                        <span className="truncate">{s.penalty_name}</span>
+                        {daysOverdue !== null && (
+                          <span className="shrink-0 ml-auto font-bold text-red-600">{daysOverdue}d overdue</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {overdueSanctions.length > 5 && (
+                    <p className="text-xs text-red-500 mt-1 font-medium">+{overdueSanctions.length - 5} more...</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => navigate('/violations')}
+                  className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-red-700 hover:text-red-900 underline underline-offset-2 transition-colors"
+                >
+                  <ShieldAlert className="h-3.5 w-3.5" />
+                  View all sanctions
+                </button>
+              </div>
+            </div>
+            <button
+              onClick={() => setAlertDismissed(true)}
+              className="shrink-0 p-1 rounded-md text-red-400 hover:text-red-700 hover:bg-red-100 transition-colors"
+              title="Dismiss"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <QuickStat title="Compliance" value={kpiStats.complianceRate} icon={PieChart} color="text-primary-600" />
