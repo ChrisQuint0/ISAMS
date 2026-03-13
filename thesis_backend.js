@@ -20,8 +20,23 @@ const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
-// THESIS SPECIFIC CONFIG
-const THESIS_ROOT_FOLDER_ID = "1oTrBXMT3KxBORnVBtaGJ0JlSeiJ1GgmD";
+// Helper to get settings from DB
+async function getThesisSetting(key) {
+    if (!supabaseAdmin) return null;
+    const { data, error } = await supabaseAdmin
+        .from("thesis_settings")
+        .select("value")
+        .eq("key", key)
+        .maybeSingle();
+    
+    if (error) {
+        console.error(`[Settings] Error fetching ${key}:`, error);
+        return null;
+    }
+    return data?.value || null;
+}
+
+const DEFAULT_THESIS_ROOT_FOLDER_ID = "1oTrBXMT3KxBORnVBtaGJ0JlSeiJ1GgmD";
 
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
@@ -126,9 +141,11 @@ app.post("/api/thesis/upload", upload.single("file"), async (req, res) => {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const fileName = `${timestamp}-${req.file.originalname}`;
 
+        const folderId = (await getThesisSetting("thesis_root_folder_id")) || DEFAULT_THESIS_ROOT_FOLDER_ID;
+
         const fileMetadata = {
             name: fileName,
-            parents: [THESIS_ROOT_FOLDER_ID],
+            parents: [folderId],
         };
 
         const media = {
@@ -151,7 +168,7 @@ app.post("/api/thesis/upload", upload.single("file"), async (req, res) => {
             moduleAffected: "Thesis Archiving",
             recordId: file.data.id,
             recordType: "thesis_files",
-            newValues: { fileName, folderId: THESIS_ROOT_FOLDER_ID },
+            newValues: { fileName, folderId: folderId },
             actorUserId: req.body.actorUserId || null,
             actorName: req.body.actorName || "Admin"
         });

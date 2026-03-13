@@ -745,5 +745,60 @@ export const thesisService = {
                 hte_student_count: 0
             };
         }
+    },
+
+    /**
+     * Settings Management
+     */
+    async getSettings() {
+        const { data, error } = await supabase
+            .from("thesis_settings")
+            .select("*");
+
+        if (error) throw error;
+        
+        // Convert array to object for easier consumption
+        return data.reduce((acc, setting) => {
+            acc[setting.key] = setting.value;
+            return acc;
+        }, {});
+    },
+
+    async updateSetting(key, value, userId) {
+        // First check if it exists
+        const { data: existing } = await supabase
+            .from("thesis_settings")
+            .select("id")
+            .eq("key", key)
+            .maybeSingle();
+
+        if (existing) {
+            const { error } = await supabase
+                .from("thesis_settings")
+                .update({ 
+                    value: String(value), 
+                    updated_by: userId, 
+                    updated_at: new Date().toISOString() 
+                })
+                .eq("key", key);
+            if (error) throw error;
+        } else {
+            const { error } = await supabase
+                .from("thesis_settings")
+                .insert([{ 
+                    key, 
+                    value: String(value), 
+                    updated_by: userId,
+                    value_type: 'string'
+                }]);
+            if (error) throw error;
+        }
+    },
+
+    /**
+     * Auth helper for settings
+     */
+    async getSettingsAuth() {
+        return await supabase.auth.getUser();
     }
 };

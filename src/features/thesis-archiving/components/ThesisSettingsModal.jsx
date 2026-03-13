@@ -145,6 +145,9 @@ export function ThesisSettingsModal({ variant = "dark" }) {
     const [newSectionName, setNewSectionName] = useState("");
     const [newSectionProgram, setNewSectionProgram] = useState("Computer Science");
     const [newYearName, setNewYearName] = useState("");
+    const [thesisFolderLink, setThesisFolderLink] = useState("");
+    const [hteFolderLink, setHteFolderLink] = useState("");
+    const [isSaved, setIsSaved] = useState(false);
 
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState(null);
@@ -156,16 +159,25 @@ export function ThesisSettingsModal({ variant = "dark" }) {
     const fetchInitialData = async () => {
         setLoading(true);
         try {
-            const [advData, catData, secData, yearData] = await Promise.all([
+            const [advData, catData, secData, yearData, settingsData] = await Promise.all([
                 thesisService.getAdvisers(),
                 thesisService.getCategories(),
                 thesisService.getSections(),
-                thesisService.getAcademicYears()
+                thesisService.getAcademicYears(),
+                thesisService.getSettings()
             ]);
             setAdvisers(advData.map(a => ({ id: a.id, name: a.display_name || a.name })));
             setCategories(catData);
             setSections(secData);
             setAcademicYears(yearData.map(y => ({ ...y, name: y.name || '' })));
+            
+            // Map folder links
+            if (settingsData.thesis_root_folder_id) {
+                setThesisFolderLink(`https://drive.google.com/drive/folders/${settingsData.thesis_root_folder_id}`);
+            }
+            if (settingsData.hte_parent_folder_id) {
+                setHteFolderLink(`https://drive.google.com/drive/folders/${settingsData.hte_parent_folder_id}`);
+            }
         } catch (error) {
             console.error("Failed to fetch settings data:", error);
         } finally {
@@ -298,6 +310,36 @@ export function ThesisSettingsModal({ variant = "dark" }) {
         }
     };
 
+    const extractFolderId = (url) => {
+        if (!url) return "";
+        // Match common GDrive folder URL patterns
+        const match = url.match(/folders\/([a-zA-Z0-9_-]+)/);
+        return match ? match[1] : url; // Fallback to raw string if no match
+    };
+
+    const handleSaveSettings = async () => {
+        setLoading(true);
+        setIsSaved(false);
+        try {
+            // Get user from supabase instance directly to be safe
+            const { data: { user } } = await thesisService.getSettingsAuth(); 
+            const thesisFolderId = extractFolderId(thesisFolderLink);
+            const hteFolderId = extractFolderId(hteFolderLink);
+
+            await Promise.all([
+                thesisService.updateSetting('thesis_root_folder_id', thesisFolderId, user?.id),
+                thesisService.updateSetting('hte_parent_folder_id', hteFolderId, user?.id)
+            ]);
+            
+            setIsSaved(true);
+            setTimeout(() => setIsSaved(false), 3000); // Reset saved state after 3s
+        } catch (error) {
+            console.error("Failed to save settings:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
 
     const columnDefs = useMemo(() => {
         const headerName = view === 'advisers'
@@ -384,32 +426,29 @@ export function ThesisSettingsModal({ variant = "dark" }) {
 
                         <div className="grid gap-6 flex-1">
                             <div className="flex items-center gap-4">
-                                <Label htmlFor="theme" className="text-base w-48 text-neutral-900">
-                                    Theme
-                                </Label>
-                                <Select defaultValue="light">
-                                    <SelectTrigger className="w-[140px] bg-white border-neutral-200 text-neutral-900 focus:ring-neutral-300">
-                                        <SelectValue placeholder="Select theme" />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-white border-neutral-200 text-neutral-900">
-                                        <SelectItem value="light" className="focus:bg-neutral-100 focus:text-neutral-900">Light</SelectItem>
-                                        <SelectItem value="dark" className="focus:bg-neutral-100 focus:text-neutral-900">Dark</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="flex items-center gap-4">
                                 <Label htmlFor="thesis-link" className="text-base w-48 text-neutral-900">
                                     Thesis Folder Link
                                 </Label>
-                                <Input id="thesis-link" className="flex-1 bg-white border-neutral-200 text-neutral-900 focus-visible:ring-neutral-300" />
+                                <Input 
+                                    id="thesis-link" 
+                                    className="flex-1 bg-white border-neutral-200 text-neutral-900 focus-visible:ring-neutral-300" 
+                                    value={thesisFolderLink}
+                                    onChange={(e) => setThesisFolderLink(e.target.value)}
+                                    placeholder="Paste Google Drive folder link"
+                                />
                             </div>
 
                             <div className="flex items-center gap-4">
                                 <Label htmlFor="hte-link" className="text-base w-48 text-neutral-900">
                                     HTE GDrive Folder Link
                                 </Label>
-                                <Input id="hte-link" className="flex-1 bg-white border-neutral-200 text-neutral-900 focus-visible:ring-neutral-300" />
+                                <Input 
+                                    id="hte-link" 
+                                    className="flex-1 bg-white border-neutral-200 text-neutral-900 focus-visible:ring-neutral-300" 
+                                    value={hteFolderLink}
+                                    onChange={(e) => setHteFolderLink(e.target.value)}
+                                    placeholder="Paste Google Drive folder link"
+                                />
                             </div>
 
                             <div className="h-px bg-neutral-200 my-2" />
@@ -463,9 +502,14 @@ export function ThesisSettingsModal({ variant = "dark" }) {
                             </div>
                         </div>
 
-                        <div className="flex justify-end pt-2 border-t border-neutral-200 mt-auto">
-                            <Button className="bg-primary-500 hover:bg-primary-600 text-white w-full sm:w-auto">
-                                Save
+                        <div className="flex justify-end pt-2 border-t border-neutral-200 mt-auto items-center gap-3">
+                            {isSaved && <span className="text-emerald-600 text-sm font-medium animate-in fade-in slide-in-from-right-2">Saved successfully!</span>}
+                            <Button 
+                                className={`${isSaved ? "bg-emerald-600 hover:bg-emerald-700" : "bg-primary-500 hover:bg-primary-600"} text-white w-full sm:w-auto transition-all duration-200`}
+                                onClick={handleSaveSettings}
+                                disabled={loading}
+                            >
+                                {loading ? "Saving..." : isSaved ? "Saved!" : "Save"}
                             </Button>
                         </div>
                     </>
