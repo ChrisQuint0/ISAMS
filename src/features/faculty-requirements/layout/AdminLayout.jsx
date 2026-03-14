@@ -24,7 +24,7 @@ export default function AdminLayout() {
   return (
     <SidebarProvider>
       {/* Container with neutral-50 background */}
-      <div className="flex min-h-screen w-full bg-neutral-50">
+      <div className="flex min-h-full w-full bg-neutral-50">
         <AppSidebar />
 
         <SidebarInset className="bg-neutral-50 flex flex-col">

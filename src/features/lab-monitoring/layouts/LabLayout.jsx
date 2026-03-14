@@ -48,7 +48,7 @@ export default function LabLayout() {
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen w-full bg-slate-950">
+      <div className="flex min-h-full w-full bg-slate-950">
         <LabSidebar labId={currentLabId} labName={currentLabName} />
 
         <div className="flex-1 flex flex-col">
