@@ -300,6 +300,8 @@ export default function HTEDocumentArchivePage() {
     var s19 = React.useState("all"); var adviserFilter = s19[0]; var setAdviserFilter = s19[1];
     var s20 = React.useState("all"); var sectionFilter = s20[0]; var setSectionFilter = s20[1];
     var [loading, setLoading] = React.useState(true);
+    var [isSendingBatch, setIsSendingBatch] = React.useState(false);
+
     var [filterOptions, setFilterOptions] = React.useState({ advisers: [], sections: [], academicYears: [] });
     var s6 = React.useState(new Set()); var selectedStudents = s6[0]; var setSelectedStudents = s6[1];
     var s7 = React.useState(false); var showBatchPreview = s7[0]; var setShowBatchPreview = s7[1];
@@ -700,21 +702,47 @@ export default function HTEDocumentArchivePage() {
         setShowBatchPreview(true);
     }
 
-    function handleConfirmBatch() {
+    async function handleConfirmBatch() {
         var activeFields = getAllActiveFields(docFields);
         var notified = students.filter(function (s) { return selectedStudents.has(s.id); });
-        var entry = {
-            id: "LOG-" + Date.now(), timestamp: new Date().toISOString(), initiatedBy: "OJT Coordinator", studentCount: notified.length,
-            students: notified.map(function (s) {
-                var missing = activeFields.filter(function (f) { var rec = s.uploads[f.id]; return !rec || rec.status !== "uploaded"; }).map(function (f) { return f.name; });
-                return { id: s.id, name: s.name, email: s.email, missingDocs: missing };
-            }),
-        };
-        setNotificationLog(function (prev) { return [entry].concat(prev); });
-        setShowBatchPreview(false);
-        setSelectedStudents(new Set());
-        setNotifySuccess("Notifications sent to " + notified.length + " student(s).");
-        setTimeout(function () { setNotifySuccess(null); }, 5000);
+        
+        setIsSendingBatch(true);
+        try {
+            var batchData = {
+                students: notified.map(function (s) {
+                    var missing = activeFields.filter(function (f) { 
+                        var rec = s.uploads[f.id]; 
+                        return !rec || rec.status !== "uploaded"; 
+                    }).map(function (f) { return f.name; });
+                    return { id: s.id, name: s.firstName + " " + s.lastName, email: s.email, missingDocs: missing };
+                }),
+                academicYear: yearFilter !== 'all' ? yearFilter : null
+            };
+
+            await thesisService.sendBatchNotifications(batchData, {
+                actorName: user?.user_metadata?.first_name + " " + user?.user_metadata?.last_name || "OJT Coordinator",
+                actorUserId: user?.id
+            });
+
+            var entry = {
+                id: "LOG-" + Date.now(), 
+                timestamp: new Date().toISOString(), 
+                initiatedBy: user?.user_metadata?.first_name + " " + user?.user_metadata?.last_name || "OJT Coordinator", 
+                studentCount: notified.length,
+                students: batchData.students,
+            };
+
+            setNotificationLog(function (prev) { return [entry].concat(prev); });
+            setShowBatchPreview(false);
+            setSelectedStudents(new Set());
+            setNotifySuccess("Notifications sent successfully to " + notified.length + " student(s).");
+            setTimeout(function () { setNotifySuccess(null); }, 5000);
+        } catch (error) {
+            console.error("Batch notification error:", error);
+            alert("Failed to send batch notifications: " + error.message);
+        } finally {
+            setIsSendingBatch(false);
+        }
     }
 
     function handleAddField(name, category, order) {
@@ -1035,7 +1063,6 @@ export default function HTEDocumentArchivePage() {
                                 {selectedNotified.map(function (student) {
                                     var activeFields = getAllActiveFields(docFields);
                                     var missing = activeFields.filter(function (f) { var rec = student.uploads[f.id]; return !rec || rec.status !== "uploaded"; }).map(function (f) { return f.name; });
-                                    var portalLink = PORTAL_BASE_URL + "/" + student.id;
                                     var wasRecentlyNotified = !!recentlySentMap[student.id];
                                     return (
                                         <div key={student.id} className="bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm">
@@ -1057,13 +1084,13 @@ export default function HTEDocumentArchivePage() {
                                             </div>
                                             <div className="px-4 py-2 bg-neutral-50 border-b border-neutral-200 flex items-center gap-3 text-xs">
                                                 <span className="text-neutral-500">Subject:</span>
-                                                <span className="text-neutral-900">Action Required: Pending OJT Document Submissions — {student.year} {student.semester}</span>
+                                                <span className="text-neutral-900">Action Required: Pending OJT Document Submissions — {student.year}</span>
                                             </div>
                                             <div className="p-5 space-y-4 text-sm text-neutral-900 leading-relaxed">
                                                 <p>Dear <span className="font-bold">{student.name}</span>,</p>
                                                 <p className="text-neutral-500">
                                                     This is a reminder from your OJT Coordinator regarding your document submissions for the{" "}
-                                                    <span className="text-neutral-900 font-medium">{student.year} {student.semester}</span> internship period. The following document(s) are still pending:
+                                                    <span className="text-neutral-900 font-medium">{student.year}</span> internship period. The following document(s) are still pending:
                                                 </p>
                                                 <ul className="space-y-2 pl-1">
                                                     {missing.map(function (docName, i) {
@@ -1075,11 +1102,7 @@ export default function HTEDocumentArchivePage() {
                                                         );
                                                     })}
                                                 </ul>
-                                                <p className="text-neutral-500">Please upload your missing documents through your student portal:</p>
-                                                <div className="bg-neutral-100 border border-neutral-200 rounded-lg px-4 py-3 flex items-center gap-3">
-                                                    <Mail className="h-4 w-4 text-neutral-500 flex-shrink-0" />
-                                                    <span className="text-neutral-900 text-xs break-all font-medium">{portalLink}</span>
-                                                </div>
+                                                <p className="text-neutral-500 font-medium">Please upload your missing documents through the ISAMS Desktop App.</p>
                                                 <p className="text-neutral-500 text-xs pt-1 border-t border-neutral-100">
                                                     If you have already submitted any documents in person, please coordinate with your OJT Coordinator for manual processing. Do not reply to this automated message.
                                                 </p>
@@ -1089,9 +1112,19 @@ export default function HTEDocumentArchivePage() {
                                 })}
                             </div>
                             <div className="p-5 border-t border-neutral-200 bg-white flex justify-end gap-3">
-                                <button onClick={function () { setShowBatchPreview(false); }} className={btnSecondary}>Cancel</button>
-                                <button onClick={handleConfirmBatch} className={btnDefault}>
-                                    <Mail className="h-4 w-4" /><span>Confirm and Send {selectedNotified.length} Email(s)</span>
+                                <button onClick={function () { setShowBatchPreview(false); }} className={btnSecondary} disabled={isSendingBatch}>Cancel</button>
+                                <button onClick={handleConfirmBatch} className={btnDefault} disabled={isSendingBatch}>
+                                    {isSendingBatch ? (
+                                        <React.Fragment>
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            <span>Sending...</span>
+                                        </React.Fragment>
+                                    ) : (
+                                        <React.Fragment>
+                                            <Mail className="h-4 w-4" />
+                                            <span>Confirm and Send {selectedNotified.length} Email(s)</span>
+                                        </React.Fragment>
+                                    )}
                                 </button>
                             </div>
                         </div>

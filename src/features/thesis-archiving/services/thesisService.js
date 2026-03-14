@@ -796,6 +796,29 @@ export const thesisService = {
     },
 
     /**
+     * Send batch notifications to students with missing documents
+     */
+    async sendBatchNotifications(batchData, actorInfo = {}) {
+        const response = await fetch("http://localhost:3003/api/hte/notifications/send-batch", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ 
+                batchData, 
+                actorInfo: {
+                    actorName: actorInfo.actorName,
+                    actorUserId: actorInfo.actorUserId
+                }
+            }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Failed to send batch notifications");
+        return data;
+    },
+
+    /**
      * Auth helper for settings
      */
     async getSettingsAuth() {
