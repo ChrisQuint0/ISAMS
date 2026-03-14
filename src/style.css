@@ -64,10 +64,13 @@
   --sidebar-border: var(--neutral-200);
   --sidebar-ring: var(--primary-500);
 
-  /* Brand Gradients */
+  /* Gradients */
   --gradient-primary: linear-gradient(135deg, var(--primary-700) 0%, var(--primary-500) 100%);
   --gradient-heritage: linear-gradient(135deg, var(--primary-600) 0%, var(--gold-500) 100%);
   --gradient-accent: linear-gradient(135deg, var(--gold-600) 0%, var(--gold-400) 100%);
+
+  /* Layout */
+  --titlebar-height: 32px;
 }
 
 @theme inline {
