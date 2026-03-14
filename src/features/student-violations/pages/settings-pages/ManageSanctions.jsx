@@ -98,7 +98,7 @@ const ManageSanctions = () => {
         {
             headerName: "Severity",
             field: "severity",
-            flex: 1,
+            width: 120,
             filter: true,
             cellRenderer: (params) => {
                 let colorClass = "text-neutral-500 bg-neutral-100";
@@ -122,7 +122,7 @@ const ManageSanctions = () => {
         {
             headerName: "Sanction",
             field: "sanction_name",
-            flex: 1.5,
+            flex: 1,
             filter: true,
             cellStyle: { color: 'var(--neutral-900)', fontWeight: '600' }
         },
@@ -137,10 +137,11 @@ const ManageSanctions = () => {
         {
             headerName: "Actions",
             field: "action",
-            width: 140,
+            width: 100,
             pinned: 'right',
+            headerClass: 'text-center',
             cellRenderer: (params) => (
-                <div className="flex items-center justify-end h-full gap-2 pr-2">
+                <div className="flex items-center justify-center h-full gap-2">
                     <Button
                         variant="ghost"
                         size="icon"
@@ -195,29 +196,44 @@ const ManageSanctions = () => {
             </div>
 
             {/* Grid Card */}
-            <Card className="bg-white border-neutral-200 shadow-sm flex flex-col rounded-lg overflow-hidden flex-1">
-                <div className="px-4 py-4 flex items-center justify-between border-b border-neutral-100 bg-neutral-50/50">
+            <Card className="flex-1 bg-white border-neutral-200 flex flex-col rounded-lg overflow-hidden shadow-sm p-0 z-10">
+                <div className="px-5 pt-3 pb-2 flex items-center justify-between bg-white relative z-20">
                     <div className="flex items-center gap-2">
-                        <FileWarning className="h-4 w-4 text-neutral-400" />
-                        <h3 className="text-base font-bold text-neutral-900 uppercase tracking-tight">Sanction Matrix Database</h3>
+                        <FileWarning className="h-[15px] w-[15px] text-neutral-600" />
+                        <h3 className="text-[15px] font-bold text-neutral-900 uppercase tracking-wider leading-none">Sanction Matrix Database</h3>
                     </div>
                     <div className="flex items-center gap-2 w-full md:w-auto">
                         <div className="relative w-full md:w-72 group">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 group-focus-within:text-warning transition-colors" />
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-400 group-focus-within:text-warning transition-colors" />
                             <Input
                                 placeholder="Search sanctions..."
-                                className="pl-9 h-8 bg-white border-neutral-200 text-neutral-900 placeholder:text-neutral-400 text-xs font-medium rounded focus-visible:ring-warning focus-visible:border-warning transition-all"
+                                className="pl-8 h-7 bg-white border-neutral-200 text-neutral-900 placeholder:text-neutral-400 focus-visible:ring-warning focus-visible:border-warning transition-all font-medium text-xs shadow-sm rounded-md"
                                 value={searchText}
                                 onChange={(e) => setSearchText(e.target.value)}
                             />
                         </div>
-                        <Button variant="outline" className="h-8 px-3 bg-white border-neutral-200 text-neutral-600 hover:text-warning hover:bg-amber-50">
-                            <Filter className="h-4 w-4" />
+                        <Button variant="outline" className="h-7 px-3 bg-white border-neutral-200 text-neutral-600 hover:text-warning hover:bg-amber-50">
+                            <Filter className="h-3.5 w-3.5" />
                         </Button>
                     </div>
                 </div>
 
-                <div className="w-full flex-1" style={{ minHeight: "500px" }}>
+                <div className="w-full flex-1 hide-ag-scrollbars [&_.ag-root-wrapper]:border-none [&_.ag-header]:border-t-0 -mt-[15px]" style={{ minHeight: "500px" }}>
+                    <style>{`
+                        .hide-ag-scrollbars .ag-body-viewport::-webkit-scrollbar,
+                        .hide-ag-scrollbars .ag-body-vertical-scroll-viewport::-webkit-scrollbar,
+                        .hide-ag-scrollbars .ag-body-horizontal-scroll-viewport::-webkit-scrollbar {
+                            display: none !important;
+                            width: 0 !important;
+                            height: 0 !important;
+                        }
+                        .hide-ag-scrollbars .ag-body-viewport,
+                        .hide-ag-scrollbars .ag-body-vertical-scroll-viewport,
+                        .hide-ag-scrollbars .ag-body-horizontal-scroll-viewport {
+                            -ms-overflow-style: none !important;
+                            scrollbar-width: none !important;
+                        }
+                    `}</style>
                     {isLoading ? (
                         <div className="flex items-center justify-center h-full text-neutral-500 font-medium">
                             Loading sanctions...
@@ -235,6 +251,7 @@ const ManageSanctions = () => {
                             headerHeight={44}
                             pagination={true}
                             paginationPageSize={15}
+                            suppressCellFocus={true}
                         />
                     )}
                 </div>

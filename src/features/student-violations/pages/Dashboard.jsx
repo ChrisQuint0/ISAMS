@@ -9,9 +9,8 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 import {
   Users, ShieldAlert, FileText, BarChart3,
   History, PieChart, Clock, AlertTriangle,
-  CalendarCheck, RefreshCw, Search, X
+  CalendarCheck, RefreshCw, Search, X, ArrowUpRight, ArrowDownRight, Loader2
 } from "lucide-react";
-
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,6 +33,39 @@ const customTheme = themeQuartz.withParams({
   headerFontWeight: '700',
   fontSize: '13px',
 });
+
+// --- Reusable Stat Card (Extra Compact) ---
+const StatCard = ({ title, value, icon: Icon, description, trend, isUp, isLoading, borderTopClass = "bg-primary-500", iconClass = "text-primary-600 bg-primary-50 border-primary-100" }) => (
+  <Card className="bg-white border-neutral-200 shadow-sm rounded-lg overflow-hidden relative group transition-all hover:shadow-md hover:-translate-y-0.5 h-full flex flex-col">
+    <div className={`absolute top-0 left-0 w-full h-1 ${borderTopClass} transition-opacity opacity-70 group-hover:opacity-100`}></div>
+    <CardContent className="p-3 flex-1 flex flex-col justify-between relative z-10">
+      <div>
+        <div className="flex justify-between items-start mb-2">
+          <div className={`p-1.5 rounded-md border ${iconClass} transition-transform group-hover:scale-105 duration-300`}>
+            <Icon size={16} strokeWidth={2.5} />
+          </div>
+          {trend !== undefined && !isLoading && (
+            <div className={`px-2 py-0.5 rounded-full flex items-center text-[10px] font-bold ${isUp ? 'bg-success/10 text-success' : 'bg-destructive-semantic/10 text-destructive-semantic'}`}>
+              {isUp ? <ArrowUpRight size={12} className="mr-0.5" /> : <ArrowDownRight size={12} className="mr-0.5" />}
+              {trend}
+            </div>
+          )}
+        </div>
+        <div>
+          <h3 className="text-2xl font-black text-neutral-900 tracking-tighter leading-none mb-1">
+            {isLoading ? <Loader2 className="h-5 w-5 animate-spin text-neutral-300" /> : value}
+          </h3>
+          <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">{title}</p>
+        </div>
+      </div>
+      {description && (
+        <div className="mt-2 pt-2 border-t border-neutral-100/60 hidden">
+          <p className="text-[10px] text-neutral-400 font-medium">{description}</p>
+        </div>
+      )}
+    </CardContent>
+  </Card>
+);
 
 // Helper: format occurrence number
 const formatFrequency = (freq) => {
@@ -157,6 +189,7 @@ export default function StudViolationDashboard() {
   const [loading, setLoading] = useState(false);
   const [gridApi, setGridApi] = useState(null);
   const [rowData, setRowData] = useState([]);
+  const [quickFilterText, setQuickFilterText] = useState("");
   const [overdueSanctions, setOverdueSanctions] = useState([]);
   const [alertDismissed, setAlertDismissed] = useState(false);
   const [kpiStats, setKpiStats] = useState({
@@ -346,7 +379,7 @@ export default function StudViolationDashboard() {
 
 
   return (
-    <div className="space-y-6 flex flex-col h-full bg-neutral-50 animate-in fade-in duration-500 text-left">
+    <div className="space-y-6 flex flex-col h-full bg-neutral-50 animate-in fade-in duration-500 text-left px-2">
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Dashboard</h1>
@@ -420,42 +453,91 @@ export default function StudViolationDashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <QuickStat title="Compliance" value={kpiStats.complianceRate} icon={PieChart} color="text-primary-600" />
-        <QuickStat title="Active cases" value={kpiStats.activeCases.toString().padStart(2, '0')} icon={Clock} color="text-warning" />
-        <QuickStat title="Critical" value={kpiStats.criticalCases.toString().padStart(2, '0')} icon={AlertTriangle} color="text-destructive-semantic" />
-        <QuickStat title="Resolved" value={kpiStats.resolvedRate} icon={CalendarCheck} color="text-success" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatCard 
+            title="Compliance" 
+            value={kpiStats.complianceRate} 
+            icon={PieChart} 
+            isLoading={loading}
+            borderTopClass="bg-info"
+            iconClass="text-info bg-info/10 border-info/20" 
+        />
+        <StatCard 
+            title="Active Cases" 
+            value={kpiStats.activeCases.toString().padStart(2, '0')} 
+            icon={Clock} 
+            isLoading={loading}
+            borderTopClass="bg-warning"
+            iconClass="text-warning bg-warning/10 border-warning/20" 
+        />
+        <StatCard 
+            title="Critical" 
+            value={kpiStats.criticalCases.toString().padStart(2, '0')} 
+            icon={AlertTriangle} 
+            isLoading={loading}
+            borderTopClass="bg-destructive-semantic"
+            iconClass="text-destructive-semantic bg-destructive-semantic/10 border-destructive-semantic/20" 
+        />
+        <StatCard 
+            title="Resolved" 
+            value={kpiStats.resolvedRate} 
+            icon={CalendarCheck} 
+            isLoading={loading}
+            borderTopClass="bg-success"
+            iconClass="text-success bg-success/10 border-success/20" 
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         {/* RECENT ACTIVITY LOG - COMPACTED HEADER */}
-        <Card className="lg:col-span-3 bg-white border-neutral-200 flex flex-col rounded-lg overflow-hidden shadow-sm">
-          {/* Header container with h-9 and py-0 removes the top/bottom space */}
-          <div className="px-4 py-4 flex items-center justify-between border-b border-neutral-100 bg-neutral-50/50">
-            <h3 className="text-base font-bold text-neutral-900 uppercase tracking-tight">Recent activity log</h3>
-            <div className="flex items-center">
-              <div className="relative w-48 md:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-primary-600 transition-colors" />
+        <Card className="lg:col-span-3 bg-white border-neutral-200 flex flex-col rounded-lg overflow-hidden shadow-sm p-0 z-10">
+          <div className="px-5 pt-3 pb-2 flex items-center justify-between bg-white relative z-20">
+            <div className="flex items-center gap-2">
+              <History className="h-[15px] w-[15px] text-neutral-600" />
+              <h3 className="text-[15px] font-bold text-neutral-900 uppercase tracking-wider leading-none">Recent Activity Log</h3>
+            </div>
+            <div className="flex items-center gap-2 w-full md:w-auto">
+              <div className="relative w-full md:w-64 group">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-400 group-focus-within:text-primary-600 transition-colors" />
                 <Input
-                  placeholder="Filter logs..."
-                  className="pl-10 h-8 bg-white border-neutral-200 text-neutral-900 placeholder:text-neutral-400 focus-visible:ring-primary-500 focus-visible:border-primary-500 transition-all font-medium text-xs rounded"
-                  onChange={(e) => gridApi?.setQuickFilter(e.target.value)}
+                  placeholder="Search logs..."
+                  className="pl-8 h-7 bg-white border-neutral-200 text-neutral-900 placeholder:text-neutral-400 focus-visible:ring-primary-500 focus-visible:border-primary-500 transition-all font-medium text-xs shadow-sm rounded-md"
+                  value={quickFilterText}
+                  onChange={(e) => setQuickFilterText(e.target.value)}
                 />
               </div>
+              <Button variant="outline" className="h-7 px-3 bg-white border-neutral-200 text-neutral-600 hover:text-primary-600 hover:bg-primary-50">
+                <Search className="h-3.5 w-3.5" />
+              </Button>
             </div>
           </div>
 
-          <div className="w-full flex-1" style={{ height: "400px" }}>
+          <div className="w-full flex-1 hide-ag-scrollbars [&_.ag-root-wrapper]:border-none [&_.ag-header]:border-t-0 -mt-[15px]" style={{ height: "400px" }}>
+            <style>{`
+              .hide-ag-scrollbars .ag-body-viewport::-webkit-scrollbar,
+              .hide-ag-scrollbars .ag-body-vertical-scroll-viewport::-webkit-scrollbar,
+              .hide-ag-scrollbars .ag-body-horizontal-scroll-viewport::-webkit-scrollbar {
+                display: none !important;
+                width: 0 !important;
+                height: 0 !important;
+              }
+              .hide-ag-scrollbars .ag-body-viewport,
+              .hide-ag-scrollbars .ag-body-vertical-scroll-viewport,
+              .hide-ag-scrollbars .ag-body-horizontal-scroll-viewport {
+                -ms-overflow-style: none !important;
+                scrollbar-width: none !important;
+              }
+            `}</style>
             <AgGridReact
               theme={customTheme}
               rowData={rowData}
               columnDefs={columnDefs}
               defaultColDef={defaultColDef}
               onGridReady={(params) => setGridApi(params.api)}
-              tooltipShowDelay={0}
+              quickFilterText={quickFilterText}
               animateRows={true}
-              rowHeight={42}
-              headerHeight={24}
+              rowHeight={48}
+              headerHeight={44}
               pagination={true}
               paginationPageSize={10}
               suppressCellFocus={true}
@@ -484,13 +566,6 @@ export default function StudViolationDashboard() {
           </div>
 
           <div className="mt-auto pt-4">
-            <div className="p-4 rounded-lg bg-neutral-50 border border-neutral-100">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="w-2 h-2 rounded-full bg-success animate-pulse"></div>
-                <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">System Status</span>
-              </div>
-              <p className="text-sm font-bold text-neutral-900 mt-1">All systems operational.</p>
-            </div>
           </div>
         </Card>
       </div>
@@ -498,20 +573,3 @@ export default function StudViolationDashboard() {
   );
 }
 
-function QuickStat({ title, value, icon: Icon, color }) {
-  return (
-    <Card className="bg-white border-neutral-200 shadow-sm transition-all hover:shadow-md">
-      <CardContent className="p-5">
-        <div className="flex justify-between items-start">
-          <div>
-            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">{title}</p>
-            <p className="text-2xl font-bold text-neutral-900 mt-1">{value}</p>
-          </div>
-          <div className={`p-2 rounded-lg bg-neutral-50 border border-neutral-100`}>
-            <Icon className={`h-5 w-5 ${color}`} />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}

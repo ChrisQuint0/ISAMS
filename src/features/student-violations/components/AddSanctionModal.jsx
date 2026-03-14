@@ -154,7 +154,7 @@ export function AddSanctionModal({ isOpen, onClose, onSuccess, editingSanction }
                     <form onSubmit={handleSave} className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
-                                <Label htmlFor="severity" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Severity *</Label>
+                                <Label htmlFor="severity" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Severity <span className="text-destructive-semantic">*</span></Label>
                                 <Select
                                     value={formData.severity}
                                     onValueChange={(val) => setFormData({ ...formData, severity: val })}
@@ -172,7 +172,7 @@ export function AddSanctionModal({ isOpen, onClose, onSuccess, editingSanction }
                             </div>
 
                             <div className="space-y-1.5">
-                                <Label htmlFor="frequency" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Occurrence *</Label>
+                                <Label htmlFor="frequency" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Occurrence <span className="text-destructive-semantic">*</span></Label>
                                 <Input
                                     id="frequency"
                                     type="number"
@@ -186,7 +186,7 @@ export function AddSanctionModal({ isOpen, onClose, onSuccess, editingSanction }
                         </div>
 
                         <div className="space-y-1.5">
-                            <Label htmlFor="sanction_name" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Action / Sanction *</Label>
+                            <Label htmlFor="sanction_name" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Action / Sanction <span className="text-destructive-semantic">*</span></Label>
                             <Input
                                 id="sanction_name"
                                 value={formData.sanction_name}

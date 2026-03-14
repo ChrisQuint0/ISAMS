@@ -289,7 +289,7 @@ export function ManageSanctionModal({ isOpen, onClose, onSuccess, sanctionData }
                         {status === 'Completed' && (
                             <div className="space-y-4 animate-in fade-in slide-in-from-top-1">
                                 <div className="space-y-2">
-                                    <Label htmlFor="completionDate" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Date Completed *</Label>
+                                    <Label htmlFor="completionDate" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Date Completed <span className="text-destructive-semantic">*</span></Label>
                                     <Input
                                         id="completionDate"
                                         type="date"

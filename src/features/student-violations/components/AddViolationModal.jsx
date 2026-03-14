@@ -250,7 +250,7 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
     return (
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
             <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-hidden flex flex-col bg-white border-neutral-200 text-neutral-900 p-0 shadow-lg rounded-xl">
-                <div className="p-6 border-b border-neutral-100 shrink-0">
+                <div className="px-6 py-3 border-b border-neutral-100 shrink-0">
                     <DialogHeader>
                         <DialogTitle className="text-xl font-bold text-neutral-900 tracking-tight">Report Violation</DialogTitle>
                         <DialogDescription className="text-neutral-500 font-medium">
@@ -273,10 +273,10 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
                     )}
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6 pt-4">
+                <div className="flex-1 overflow-y-auto px-6 py-3 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     <form id="add-violation-form" onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
                         <div className="col-span-2 space-y-2">
-                            <Label htmlFor="student_number" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Student Number *</Label>
+                            <Label htmlFor="student_number" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Student Number <span className="text-destructive-semantic">*</span></Label>
                             <Input
                                 id="student_number"
                                 name="student_number"
@@ -323,7 +323,7 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="offense_type_id" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Offense Type *</Label>
+                                <Label htmlFor="offense_type_id" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Offense Type <span className="text-destructive-semantic">*</span></Label>
                                 <Select value={formData.offense_type_id} onValueChange={(val) => handleSelectChange('offense_type_id', val)} disabled={!selectedSeverity || isLoadingData}>
                                     <SelectTrigger className="w-full bg-white border-neutral-200 h-9 text-sm text-neutral-900 focus:ring-primary-500">
                                         <SelectValue placeholder={
@@ -350,7 +350,7 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="incident_date" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Incident Date *</Label>
+                            <Label htmlFor="incident_date" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Incident Date <span className="text-destructive-semantic">*</span></Label>
                             <Input
                                 id="incident_date"
                                 name="incident_date"
@@ -374,7 +374,7 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="status" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Initial Status *</Label>
+                            <Label htmlFor="status" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Initial Status <span className="text-destructive-semantic">*</span></Label>
                             <Select value={formData.status} onValueChange={(val) => handleSelectChange('status', val)} disabled={isSubmitting}>
                                 <SelectTrigger className="w-full bg-white border-neutral-200 h-9 text-sm text-neutral-900 focus:ring-primary-500">
                                     <SelectValue placeholder="Select Status" />
@@ -387,7 +387,7 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="location" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Location *</Label>
+                            <Label htmlFor="location" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Location <span className="text-destructive-semantic">*</span></Label>
                             <Input
                                 id="location"
                                 name="location"

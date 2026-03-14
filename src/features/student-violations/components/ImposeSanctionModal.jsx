@@ -309,7 +309,7 @@ export function ImposeSanctionModal({ isOpen, onClose, onSuccess, violationData 
                     {/* --- Manual Input Form --- */}
                     <form id="impose-sanction-form" onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-2">
-                            <Label htmlFor="sanctionName" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Sanction Action *</Label>
+                            <Label htmlFor="sanctionName" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Sanction Action <span className="text-destructive-semantic">*</span></Label>
                             <Input
                                 id="sanctionName"
                                 value={sanctionName}

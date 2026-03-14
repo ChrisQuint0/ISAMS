@@ -329,7 +329,11 @@ const GenerateReport = () => {
     try {
       const doc = new jsPDF({ orientation: "landscape" });
       const title = getReportTitle();
-      const now = new Date().toLocaleString();
+      const reportId = `ISAMS-RPT-${new Date().getTime().toString().slice(-6)}`;
+      const now = new Date().toLocaleString(undefined, { 
+        month: 'short', day: 'numeric', year: 'numeric', 
+        hour: '2-digit', minute: '2-digit' 
+      });
 
       // Load logos
       const [plpBase64, ccsBase64] = await Promise.all([
@@ -338,7 +342,12 @@ const GenerateReport = () => {
       ]);
 
       const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
       const margin = 14;
+
+      // --- 1. PRO INSTITUTIONAL HEADER ---
+      doc.setFillColor(17, 58, 26); // Ivy Green
+      doc.rect(0, 0, pageWidth, 2, 'F');
 
       // 1. Header Logos & Text
       if (plpBase64) {
@@ -349,67 +358,111 @@ const GenerateReport = () => {
       }
 
       // 2. Institution Text
-      doc.setTextColor(0, 0, 0);
-      doc.setFont(undefined, "bold");
+      // Title Block
+      doc.setTextColor(30, 30, 30);
+      doc.setFont("helvetica", "bold");
       doc.setFontSize(14);
-      doc.text("Pamantasan ng Lungsod ng Pasig", pageWidth / 2, 18, { align: "center" });
+      doc.text("PAMANTASAN NG LUNGSOD NG PASIG", pageWidth / 2, 18, { align: "center" });
 
       doc.setFontSize(11);
-      doc.setFont(undefined, "normal");
-      doc.text("College of Computer Studies", pageWidth / 2, 24, { align: "center" });
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(60, 60, 60);
+      doc.text("COLLEGE OF COMPUTER STUDIES", pageWidth / 2, 24, { align: "center" });
 
-      doc.setFontSize(10);
-      doc.setTextColor(100);
-      doc.text("Student Violation Management System", pageWidth / 2, 30, { align: "center" });
-
-      // 3. Report Specific Title
-      doc.setTextColor(0, 0, 0);
-      doc.setFont(undefined, "bold");
-      doc.setFontSize(16);
-      doc.text(title.toUpperCase(), pageWidth / 2, 42, { align: "center" });
-
-      // 4. Meta Information
       doc.setFontSize(9);
-      doc.setFont(undefined, "normal");
-      doc.setTextColor(100);
-      doc.text(`Date Generated: ${now}`, pageWidth / 2, 52, { align: "center" });
+      doc.setTextColor(100, 100, 100);
+      doc.text("Student Violation Management System (ISAMS)", pageWidth / 2, 29, { align: "center" });
 
-      if (startDate || endDate) {
-        doc.text(`Date Range: ${startDate || "—"} to ${endDate || "—"}`, margin, 57);
+      // Accent Line
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.3);
+      doc.line(margin, 35, pageWidth - margin, 35);
+
+      // --- 2. REPORT IDENTIFICATION ---
+      doc.setTextColor(17, 58, 26); // Ivy Green
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.text(title.toUpperCase(), margin, 48);
+
+      // Document Control Info
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(120, 120, 120);
+      doc.text(`REPORT ID: ${reportId}`, pageWidth - margin, 44, { align: "right" });
+      doc.text(`DATE GENERATED: ${now}`, pageWidth - margin, 48, { align: "right" });
+
+      // Meta Info
+      doc.setFontSize(9);
+      doc.setTextColor(80, 80, 80);
+      let metaTop = 58;
+      
+      const filterLabels = [];
+      if (startDate || endDate) filterLabels.push(`PERIOD: ${startDate || "START"} to ${endDate || "END"}`);
+      if (statusFilter) filterLabels.push(`STATUS: ${statusFilter.toUpperCase()}`);
+      if (severityFilter) filterLabels.push(`SEVERITY: ${severityFilter.toUpperCase()}`);
+      
+      if (filterLabels.length > 0) {
+        doc.setFont("helvetica", "bold");
+        doc.text("APPLIED FILTERS: ", margin, metaTop);
+        doc.setFont("helvetica", "normal");
+        doc.text(filterLabels.join("  |  "), margin + 31, metaTop);
+      } else {
+        doc.text("REPORT SCOPE: Comprehensive Registry", margin, metaTop);
       }
 
-      let filterX = margin;
-      if (statusFilter) {
-        doc.text(`Status: ${statusFilter}`, filterX, 62);
-        filterX += 60;
-      }
-      if (severityFilter) {
-        doc.text(`Severity: ${severityFilter}`, filterX, 62);
-      }
-
-      // 5. Table
-      const headers = columnDefs.map(c => c.headerName);
+      // --- 3. ADVANCED TABLE ---
+      const headers = columnDefs.map(c => c.headerName.toUpperCase());
       const fields = columnDefs.map(c => c.field);
       const rows = previewData.map(row => fields.map(f => row[f] ?? ""));
 
       autoTable(doc, {
         head: [headers],
         body: rows,
-        startY: 68,
-        styles: { fontSize: 8, cellPadding: 3 },
-        headStyles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: "bold" },
-        alternateRowStyles: { fillColor: [245, 245, 245] },
-        margin: { left: margin, right: margin, bottom: 20 },
+        startY: 65,
+        styles: { 
+          fontSize: 8.5, 
+          cellPadding: 4,
+          font: "helvetica",
+          textColor: [60, 60, 60],
+          lineColor: [230, 230, 230],
+          lineWidth: 0.1
+        },
+        headStyles: { 
+          fillColor: [17, 58, 26], 
+          textColor: [255, 255, 255], 
+          fontStyle: "bold",
+          fontSize: 9,
+          halign: "center",
+          valign: "middle"
+        },
+        alternateRowStyles: { 
+          fillColor: [250, 252, 250] 
+        },
+        columnStyles: {
+          status: { halign: 'center', fontStyle: 'bold' },
+          severity: { halign: 'center' },
+          incident_display: { halign: 'center' },
+          date: { halign: 'center' },
+          deadline: { halign: 'center' }
+        },
+        margin: { top: 65, left: margin, right: margin, bottom: 25 },
+        didDrawPage: (data) => {
+          // --- 4. BRANDED FOOTER ---
+          const footerTop = pageHeight - 18;
+          doc.setDrawColor(230, 230, 230);
+          doc.line(margin, footerTop, pageWidth - margin, footerTop);
+          doc.setFontSize(8);
+          doc.setTextColor(150, 150, 150);
+          doc.setFont("helvetica", "italic");
+          doc.text("This is an electronically generated document. Signatures are not required for internal circulation.", margin, footerTop + 7);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(17, 58, 26);
+          doc.text(`PLP-ISAMS | DISCIPLINARY MANAGEMENT SYSTEM`, pageWidth / 2, footerTop + 7, { align: "center" });
+          doc.setTextColor(150, 150, 150);
+          doc.setFont("helvetica", "normal");
+          doc.text(`PAGE ${data.pageNumber} OF ${doc.internal.getNumberOfPages()}`, pageWidth - margin, footerTop + 7, { align: "right" });
+        }
       });
-
-      // 6. Footer
-      const pageCount = doc.internal.getNumberOfPages();
-      for (let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
-        doc.setFontSize(8);
-        doc.setTextColor(150);
-        doc.text(`ISAMS - CCS | Page ${i} of ${pageCount}`, margin, doc.internal.pageSize.height - 8);
-      }
 
       doc.save(`${selectedType}_report_${new Date().toISOString().slice(0, 10)}.pdf`);
     } catch (err) {
@@ -539,7 +592,7 @@ const GenerateReport = () => {
 
 
   return (
-    <div className="space-y-8 flex flex-col h-full animate-in fade-in duration-500 text-left bg-neutral-50">
+    <div className="space-y-8 flex flex-col h-full animate-in fade-in duration-500 text-left bg-neutral-50 px-2">
       {/* PAGE HEADER */}
       <header className="mb-2 text-left shrink-0">
         <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Generate Report</h1>
@@ -653,23 +706,39 @@ const GenerateReport = () => {
       </div>
 
       {/* FULL-WIDTH DATA PREVIEW */}
-      <Card className="bg-white border-neutral-200 shadow-sm flex flex-col rounded-xl overflow-hidden">
-        <div className="px-5 py-4 flex items-center justify-between border-b border-neutral-100 bg-neutral-50/50 shrink-0">
-          <h3 className="text-sm font-bold text-neutral-900 uppercase tracking-tight flex items-center gap-2">
-            <Calendar size={14} className="text-primary-600" /> Data Preview
-          </h3>
+      <Card className="bg-white border-neutral-200 shadow-sm flex flex-col rounded-xl overflow-hidden p-0 z-10">
+        <div className="px-5 pt-3 pb-2 flex items-center justify-between bg-white relative z-20">
+          <div className="flex items-center gap-2">
+            <Calendar className="h-[15px] w-[15px] text-neutral-600" />
+            <h3 className="text-[15px] font-bold text-neutral-900 uppercase tracking-wider leading-none">Data Preview</h3>
+          </div>
           <span className="text-[11px] font-bold text-neutral-500 uppercase tracking-widest">
             {isLoading ? "Loading..." : `${previewData.length} records`}
           </span>
         </div>
-        <div className="w-full" style={{ height: "520px" }}>
+        <div className="w-full hide-ag-scrollbars [&_.ag-root-wrapper]:border-none [&_.ag-header]:border-t-0 -mt-[15px]" style={{ height: "520px" }}>
+          <style>{`
+            .hide-ag-scrollbars .ag-body-viewport::-webkit-scrollbar,
+            .hide-ag-scrollbars .ag-body-vertical-scroll-viewport::-webkit-scrollbar,
+            .hide-ag-scrollbars .ag-body-horizontal-scroll-viewport::-webkit-scrollbar {
+              display: none !important;
+              width: 0 !important;
+              height: 0 !important;
+            }
+            .hide-ag-scrollbars .ag-body-viewport,
+            .hide-ag-scrollbars .ag-body-vertical-scroll-viewport,
+            .hide-ag-scrollbars .ag-body-horizontal-scroll-viewport {
+              -ms-overflow-style: none !important;
+              scrollbar-width: none !important;
+            }
+          `}</style>
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center h-full gap-3 text-neutral-400">
+            <div className="flex flex-col items-center justify-center h-full gap-3 text-neutral-400 pt-8">
               <Loader2 className="h-8 w-8 animate-spin" />
               <span className="text-sm font-medium">Fetching records...</span>
             </div>
           ) : previewData.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full gap-3 text-neutral-400">
+            <div className="flex flex-col items-center justify-center h-full gap-3 text-neutral-400 pt-8">
               <FileText size={40} strokeWidth={1.5} />
               <span className="text-sm font-medium">No records match the current filters</span>
             </div>
@@ -679,10 +748,9 @@ const GenerateReport = () => {
               rowData={previewData}
               columnDefs={columnDefs}
               defaultColDef={defaultColDef}
-              tooltipShowDelay={0}
               animateRows={true}
-              rowHeight={42}
-              headerHeight={24}
+              rowHeight={48}
+              headerHeight={44}
               pagination={true}
               paginationPageSize={15}
               suppressCellFocus={true}
