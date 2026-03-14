@@ -93,13 +93,16 @@ export const facultyMonitorService = {
       subject: 'Urgent: Submission Reminder'
     });
 
-    // 2. Only log notification in DB if email was actually sent or wasn't ignored
-    if (emailResult && !emailResult.ignored) {
+    // 2. Log notification in DB (including skips for history)
+    if (emailResult) {
+      const isSkipped = emailResult.ignored;
       const { error } = await supabase.from('notifications_fs').insert({
         faculty_id: facultyId,
         notification_type: 'DEADLINE_REMINDER',
         subject: 'Urgent: Submission Reminder',
-        message: 'This is a manual reminder to complete your faculty requirements.'
+        message: isSkipped 
+          ? '[SKIPPED] Manual reminder not sent due to faculty email preferences.'
+          : 'This is a manual reminder to complete your faculty requirements.'
       });
       if (error) throw error;
     }
@@ -349,7 +352,7 @@ export const facultyMonitorService = {
 
     // Fire a real email — non-blocking (don't fail if email fails)
     try {
-      await adminFacultyMonitoringService.sendEmail({
+      const emailResult = await adminFacultyMonitoringService.sendEmail({
         facultyId,
         template: 'revision_request',
         message: reason,
@@ -357,6 +360,19 @@ export const facultyMonitorService = {
         docType,
         filenames
       });
+
+      // If the email was skipped by preference, log a skip notice
+      // (The initial insert at step 3 was generic, we can add a specific skip log if needed, 
+      // but usually the initial notification is enough for the dashboard. 
+      // However, for consistency, let's update the message if skipped.)
+      if (emailResult?.ignored) {
+        await supabase.from('notifications_fs').insert({
+          faculty_id: facultyId,
+          notification_type: 'REVISION_REQUEST',
+          subject: 'Document Revision Required (EMAIL SKIPPED)',
+          message: `[SKIPPED] Revision request email was NOT sent due to faculty preference. Reason: ${reason || 'Generic'}`
+        });
+      }
     } catch (emailErr) {
       console.warn('Email send failed (non-critical):', emailErr.message);
     }

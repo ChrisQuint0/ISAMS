@@ -97,8 +97,23 @@ Deno.serve(async (req: Request) => {
     const { faculty_id, template = 'deadline_reminder', subject, message, alert_type, days_to_deadline, days_to_hard_cutoff } = body;
     if (!faculty_id) return Response.json({ error: 'faculty_id is required' }, { status: 400 });
 
-    const { data: faculty, error: fErr } = await supabaseAdmin.from('faculty_fs').select('first_name, last_name, email').eq('faculty_id', faculty_id).single();
+    const { data: faculty, error: fErr } = await supabaseAdmin.from('faculty_fs').select('first_name, last_name, email, email_reminders_enabled').eq('faculty_id', faculty_id).single();
     if (fErr || !faculty) return Response.json({ error: 'Faculty not found' }, { status: 404 });
+
+    // Respect faculty preference
+    if (faculty.email_reminders_enabled === false) {
+      // Log the skip in the notification history
+      await supabaseAdmin.from('notifications_fs').insert({ 
+        faculty_id, 
+        notification_type: template === 'revision_request' ? 'REVISION_REQUEST' : 'DEADLINE_REMINDER', 
+        subject: subject || 'Submission Reminder', 
+        message: `[SKIPPED] Automatic ${alert_type || 'reminder'} not sent due to faculty email preferences.`, 
+        email_sent_at: new Date().toISOString(), 
+        email_recipient: faculty.email 
+      });
+
+      return Response.json({ success: true, ignored: true, message: 'Email skipped due to faculty preference' });
+    }
     if (!faculty.email) return Response.json({ error: 'Faculty email not set' }, { status: 400 });
 
     const facultyName = `${faculty.first_name} ${faculty.last_name}`.trim();

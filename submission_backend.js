@@ -546,6 +546,17 @@ app.post("/api/send-email", async (req, res) => {
     // Respect faculty preference
     if (faculty.email_reminders_enabled === false) {
       console.log(`[Submission Backend] Email skipped for ${faculty_id} (${faculty.email}) - Reminders disabled by user.`);
+      
+      // Log the skip in the notification history
+      await supabaseAdmin.from("notifications_fs").insert({ 
+        faculty_id, 
+        notification_type: template === "revision_request" ? "REVISION_REQUEST" : "DEADLINE_REMINDER", 
+        subject: subject || "Submission Reminder", 
+        message: `[SKIPPED] ${message || 'Reminder'} not sent due to faculty email preferences.`, 
+        email_sent_at: new Date().toISOString(), 
+        email_recipient: faculty.email 
+      });
+
       return res.json({ success: true, ignored: true, message: "Email skipped due to faculty preference" });
     }
 
