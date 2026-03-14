@@ -8,7 +8,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 
 import {
   ShieldAlert, Search, AlertTriangle,
-  CheckCircle2, AlertCircle
+  CheckCircle2, AlertCircle, ArrowUpRight, ArrowDownRight, Loader2
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,39 @@ const customTheme = themeQuartz.withParams({
   fontSize: '13px',
 });
 
+
+// --- Reusable Stat Card (Matching Analytics.jsx but Scaled Down) ---
+const StatCard = ({ title, value, icon: Icon, description, trend, isUp, isLoading, borderTopClass = "bg-primary-500", iconClass = "text-primary-600 bg-primary-50 border-primary-100" }) => (
+  <Card className="bg-white border-neutral-200 shadow-sm rounded-xl overflow-hidden relative group transition-all hover:shadow-md hover:-translate-y-0.5 h-full flex flex-col">
+    <div className={`absolute top-0 left-0 w-full h-1 ${borderTopClass} transition-opacity opacity-70 group-hover:opacity-100`}></div>
+    <CardContent className="p-4 flex-1 flex flex-col justify-between relative z-10">
+      <div>
+        <div className="flex justify-between items-start mb-3">
+          <div className={`p-2 rounded-lg border ${iconClass} transition-transform group-hover:scale-105 duration-300`}>
+            <Icon size={18} strokeWidth={2} />
+          </div>
+          {trend !== undefined && !isLoading && (
+            <div className={`px-2 py-0.5 rounded-full flex items-center text-[10px] font-bold ${isUp ? 'bg-success/10 text-success' : 'bg-destructive-semantic/10 text-destructive-semantic'}`}>
+              {isUp ? <ArrowUpRight size={12} className="mr-0.5" /> : <ArrowDownRight size={12} className="mr-0.5" />}
+              {trend}
+            </div>
+          )}
+        </div>
+        <div>
+          <h3 className="text-3xl font-black text-neutral-900 tracking-tighter leading-none mb-1">
+            {isLoading ? <Loader2 className="h-6 w-6 animate-spin text-neutral-300" /> : value}
+          </h3>
+          <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">{title}</p>
+        </div>
+      </div>
+      {description && (
+        <div className="mt-3 pt-3 border-t border-neutral-100/60 hidden">
+          <p className="text-[10px] text-neutral-400 font-medium">{description}</p>
+        </div>
+      )}
+    </CardContent>
+  </Card>
+);
 
 const StudViolations = () => {
   const [gridApi, setGridApi] = useState(null);
@@ -208,8 +241,9 @@ const StudViolations = () => {
       field: "action",
       width: 100,
       pinned: 'right',
+      headerClass: 'text-center',
       cellRenderer: (params) => (
-        <div className="flex items-center justify-end h-full pr-2">
+        <div className="flex items-center justify-center h-full gap-2">
           <Button
             variant="outline"
             className="h-7 px-4 bg-white border-neutral-200 text-neutral-600 hover:bg-primary-50 hover:text-primary-700 hover:border-primary-100 shadow-xs rounded-md text-[11px] font-semibold transition-all duration-200"
@@ -255,10 +289,11 @@ const StudViolations = () => {
     {
       headerName: "Action",
       field: "action",
-      width: 120,
+      width: 100,
       pinned: 'right',
+      headerClass: 'text-center',
       cellRenderer: (params) => (
-        <div className="flex items-center justify-end h-full pr-2">
+        <div className="flex items-center justify-center h-full gap-2">
           <Button
             variant="outline"
             className="h-7 px-4 bg-white border-neutral-200 text-neutral-600 hover:bg-primary-50 hover:text-primary-700 hover:border-primary-100 shadow-xs rounded-md text-[11px] font-semibold transition-all duration-200"
@@ -282,7 +317,7 @@ const StudViolations = () => {
 
 
   return (
-    <div className="space-y-6 flex flex-col h-full animate-in fade-in duration-500 text-left bg-neutral-50">
+    <div className="space-y-6 flex flex-col h-full animate-in fade-in duration-500 text-left bg-neutral-50 px-2">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Violations</h1>
@@ -292,15 +327,36 @@ const StudViolations = () => {
           className="bg-destructive-semantic hover:bg-red-700 text-white shadow-md shadow-red-900/10 transition-all font-bold h-9 px-4 rounded-md text-sm active:scale-95"
           onClick={() => setIsAddModalOpen(true)}
         >
-          <AlertCircle className="w-4 h-4 mr-2" /> Report violation
+          <ShieldAlert className="w-4 h-4 mr-2" /> Report violation
         </Button>
       </div>
 
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <QuickStat title="Total violations" value={violations.length} icon={ShieldAlert} color="text-neutral-500" />
-        <QuickStat title="Active investigations" value={violations.filter(v => v.status === 'Pending' || v.status === 'Under Investigation').length} icon={AlertTriangle} color="text-warning" />
-        <QuickStat title="Resolved records" value={violations.filter(v => v.status === 'Resolved' || v.status === 'Dismissed').length} icon={CheckCircle2} color="text-success" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <StatCard 
+          title="Total Violations" 
+          value={violations.length} 
+          icon={ShieldAlert} 
+          isLoading={isLoading} 
+          borderTopClass="bg-neutral-400" 
+          iconClass="text-neutral-500 bg-neutral-100 border-neutral-200" 
+        />
+        <StatCard 
+          title="Active Investigations" 
+          value={violations.filter(v => v.status === 'Pending' || v.status === 'Under Investigation').length} 
+          icon={AlertTriangle} 
+          isLoading={isLoading} 
+          borderTopClass="bg-warning" 
+          iconClass="text-warning bg-warning/10 border-warning/20" 
+        />
+        <StatCard 
+          title="Resolved Records" 
+          value={violations.filter(v => v.status === 'Resolved' || v.status === 'Dismissed').length} 
+          icon={CheckCircle2} 
+          isLoading={isLoading} 
+          borderTopClass="bg-success" 
+          iconClass="text-success bg-success/10 border-success/20" 
+        />
       </div>
 
       <div className="flex items-center gap-4 border-b border-neutral-200">
@@ -324,28 +380,49 @@ const StudViolations = () => {
         </button>
       </div>
 
-      <Card className="bg-white border-neutral-200 shadow-sm flex flex-col rounded-lg overflow-hidden flex-1">
-        <div className="px-4 py-4 flex items-center justify-between border-b border-neutral-100 bg-neutral-50/50">
-          <h3 className="text-base font-bold text-neutral-900 uppercase tracking-tight">
-            {activeTab === "violations" ? "Disciplinary logs" : "Sanction records"}
-          </h3>
-          <div className="flex items-center">
-            <div className="relative w-48 md:w-64 group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-primary-600 transition-colors" />
+      <Card className="flex-1 bg-white border-neutral-200 flex flex-col rounded-lg overflow-hidden shadow-sm p-0 z-10">
+        <div className="px-5 pt-3 pb-2 flex items-center justify-between bg-white relative z-20">
+          <div className="flex items-center gap-2">
+            <ShieldAlert className="h-[15px] w-[15px] text-neutral-600" />
+            <h3 className="text-[15px] font-bold text-neutral-900 uppercase tracking-wider leading-none">
+              {activeTab === "violations" ? "Disciplinary logs" : "Sanction records"}
+            </h3>
+          </div>
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            <div className="relative w-full md:w-72 group">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-400 group-focus-within:text-primary-600 transition-colors" />
               <Input
-                placeholder="Quick search..."
-                className="pl-10 h-8 bg-white border-neutral-200 text-neutral-900 placeholder:text-neutral-400 focus-visible:ring-primary-500 focus-visible:border-primary-500 transition-all font-medium text-xs rounded"
+                placeholder="Search records..."
+                className="pl-8 h-7 bg-white border-neutral-200 text-neutral-900 placeholder:text-neutral-400 focus-visible:ring-primary-500 focus-visible:border-primary-500 transition-all font-medium text-xs shadow-sm rounded-md"
                 value={searchValue}
                 onChange={(e) => setSearchValue(e.target.value)}
               />
             </div>
+            <Button variant="outline" className="h-7 px-3 bg-white border-neutral-200 text-neutral-600 hover:text-primary-600 hover:bg-primary-50">
+              <Search className="h-3.5 w-3.5" />
+            </Button>
           </div>
         </div>
 
-        <div className="w-full flex-1" style={{ minHeight: "500px" }}>
+        <div className="w-full flex-1 hide-ag-scrollbars [&_.ag-root-wrapper]:border-none [&_.ag-header]:border-t-0 -mt-[15px]" style={{ minHeight: "500px" }}>
+          <style>{`
+            .hide-ag-scrollbars .ag-body-viewport::-webkit-scrollbar,
+            .hide-ag-scrollbars .ag-body-vertical-scroll-viewport::-webkit-scrollbar,
+            .hide-ag-scrollbars .ag-body-horizontal-scroll-viewport::-webkit-scrollbar {
+              display: none !important;
+              width: 0 !important;
+              height: 0 !important;
+            }
+            .hide-ag-scrollbars .ag-body-viewport,
+            .hide-ag-scrollbars .ag-body-vertical-scroll-viewport,
+            .hide-ag-scrollbars .ag-body-horizontal-scroll-viewport {
+              -ms-overflow-style: none !important;
+              scrollbar-width: none !important;
+            }
+          `}</style>
           {isLoading ? (
-            <div className="flex items-center justify-center h-full text-neutral-500 font-medium">
-              Loading violation records...
+            <div className="flex items-center justify-center h-full text-neutral-500 font-medium pt-8">
+              Loading records...
             </div>
           ) : (
             <AgGridReact
@@ -354,14 +431,13 @@ const StudViolations = () => {
               columnDefs={activeTab === "violations" ? columnDefs : sanctionColumnDefs}
               defaultColDef={defaultColDef}
               onGridReady={(params) => setGridApi(params.api)}
-              tooltipShowDelay={0}
-              animateRows={true}
-              rowHeight={42}
-              headerHeight={24}
-              pagination={true}
-              paginationPageSize={10}
-              suppressCellFocus={true}
               quickFilterText={searchValue}
+              animateRows={true}
+              rowHeight={48}
+              headerHeight={44}
+              pagination={true}
+              paginationPageSize={15}
+              suppressCellFocus={true}
             />
           )}
         </div>
@@ -391,21 +467,5 @@ const StudViolations = () => {
   );
 };
 
-
-function QuickStat({ title, value, icon: Icon, color }) {
-  return (
-    <Card className="bg-white border-neutral-200 shadow-sm transition-all hover:shadow-md h-full">
-      <CardContent className="p-4 flex flex-col items-start justify-center text-left gap-1">
-        <div className="flex justify-between items-start w-full mb-1">
-          <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">{title}</p>
-          <div className={`p-1.5 rounded-lg bg-neutral-50 border border-neutral-100`}>
-            <Icon className={`h-4 w-4 ${color}`} />
-          </div>
-        </div>
-        <p className="text-2xl font-bold text-neutral-900 mt-0">{value}</p>
-      </CardContent>
-    </Card>
-  );
-}
 
 export default StudViolations;

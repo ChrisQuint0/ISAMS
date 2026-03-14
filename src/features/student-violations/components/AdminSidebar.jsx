@@ -111,7 +111,7 @@ export function AdminSidebar() {
                     <item.icon
                       className={isActive(item.path) ? "size-5" : "size-[18px]"}
                     />
-                    <span className="text-[14px] font-medium">
+                    <span className="text-[15px] font-bold tracking-tight">
                       {item.label}
                     </span>
                   </SidebarMenuButton>
@@ -130,7 +130,7 @@ export function AdminSidebar() {
               onClick={() => navigate("/violation-settings")}
             >
               <Settings className="size-4" />
-              <span className="group-data-[collapsible=icon]:hidden ml-3 font-medium text-sm">
+              <span className="group-data-[collapsible=icon]:hidden ml-3 font-bold text-[15px] tracking-tight">
                 System Settings
               </span>
             </SidebarMenuButton>
