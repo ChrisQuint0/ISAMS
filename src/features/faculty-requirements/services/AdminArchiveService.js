@@ -11,7 +11,7 @@ export const archiveService = {
       // FIX: Send 'ALL' instead of null so the database knows not to use defaults
       p_semester: filters.semester === 'All Semesters' ? 'ALL' : filters.semester,
       p_academic_year: filters.academic_year === 'All Years' ? 'ALL' : filters.academic_year,
-      p_department: filters.department === 'All Departments' ? 'ALL' : filters.department,
+      p_department: 'ALL', // Hardcoded since system is single-department
       p_doc_type: filters.doc_type === 'All Document Types' ? 'ALL' : filters.doc_type,
       p_status: filters.status === 'All Status' ? 'ALL' : filters.status,
       p_search_query: filters.search_query || null,
@@ -31,24 +31,6 @@ export const archiveService = {
     }));
   },
 
-  /**
-   * Fetch statistics
-   */
-  getStatistics: async () => {
-    const { data, error } = await supabase.rpc('get_archive_stats_fs');
-
-    if (error) throw error;
-
-    const MAX_STORAGE = 15 * 1024 * 1024 * 1024; // 15GB Google Drive standard quota
-    const usedBytes = data.storage_used_bytes || 0;
-
-    return {
-      ...data,
-      storage_total_bytes: MAX_STORAGE,
-      storage_percentage: (usedBytes / MAX_STORAGE) * 100,
-      average_document_size: data.total_documents > 0 ? usedBytes / data.total_documents : 0
-    };
-  },
 
   /**
    * Handle File Download / View
@@ -75,22 +57,37 @@ export const archiveService = {
    * Helper to fetch dropdown options
    */
   getOptions: async () => {
-    const [depts, types, courses] = await Promise.all([
-      supabase.from('faculty_fs').select('department').neq('department', null),
+    const [types, courses, faculty] = await Promise.all([
       supabase.from('documenttypes_fs').select('type_name'),
-      supabase.from('courses_fs').select('semester, academic_year')
+      supabase.from('courses_fs').select('semester, academic_year, course_code, section, faculty_id'),
+      supabase.from('faculty_fs').select('faculty_id, first_name, last_name').neq('role', 'ADMIN')
     ]);
 
-    const uniqueDepts = [...new Set(depts.data?.map(d => d.department))];
-    const uniqueTypes = types.data?.map(t => t.type_name);
+    const uniqueTypes = types.data?.map(t => t.type_name) || [];
     const uniqueSemesters = [...new Set(courses.data?.map(c => c.semester))].filter(Boolean);
     const uniqueYears = [...new Set(courses.data?.map(c => c.academic_year))].filter(Boolean);
+    
+    // We will now return the full raw courses array so the frontend can filter by faculty_id
+    const rawCourses = courses.data || [];
+    
+    // Default unique lists for when "All Faculty" is selected
+    const uniqueCourses = [...new Set(rawCourses.map(c => c.course_code))].filter(Boolean);
+    const uniqueSections = [...new Set(rawCourses.map(c => c.section))].filter(Boolean);
+    
+    // Sort faculties by last name
+    const facultiesList = (faculty.data || []).map(f => ({
+      id: f.faculty_id,
+      name: `${f.first_name} ${f.last_name}`
+    })).sort((a,b) => a.name.localeCompare(b.name));
 
     return {
-      departments: uniqueDepts,
       types: uniqueTypes,
       semesters: uniqueSemesters.length ? uniqueSemesters : [],
-      years: uniqueYears.length ? uniqueYears : []
+      years: uniqueYears.length ? uniqueYears : [],
+      courses: uniqueCourses,
+      sections: uniqueSections,
+      rawCourses: rawCourses, // <--- Send raw data to frontend for dynamic filtering
+      faculties: facultiesList
     };
   },
 
@@ -99,10 +96,14 @@ export const archiveService = {
    */
   downloadArchiveZip: async (config, onProgress) => {
     try {
-      // 1. Get Links
+      // 1. Get Links with all config filters
       const { data: files, error } = await supabase.rpc('get_archive_export_links_fs', {
-        p_semester: config.semester === 'All Semesters' ? null : config.semester,
-        p_department: config.department === 'All Departments' ? null : config.department
+        p_semester: config.semester === 'All Semesters' ? 'ALL' : config.semester,
+        p_academic_year: config.academic_year === 'All Years' ? 'ALL' : config.academic_year,
+        p_faculty_id: config.faculty === 'All Faculty' ? 'ALL' : config.faculty,
+        p_course_code: config.course === 'All Courses' ? 'ALL' : config.course,
+        p_section: config.section === 'All Sections' ? 'ALL' : config.section,
+        p_doc_type: config.doc_type === 'All Document Types' ? 'ALL' : config.doc_type
       });
 
       if (error) throw error;
@@ -135,7 +136,17 @@ export const archiveService = {
 
       // 3. Generate ZIP
       const content = await zip.generateAsync({ type: "blob" });
-      const filename = `ISAMS_Archive_${config.semester || 'All'}_${config.department || 'All'}.zip`;
+      
+      const safeSem = config.semester === 'All Semesters' ? 'AllSem' : config.semester;
+      const safeAY = config.academic_year === 'All Years' ? 'AllAY' : config.academic_year;
+      const safeProf = config.faculty === 'All Faculty' ? 'AllProf' : 'SpecProf';
+      const safeCourse = config.course === 'All Courses' ? 'AllCourse' : config.course;
+      const safeSec = config.section === 'All Sections' ? 'AllSec' : config.section;
+      const safeDoc = config.doc_type === 'All Document Types' ? 'AllDocs' : config.doc_type;
+
+      const filename = `AdminArchive_${safeAY}_${safeSem}_${safeProf}_${safeCourse}_${safeSec}_${safeDoc}_${new Date().toISOString().slice(0, 10)}.zip`
+        .replace(/[^a-zA-Z0-9_.-]/g, '_'); // sanitize just in case
+      
       saveAs(content, filename);
 
       // Log to database asynchronously (don't block the user return)
@@ -154,7 +165,7 @@ export const archiveService = {
    */
   getDownloadHistory: async () => {
     try {
-      const { data, error } = await supabase.rpc('get_report_history_fs', { p_limit: 5 });
+      const { data, error } = await supabase.rpc('get_report_history_fs', { p_limit: 5, p_report_type: 'ARCHIVES' });
       if (error) throw error;
       return data || [];
     } catch (err) {
@@ -166,11 +177,11 @@ export const archiveService = {
   /**
    * Log a new Export Action
    */
-  logExport: async (reportName, semester, year) => {
+  logExport: async (reportName, semester, year, type = 'ZIP_ARCHIVE_EXPORT') => {
     try {
       const { error } = await supabase.rpc('log_report_export_fs', {
         p_report_name: reportName,
-        p_report_type: 'ZIP_ARCHIVE_EXPORT',
+        p_report_type: type,
         p_semester: semester || 'All',
         p_academic_year: year || 'All'
       });

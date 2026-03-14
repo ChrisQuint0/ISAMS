@@ -99,7 +99,8 @@ export const reportService = {
    */
   getRecentExports: async (limit = 10) => {
     const { data, error } = await supabase.rpc('get_report_history_fs', {
-      p_limit: limit
+      p_limit: limit,
+      p_report_type: 'REPORTS'
     });
     if (error) {
       console.error("Failed to fetch export history:", error);

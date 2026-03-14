@@ -8,19 +8,11 @@ export function useAdminArchive() {
   const [documents, setDocuments] = useState([]);
   const [recentDownloads, setRecentDownloads] = useState([]);
 
-  // Default Stats
-  const [stats, setStats] = useState({
-    total_documents: 0,
-    storage_used_bytes: 0,
-    storage_percentage: 0,
-    documents_by_type: {}
-  });
 
   // Filters State
   const [filters, setFilters] = useState({
     semester: 'All Semesters',
     academic_year: 'All Years',
-    department: 'All Departments',
     doc_type: 'All Document Types',
     status: 'All Status',
     search_query: ''
@@ -31,7 +23,17 @@ export function useAdminArchive() {
     departments: [],
     types: [],
     semesters: [],
-    years: []
+    years: [],
+    courses: [],
+    sections: [],
+    rawCourses: [],
+    faculties: []
+  });
+
+  // Derived Options for Bulk Export
+  const [filteredOptions, setFilteredOptions] = useState({
+    courses: [],
+    sections: []
   });
 
   // Initialize
@@ -40,6 +42,11 @@ export function useAdminArchive() {
       try {
         const opts = await archiveService.getOptions();
         setOptions(prev => ({ ...prev, ...opts }));
+        // Initially, filtered options match the full distinctive sets
+        setFilteredOptions({
+          courses: opts.courses,
+          sections: opts.sections
+        });
       } catch (err) {
         console.error("Failed to load options", err);
       }
@@ -52,13 +59,11 @@ export function useAdminArchive() {
     setLoading(true);
     setError(null);
     try {
-      const [docs, statistics, history] = await Promise.all([
+      const [docs, history] = await Promise.all([
         archiveService.getDocuments(filters),
-        archiveService.getStatistics(),
         archiveService.getDownloadHistory()
       ]);
       setDocuments(docs);
-      setStats(statistics);
       setRecentDownloads(history);
     } catch (err) {
       setError("Failed to load archive data.");
@@ -80,16 +85,54 @@ export function useAdminArchive() {
   const handleDownload = async (doc) => {
     try {
       const result = await archiveService.downloadFile(doc);
-      if (result.success) setSuccess(result.message);
-      else setError(result.message);
+      if (result.success) {
+        setSuccess(result.message);
+        // Log individual file downloads to history
+        await archiveService.logExport(doc.original_filename, doc.semester || 'All', doc.academic_year || 'All', 'SINGLE_FILE_DOWNLOAD');
+        // Refresh to update the recent downloads list
+        fetchData();
+      } else {
+        setError(result.message);
+      }
 
       setTimeout(() => {
         setSuccess(null);
-        setError(null); // <-- FIX: Clear the error state too
+        setError(null); 
       }, 3000);
     } catch (e) {
       setError("Download failed.");
-      setTimeout(() => setError(null), 3000); // <-- FIX: Clear catch error
+      setTimeout(() => setError(null), 3000); 
+    }
+  };
+
+  const reExportArchive = async (exportRecord) => {
+    setLoading(true);
+    setError(null);
+    try {
+      // Reconstitute the config from the log
+      // Currently the log only saves semester and academic_year (the core filters)
+      const config = {
+        semester: exportRecord.semester,
+        academic_year: exportRecord.academic_year,
+        doc_type: 'All Document Types',
+        faculty: 'All Faculty',
+        course: 'All Courses',
+        section: 'All Sections'
+      };
+      
+      const result = await archiveService.downloadArchiveZip(config);
+      if (result.success) {
+        setSuccess(`Successfully re-exported historical archive.`);
+        setTimeout(() => setSuccess(null), 3000);
+      } else {
+        setError(result.message);
+        setTimeout(() => setError(null), 3000);
+      }
+    } catch (e) {
+      setError("Download failed.");
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -101,7 +144,6 @@ export function useAdminArchive() {
     setFilters({
       semester: 'All Semesters',
       academic_year: 'All Years',
-      department: 'All Departments',
       doc_type: 'All Document Types',
       status: 'All Status',
       search_query: ''
@@ -114,12 +156,14 @@ export function useAdminArchive() {
     success,
     documents,
     recentDownloads,
-    stats,
     filters,
     options,
+    filteredOptions, // <-- EXPORT
+    setFilteredOptions, // <-- EXPORT
     updateFilter,
     clearFilters,
     handleDownload,
-    refresh: fetchData
+    refresh: fetchData,
+    reExportArchive
   };
 }

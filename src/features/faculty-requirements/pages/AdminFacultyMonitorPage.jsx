@@ -464,7 +464,7 @@ export default function AdminFacultyMonitorPage() {
                   onClick={() => setFilters({ semester: 'All Semesters', academic_year: 'All Years', status: 'All Status', course: 'All Courses', section: 'All Sections', search: '' })}
                   className="h-9 px-3 bg-destructive-semantic text-white hover:text-neutral-100 hover:bg-destructive-semantic/80 font-bold text-xs shadow-sm transition-all shrink-0"
                 >
-                  <X className="h-4 w-4 mr-1.5" /> Clear
+                  <X className="h-4 w-4 mr-1" /> Clear
                 </Button>
               )}
             </div>

@@ -1,7 +1,10 @@
-import React from "react";
-import { useState, useEffect, Fragment } from "react";
+import React, { useState, useEffect, Fragment } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   Archive,
   Search,
@@ -9,17 +12,34 @@ import {
   FileText,
   Download,
   Calendar,
-  Loader2,
-  AlertCircle,
+  RefreshCw,
   ChevronRight,
   ChevronDown,
   FolderOpen,
   History,
   Clock
 } from "lucide-react";
-import { useFacultyResources } from "../hooks/FacultyResourcesHook";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
+import { useFacultyArchive } from "../hooks/FacultyArchiveHook";
+import { ToastProvider, useToast } from "@/components/ui/toast/toaster";
+
+// Toast Handler
+const FacultyToastHandler = ({ success, error }) => {
+  const { addToast } = useToast();
+
+  useEffect(() => {
+    if (success) {
+      addToast({ title: "Success", description: String(success), variant: "success" });
+    }
+  }, [success, addToast]);
+
+  useEffect(() => {
+    if (error) {
+      addToast({ title: "Error", description: String(error), variant: "destructive" });
+    }
+  }, [error, addToast]);
+
+  return null;
+};
 
 export default function FacultyArchivePage() {
   const {
@@ -27,26 +47,38 @@ export default function FacultyArchivePage() {
     history,
     loading,
     error,
+    success,
     loadArchivedCourses,
     loadCourseHistory,
     loadSubmissionVersions,
     submissionVersions,
     handleDownloadAll,
-    downloading,
+    downloadingCourseId,
+    downloadingBulk,
+    handleDownloadBulk,
     options
-  } = useFacultyResources();
+  } = useFacultyArchive();
 
   const [selectedSemester, setSelectedSemester] = useState("");
   const [selectedYear, setSelectedYear] = useState("");
+  const [query, setQuery] = useState("");
+
   const [expandedCourse, setExpandedCourse] = useState(null);
   const [expandedDocType, setExpandedDocType] = useState(null);
   const [expandedSubmission, setExpandedSubmission] = useState(null);
-  const [query, setQuery] = useState("");
+
+  const [localError, setLocalError] = useState(null);
+
+  const triggerLocalError = (msg) => {
+    setLocalError(msg);
+    setTimeout(() => setLocalError(null), 3500);
+  };
 
   // Filter courses based on search query
   const filteredCourses = courseList.filter(course =>
     course.course_code.toLowerCase().includes(query.toLowerCase()) ||
-    course.course_name.toLowerCase().includes(query.toLowerCase())
+    course.course_name.toLowerCase().includes(query.toLowerCase()) ||
+    (course.section && course.section.toLowerCase().includes(query.toLowerCase()))
   );
 
   // Set default semester and year when options are loaded
@@ -71,7 +103,7 @@ export default function FacultyArchivePage() {
       setExpandedDocType(null);
     } else {
       setExpandedCourse(courseId);
-      setExpandedDocType(null); // Reset doc type selection
+      setExpandedDocType(null);
       await loadCourseHistory(courseId);
     }
   };
@@ -98,268 +130,340 @@ export default function FacultyArchivePage() {
   }, {});
 
   const downloadFile = (sub) => {
-    // Use the web view link if available, otherwise fallback to alert or other logic
     if (sub.gdrive_web_view_link) {
       window.open(sub.gdrive_web_view_link, '_blank');
     } else if (sub.gdrive_download_link) {
       window.open(sub.gdrive_download_link, '_blank');
     } else {
-      // Fallback if no link is present (e.g. local dev mock)
-      alert(`Opening ${sub.original_filename}... (No valid link found)`);
+      triggerLocalError(`${sub.original_filename} could not be downloaded. No valid link found.`);
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header & Controls */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Submission Archive</h1>
-          <p className="text-neutral-500 font-medium">Access your historical submissions and file versions</p>
-        </div>
+    <ToastProvider>
+      <FacultyToastHandler error={error || localError} success={success} />
+      <div className="space-y-6 flex flex-col h-full bg-neutral-50/30">
 
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" />
-            <input
-              type="text"
-              placeholder="Search courses..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="pl-9 pr-4 py-2 bg-white border border-neutral-200 rounded-lg text-neutral-900 focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-sm font-medium w-full md:w-64"
-            />
+        {/* Header */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0 mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">My Archive</h1>
+            <p className="text-neutral-500 text-sm font-medium">Access your historical submissions and file versions</p>
           </div>
-
-          {/* Semester Filter */}
-          <div className="relative">
-            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" />
-            <select
-              value={`${selectedSemester}||${selectedYear}`}
-              onChange={(e) => {
-                const [sem, yr] = e.target.value.split("||");
-                setSelectedSemester(sem);
-                setSelectedYear(yr);
-              }}
-              className="pl-9 pr-4 py-2 bg-white border border-neutral-200 rounded-lg text-neutral-900 focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none shadow-sm font-medium min-w-[200px] cursor-pointer"
-            >
-              {options?.academic_years?.map(year => (
-                options?.semesters?.map(sem => (
-                  <option key={`${sem}-${year}`} value={`${sem}||${year}`}>{sem}, {year}</option>
-                ))
-              ))}
-              {(!options?.academic_years?.length) && <option value="">Loading options...</option>}
-            </select>
-          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={downloadingBulk || courseList.length === 0}
+            onClick={() => handleDownloadBulk(selectedSemester, selectedYear)}
+            className="h-9 bg-primary-600 border-primary-600 text-white hover:bg-primary-700 hover:text-white shadow-sm font-bold text-xs"
+          >
+            {downloadingBulk ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+            {downloadingBulk ? 'Preparing Bulk Zip...' : 'Bulk Export All Docs'}
+          </Button>
         </div>
-      </div>
 
-      {loading && !expandedCourse && (
-        <div className="text-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary-600 mx-auto mb-3" />
-          <p className="text-neutral-500 font-medium">Loading archives...</p>
-        </div>
-      )}
+        {/* Standardized Filter Widget */}
+        <Card className="bg-white border-neutral-200 shadow-sm shrink-0 overflow-hidden">
+          <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-3.5 px-4 flex-row items-center justify-between">
+            <CardTitle className="text-base font-bold text-neutral-900 flex items-center gap-2">
+              <Filter className="h-4 w-4 text-primary-600" />
+              Filter Archive
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 bg-white">
+            <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-xl flex flex-col md:flex-row flex-wrap gap-3 items-start md:items-end shadow-sm">
 
-      {!loading && courseList.length === 0 && (
-        <div className="text-center py-16 bg-neutral-50 rounded-xl border border-neutral-200 border-dashed">
-          <Archive className="h-12 w-12 text-neutral-300 mx-auto mb-3" />
-          <p className="text-neutral-500 font-medium">No submissions found for this semester.</p>
-        </div>
-      )}
-
-      {/* Course List */}
-      <div className="space-y-4">
-        {filteredCourses.length === 0 && !loading && courseList.length > 0 && (
-          <p className="text-center text-neutral-500 font-medium">No courses match your search.</p>
-        )}
-        {filteredCourses.map(course => (
-          <div key={course.course_id} className="bg-white border border-neutral-200 rounded-xl shadow-sm overflow-hidden transition-all duration-200 hover:border-primary-300 hover:shadow-md">
-            <div
-              className="p-4 flex items-center justify-between cursor-pointer hover:bg-neutral-50 transition-colors"
-              onClick={() => handleCourseClick(course.course_id)}
-            >
-              <div className="flex items-center gap-4">
-                <div className={`p-2.5 rounded-lg border shadow-sm transition-colors ${expandedCourse === course.course_id ? 'bg-primary-50 text-primary-600 border-primary-200' : 'bg-neutral-50 text-neutral-500 border-neutral-200'}`}>
-                  <FolderOpen className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-neutral-900">{course.course_code} - {course.course_name}</h3>
-                  <p className="text-sm text-neutral-500 font-medium">{course.submission_count} document types submitted</p>
+              <div className="flex-[2] space-y-1 w-full min-w-[200px]">
+                <Label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-0.5">Search Courses</Label>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-neutral-400" />
+                  <Input
+                    placeholder="Find by course code, name, or section..."
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    className="pl-8 bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus-visible:ring-primary-500 font-medium"
+                  />
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 bg-white border-neutral-200 text-neutral-700 hover:text-primary-700 hover:bg-primary-50 hover:border-primary-200 shadow-sm transition-all"
-                  disabled={downloading}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDownloadAll(course.course_id, selectedSemester, selectedYear);
-                  }}
-                >
-                  {downloading ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Download className="h-4 w-4 mr-2" />
-                  )}
-                  {downloading ? 'Zipping...' : 'Download All'}
-                </Button>
-                <div className="p-1 text-neutral-400 group-hover:text-primary-600 transition-colors">
-                  {expandedCourse === course.course_id ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
-                </div>
+              <div className="flex-1 space-y-1 w-full min-w-[130px]">
+                <Label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-0.5">Semester</Label>
+                <Select value={selectedSemester} onValueChange={setSelectedSemester}>
+                  <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus:ring-primary-500/20 font-medium">
+                    <SelectValue placeholder="Select Semester" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-neutral-200">
+                    {options?.semesters?.map(sem => (
+                      <SelectItem key={sem} value={sem} className="text-xs font-medium">{sem}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+
+              <div className="flex-1 space-y-1 w-full min-w-[130px]">
+                <Label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-0.5">Academic Year</Label>
+                <Select value={selectedYear} onValueChange={setSelectedYear}>
+                  <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus:ring-primary-500/20 font-medium">
+                    <SelectValue placeholder="Select Year" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-neutral-200">
+                    {options?.academic_years?.map(year => (
+                      <SelectItem key={year} value={year} className="text-xs font-medium">{year}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
             </div>
+          </CardContent>
+        </Card>
 
-            {/* Expanded Content: Document Types */}
-            {expandedCourse === course.course_id && (
-              <div className="border-t border-neutral-100 bg-neutral-50/50 p-4 space-y-3 shadow-inner">
-                {loading && history.length === 0 ? (
-                  <div className="text-center py-6 text-neutral-500 font-medium">Loading course history...</div>
-                ) : Object.keys(groupedHistory).length === 0 ? (
-                  <div className="text-center py-6 text-neutral-500 font-medium bg-white rounded-lg border border-neutral-200">No history details available.</div>
-                ) : (
-                  Object.values(groupedHistory).map(doc => (
-                    <div key={doc.doc_type_id} className="border border-neutral-200 rounded-lg bg-white shadow-sm overflow-hidden">
-                      <div
-                        onClick={() => handleDocTypeClick(doc.doc_type_id)}
-                        className="p-3.5 flex items-center justify-between cursor-pointer hover:bg-neutral-50 transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <FileText className="h-4 w-4 text-primary-500" />
-                          <span className="font-bold text-neutral-900">{doc.type_name}</span>
-                          <Badge variant="outline" className="text-xs bg-neutral-100 text-neutral-600 border-neutral-200 font-bold px-2 py-0">
-                            {doc.versions.length} version{doc.versions.length !== 1 ? 's' : ''}
-                          </Badge>
+        {/* Main Content Area */}
+        <div className="flex-1 space-y-4">
+
+          {/* Loading State */}
+          {loading && !expandedCourse && (
+            <div className="flex flex-col items-center justify-center py-16 text-neutral-400 gap-3">
+              <RefreshCw className="h-8 w-8 animate-spin text-primary-600" />
+              <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Loading Archives...</p>
+            </div>
+          )}
+
+          {/* Empty State - No Submissions */}
+          {!loading && courseList.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-16 bg-white rounded-xl border border-dashed border-neutral-200 shadow-sm">
+              <div className="p-4 bg-neutral-50 rounded-full mb-3 border border-neutral-100">
+                <Archive className="h-8 w-8 text-neutral-300" />
+              </div>
+              <p className="font-bold text-neutral-900 text-base">No Submissions Found</p>
+              <p className="text-sm font-medium text-neutral-500 mt-1">There are no archived records for the selected term.</p>
+            </div>
+          )}
+
+          {/* Empty State - Search Mismatch */}
+          {filteredCourses.length === 0 && !loading && courseList.length > 0 && (
+            <div className="text-center py-10 bg-neutral-50 rounded-xl border border-dashed border-neutral-200">
+              <p className="text-sm font-bold text-neutral-500">No courses match your search.</p>
+            </div>
+          )}
+
+          {/* Course List Accordion */}
+          {filteredCourses.map(course => (
+            <Card key={course.course_id} className="bg-white border-neutral-200 shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md group">
+
+              {/* Accordion Header */}
+              <div
+                className={`p-4 flex items-center justify-between cursor-pointer transition-colors ${expandedCourse === course.course_id ? 'bg-primary-50/30' : 'hover:bg-neutral-50'}`}
+                onClick={() => handleCourseClick(course.course_id)}
+              >
+                <div className="flex items-center gap-4">
+                  <div className={`p-2.5 rounded-lg border shadow-sm transition-colors shrink-0 ${expandedCourse === course.course_id ? 'bg-primary-600 text-white border-primary-700' : 'bg-white text-neutral-500 border-neutral-200 group-hover:border-primary-200 group-hover:text-primary-600'}`}>
+                    <Archive className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className={`font-bold text-base transition-colors ${expandedCourse === course.course_id ? 'text-primary-900' : 'text-neutral-900 group-hover:text-primary-700'}`}>
+                      {course.course_code} - {course.course_name} {course.section ? `(${course.section})` : ''}
+                    </h3>
+                    <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mt-0.5">
+                      {course.submission_count} Document{course.submission_count !== 1 ? 's' : ''} Archived
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 px-3 bg-white border-neutral-200 text-neutral-700 hover:text-primary-700 hover:bg-primary-50 hover:border-primary-200 shadow-sm transition-all font-bold text-xs"
+                    disabled={!!downloadingCourseId}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDownloadAll(course, selectedSemester, selectedYear);
+                    }}
+                  >
+                    {downloadingCourseId === course.course_id ? <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Download className="h-3.5 w-3.5 mr-1.5 text-primary-600" />}
+                    {downloadingCourseId === course.course_id ? 'Zipping...' : 'Export All'}
+                  </Button>
+                  <div className={`p-1 transition-colors ${expandedCourse === course.course_id ? 'text-primary-600' : 'text-neutral-400 group-hover:text-primary-500'}`}>
+                    {expandedCourse === course.course_id ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+                  </div>
+                </div>
+              </div>
+
+              {/* Expanded Content: Document Types */}
+              {expandedCourse === course.course_id && (
+                <div className="border-t border-neutral-200 bg-neutral-50/50 p-4 space-y-3 shadow-inner">
+                  {loading && history.length === 0 ? (
+                    <div className="flex items-center justify-center py-6 text-neutral-500 text-xs font-bold uppercase tracking-widest gap-2">
+                      <RefreshCw className="h-4 w-4 animate-spin text-primary-500" /> Loading History...
+                    </div>
+                  ) : Object.keys(groupedHistory).length === 0 ? (
+                    <div className="text-center py-6 text-neutral-500 font-medium bg-white rounded-lg border border-neutral-200 shadow-sm">No history details available.</div>
+                  ) : (
+                    Object.values(groupedHistory).map(doc => (
+                      <div key={doc.doc_type_id} className="border border-neutral-200 rounded-xl bg-white shadow-sm overflow-hidden transition-all">
+
+                        {/* Document Type Header */}
+                        <div
+                          onClick={() => handleDocTypeClick(doc.doc_type_id)}
+                          className={`p-3.5 flex items-center justify-between cursor-pointer transition-colors ${expandedDocType === doc.doc_type_id ? 'bg-primary-50/50 border-b border-neutral-100' : 'hover:bg-neutral-50'}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <FileText className={`h-4 w-4 ${expandedDocType === doc.doc_type_id ? 'text-primary-600' : 'text-neutral-400'}`} />
+                            <span className={`font-bold text-sm ${expandedDocType === doc.doc_type_id ? 'text-primary-900' : 'text-neutral-900'}`}>
+                              {doc.type_name}
+                            </span>
+                            <Badge className="text-[10px] bg-neutral-100 text-neutral-600 border border-neutral-200 font-bold px-2 py-0 shadow-none uppercase tracking-widest">
+                              {doc.versions.length} Version{doc.versions.length !== 1 ? 's' : ''}
+                            </Badge>
+                          </div>
+                          {expandedDocType === doc.doc_type_id ? <ChevronDown className="h-4 w-4 text-primary-500" /> : <ChevronRight className="h-4 w-4 text-neutral-400" />}
                         </div>
-                        {expandedDocType === doc.doc_type_id ? <ChevronDown className="h-4 w-4 text-neutral-400" /> : <ChevronRight className="h-4 w-4 text-neutral-400" />}
-                      </div>
 
-                      {/* Expanded Versions */}
-                      {expandedDocType === doc.doc_type_id && (
-                        <div className="border-t border-neutral-100 bg-white">
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="text-neutral-500 text-xs border-b border-neutral-100 bg-neutral-50/50">
-                                <th className="text-left font-bold py-2.5 pl-4 uppercase tracking-wider">Version</th>
-                                <th className="text-left font-bold py-2.5 uppercase tracking-wider">Date Submitted</th>
-                                <th className="text-left font-bold py-2.5 uppercase tracking-wider">Status</th>
-                                <th className="text-right font-bold py-2.5 pr-4 uppercase tracking-wider">Action</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {doc.versions.map((ver, idx) => (
-                                <Fragment key={ver.submission_id}>
-                                  <tr className="hover:bg-neutral-50/80 border-b border-neutral-100 last:border-0 transition-colors">
-                                    <td className="py-3 pl-4 text-neutral-900 font-medium">
-                                      <div className="flex items-center gap-2">
-                                        <span className="truncate max-w-[200px]">{ver.original_filename}</span>
-                                      </div>
-                                    </td>
-                                    <td className="py-3 text-neutral-600 font-medium">
-                                      <div className="flex items-center gap-1.5 text-xs">
-                                        <Clock className="h-3.5 w-3.5 text-neutral-400" />
-                                        {new Date(ver.updated_at || ver.submitted_at).toLocaleDateString()}
-                                      </div>
-                                    </td>
-                                    <td className="py-3">
-                                      <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full border shadow-sm ${ver.submission_status === 'APPROVED' ? 'bg-success/10 text-success border-success/20' :
-                                          ver.submission_status === 'REJECTED' ? 'bg-destructive/10 text-destructive border-destructive/20' :
-                                            'bg-info/10 text-info border-info/20'
-                                        }`}>
-                                        {ver.submission_status}
-                                      </span>
-                                    </td>
-                                    <td className="py-3 pr-4 text-right">
-                                      <div className="flex justify-end gap-2">
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className={`h-7 px-2.5 text-[11px] font-bold transition-colors ${expandedSubmission === ver.submission_id ? 'bg-primary-50 text-primary-700' : 'text-neutral-500 hover:text-primary-600 hover:bg-primary-50'}`}
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            if (expandedSubmission === ver.submission_id) {
-                                              setExpandedSubmission(null);
-                                            } else {
-                                              setExpandedSubmission(ver.submission_id);
-                                              loadSubmissionVersions(ver.submission_id);
-                                            }
-                                          }}
-                                        >
-                                          <History className="h-3.5 w-3.5 mr-1.5" />
-                                          History
-                                          {expandedSubmission === ver.submission_id ? <ChevronDown className="h-3 w-3 ml-1" /> : <ChevronRight className="h-3 w-3 ml-1" />}
-                                        </Button>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          className="h-7 w-7 p-0 border-neutral-200 text-neutral-600 hover:text-primary-600 hover:border-primary-200 hover:bg-primary-50 shadow-sm"
-                                          title="Download Document"
-                                          onClick={(e) => { e.stopPropagation(); downloadFile(ver); }}
-                                        >
-                                          <Download className="h-3.5 w-3.5" />
-                                        </Button>
-                                      </div>
-                                    </td>
-                                  </tr>
+                        {/* Expanded Versions Table */}
+                        {expandedDocType === doc.doc_type_id && (
+                          <div className="bg-white overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="bg-neutral-50/80 border-b border-neutral-200">
+                                  <th className="text-left text-[10px] font-bold py-3 pl-4 uppercase tracking-widest text-neutral-500 w-1/2">File Name</th>
+                                  <th className="text-left text-[10px] font-bold py-3 uppercase tracking-widest text-neutral-500">Date Stamped</th>
+                                  <th className="text-left text-[10px] font-bold py-3 uppercase tracking-widest text-neutral-500">Status</th>
+                                  <th className="text-right text-[10px] font-bold py-3 pr-4 uppercase tracking-widest text-neutral-500">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {doc.versions.map((ver) => (
+                                  <Fragment key={ver.submission_id}>
+                                    <tr className="hover:bg-neutral-50 border-b border-neutral-100 last:border-0 transition-colors group/row">
+                                      <td className="py-3 pl-4">
+                                        <span className="text-xs font-bold text-neutral-900 truncate block max-w-[250px] lg:max-w-md">
+                                          {ver.original_filename}
+                                        </span>
+                                      </td>
+                                      <td className="py-3">
+                                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-neutral-400 uppercase tracking-tight">
+                                          <Clock className="h-3.5 w-3.5" />
+                                          {new Date(ver.updated_at || ver.submitted_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                                        </div>
+                                      </td>
+                                      <td className="py-3">
+                                        {(() => {
+                                          const status = ver.submission_status || '';
+                                          let colorClass = "bg-neutral-100 text-neutral-600 border-neutral-200";
 
-                                  {/* Expanded Version History List */}
-                                  {expandedSubmission === ver.submission_id && (
-                                    <tr>
-                                      <td colSpan={4} className="bg-neutral-50/80 p-4 border-b border-neutral-100 shadow-inner">
-                                        <div className="pl-6 border-l-2 border-primary-200 ml-2">
-                                          <div className="text-[10px] text-neutral-500 mb-3 font-bold uppercase tracking-widest flex items-center gap-1.5">
-                                            <History className="h-3 w-3" /> Previous Versions
-                                          </div>
-                                          {submissionVersions.length === 0 ? (
-                                            <div className="text-neutral-500 italic text-xs font-medium bg-white p-3 rounded-lg border border-neutral-200">No previous versions registered.</div>
-                                          ) : (
-                                            <ul className="space-y-2.5">
-                                              {submissionVersions.map((v) => (
-                                                <li key={v.version_id} className="flex justify-between items-center text-xs text-neutral-700 bg-white p-2.5 rounded-lg border border-neutral-200 shadow-sm hover:border-primary-200 transition-colors">
-                                                  <div className="flex items-center gap-3">
-                                                    <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-neutral-100 border-neutral-200 text-neutral-600 font-bold shadow-sm">v{v.version_number}</Badge>
-                                                    <span className="truncate max-w-[200px] font-medium">{v.original_filename}</span>
-                                                    <span className="text-neutral-400 flex items-center gap-1.5 font-medium ml-2 border-l border-neutral-200 pl-3">
-                                                      <Clock className="h-3 w-3" /> {new Date(v.archived_at).toLocaleString()}
-                                                    </span>
-                                                  </div>
-                                                  <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-6 w-6 p-0 text-neutral-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
-                                                    title="Download Version"
-                                                    onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      if (v.gdrive_web_view_link) window.open(v.gdrive_web_view_link, '_blank');
-                                                      else alert('Link not available');
-                                                    }}
-                                                  >
-                                                    <Download className="h-3.5 w-3.5" />
-                                                  </Button>
-                                                </li>
-                                              ))}
-                                            </ul>
-                                          )}
+                                          if (status === 'APPROVED' || status === 'SUBMITTED') {
+                                            colorClass = "bg-success/10 text-success border-success/20";
+                                          } else if (status === 'REJECTED' || status === 'REVISION REQUESTED') {
+                                            colorClass = "bg-destructive/10 text-destructive border-destructive/20";
+                                          } else if (status === 'PENDING') {
+                                            colorClass = "bg-warning/10 text-warning border-warning/20";
+                                          }
+
+                                          const displayValue = status.split('_').join(' ').toLowerCase().split(' ').map(word =>
+                                            word.charAt(0).toUpperCase() + word.slice(1)
+                                          ).join(' ');
+
+                                          return (
+                                            <Badge className={`font-bold text-xs px-2.5 py-0.5 rounded-full border shadow-none ${colorClass}`}>
+                                              {displayValue}
+                                            </Badge>
+                                          );
+                                        })()}
+                                      </td>
+                                      <td className="py-3 pr-4 text-right">
+                                        <div className="flex justify-end gap-1.5">
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className={`h-7 px-2.5 text-[10px] font-bold uppercase tracking-widest transition-all ${expandedSubmission === ver.submission_id ? 'bg-primary-100 text-primary-700' : 'text-neutral-500 hover:text-primary-600 hover:bg-primary-50'}`}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              if (expandedSubmission === ver.submission_id) {
+                                                setExpandedSubmission(null);
+                                              } else {
+                                                setExpandedSubmission(ver.submission_id);
+                                                loadSubmissionVersions(ver.submission_id);
+                                              }
+                                            }}
+                                          >
+                                            <History className="h-3.5 w-3.5 mr-1" />
+                                            Log
+                                          </Button>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 w-7 p-0 bg-white border-neutral-200 text-neutral-600 hover:text-primary-600 hover:border-primary-200 hover:bg-primary-50 shadow-sm"
+                                            title="Download Document"
+                                            onClick={(e) => { e.stopPropagation(); downloadFile(ver); }}
+                                          >
+                                            <Download className="h-3.5 w-3.5" />
+                                          </Button>
                                         </div>
                                       </td>
                                     </tr>
-                                  )}
-                                </Fragment>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-        ))}
+
+                                    {/* Expanded Version History Timeline */}
+                                    {expandedSubmission === ver.submission_id && (
+                                      <tr>
+                                        <td colSpan={4} className="bg-neutral-50/80 p-0 border-b border-neutral-200 shadow-inner">
+                                          <div className="p-4 pl-6 ml-2 border-l-2 border-primary-200 bg-neutral-50/50">
+                                            <div className="text-[10px] text-neutral-500 mb-3 font-bold uppercase tracking-widest flex items-center gap-1.5">
+                                              <History className="h-3.5 w-3.5 text-primary-400" /> File Version Timeline
+                                            </div>
+                                            {submissionVersions.length === 0 ? (
+                                              <div className="text-neutral-500 italic text-xs font-medium bg-white p-3 rounded-lg border border-neutral-200 shadow-sm">No previous versions registered.</div>
+                                            ) : (
+                                              <ul className="space-y-2">
+                                                {submissionVersions.map((v) => (
+                                                  <li key={v.version_id} className="flex justify-between items-center text-xs bg-white p-3 rounded-xl border border-neutral-200 shadow-sm hover:border-primary-300 transition-colors group/version">
+                                                    <div className="flex items-center gap-3">
+                                                      <Badge className="text-[10px] h-5 px-2 bg-neutral-100 border border-neutral-200 text-neutral-600 font-black shadow-none rounded-md">
+                                                        v{v.version_number}
+                                                      </Badge>
+                                                      <span className="truncate max-w-[200px] lg:max-w-sm font-bold text-neutral-800">
+                                                        {v.original_filename}
+                                                      </span>
+                                                      <span className="text-neutral-400 flex items-center gap-1.5 font-medium ml-2 border-l border-neutral-200 pl-3 text-[10px] uppercase tracking-wider">
+                                                        <Clock className="h-3 w-3" /> {new Date(v.archived_at).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                      </span>
+                                                    </div>
+                                                    <Button
+                                                      variant="ghost"
+                                                      size="sm"
+                                                      className="h-7 w-7 p-0 text-neutral-400 hover:text-primary-600 hover:bg-primary-50 transition-colors opacity-0 group-hover/version:opacity-100"
+                                                      title="Download Version"
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (v.gdrive_web_view_link) window.open(v.gdrive_web_view_link, '_blank');
+                                                        else triggerLocalError('Link not available');
+                                                      }}
+                                                    >
+                                                      <Download className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                  </li>
+                                                ))}
+                                              </ul>
+                                            )}
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    )}
+                                  </Fragment>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </Card>
+          ))}
+        </div>
       </div>
-    </div>
+    </ToastProvider>
   );
 }
