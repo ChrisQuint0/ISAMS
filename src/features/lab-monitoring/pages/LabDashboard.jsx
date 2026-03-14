@@ -7,6 +7,7 @@ import {
 // Hook & Lib
 import { useLabDashboard } from "../hooks/useLabDashboard";
 import { supabase } from "../../../lib/supabaseClient";
+import { useGlobalSettings } from "../context/LabSettingsContext";
 
 // Components
 import SystemOverviewCard from "../components/dashboard/SystemOverviewCard";
@@ -24,17 +25,19 @@ import {
 
 export default function LabDashboard() {
     const labId = sessionStorage.getItem('active_lab_id') || "lab-1";
-    const labName = sessionStorage.getItem('active_lab_name') || "Lab 1"; 
+    const labName = sessionStorage.getItem('active_lab_name') || "Lab 1";
 
     const isDefense = labName?.toLowerCase().includes('defense');
-    const CAPACITY = isDefense ? 20 : 40; 
-    
+    const CAPACITY = isDefense ? 20 : 40;
+
     // Formatter converts "Lab 2" to "Computer Laboratory 2"
-    const displayTitle = isDefense 
-        ? `${labName} Room` 
+    const displayTitle = isDefense
+        ? `${labName} Room`
         : labName.replace(/^(Computer\s*)?Lab\s/i, 'Computer Laboratory ');
 
     const { clock, currentClass, metrics, activities, loading } = useLabDashboard(labName);
+    const { settings } = useGlobalSettings();
+
     const [isDismissed, setIsDismissed] = useState(false);
     const [dismissDialogOpen, setDismissDialogOpen] = useState(false);
 
@@ -50,7 +53,7 @@ export default function LabDashboard() {
         if (!currentClass) return;
 
         const nextStatus = !isDismissed;
-        
+
         setIsDismissed(nextStatus);
         setDismissDialogOpen(false);
 
@@ -120,10 +123,9 @@ export default function LabDashboard() {
                         <h1 className="text-2xl font-bold text-white tracking-tight">
                             {displayTitle} — Dashboard
                         </h1>
-                        
-                        <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border flex items-center gap-1.5 ${
-                            isDismissed ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-rose-500/10 text-rose-500 border-rose-500/20"
-                        }`}>
+
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border flex items-center gap-1.5 ${isDismissed ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-rose-500/10 text-rose-500 border-rose-500/20"
+                            }`}>
                             {isDismissed ? <CheckCircle size={10} /> : <ShieldAlert size={10} />}
                             {isDismissed ? "Unlocked" : "Session Locked"}
                         </span>
@@ -155,18 +157,19 @@ export default function LabDashboard() {
                         </span>
                     </div>
 
-                    <button
-                        onClick={() => setDismissDialogOpen(true)} 
-                        disabled={!currentClass}
-                        className={`flex items-center gap-3 text-[11px] font-black py-3 px-8 rounded-xl uppercase tracking-widest transition-all duration-500 shadow-2xl disabled:opacity-20 ${
-                            isDismissed 
-                                ? "bg-emerald-600 border-emerald-500 shadow-emerald-900/20" 
-                                : "bg-rose-600 border-rose-500 shadow-rose-900/20"
-                        }`}
-                    >
-                        {isDismissed ? <CheckCircle size={16} /> : <ShieldAlert size={16} />}
-                        <span>{isDismissed ? "Class Dismissed" : "Dismiss Class"}</span>
-                    </button>
+                    {settings?.anti_cutting && (
+                        <button
+                            onClick={() => setDismissDialogOpen(true)}
+                            disabled={!currentClass}
+                            className={`flex items-center gap-3 text-[11px] font-black py-3 px-8 rounded-xl uppercase tracking-widest transition-all duration-500 shadow-2xl disabled:opacity-20 ${isDismissed
+                                    ? "bg-emerald-600 border-emerald-500 shadow-emerald-900/20"
+                                    : "bg-rose-600 border-rose-500 shadow-rose-900/20"
+                                }`}
+                        >
+                            {isDismissed ? <CheckCircle size={16} /> : <ShieldAlert size={16} />}
+                            <span>{isDismissed ? "Class Dismissed" : "Dismiss Class"}</span>
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -192,14 +195,14 @@ export default function LabDashboard() {
                             <div className="relative w-48 h-48 flex items-center justify-center flex-shrink-0">
                                 <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
                                     <circle cx="18" cy="18" r="15.915" fill="transparent" stroke="#020617" strokeWidth="4.5" />
-                                    <circle 
-                                        cx="18" cy="18" r="15.915" fill="transparent" stroke="#7C3AED" strokeWidth="4.5" 
-                                        strokeDasharray={`${(metrics.laptopUsers / CAPACITY) * 100} ${100 - (metrics.laptopUsers / CAPACITY) * 100}`} 
+                                    <circle
+                                        cx="18" cy="18" r="15.915" fill="transparent" stroke="#7C3AED" strokeWidth="4.5"
+                                        strokeDasharray={`${(metrics.laptopUsers / CAPACITY) * 100} ${100 - (metrics.laptopUsers / CAPACITY) * 100}`}
                                         strokeDashoffset="0" className="transition-all duration-1000 ease-out"
                                     />
-                                    <circle 
-                                        cx="18" cy="18" r="15.915" fill="transparent" stroke="#0EA5E9" strokeWidth="4.5" 
-                                        strokeDasharray={`${(metrics.pcUsers / CAPACITY) * 100} ${100 - (metrics.pcUsers / CAPACITY) * 100}`} 
+                                    <circle
+                                        cx="18" cy="18" r="15.915" fill="transparent" stroke="#0EA5E9" strokeWidth="4.5"
+                                        strokeDasharray={`${(metrics.pcUsers / CAPACITY) * 100} ${100 - (metrics.pcUsers / CAPACITY) * 100}`}
                                         strokeDashoffset={`-${(metrics.laptopUsers / CAPACITY) * 100}`} className="transition-all duration-1000 ease-out"
                                     />
                                 </svg>
@@ -242,22 +245,21 @@ export default function LabDashboard() {
                 <div className="col-span-12 lg:col-span-8 bg-[#1E293B] border border-[#334155] rounded-2xl p-4 shadow-xl flex flex-col overflow-hidden">
                     <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 flex gap-2"><BarChart3 size={12} className="text-sky-500" /> Occupancy Trend Analysis</h2>
                     <div className="flex-1 min-h-0">
-                         <OccupancyChart labName={labName} />
+                        <OccupancyChart labName={labName} />
                     </div>
                 </div>
                 <div className="col-span-12 lg:col-span-4 bg-[#1E293B] border border-[#334155] rounded-2xl p-4 shadow-xl flex flex-col overflow-hidden">
                     <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 flex gap-2"><Clock size={12} className="text-sky-500" /> Live Audit Trail</h2>
                     <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                         {activities.length > 0 ? activities.map((log) => (
-                            <ActivityItem 
-                                key={log.id} 
-                                time={new Date(log.time_out ? log.time_out : log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} 
-                                text={log.time_out ? "Timed Out" : "Timed In"} 
-                                detail={`${log.students?.full_name || "Unknown Student"} (${
-                                    log.log_type === 'Laptop' 
-                                    ? 'Laptop' 
-                                    : (log.pc_no ? `PC - ${log.pc_no}` : 'PC Station')
-                                })`} 
+                            <ActivityItem
+                                key={log.id}
+                                time={new Date(log.time_out ? log.time_out : log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                text={log.time_out ? "Timed Out" : "Timed In"}
+                                detail={`${log.students?.full_name || "Unknown Student"} (${log.log_type === 'Laptop'
+                                        ? 'Laptop'
+                                        : (log.pc_no ? `PC - ${log.pc_no}` : 'PC Station')
+                                    })`}
                             />
                         )) : (
                             <div className="text-center py-10 text-slate-600 font-mono text-xs italic">No activity recorded for {labName}</div>
@@ -273,26 +275,25 @@ export default function LabDashboard() {
                             {isDismissed ? "Re-lock Session?" : "Dismiss Class Early?"}
                         </DialogTitle>
                         <DialogDescription className="text-slate-400 italic">
-                            {isDismissed 
-                                ? "This will re-lock the Kiosk system. Students will be restricted from timing out early until the official schedule ends. Do you want to proceed?" 
+                            {isDismissed
+                                ? "This will re-lock the Kiosk system. Students will be restricted from timing out early until the official schedule ends. Do you want to proceed?"
                                 : "Are you sure you want to dismiss the class early? This will unlock the Kiosk system and allow all students to scan out immediately."}
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter className="gap-3 mt-4">
-                        <Button 
-                            variant="outline" 
-                            onClick={() => setDismissDialogOpen(false)} 
+                        <Button
+                            variant="outline"
+                            onClick={() => setDismissDialogOpen(false)}
                             className="bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white"
                         >
                             Cancel
                         </Button>
-                        <Button 
-                            onClick={confirmDismiss} 
-                            className={`text-white font-bold ${
-                                isDismissed 
-                                    ? "bg-emerald-600 hover:bg-emerald-700" 
+                        <Button
+                            onClick={confirmDismiss}
+                            className={`text-white font-bold ${isDismissed
+                                    ? "bg-emerald-600 hover:bg-emerald-700"
                                     : "bg-rose-600 hover:bg-rose-700"
-                            }`}
+                                }`}
                         >
                             {isDismissed ? "Confirm Lock" : "Confirm Dismissal"}
                         </Button>

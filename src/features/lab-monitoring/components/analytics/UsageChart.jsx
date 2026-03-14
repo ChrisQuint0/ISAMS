@@ -1,19 +1,9 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Line, LineChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { 
     ChartContainer, 
-    ChartTooltip, 
-    ChartTooltipContent 
+    ChartTooltip 
 } from "@/components/ui/chart";
-
-const dummyUsageData = [
-    { day: "Mon", total_users: 185 },
-    { day: "Tue", total_users: 215 },
-    { day: "Wed", total_users: 205 },
-    { day: "Thu", total_users: 220 },
-    { day: "Fri", total_users: 210 },
-    { day: "Sat", total_users: 95 },
-];
 
 const chartConfig = {
     total_users: {
@@ -22,10 +12,55 @@ const chartConfig = {
     },
 };
 
-export default function UsageChart() {
+export default function UsageChart({ rawLogs = [] }) {
+
+    // Process the raw database logs into daily totals
+    const chartData = useMemo(() => {
+        if (!rawLogs || rawLogs.length === 0) return [];
+
+        const dailyCounts = {};
+
+        rawLogs.forEach(log => {
+            if (!log.time_in) return;
+            
+            // Extract the date and ignore the time so we can group by day
+            const dateObj = new Date(log.time_in);
+            const dateKey = dateObj.toISOString().split('T')[0]; // e.g., "2026-03-05"
+            
+            if (!dailyCounts[dateKey]) {
+                dailyCounts[dateKey] = {
+                    dateObj: dateObj,
+                    total_users: 0
+                };
+            }
+            dailyCounts[dateKey].total_users += 1;
+        });
+
+        // Sort chronologically so the line chart flows left-to-right correctly
+        return Object.keys(dailyCounts)
+            .sort((a, b) => new Date(a) - new Date(b))
+            .map(dateKey => {
+                const dateObj = dailyCounts[dateKey].dateObj;
+                return {
+                    // Formats "2026-03-05" into "Mar 5" for a cleaner X-Axis
+                    day: dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                    total_users: dailyCounts[dateKey].total_users
+                };
+            });
+    }, [rawLogs]);
+
+    // Fallback state if the database has no records for the selected date range
+    if (!chartData.length) {
+        return (
+            <div className="w-full h-[250px] mt-4 flex items-center justify-center text-slate-500 font-mono text-xs uppercase tracking-widest border border-dashed border-slate-800 rounded-lg">
+                No Data Available
+            </div>
+        );
+    }
+
     return (
         <ChartContainer config={chartConfig} className="w-full h-[250px] mt-4">
-            <LineChart data={dummyUsageData} margin={{ top: 10, right: 10, left: -20, bottom: 10 }}>
+            <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                 
                 <XAxis 
