@@ -2,16 +2,30 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import {
-  User,
-  Bell,
-  Save,
-  Loader2,
-  CheckCircle,
-  AlertCircle
-} from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { User, Bell, Save, RefreshCw, AlertCircle } from "lucide-react";
 import { useFacultySettings } from "../hooks/FacultySettingsHook";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useToast } from "@/components/ui/toast/toaster";
+
+// Toast Handler to mirror Admin pattern
+const FacultyToastHandler = ({ success, error }) => {
+  const { addToast } = useToast();
+
+  useEffect(() => {
+    if (success) {
+      addToast({ title: "Success", description: String(success), variant: "success" });
+    }
+  }, [success, addToast]);
+
+  useEffect(() => {
+    if (error) {
+      addToast({ title: "Error", description: String(error), variant: "destructive" });
+    }
+  }, [error, addToast]);
+
+  return null;
+};
 
 export default function FacultySettingsPage() {
   const {
@@ -28,15 +42,11 @@ export default function FacultySettingsPage() {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
-    email: "",
-    department: "",
-    position: "",
-    consultationHours: ""
+    email: ""
   });
 
   const [preferences, setPreferences] = useState({
-    emailEnabled: true,
-    frequency: "Daily"
+    emailEnabled: true
   });
 
   // Load profile data into form when available
@@ -45,14 +55,10 @@ export default function FacultySettingsPage() {
       setFormData({
         firstName: profile.first_name || "",
         lastName: profile.last_name || "",
-        email: profile.email || "",
-        department: profile.department || "",
-        position: profile.position || "",
-        consultationHours: profile.consultation_hours || ""
+        email: profile.email || ""
       });
       setPreferences({
-        emailEnabled: profile.email_reminders_enabled ?? true,
-        frequency: profile.reminder_frequency || "3_days_before"
+        emailEnabled: profile.email_reminders_enabled ?? true
       });
     }
   }, [profile]);
@@ -61,196 +67,123 @@ export default function FacultySettingsPage() {
     await updateProfile(
       formData.firstName,
       formData.lastName,
-      formData.consultationHours,
-      formData.department,
       formData.email
     );
   };
 
-  const handlePreferencesSave = async () => {
-    await updatePreferences(preferences.emailEnabled, preferences.frequency);
-  };
-
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-96">
-        <Loader2 className="h-10 w-10 animate-spin text-primary-600 mb-4" />
-        <p className="text-neutral-500 font-medium">Loading settings...</p>
+      <div className="flex flex-col items-center justify-center h-full min-h-[400px] gap-3">
+        <RefreshCw className="h-8 w-8 animate-spin text-primary-600" />
+        <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Loading Settings...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 flex flex-col h-full bg-neutral-50/30">
+
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-neutral-900 mb-1">Account Settings</h1>
-        <p className="text-neutral-500 font-medium text-sm">Manage your profile and notification preferences</p>
+      <div className="shrink-0">
+        <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Account Settings</h1>
+        <p className="text-neutral-500 text-sm font-medium">Manage your profile and notification preferences</p>
       </div>
 
-      {error && (
-        <Alert variant="destructive" className="border-destructive/30 bg-destructive/5 text-destructive shadow-sm">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription className="font-medium">{error}</AlertDescription>
-        </Alert>
-      )}
+      <FacultyToastHandler success={successMessage} error={error} />
 
-      {successMessage && (
-        <Alert className="border-success/30 bg-success/5 text-success shadow-sm">
-          <CheckCircle className="h-4 w-4 text-success" />
-          <AlertDescription className="font-medium">{successMessage}</AlertDescription>
-        </Alert>
-      )}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0">
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Profile Information */}
-        <div className="bg-white border border-neutral-200 rounded-xl shadow-sm p-6 lg:p-8">
-          <div className="flex items-center mb-6 pb-4 border-b border-neutral-100">
-            <div className="p-2.5 bg-primary-50 rounded-lg mr-4 border border-primary-100 shadow-sm">
-              <User className="text-primary-600 h-5 w-5" />
-            </div>
-            <h2 className="text-lg font-bold text-neutral-900">Profile Information</h2>
-          </div>
-
-          <div className="space-y-5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1.5">First Name</label>
+        {/* Profile Information Card */}
+        <Card className="bg-white border-neutral-200 shadow-sm overflow-hidden h-max">
+          <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-3.5 px-4 shrink-0">
+            <CardTitle className="text-base font-bold text-neutral-900 flex items-center gap-2">
+              <User className="h-4 w-4 text-primary-600" />
+              Profile Information
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-5 bg-white space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-0.5">First Name</Label>
                 <Input
                   value={formData.firstName}
                   onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                  className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 shadow-sm font-medium"
+                  className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 h-9 text-xs font-medium shadow-sm"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Last Name</label>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-0.5">Last Name</Label>
                 <Input
                   value={formData.lastName}
                   onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                  className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 shadow-sm font-medium"
+                  className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 h-9 text-xs font-medium shadow-sm"
                 />
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Email Address</label>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-0.5">Email Address</Label>
               <Input
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 shadow-sm font-medium"
+                className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 h-9 text-xs font-medium shadow-sm"
               />
-              <p className="text-[11px] font-bold text-warning uppercase tracking-wider mt-2 flex items-center gap-1.5">
-                <AlertCircle className="h-3.5 w-3.5" />
-                Changing this email affects notifications but not your login credentials.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Department</label>
-                <Input
-                  value={formData.department}
-                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                  className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 shadow-sm font-medium"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Position</label>
-                <Input
-                  value={formData.position}
-                  disabled
-                  className="bg-neutral-50 border-neutral-200 text-neutral-500 cursor-not-allowed shadow-inner font-medium"
-                />
+              <div className="bg-warning/5 border border-warning/20 rounded-lg p-3 mt-3 flex items-start gap-2.5 shadow-sm">
+                <AlertCircle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-[10px] font-bold text-warning uppercase tracking-wider mb-0.5">Notice</p>
+                  <p className="text-xs font-medium text-neutral-600 leading-relaxed">
+                    Changing this email affects notifications but not your Google login credentials.
+                  </p>
+                </div>
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1.5">Consultation Hours</label>
-              <Input
-                value={formData.consultationHours}
-                onChange={(e) => setFormData({ ...formData, consultationHours: e.target.value })}
-                placeholder="e.g. Mon/Wed 10:00 AM - 12:00 PM"
-                className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 shadow-sm font-medium"
-              />
-            </div>
-
-            <div className="pt-4 border-t border-neutral-100 mt-6">
+            <div className="pt-4 border-t border-neutral-100 flex justify-end">
               <Button
                 onClick={handleProfileSave}
                 disabled={savingProfile}
-                className="w-full sm:w-auto bg-primary-600 hover:bg-primary-700 text-white font-bold shadow-sm active:scale-95 transition-all"
+                className="w-full sm:w-auto bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs h-9 px-5 shadow-sm active:scale-95 transition-all"
               >
                 {savingProfile ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...
-                  </>
+                  <><RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Saving...</>
                 ) : (
-                  <>
-                    <Save className="h-4 w-4 mr-2" /> Save Changes
-                  </>
+                  <><Save className="h-3.5 w-3.5 mr-1.5" /> Save Profile</>
                 )}
               </Button>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        {/* Notification Settings */}
-        <div className="bg-white border border-neutral-200 rounded-xl shadow-sm p-6 lg:p-8 flex flex-col h-max">
-          <div className="flex items-center mb-6 pb-4 border-b border-neutral-100">
-            <div className="p-2.5 bg-warning/10 rounded-lg mr-4 border border-warning/20 shadow-sm">
-              <Bell className="text-warning h-5 w-5" />
-            </div>
-            <h2 className="text-lg font-bold text-neutral-900">Notifications</h2>
-          </div>
-
-          <div className="space-y-6">
-            <div className="flex items-center justify-between p-4 bg-neutral-50 border border-neutral-200 rounded-xl shadow-sm">
-              <div>
-                <p className="font-bold text-neutral-900">Email Reminders</p>
-                <p className="text-xs text-neutral-500 font-medium mt-0.5">Receive updates about upcoming deadlines</p>
+        {/* Notification Settings Card */}
+        <Card className="bg-white border-neutral-200 shadow-sm overflow-hidden h-max">
+          <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-3.5 px-4 shrink-0">
+            <CardTitle className="text-base font-bold text-neutral-900 flex items-center gap-2">
+              <Bell className="h-4 w-4 text-warning" />
+              Notifications
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-5 bg-white space-y-5">
+            <div className="flex items-center justify-between p-4 bg-neutral-50 border border-neutral-200 rounded-xl shadow-sm transition-all hover:border-neutral-300">
+              <div className="pr-4">
+                <p className="text-sm font-bold text-neutral-900">Email Reminders</p>
+                <p className="text-[11px] text-neutral-500 font-medium mt-1 leading-relaxed">
+                  Receive daily automated digests about upcoming deadlines, grace periods, and required document submissions.
+                </p>
               </div>
               <Switch
                 checked={preferences.emailEnabled}
-                onCheckedChange={(checked) => setPreferences({ ...preferences, emailEnabled: checked })}
-                className="data-[state=checked]:bg-success shadow-sm"
+                onCheckedChange={async (checked) => {
+                  setPreferences({ ...preferences, emailEnabled: checked });
+                  await updatePreferences(checked);
+                }}
+                disabled={savingPreferences}
+                className="data-[state=checked]:bg-success shadow-sm shrink-0"
               />
             </div>
+          </CardContent>
+        </Card>
 
-            {preferences.emailEnabled && (
-              <div className="p-1">
-                <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Reminder Frequency</label>
-                <select
-                  className="w-full px-3 py-2.5 bg-white border border-neutral-200 rounded-lg text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 shadow-sm font-medium cursor-pointer"
-                  value={preferences.frequency}
-                  onChange={(e) => setPreferences({ ...preferences, frequency: e.target.value })}
-                >
-                  <option value="daily">Daily Summary</option>
-                  <option value="weekly">Weekly Digest</option>
-                  <option value="3_days_before">Only Urgent Deadlines (3 days left)</option>
-                </select>
-              </div>
-            )}
-
-            <div className="pt-4 border-t border-neutral-100">
-              <Button
-                onClick={handlePreferencesSave}
-                disabled={savingPreferences}
-                variant="outline"
-                className="w-full sm:w-auto bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900 font-bold shadow-sm active:scale-95 transition-all"
-              >
-                {savingPreferences ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4 mr-2" /> Save Preferences
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

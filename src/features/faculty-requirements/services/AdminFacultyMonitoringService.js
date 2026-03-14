@@ -85,28 +85,26 @@ export const facultyMonitorService = {
    * Send Single Reminder
    */
   sendReminder: async (facultyId) => {
-    // 1. Log notification in DB
-    const { error } = await supabase.from('notifications_fs').insert({
-      faculty_id: facultyId,
-      notification_type: 'DEADLINE_REMINDER',
-      subject: 'Urgent: Submission Reminder',
-      message: 'This is a manual reminder to complete your faculty requirements.'
+    // 1. Trigger Email via Edge Function / Express Backend
+    // The backend now checks the email_reminders_enabled flag.
+    const emailResult = await adminFacultyMonitoringService.sendEmail({
+      facultyId,
+      template: 'deadline_reminder',
+      subject: 'Urgent: Submission Reminder'
     });
-    if (error) throw error;
 
-    // 2. Trigger Email via Edge Function (Placeholder)
-    // In production, this would call your SendGrid integration
-    /*
-    await supabase.functions.invoke('send-email', {
-      body: { 
-        facultyId, 
-        template: 'deadline_reminder',
-        subject: 'Urgent: Submission Reminder'
-      }
-    });
-    */
+    // 2. Only log notification in DB if email was actually sent or wasn't ignored
+    if (emailResult && !emailResult.ignored) {
+      const { error } = await supabase.from('notifications_fs').insert({
+        faculty_id: facultyId,
+        notification_type: 'DEADLINE_REMINDER',
+        subject: 'Urgent: Submission Reminder',
+        message: 'This is a manual reminder to complete your faculty requirements.'
+      });
+      if (error) throw error;
+    }
 
-    return true;
+    return emailResult;
   },
 
   /**
@@ -117,29 +115,18 @@ export const facultyMonitorService = {
       throw new Error("No faculty members match the current filters.");
     }
 
-    // 1. Build an array of notifications matching exactly who is on screen
-    const notifications = filteredFacultyList.map(f => ({
-      faculty_id: f.faculty_id,
-      notification_type: 'DEADLINE_REMINDER',
-      subject: subject,
-      message: message
-    }));
-
-    // 2. Bulk insert them into the database
-    const { error } = await supabase.from('notifications_fs').insert(notifications);
-    if (error) throw error;
-
-    // 3. Trigger Bulk Email via Edge Function (Placeholder)
-    /*
-    await supabase.functions.invoke('send-bulk-emails', {
-      body: { 
-        faculty_ids: filteredFacultyList.map(f => f.faculty_id),
-        template: 'deadline_reminder'
-      }
+    // Process individually to respect per-faculty email preferences
+    const results = await adminFacultyMonitoringService.sendBulkEmails(filteredFacultyList, {
+      subject,
+      message,
+      template: 'deadline_reminder'
     });
-    */
 
-    return { total_sent: notifications.length, message: `Sent ${notifications.length} reminders based on current filters.` };
+    return { 
+      total_sent: results.succeeded, 
+      total_ignored: results.ignored || 0,
+      message: `Processed ${filteredFacultyList.length} reminders. ${results.succeeded} sent, ${results.ignored || 0} skipped.` 
+    };
   },
 
   /**
@@ -398,7 +385,7 @@ export const facultyMonitorService = {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Email send failed');
-    return data; // { success: true, email_sent_to: '...', template }
+    return data; // { success: true, ignored: true/false, ... }
   },
 
   /**
@@ -418,9 +405,11 @@ export const facultyMonitorService = {
       )
     );
 
-    const succeeded = results.filter(r => r.status === 'fulfilled').length;
+    const succeeded = results.filter(r => r.status === 'fulfilled' && !r.value.ignored).length;
     const failed = results.filter(r => r.status === 'rejected').length;
-    return { succeeded, failed, total: facultyList.length };
+    const ignored = results.filter(r => r.status === 'fulfilled' && r.value.ignored).length;
+    
+    return { succeeded, failed, ignored, total: facultyList.length };
   }
 };
 
