@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
 import {
-    Users, Wrench, Clock, AlertTriangle, FileText, FileSpreadsheet,
-    Calendar, TrendingUp, Zap, BarChart3, Laptop, Monitor, Download,
-    Brain, Sun, Activity, CalendarDays, GitCompareArrows, ArrowLeftRight,
-    X, Loader2
+    Users, Wrench, Clock, FileText, FileSpreadsheet,
+    Calendar, BarChart3, Laptop, Monitor,
+    Brain, Sun, Activity, CalendarDays, Loader2
 } from "lucide-react";
 
 import {
@@ -24,15 +23,17 @@ import HighTrafficDays from "../components/analytics/HighTrafficDays";
 import SectionAttendanceTable from "../components/analytics/SectionAttendanceTable";
 import ExportMonthModal from "../components/analytics/ExportMonthModal";
 
-import { useLabAnalytics } from "../hooks/useLabAnalytics"; 
-import { exportAttendanceExcel, handleAttendancePDF, handleHardwareHealthPDF, 
+import { useLabAnalytics } from "../hooks/useLabAnalytics";
+import { useGlobalSettings } from "../context/LabSettingsContext";
+import {
+    exportAttendanceExcel, handleAttendancePDF, handleHardwareHealthPDF,
     exportHardwareHealthExcel, exportEarlyDismissalExcel, handleEarlyDismissalPDF,
     handleSectionSummaryPDF, exportSectionSummaryExcel, exportForecastingExcel,
-    handleForecastingPDF, exportPCLifecycleExcel, handlePCLifecyclePDF } from "../utils/exportUtils";
+    handleForecastingPDF, exportPCLifecycleExcel, handlePCLifecyclePDF
+} from "../utils/exportUtils";
 
-// Manila-locked date formatting
 const formatDate = (date) => {
-    return new Intl.DateTimeFormat('en-CA', { 
+    return new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Asia/Manila',
         year: 'numeric',
         month: '2-digit',
@@ -42,28 +43,24 @@ const formatDate = (date) => {
 
 export default function ReportsAnalytics() {
     const { labName } = useOutletContext();
-    
+
     const [semester, setSemester] = useState("spring-2026");
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
-    const [compareActive, setCompareActive] = useState(false);
-    const [compareType, setCompareType] = useState("lab"); 
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [activeReport, setActiveReport] = useState({ title: "", type: "", format: "" });
 
-    // Fetch analytics and data bounds (first/last logs)
     const { loading, metrics, rawLogs, dataBounds } = useLabAnalytics(labName, dateFrom, dateTo);
+    const { settings } = useGlobalSettings();
 
-    // Sync dates dynamically based on semester and available data
     useEffect(() => {
         const nowManila = new Date().toLocaleString("en-US", { timeZone: "Asia/Manila" });
         const today = new Date(nowManila);
 
         if (semester === "spring-2026") {
-            // Future-proof: Use first log found in DB, fallback to Jan 1st
             setDateFrom(dataBounds.first || "2026-01-01");
-            setDateTo(formatDate(today)); 
+            setDateTo(formatDate(today));
         } else if (semester === "fall-2025") {
             setDateFrom("2025-08-01");
             setDateTo("2025-12-20");
@@ -76,12 +73,21 @@ export default function ReportsAnalytics() {
     };
 
     const processExport = (selectedMonth) => {
-        const filteredLogs = rawLogs.filter(log => new Date(log.time_in).getMonth() === selectedMonth);
+        const isCumulative = activeReport.type === "hardware" || activeReport.type === "pc-lifecycle";
+
+        const filteredLogs = rawLogs.filter(log => {
+            const logMonth = new Date(log.time_in).getMonth();
+            return isCumulative ? logMonth <= selectedMonth : logMonth === selectedMonth;
+        });
+
+        const monthName = new Date(2026, selectedMonth).toLocaleString('default', { month: 'long' });
+        const year = dateTo ? new Date(dateTo).getFullYear() : new Date().getFullYear();
+        const monthLabel = `Cumulative Status as of ${monthName} ${year}`;
 
         if (activeReport.type === "attendance") {
             activeReport.format === "excel" ? exportAttendanceExcel(filteredLogs, labName) : handleAttendancePDF(filteredLogs, labName);
         } else if (activeReport.type === "hardware") {
-            activeReport.format === "excel" ? exportHardwareHealthExcel(filteredLogs, labName) : handleHardwareHealthPDF(filteredLogs, labName);
+            activeReport.format === "excel" ? exportHardwareHealthExcel(filteredLogs, labName, monthLabel) : handleHardwareHealthPDF(filteredLogs, labName, monthLabel);
         } else if (activeReport.type === "early-dismissal") {
             activeReport.format === "excel" ? exportEarlyDismissalExcel(filteredLogs, labName) : handleEarlyDismissalPDF(filteredLogs, labName);
         } else if (activeReport.type === "section-summary") {
@@ -89,16 +95,17 @@ export default function ReportsAnalytics() {
         } else if (activeReport.type === "forecasting") {
             activeReport.format === "excel" ? exportForecastingExcel(filteredLogs, labName) : handleForecastingPDF(filteredLogs, labName);
         } else if (activeReport.type === "pc-lifecycle") {
-            activeReport.format === "excel" ? exportPCLifecycleExcel(filteredLogs, labName) : handlePCLifecyclePDF(filteredLogs, labName);
+            const threshold = settings?.maintenance_threshold || 500;
+            activeReport.format === "excel" ? exportPCLifecycleExcel(filteredLogs, labName, monthLabel, threshold) : handlePCLifecyclePDF(filteredLogs, labName, monthLabel, threshold);
         }
         setIsModalOpen(false);
     };
 
     return (
         <div className="p-8 space-y-8 bg-[#020617] min-h-screen text-slate-100 font-sans">
-            <ExportMonthModal 
-                isOpen={isModalOpen} 
-                onClose={() => setIsModalOpen(false)} 
+            <ExportMonthModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
                 onConfirm={processExport}
                 reportTitle={activeReport.title}
             />
@@ -128,27 +135,8 @@ export default function ReportsAnalytics() {
                         <span className="text-[9px] text-slate-600 font-bold uppercase">to</span>
                         <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="bg-transparent text-xs text-slate-300 outline-none border-none [color-scheme:dark] w-[120px]" />
                     </div>
-
-                    <button onClick={() => setCompareActive(!compareActive)} className={`flex items-center gap-2 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${compareActive ? "bg-purple-500/15 border border-purple-500/30 text-purple-400" : "bg-[#0f172a] border border-[#1e293b] text-slate-400"}`}>
-                        <GitCompareArrows size={13} /> Compare
-                    </button>
                 </div>
             </div>
-
-            {/* Comparison Mode Toolbar */}
-            {compareActive && (
-                <div className="bg-purple-500/5 border border-purple-500/20 rounded-2xl p-4 flex items-center gap-4 animate-in slide-in-from-top-2 duration-300">
-                    <div className="flex items-center gap-2">
-                        <ArrowLeftRight size={14} className="text-purple-400" />
-                        <span className="text-[10px] font-black text-purple-400 uppercase tracking-widest">Comparison Mode</span>
-                    </div>
-                    <div className="flex items-center bg-[#0f172a] border border-[#1e293b] rounded-lg p-0.5">
-                        <button onClick={() => setCompareType("lab")} className={`px-3 py-1.5 rounded-md text-[9px] font-bold uppercase transition-all ${compareType === "lab" ? "bg-sky-500/15 text-sky-400 border border-sky-500/30" : "text-slate-500"}`}>Lab vs Lab</button>
-                        <button onClick={() => setCompareType("period")} className={`px-3 py-1.5 rounded-md text-[9px] font-bold uppercase transition-all ${compareType === "period" ? "bg-amber-500/15 text-amber-400 border border-amber-500/30" : "text-slate-500"}`}>Period vs Period</button>
-                    </div>
-                    <button onClick={() => setCompareActive(false)} className="ml-auto p-1.5 text-slate-500 bg-[#1e293b] rounded-lg hover:text-white"><X size={12} /></button>
-                </div>
-            )}
 
             {/* Stats Grid */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -177,7 +165,7 @@ export default function ReportsAnalytics() {
                                     <div className="relative w-44 h-44 rounded-full flex items-center justify-center" style={{ background: `conic-gradient(#38bdf8 0% ${metrics.pcPercentage || 0}%, #a855f7 ${metrics.pcPercentage || 0}% 100%)` }}>
                                         <div className="absolute w-[80%] h-[80%] bg-[#0f172a] rounded-full" />
                                         <div className="relative text-center z-10">
-                                            <span className="text-3xl font-bold text-white">{metrics.pcPercentage || 0}%</span><br/>
+                                            <span className="text-3xl font-bold text-white">{metrics.pcPercentage || 0}%</span><br />
                                             <span className="text-[10px] uppercase text-slate-500">Lab PCs</span>
                                         </div>
                                     </div>
@@ -243,41 +231,41 @@ export default function ReportsAnalytics() {
                 <h3 className="text-sm font-bold text-white uppercase mb-1 font-mono tracking-tighter">Generate Official Reports</h3>
                 <p className="text-[11px] text-slate-500 mb-6 border-b border-[#1e293b] pb-4">Export filtered data for administrative submission</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <ExportCard 
-                        title="End-of-Month Attendance" 
-                        description="Export logs filtered by month" 
-                        icon={<FileSpreadsheet size={24} />} 
+                    <ExportCard
+                        title="End-of-Month Attendance"
+                        description="Export logs filtered by month"
+                        icon={<FileSpreadsheet size={24} />}
                         onExport={(format) => handleInitiateExport("End-of-Month Attendance", "attendance", format)}
                     />
-                    <ExportCard 
-                        title="Hardware Health Status" 
-                        description="Current hour counters" 
-                        icon={<Wrench size={24} />} 
-                        onExport={(format) => handleInitiateExport("Hardware Health Status", "hardware", format)} 
+                    <ExportCard
+                        title="Hardware Health Status"
+                        description="Current hour counters"
+                        icon={<Wrench size={24} />}
+                        onExport={(format) => handleInitiateExport("Hardware Health Status", "hardware", format)}
                     />
-                    <ExportCard 
-                        title="Early Dismissal Report" 
-                        description="PDF/Excel Report of all early exits" 
-                        icon={<FileText size={24} />} 
-                        onExport={(format) => handleInitiateExport("Early Dismissal Report", "early-dismissal", format)} 
+                    <ExportCard
+                        title="Early Dismissal Report"
+                        description="PDF/Excel Report of all early exits"
+                        icon={<FileText size={24} />}
+                        onExport={(format) => handleInitiateExport("Early Dismissal Report", "early-dismissal", format)}
                     />
-                    <ExportCard 
-                        title="Section Attendance Summary" 
-                        description="Analyze attendance rates per class section." 
-                        icon={<Users size={24} className="text-sky-500" />} 
-                        onExport={(format) => handleInitiateExport("Section Attendance Summary", "section-summary", format)} 
+                    <ExportCard
+                        title="Section Attendance Summary"
+                        description="Analyze attendance rates per class section."
+                        icon={<Users size={24} className="text-sky-500" />}
+                        onExport={(format) => handleInitiateExport("Section Attendance Summary", "section-summary", format)}
                     />
-                    <ExportCard 
-                        title="Forecasting Report" 
-                        description="Predicted traffic" 
-                        icon={<Brain size={24} />} 
-                        onExport={(format) => handleInitiateExport("Forecasting Report", "forecasting", format)} 
+                    <ExportCard
+                        title="Forecasting Report"
+                        description="Predicted traffic"
+                        icon={<Brain size={24} />}
+                        onExport={(format) => handleInitiateExport("Forecasting Report", "forecasting", format)}
                     />
-                    <ExportCard 
-                        title="PC Lifecycle Report" 
-                        description="Health scores and usage history" 
-                        icon={<Monitor size={24} />} 
-                        onExport={(format) => handleInitiateExport("PC Lifecycle Report", "pc-lifecycle", format)} 
+                    <ExportCard
+                        title="PC Lifecycle Report"
+                        description="Health scores and usage history"
+                        icon={<Monitor size={24} />}
+                        onExport={(format) => handleInitiateExport("PC Lifecycle Report", "pc-lifecycle", format)}
                     />
                 </div>
             </div>

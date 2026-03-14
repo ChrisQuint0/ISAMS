@@ -1,12 +1,13 @@
 import React, { useState, useMemo, useCallback } from "react";
 import { useOutletContext } from "react-router-dom";
-import { 
-    Search, Download, Filter, Shield, ShieldAlert, ShieldCheck, 
-    User, Clock, CalendarDays, ChevronLeft, ChevronRight, 
-    Settings, Monitor, LogIn, LogOut, Trash2, PenLine, 
+import {
+    Download, Filter, Shield, ShieldAlert, User, Clock,
+    CalendarDays, Settings, Monitor, PenLine,
     AlertTriangle, KeyRound, Eye, X, UserCog, RefreshCw,
     FileText, FileSpreadsheet
 } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
+import { handleAuditTrailExcel, handleAuditTrailPDF } from "../utils/exportUtils";
 import { AgGridReact } from 'ag-grid-react';
 import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-community';
 
@@ -26,72 +27,138 @@ const auditTheme = themeBalham.withParams({
 
 const categoryConfig = {
     "Authentication": { icon: KeyRound, color: "sky", bg: "bg-sky-500/10", text: "text-sky-400", border: "border-sky-500/20" },
-    "PC Management":  { icon: Monitor, color: "purple", bg: "bg-purple-500/10", text: "text-purple-400", border: "border-purple-500/20" },
-    "Settings":       { icon: Settings, color: "amber", bg: "bg-amber-500/10", text: "text-amber-400", border: "border-amber-500/20" },
-    "Student Logs":   { icon: User, color: "emerald", bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/20" },
-    "Schedule":       { icon: CalendarDays, color: "cyan", bg: "bg-cyan-500/10", text: "text-cyan-400", border: "border-cyan-500/20" },
-    "Override":       { icon: ShieldAlert, color: "rose", bg: "bg-rose-500/10", text: "text-rose-400", border: "border-rose-500/20" },
+    "PC Management": { icon: Monitor, color: "purple", bg: "bg-purple-500/10", text: "text-purple-400", border: "border-purple-500/20" },
+    "Settings": { icon: Settings, color: "amber", bg: "bg-amber-500/10", text: "text-amber-400", border: "border-amber-500/20" },
+    "Student Logs": { icon: User, color: "emerald", bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/20" },
+    "Schedule": { icon: CalendarDays, color: "cyan", bg: "bg-cyan-500/10", text: "text-cyan-400", border: "border-cyan-500/20" },
+    "Override": { icon: ShieldAlert, color: "rose", bg: "bg-rose-500/10", text: "text-rose-400", border: "border-rose-500/20" },
 };
 
 const severityConfig = {
-    "Info":     { bg: "bg-sky-500/10", text: "text-sky-400", border: "border-sky-500/20", dot: "bg-sky-400" },
-    "Warning":  { bg: "bg-amber-500/10", text: "text-amber-400", border: "border-amber-500/20", dot: "bg-amber-400" },
+    "Info": { bg: "bg-sky-500/10", text: "text-sky-400", border: "border-sky-500/20", dot: "bg-sky-400" },
+    "Warning": { bg: "bg-amber-500/10", text: "text-amber-400", border: "border-amber-500/20", dot: "bg-amber-400" },
     "Critical": { bg: "bg-rose-500/10", text: "text-rose-400", border: "border-rose-500/20", dot: "bg-rose-400" },
-    "Success":  { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/20", dot: "bg-emerald-400" },
+    "Success": { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/20", dot: "bg-emerald-400" },
+};
+
+const getInitialManilaDates = () => {
+    const d = new Date();
+    const formatter = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' });
+    const parts = formatter.formatToParts(d);
+
+    const year = parts.find(p => p.type === 'year')?.value;
+    const month = parts.find(p => p.type === 'month')?.value;
+
+    const lastDay = new Date(year, parseInt(month, 10), 0).getDate();
+    return {
+        firstDay: `${year}-${month}-01`,
+        lastDay: `${year}-${month}-${String(lastDay).padStart(2, '0')}`
+    };
 };
 
 export default function AuditTrails() {
     const { labName } = useOutletContext();
     const [gridApi, setGridApi] = useState(null);
 
-    const [dateFrom, setDateFrom] = useState("2026-02-10");
-    const [dateTo, setDateTo] = useState("2026-02-16");
+    const [dateFrom, setDateFrom] = useState(() => getInitialManilaDates().firstDay);
+    const [dateTo, setDateTo] = useState(() => getInitialManilaDates().lastDay);
     const [categoryFilter, setCategoryFilter] = useState("all");
     const [severityFilter, setSeverityFilter] = useState("all");
 
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [selectedEvent, setSelectedEvent] = useState(null);
 
-    const [exportFormat, setExportFormat] = useState("csv"); 
+    const [exportFormat, setExportFormat] = useState("excel");
 
-    const [rowData] = useState([
-        { id: "AUD-001", timestamp: "2026-02-16 03:45:12 PM", user: "Admin — Prof. Garcia", category: "Override", action: "Dismiss Class Override", description: "Triggered anti-cutting override — dismissed class for Lab Schedule IT305", severity: "Critical", ip: "192.168.1.101" },
-        { id: "AUD-002", timestamp: "2026-02-16 03:30:05 PM", user: "Admin — Prof. Garcia", category: "PC Management", action: "Flag Maintenance", description: "Flagged PC-12 for maintenance — Monitor flickering intermittently", severity: "Warning", ip: "192.168.1.101" },
-        { id: "AUD-003", timestamp: "2026-02-16 02:15:30 PM", user: "Admin — Prof. Garcia", category: "PC Management", action: "Clear Maintenance", description: "Cleared maintenance flag on PC-07 — Replaced faulty RAM module", severity: "Success", ip: "192.168.1.101" },
-        { id: "AUD-004", timestamp: "2026-02-16 01:00:00 PM", user: "System", category: "Student Logs", action: "Student Time-In", description: "Juan Dela Cruz (2023-0001) timed in at PC-01 — BSIT-3A", severity: "Info", ip: "—" },
-        { id: "AUD-005", timestamp: "2026-02-16 12:55:00 PM", user: "Admin — Prof. Garcia", category: "Settings", action: "Updated Lab Settings", description: "Changed session timeout from 30min to 45min", severity: "Warning", ip: "192.168.1.101" },
-        { id: "AUD-006", timestamp: "2026-02-16 12:30:00 PM", user: "System", category: "Authentication", action: "Admin Login", description: "Prof. Garcia authenticated via Supabase — session started", severity: "Info", ip: "192.168.1.101" },
-        { id: "AUD-007", timestamp: "2026-02-16 11:00:00 AM", user: "Admin — Prof. Garcia", category: "PC Management", action: "Bulk Convert to Laptop", description: "Converted 5 stations (PC-31 to PC-35) to Laptop mode", severity: "Warning", ip: "192.168.1.101" },
-        { id: "AUD-008", timestamp: "2026-02-16 10:45:00 AM", user: "Admin — Prof. Garcia", category: "Schedule", action: "Added Schedule", description: "Created recurring schedule: CC101 — Mon/Wed 8:00 AM–10:00 AM — Prof. Santos", severity: "Info", ip: "192.168.1.101" },
-        { id: "AUD-009", timestamp: "2026-02-16 10:30:00 AM", user: "System", category: "Student Logs", action: "Student Time-Out", description: "Jose Rizal Jr. (2023-0003) timed out from PC-03 — Early Exit flagged", severity: "Warning", ip: "—" },
-        { id: "AUD-010", timestamp: "2026-02-15 04:00:00 PM", user: "System", category: "Student Logs", action: "Bulk Time-Out", description: "Auto timed-out 28 students at end of lab session — IT305 BSIT-3A", severity: "Info", ip: "—" },
-        { id: "AUD-011", timestamp: "2026-02-15 03:50:00 PM", user: "Admin — Prof. Garcia", category: "Override", action: "Dismiss Class Override", description: "Triggered anti-cutting override — dismissed class for Lab Schedule CC101", severity: "Critical", ip: "192.168.1.101" },
-        { id: "AUD-012", timestamp: "2026-02-15 02:00:00 PM", user: "Admin — Prof. Garcia", category: "PC Management", action: "Reset Timer", description: "Reset usage timer on PC-19 after OS reinstall", severity: "Info", ip: "192.168.1.101" },
-        { id: "AUD-013", timestamp: "2026-02-15 08:00:00 AM", user: "System", category: "Authentication", action: "Admin Login", description: "Prof. Garcia authenticated via Supabase — session started", severity: "Info", ip: "192.168.1.101" },
-        { id: "AUD-014", timestamp: "2026-02-14 04:30:00 PM", user: "Admin — Prof. Garcia", category: "Settings", action: "Updated Anti-Cutting Policy", description: "Changed early-exit threshold from 15min to 10min before class end", severity: "Warning", ip: "192.168.1.101" },
-        { id: "AUD-015", timestamp: "2026-02-14 01:00:00 PM", user: "System", category: "Student Logs", action: "Overflow Detected", description: "Ana Reyes (2023-0004) logged in as OVERFLOW — no available PCs", severity: "Warning", ip: "—" },
-        { id: "AUD-016", timestamp: "2026-02-13 09:00:00 AM", user: "Admin — Prof. Garcia", category: "Schedule", action: "Deleted Schedule", description: "Removed one-time schedule: Makeup Class — Feb 13, 2026 9:00 AM–12:00 PM", severity: "Warning", ip: "192.168.1.101" },
-        { id: "AUD-017", timestamp: "2026-02-12 03:00:00 PM", user: "Admin — Prof. Garcia", category: "PC Management", action: "Bulk Maintenance", description: "Flagged 3 stations (PC-28, PC-33, PC-40) for maintenance — scheduled hardware audit", severity: "Warning", ip: "192.168.1.101" },
-        { id: "AUD-018", timestamp: "2026-02-12 08:15:00 AM", user: "System", category: "Authentication", action: "Failed Login Attempt", description: "Unknown user attempted login — invalid credentials (3rd attempt)", severity: "Critical", ip: "192.168.1.205" },
-        { id: "AUD-019", timestamp: "2026-02-11 02:00:00 PM", user: "Admin — Prof. Garcia", category: "PC Management", action: "Convert to PC", description: "Converted stations PC-31 to PC-35 back to PC mode", severity: "Info", ip: "192.168.1.101" },
-        { id: "AUD-020", timestamp: "2026-02-10 10:00:00 AM", user: "System", category: "Authentication", action: "Admin Login", description: "Prof. Garcia authenticated via Supabase — session started", severity: "Info", ip: "192.168.1.101" },
-    ]);
+    const [rowData, setRowData] = useState([]);
+    const [isLoading, setIsLoading] = useState(false);
 
-    const filteredData = useMemo(() => {
-        return rowData.filter(row => {
-            if (categoryFilter !== "all" && row.category !== categoryFilter) return false;
-            if (severityFilter !== "all" && row.severity !== severityFilter) return false;
-            return true;
+    React.useEffect(() => {
+        const fetchAuditLogs = async () => {
+            console.log('Current Manila Query:', { dateFrom, dateTo, labName });
+            if (!labName) return;
+            setIsLoading(true);
+
+            let query = supabase
+                .from("audit_logs_lm")
+                .select("*")
+                .eq("lab_name", labName)
+                .gte("timestamp", `${dateFrom}T00:00:00+08:00`)
+                .lte("timestamp", `${dateTo}T23:59:59+08:00`)
+                .order("timestamp", { ascending: false });
+
+            if (categoryFilter !== "all") {
+                query = query.eq("category", categoryFilter);
+            }
+            if (severityFilter !== "all") {
+                query = query.eq("severity", severityFilter);
+            }
+
+            const { data, error } = await query;
+            if (error) {
+                console.error("Error fetching audit logs:", error);
+            } else {
+                setRowData(data || []);
+            }
+            setIsLoading(false);
+        };
+
+        fetchAuditLogs();
+    }, [labName, dateFrom, dateTo, categoryFilter, severityFilter]);
+
+    const formattedData = useMemo(() => {
+        const formatter = new Intl.DateTimeFormat("en-US", {
+            timeZone: "Asia/Manila",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: true
         });
-    }, [rowData, categoryFilter, severityFilter]);
+
+        return rowData.map(row => {
+            const d = new Date(row.timestamp);
+            const parts = formatter.formatToParts(d);
+            const yyyy = parts.find(p => p.type === 'year')?.value;
+            const mm = parts.find(p => p.type === 'month')?.value;
+            const dd = parts.find(p => p.type === 'day')?.value;
+            const hh = parts.find(p => p.type === 'hour')?.value;
+            const min = parts.find(p => p.type === 'minute')?.value;
+            const ss = parts.find(p => p.type === 'second')?.value;
+            const dayPeriod = parts.find(p => p.type === 'dayPeriod')?.value;
+
+            const dateStr = `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss} ${dayPeriod}`;
+
+            return {
+                id: row.id,
+                timestamp: dateStr,
+                user: row.actor,
+                category: row.category,
+                action: row.action,
+                description: row.description,
+                severity: row.severity,
+                ip: row.ip_address || "—"
+            };
+        });
+    }, [rowData]);
 
     const stats = useMemo(() => {
-        const total = filteredData.length;
-        const critical = filteredData.filter(r => r.severity === "Critical").length;
-        const warnings = filteredData.filter(r => r.severity === "Warning").length;
-        const today = filteredData.filter(r => r.timestamp.startsWith("2026-02-16")).length;
+        const total = formattedData.length;
+        const critical = formattedData.filter(r => r.severity === "Critical").length;
+        const warnings = formattedData.filter(r => r.severity === "Warning").length;
+
+        const todayFormatter = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' });
+        const parts = todayFormatter.formatToParts(new Date());
+        const yyyy = parts.find(p => p.type === 'year')?.value;
+        const mm = parts.find(p => p.type === 'month')?.value;
+        const dd = parts.find(p => p.type === 'day')?.value;
+        const manilaTodayStr = `${yyyy}-${mm}-${dd}`;
+
+        const today = formattedData.filter(r => r.timestamp.startsWith(manilaTodayStr)).length;
         return { total, critical, warnings, today };
-    }, [filteredData]);
+    }, [formattedData]);
 
     const columnDefs = useMemo(() => [
         {
@@ -192,12 +259,14 @@ export default function AuditTrails() {
     }, []);
 
     const handleExport = useCallback(() => {
-        if (exportFormat === "csv" && gridApi) {
-            gridApi.exportDataAsCsv({ fileName: `audit-trail-${labName}.csv` });
-        } else {
-            console.log(`Exporting audit trail as PDF for ${labName}`);
+        if (!formattedData.length) return;
+
+        if (exportFormat === "excel") {
+            handleAuditTrailExcel(formattedData, labName, dateFrom, dateTo);
+        } else if (exportFormat === "pdf") {
+            handleAuditTrailPDF(formattedData, labName, dateFrom, dateTo);
         }
-    }, [gridApi, labName, exportFormat]);
+    }, [formattedData, labName, dateFrom, dateTo, exportFormat]);
 
     return (
         <div className="p-8 space-y-6 bg-[#020617] min-h-screen text-slate-100">
@@ -211,16 +280,16 @@ export default function AuditTrails() {
                 <div className="flex items-center gap-3 flex-wrap">
                     <div className="flex items-center gap-2 bg-[#0f172a] border border-[#1e293b] rounded-lg px-3 py-2 hover:border-slate-600 transition-colors">
                         <CalendarDays size={13} className="text-slate-500 shrink-0" />
-                        <input 
-                            type="date" 
-                            value={dateFrom} 
+                        <input
+                            type="date"
+                            value={dateFrom}
                             onChange={(e) => setDateFrom(e.target.value)}
                             className="bg-transparent text-xs text-slate-300 outline-none border-none [color-scheme:dark] w-[120px]"
                         />
                         <span className="text-[9px] text-slate-600 font-bold uppercase">to</span>
-                        <input 
-                            type="date" 
-                            value={dateTo} 
+                        <input
+                            type="date"
+                            value={dateTo}
                             onChange={(e) => setDateTo(e.target.value)}
                             className="bg-transparent text-xs text-slate-300 outline-none border-none [color-scheme:dark] w-[120px]"
                         />
@@ -229,27 +298,25 @@ export default function AuditTrails() {
                     <div className="flex items-center gap-0">
                         <div className="flex items-center bg-[#0f172a] border border-[#1e293b] rounded-l-lg p-0.5">
                             <button
-                                onClick={() => setExportFormat("csv")}
-                                className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-[9px] font-bold uppercase tracking-widest transition-all ${
-                                    exportFormat === "csv"
-                                        ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                                        : "text-slate-500 hover:text-slate-300 border border-transparent"
-                                }`}
+                                onClick={() => setExportFormat("excel")}
+                                className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-[9px] font-bold uppercase tracking-widest transition-all ${exportFormat === "excel"
+                                    ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                                    : "text-slate-500 hover:text-slate-300 border border-transparent"
+                                    }`}
                             >
-                                <FileSpreadsheet size={11} /> CSV
+                                <FileSpreadsheet size={11} /> Excel
                             </button>
                             <button
                                 onClick={() => setExportFormat("pdf")}
-                                className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-[9px] font-bold uppercase tracking-widest transition-all ${
-                                    exportFormat === "pdf"
-                                        ? "bg-rose-500/15 text-rose-400 border border-rose-500/30"
-                                        : "text-slate-500 hover:text-slate-300 border border-transparent"
-                                }`}
+                                className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-[9px] font-bold uppercase tracking-widest transition-all ${exportFormat === "pdf"
+                                    ? "bg-rose-500/15 text-rose-400 border border-rose-500/30"
+                                    : "text-slate-500 hover:text-slate-300 border border-transparent"
+                                    }`}
                             >
                                 <FileText size={11} /> PDF
                             </button>
                         </div>
-                        <button 
+                        <button
                             onClick={handleExport}
                             className="flex items-center gap-2 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-r-lg bg-blue-500/10 border border-blue-500/20 border-l-0 hover:border-blue-500/40 text-blue-400 transition-all group/btn relative overflow-hidden"
                         >
@@ -293,11 +360,10 @@ export default function AuditTrails() {
                 <div className="flex items-center gap-1 bg-[#0f172a] border border-[#1e293b] rounded-lg p-0.5">
                     <button
                         onClick={() => setCategoryFilter("all")}
-                        className={`px-3 py-1.5 rounded-md text-[9px] font-bold uppercase tracking-widest transition-all ${
-                            categoryFilter === "all"
-                                ? "bg-slate-800 text-slate-200 border border-slate-700"
-                                : "text-slate-500 hover:text-slate-300 border border-transparent"
-                        }`}
+                        className={`px-3 py-1.5 rounded-md text-[9px] font-bold uppercase tracking-widest transition-all ${categoryFilter === "all"
+                            ? "bg-slate-800 text-slate-200 border border-slate-700"
+                            : "text-slate-500 hover:text-slate-300 border border-transparent"
+                            }`}
                     >
                         All
                     </button>
@@ -307,11 +373,10 @@ export default function AuditTrails() {
                             <button
                                 key={key}
                                 onClick={() => setCategoryFilter(categoryFilter === key ? "all" : key)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[9px] font-bold uppercase tracking-widest transition-all ${
-                                    categoryFilter === key
-                                        ? `${cfg.bg} ${cfg.text} border ${cfg.border}`
-                                        : "text-slate-500 hover:text-slate-300 border border-transparent"
-                                }`}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[9px] font-bold uppercase tracking-widest transition-all ${categoryFilter === key
+                                    ? `${cfg.bg} ${cfg.text} border ${cfg.border}`
+                                    : "text-slate-500 hover:text-slate-300 border border-transparent"
+                                    }`}
                             >
                                 <Icon size={10} />
                                 {key}
@@ -323,11 +388,10 @@ export default function AuditTrails() {
                 <div className="flex items-center gap-1 bg-[#0f172a] border border-[#1e293b] rounded-lg p-0.5 ml-auto">
                     <button
                         onClick={() => setSeverityFilter("all")}
-                        className={`px-3 py-1.5 rounded-md text-[9px] font-bold uppercase tracking-widest transition-all ${
-                            severityFilter === "all"
-                                ? "bg-slate-800 text-slate-200 border border-slate-700"
-                                : "text-slate-500 hover:text-slate-300 border border-transparent"
-                        }`}
+                        className={`px-3 py-1.5 rounded-md text-[9px] font-bold uppercase tracking-widest transition-all ${severityFilter === "all"
+                            ? "bg-slate-800 text-slate-200 border border-slate-700"
+                            : "text-slate-500 hover:text-slate-300 border border-transparent"
+                            }`}
                     >
                         All
                     </button>
@@ -335,11 +399,10 @@ export default function AuditTrails() {
                         <button
                             key={key}
                             onClick={() => setSeverityFilter(severityFilter === key ? "all" : key)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[9px] font-bold uppercase tracking-widest transition-all ${
-                                severityFilter === key
-                                    ? `${cfg.bg} ${cfg.text} border ${cfg.border}`
-                                    : "text-slate-500 hover:text-slate-300 border border-transparent"
-                            }`}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[9px] font-bold uppercase tracking-widest transition-all ${severityFilter === key
+                                ? `${cfg.bg} ${cfg.text} border ${cfg.border}`
+                                : "text-slate-500 hover:text-slate-300 border border-transparent"
+                                }`}
                         >
                             <div className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
                             {key}
@@ -351,13 +414,13 @@ export default function AuditTrails() {
             <div className="rounded-2xl border border-[#1e293b] overflow-hidden shadow-2xl" style={{ height: "calc(100vh - 420px)" }}>
                 <AgGridReact
                     theme={auditTheme}
-                    rowData={filteredData}
+                    rowData={formattedData}
                     columnDefs={columnDefs}
                     defaultColDef={defaultColDef}
                     onGridReady={onGridReady}
                     onRowClicked={onRowClicked}
                     animateRows={true}
-                    rowSelection="single"
+                    rowSelection={{ mode: 'singleRow' }}
                     suppressCellFocus={true}
                     overlayNoRowsTemplate='<span class="text-slate-500 text-sm">No audit events found for the selected filters</span>'
                 />
@@ -377,8 +440,8 @@ export default function AuditTrails() {
                                     <p className="text-[10px] text-slate-500 font-mono">{selectedEvent.id}</p>
                                 </div>
                             </div>
-                            <button 
-                                onClick={() => setDrawerOpen(false)} 
+                            <button
+                                onClick={() => setDrawerOpen(false)}
                                 className="p-2 text-slate-500 hover:text-slate-200 bg-[#1e293b] hover:bg-[#334155] rounded-lg transition-all"
                             >
                                 <X size={14} />
@@ -399,11 +462,13 @@ export default function AuditTrails() {
                             <div className="space-y-3">
                                 {[
                                     { label: "Timestamp", value: selectedEvent.timestamp, icon: <Clock size={13} className="text-slate-600" /> },
-                                    { label: "Category", value: selectedEvent.category, icon: (() => {
-                                        const cfg = categoryConfig[selectedEvent.category];
-                                        const Icon = cfg?.icon || Shield;
-                                        return <Icon size={13} className={cfg?.text || "text-slate-600"} />;
-                                    })() },
+                                    {
+                                        label: "Category", value: selectedEvent.category, icon: (() => {
+                                            const cfg = categoryConfig[selectedEvent.category];
+                                            const Icon = cfg?.icon || Shield;
+                                            return <Icon size={13} className={cfg?.text || "text-slate-600"} />;
+                                        })()
+                                    },
                                     { label: "Action", value: selectedEvent.action, icon: <PenLine size={13} className="text-slate-600" /> },
                                     { label: "Performed By", value: selectedEvent.user, icon: <User size={13} className="text-slate-600" /> },
                                     { label: "IP Address", value: selectedEvent.ip, icon: <KeyRound size={13} className="text-slate-600" /> },
