@@ -5,30 +5,46 @@ import { Minus, Square, Copy, X } from "lucide-react";
 export function Titlebar() {
   const [isMaximized, setIsMaximized] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const appWindow = getCurrentWindow();
+  const [appWindow, setAppWindow] = useState(null);
 
   useEffect(() => {
-    // Check initial state
-    const checkState = async () => {
-      setIsMaximized(await appWindow.isMaximized());
-      setIsFullscreen(await appWindow.isFullscreen());
-    };
-    checkState();
+    let unlisten = null;
 
-    // Listen for resize/state changes
-    const unlisten = appWindow.onResized(async () => {
-      setIsMaximized(await appWindow.isMaximized());
-      setIsFullscreen(await appWindow.isFullscreen());
-    });
+    const setupWindow = async () => {
+      try {
+        // Only attempt to get window if we're likely in a Tauri environment
+        if (window.__TAURI_INTERNALS__) {
+          const win = getCurrentWindow();
+          setAppWindow(win);
+
+          // Check initial state
+          setIsMaximized(await win.isMaximized());
+          setIsFullscreen(await win.isFullscreen());
+
+          // Listen for resize/state changes
+          unlisten = await win.onResized(async () => {
+            setIsMaximized(await win.isMaximized());
+            setIsFullscreen(await win.isFullscreen());
+          });
+        }
+      } catch (error) {
+        console.warn("Tauri window API not available:", error);
+      }
+    };
+
+    setupWindow();
 
     return () => {
-      unlisten.then((fn) => fn());
+      if (unlisten) {
+        unlisten();
+      }
     };
-  }, [appWindow]);
+  }, []);
 
-  const handleMinimize = () => appWindow.minimize();
+  const handleMinimize = () => appWindow?.minimize();
 
   const handleMaximizeToggle = async () => {
+    if (!appWindow) return;
     if (isFullscreen) {
       await appWindow.setFullscreen(false);
     } else {
@@ -36,7 +52,7 @@ export function Titlebar() {
     }
   };
 
-  const handleClose = () => appWindow.close();
+  const handleClose = () => appWindow?.close();
 
   return (
     <div
@@ -53,33 +69,37 @@ export function Titlebar() {
       </div>
 
       <div className="flex items-center h-full">
-        <button
-          onClick={handleMinimize}
-          className="h-full px-4 flex items-center justify-center hover:bg-gray-100 transition-colors group"
-          title="Minimize"
-        >
-          <Minus className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-900" />
-        </button>
+        {appWindow && (
+          <>
+            <button
+              onClick={handleMinimize}
+              className="h-full px-4 flex items-center justify-center hover:bg-gray-100 transition-colors group"
+              title="Minimize"
+            >
+              <Minus className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-900" />
+            </button>
 
-        <button
-          onClick={handleMaximizeToggle}
-          className="h-full px-4 flex items-center justify-center hover:bg-gray-100 transition-colors group"
-          title={isMaximized || isFullscreen ? "Restore Down" : "Maximize"}
-        >
-          {isMaximized || isFullscreen ? (
-            <Copy className="w-3 h-3 text-gray-500 group-hover:text-gray-900" />
-          ) : (
-            <Square className="w-3 h-3 text-gray-500 group-hover:text-gray-900" />
-          )}
-        </button>
+            <button
+              onClick={handleMaximizeToggle}
+              className="h-full px-4 flex items-center justify-center hover:bg-gray-100 transition-colors group"
+              title={isMaximized || isFullscreen ? "Restore Down" : "Maximize"}
+            >
+              {isMaximized || isFullscreen ? (
+                <Copy className="w-3 h-3 text-gray-500 group-hover:text-gray-900" />
+              ) : (
+                <Square className="w-3 h-3 text-gray-500 group-hover:text-gray-900" />
+              )}
+            </button>
 
-        <button
-          onClick={handleClose}
-          className="h-full px-4 flex items-center justify-center hover:bg-red-500 transition-colors group"
-          title="Close"
-        >
-          <X className="w-3.5 h-3.5 text-gray-500 group-hover:text-white" />
-        </button>
+            <button
+              onClick={handleClose}
+              className="h-full px-4 flex items-center justify-center hover:bg-red-500 transition-colors group"
+              title="Close"
+            >
+              <X className="w-3.5 h-3.5 text-gray-500 group-hover:text-white" />
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
