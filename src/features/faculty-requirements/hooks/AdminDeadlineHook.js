@@ -138,6 +138,18 @@ export function useAdminDeadlines() {
   const saveDeadline = async (formData, isEdit = false) => {
     setLoading(true);
     try {
+      // Pre-save validation for duplicates
+      const isDuplicate = deadlines.some(d => 
+        d.deadline_id !== formData.deadline_id && // Exclude self if editing
+        d.doc_type_id === parseInt(formData.doc_type_id) && 
+        d.semester === formData.semester && 
+        d.academic_year === formData.academic_year
+      );
+      
+      if (isDuplicate) {
+        throw new Error("A deadline for this document type already exists for this period.");
+      }
+
       const result = await deadlineService.save(formData);
       setSuccess(result.message || "Deadline saved successfully.");
       await fetchData();
