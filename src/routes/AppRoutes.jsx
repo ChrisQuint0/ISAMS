@@ -10,6 +10,7 @@ import LoginPage from "@/features/auth/pages/LoginPage";
 import ReportsUnauthorizedPage from "@/features/auth/pages/ReportsUnauthorizedPage";
 import DashboardPage from "@/features/dashboard/pages/DashboardPage";
 import UsersPage from "@/features/users/pages/UsersPage";
+import SettingsPage from "@/features/settings/pages/SettingsPage";
 import ThesisArchivingPage from "@/features/thesis-archiving/pages/ThesisArchivingPage";
 
 // Imports for Laboratory Monitoring
@@ -92,6 +93,17 @@ export function AppRoutes() {
             <ProtectedRoute>
               <AdminGuard>
                 <UsersPage />
+              </AdminGuard>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <AdminGuard>
+                <SettingsPage />
               </AdminGuard>
             </ProtectedRoute>
           }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,8 @@ import plpLogo from "@/assets/images/plp_logo.png";
 import ccsLogo from "@/assets/images/ccs_logo.png";
 import isamsLogo from "@/assets/images/isams_logo_icon.png";
 import isamsLogoText from "@/assets/images/isams_logo_text.png";
+import { useLogo } from "@/features/settings/hooks/useLogo";
+import { useSettings } from "@/features/settings/hooks/useSettings";
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -20,6 +22,8 @@ export default function LoginPage() {
 
   const navigate = useNavigate();
   const { signIn } = useAuth();
+  const { logoUrl, isLoading: isLogoLoading } = useLogo();
+  const { settings, isLoading: isSettingsLoading } = useSettings();
 
   const handleChange = (e) => {
     setFormData({
@@ -35,11 +39,7 @@ export default function LoginPage() {
     setError("");
 
     try {
-      // Sign in with Supabase
       await signIn(formData.email, formData.password);
-
-      // PublicRoute will automatically redirect to correct dashboard based on role
-      // No need to manually navigate here
     } catch (err) {
       console.error("Login error:", err);
       setError(err.message || "Invalid email or password");
@@ -75,9 +75,14 @@ export default function LoginPage() {
               className="h-16 w-16 object-contain"
             />
             <img
-              src={ccsLogo}
+              src={isLogoLoading ? ccsLogo : (logoUrl || ccsLogo)}
               alt="CCS Logo"
-              className="h-16 w-16 object-contain"
+              className={`h-16 w-16 object-contain transition-all duration-300 ${isLogoLoading ? 'opacity-50 blur-sm' : 'opacity-100'}`}
+              onError={(e) => {
+                if (e.target.src !== ccsLogo) {
+                  e.target.src = ccsLogo;
+                }
+              }}
             />
             <img
               src={isamsLogo}
@@ -89,8 +94,8 @@ export default function LoginPage() {
           <p className="text-sm text-muted-foreground mt-1.5 font-medium">
             Integrated Smart Academic Management System
           </p>
-          <p className="text-xs text-primary/60 mt-0.5 font-semibold">
-            College of Computer Studies
+          <p className="text-xs text-primary-500/60 mt-0.5 font-semibold uppercase tracking-wider">
+            {isSettingsLoading ? "Loading..." : settings.college_name}
           </p>
         </div>
 
@@ -103,7 +108,6 @@ export default function LoginPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Email Field */}
               <div className="space-y-2">
                 <Label
                   htmlFor="email"
@@ -124,7 +128,6 @@ export default function LoginPage() {
                 />
               </div>
 
-              {/* Password Field */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label
@@ -147,14 +150,12 @@ export default function LoginPage() {
                 />
               </div>
 
-              {/* Error Message */}
               {error && (
                 <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-xl text-sm font-medium animate-in fade-in slide-in-from-top-2">
                   {error}
                 </div>
               )}
 
-              {/* Submit Button */}
               <Button
                 type="submit"
                 className="w-full h-11 bg-primary-500 hover:bg-primary-600 text-white font-bold shadow-lg shadow-primary-500/20 transition-all hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
@@ -191,13 +192,6 @@ export default function LoginPage() {
             </form>
           </CardContent>
         </Card>
-
-        {/* Footer */}
-        <div className="text-center mt-8">
-          <p className="text-xs text-muted-foreground font-medium">
-            © 2026 College of Computer Studies. All rights reserved.
-          </p>
-        </div>
       </div>
     </div>
   );

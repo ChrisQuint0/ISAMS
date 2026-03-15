@@ -6,7 +6,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { LogOut, UserRoundPlus, ArrowUpRight } from "lucide-react";
+import { LogOut, UserRoundPlus, ArrowUpRight, Settings } from "lucide-react";
 import isamsFavicon from "@/assets/images/isams_favicon.png";
 import thesisIcon from "@/assets/icons/thesis_icon.svg";
 import facReqIcon from "@/assets/icons/fac_req_icon.svg";
@@ -174,21 +174,39 @@ export default function DashboardPage() {
             </div>
 
             {isAdmin(rbac) && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => navigate("/users")}
-                      className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-150 hover:scale-105 hover:bg-gray-100 border border-black/10"
-                    >
-                      <UserRoundPlus className="h-3.5 w-3.5 text-gray-500" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <p>Manage Users</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => navigate("/settings")}
+                        className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-150 hover:scale-105 hover:bg-gray-100 border border-black/10"
+                      >
+                        <Settings className="h-3.5 w-3.5 text-gray-500" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p>System Settings</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => navigate("/users")}
+                        className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-150 hover:scale-105 hover:bg-gray-100 border border-black/10"
+                      >
+                        <UserRoundPlus className="h-3.5 w-3.5 text-gray-500" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p>Manage Users</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </>
             )}
 
             <button
