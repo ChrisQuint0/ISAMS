@@ -540,8 +540,25 @@ app.post("/api/send-email", async (req, res) => {
   if (!faculty_id) return res.status(400).json({ error: "faculty_id is required" });
 
   try {
-    const { data: faculty, error: facultyErr } = await supabaseAdmin.from("faculty_fs").select("first_name, last_name, email").eq("faculty_id", faculty_id).single();
+    const { data: faculty, error: facultyErr } = await supabaseAdmin.from("faculty_fs").select("first_name, last_name, email, email_reminders_enabled").eq("faculty_id", faculty_id).single();
     if (facultyErr || !faculty || !faculty.email) return res.status(404).json({ error: "Faculty or email not found" });
+
+    // Respect faculty preference
+    if (faculty.email_reminders_enabled === false) {
+      console.log(`[Submission Backend] Email skipped for ${faculty_id} (${faculty.email}) - Reminders disabled by user.`);
+      
+      // Log the skip in the notification history
+      await supabaseAdmin.from("notifications_fs").insert({ 
+        faculty_id, 
+        notification_type: template === "revision_request" ? "REVISION_REQUEST" : "DEADLINE_REMINDER", 
+        subject: subject || "Submission Reminder", 
+        message: `[SKIPPED] ${message || 'Reminder'} not sent due to faculty email preferences.`, 
+        email_sent_at: new Date().toISOString(), 
+        email_recipient: faculty.email 
+      });
+
+      return res.json({ success: true, ignored: true, message: "Email skipped due to faculty preference" });
+    }
 
     const facultyName = `${faculty.first_name} ${faculty.last_name}`.trim();
     const { subject: builtSubject, html } = buildEmailHtml(template, { 

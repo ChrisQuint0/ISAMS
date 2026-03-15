@@ -54,13 +54,19 @@ const oauth2Client = (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET)
   : null;
 
 // ---------- GDrive Helpers ----------
-async function loadToken() {
+async function loadToken(userId) {
   if (!supabase || !oauth2Client) return null;
-  const { data, error } = await supabase
-    .from("google_auth_tokens")
-    .select("*")
-    .eq("id", 1)
-    .single();
+
+  let query = supabase.from("google_auth_tokens").select("*");
+
+  if (userId) {
+    query = query.eq("user_id", userId);
+  } else {
+    // Fallback to legacy global token (id=1) for system-wide operations if no user specified
+    query = query.eq("id", 1);
+  }
+
+  const { data, error } = await query.maybeSingle();
 
   if (error || !data) return null;
 
@@ -317,7 +323,7 @@ app.post("/api/hte/students/create", async (req, res) => {
   const hteParentFolderId = (await getSetting("hte_parent_folder_id")) || DEFAULT_HTE_PARENT_FOLDER_ID;
 
   try {
-    const auth = await loadToken();
+    const auth = await loadToken(req.body.userId || null);
     if (!auth) return res.status(401).json({ error: "Google Drive not authenticated" });
     const drive = google.drive({ version: "v3", auth });
 
@@ -411,7 +417,7 @@ app.post("/api/hte/students/batch-create", async (req, res) => {
   };
 
   try {
-    const auth = await loadToken();
+    const auth = await loadToken(req.body.userId || null);
     if (!auth) return res.status(401).json({ error: "Google Drive not authenticated" });
     const drive = google.drive({ version: "v3", auth });
 
@@ -499,7 +505,7 @@ app.post("/api/hte/students/batch-create", async (req, res) => {
 });
 // 12. Upload HTE/OJT Document
 app.post("/api/hte/upload", upload.single("file"), async (req, res) => {
-  const { studentId, fieldId, uploadedByRole } = req.body;
+  const { studentId, fieldId, uploadedByRole, actorName } = req.body;
   const file = req.file;
 
   if (!studentId || !fieldId || !file) {
@@ -507,7 +513,7 @@ app.post("/api/hte/upload", upload.single("file"), async (req, res) => {
   }
 
   try {
-    const auth = await loadToken();
+    const auth = await loadToken(req.body.userId || req.body.actorUserId || null);
     if (!auth) return res.status(401).json({ error: "Google Drive not authenticated" });
     const drive = google.drive({ version: "v3", auth });
 
@@ -578,6 +584,7 @@ app.post("/api/hte/upload", upload.single("file"), async (req, res) => {
       gdrive_view_link: gdriveViewLink,
       file_size_bytes: file.size,
       uploaded_by_role: uploadedByRole || 'student',
+      uploaded_by_name: actorName || (uploadedByRole === 'student' ? 'Student' : 'Coordinator'),
       uploaded_at: new Date().toISOString()
     };
 
@@ -631,7 +638,7 @@ app.post("/api/hte/delete", async (req, res) => {
   }
 
   try {
-    const auth = await loadToken();
+    const auth = await loadToken(req.body.userId || req.body.actorUserId || null);
     if (!auth) return res.status(401).json({ error: "Google Drive not authenticated" });
     const drive = google.drive({ version: "v3", auth });
 
@@ -679,6 +686,48 @@ app.post("/api/hte/delete", async (req, res) => {
   } catch (error) {
     console.error("Error deleting document:", error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// 14. Download HTE Document from GDrive
+app.get("/api/hte/download/:fileId", async (req, res) => {
+  const { fileId } = req.params;
+
+  try {
+    const auth = await loadToken(req.query.userId || null);
+    if (!auth) return res.status(401).json({ error: "Google Drive not authenticated" });
+    const drive = google.drive({ version: "v3", auth });
+
+    // 1. Get file metadata for the name
+    const metadata = await drive.files.get({
+      fileId: fileId,
+      fields: "name, mimeType",
+    });
+
+    const fileName = metadata.data.name;
+    const mimeType = metadata.data.mimeType;
+
+    // 2. Get the file content
+    const response = await drive.files.get(
+      { fileId: fileId, alt: "media" },
+      { responseType: "stream" }
+    );
+
+    // 3. Set headers for download
+    res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+    res.setHeader("Content-Type", mimeType);
+
+    // 4. Pipe to response
+    response.data
+      .on("error", (err) => {
+        console.error("Stream error:", err);
+        res.status(500).end();
+      })
+      .pipe(res);
+
+  } catch (error) {
+    console.error("Download error:", error);
+    res.status(500).json({ error: error.message || "Failed to download document" });
   }
 });
 
@@ -1534,6 +1583,138 @@ async function logAuditTrail(req, {
     console.error("[AuditLog] Unexpected error:", err);
   }
 }
+
+
+// ---------- Google OAuth Flow ----------
+
+// Get Google Auth URL
+app.get("/api/auth/google/url", (req, res) => {
+  const { userId } = req.query;
+  if (!userId) return res.status(400).json({ error: "userId is required" });
+
+  const scopes = [
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile",
+  ];
+
+  const authUrl = oauth2Client.generateAuthUrl({
+    access_type: "offline",
+    scope: scopes,
+    prompt: "consent",
+    state: userId, // Pass userId in state to recover it during callback
+  });
+
+  res.json({ url: authUrl });
+});
+
+// OAuth Callback
+app.get("/oauth2callback", async (req, res) => {
+  const { code, state: userId } = req.query;
+
+  if (!code || !userId) {
+    return res.status(400).send("Missing code or userId");
+  }
+
+  try {
+    const { tokens } = await oauth2Client.getToken(code);
+    oauth2Client.setCredentials(tokens);
+
+    // Get user info to store the connected email
+    const oauth2 = google.oauth2({ version: "v2", auth: oauth2Client });
+    const { data: userInfo } = await oauth2.userinfo.get();
+
+    // Get existing token record for this user to get its ID if it exists
+    const { data: existingToken } = await supabaseAdmin
+      .from("google_auth_tokens")
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    const tokenData = {
+      user_id: userId,
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      scope: tokens.scope,
+      token_type: tokens.token_type,
+      expiry_date: tokens.expiry_date,
+      created_at: new Date().toISOString(),
+    };
+
+    // If it exists, we update that specific ID to avoid PK conflicts
+    if (existingToken) {
+      tokenData.id = existingToken.id;
+    }
+
+    const { error } = await supabaseAdmin.from("google_auth_tokens").upsert(tokenData);
+
+    if (error) {
+      console.error("Supabase error saving Google tokens:", error);
+      return res.status(500).send(`Error saving tokens to database: ${error.message}. Please ensure the SQL migration script was run.`);
+    }
+Line 1643: 
+
+    // Success - redirect back to the app settings
+    // Since this is a browser redirect, we send an HTML response that closes or redirects
+    res.send(`
+      <html>
+        <head>
+          <style>
+            body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #f8fafc; color: #1e293b; }
+            .card { background: white; padding: 2rem; border-radius: 0.75rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); text-align: center; max-width: 400px; }
+            h2 { color: #008A45; margin-top: 0; }
+            button { background: #008A45; color: white; border: none; padding: 0.5rem 1rem; border-radius: 0.375rem; cursor: pointer; font-weight: 600; margin-top: 1rem; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <h2>Authentication Successful!</h2>
+            <p>You have successfully connected your Google account <strong>${userInfo.email}</strong>.</p>
+            <p>You can now close this window and return to ISAMS.</p>
+            <button onclick="window.close()">Close Window</button>
+          </div>
+          <script>
+            setTimeout(() => {
+              window.close();
+            }, 5000);
+          </script>
+        </body>
+      </html>
+    `);
+  } catch (error) {
+    console.error("Google OAuth error:", error);
+    res.status(500).send("Authentication failed: " + error.message);
+  }
+});
+
+// Get Google Auth Status
+app.get("/api/auth/google/status/:userId", async (req, res) => {
+  const { userId } = req.params;
+  
+  if (!userId || userId === "null" || userId === "undefined") {
+    return res.json({ authenticated: false });
+  }
+
+  try {
+    const auth = await loadToken(userId);
+    if (!auth) {
+      return res.json({ authenticated: false });
+    }
+
+    const oauth2 = google.oauth2({ version: "v2", auth });
+    const { data: userInfo } = await oauth2.userinfo.get();
+
+    res.json({ 
+      authenticated: true,
+      email: userInfo.email,
+      name: userInfo.name,
+      picture: userInfo.picture
+    });
+  } catch (error) {
+    console.error("Error fetching Google status:", error);
+    res.json({ authenticated: false, error: error.message });
+  }
+});
 
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);

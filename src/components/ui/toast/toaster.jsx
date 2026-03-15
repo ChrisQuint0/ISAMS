@@ -103,7 +103,9 @@ function Toast({
         // 👇 CHANGED: Destructive uses semantic error tokens
         variant === "destructive" && "destructive group border-destructive bg-destructive text-white",
         // 👇 ADDED: Success variant for positive feedback
-        variant === "success" && "success group border-success bg-success text-white"
+        variant === "success" && "success group border-success bg-success text-white",
+        // 👇 ADDED: Warning variant for skipped emails/notices
+        variant === "warning" && "warning group border-warning bg-warning text-white"
       )}
     >
       <div className="flex flex-col gap-1">
@@ -119,7 +121,7 @@ function Toast({
         )}
       </div>
       {/* 👇 CHANGED: Close button colors adapt to the background */}
-      <ToastPrimitive.Close className="inline-flex h-8 shrink-0 items-center justify-center rounded-md p-1 opacity-0 transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-hover:opacity-100 text-neutral-500 hover:text-neutral-900 group-[.destructive]:text-white/70 group-[.destructive]:hover:text-white group-[.success]:text-white/70 group-[.success]:hover:text-white">
+      <ToastPrimitive.Close className="inline-flex h-8 shrink-0 items-center justify-center rounded-md p-1 opacity-0 transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-hover:opacity-100 text-neutral-500 hover:text-neutral-900 group-[.destructive]:text-white/70 group-[.destructive]:hover:text-white group-[.success]:text-white/70 group-[.success]:hover:text-white group-[.warning]:text-white/70 group-[.warning]:hover:text-white">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="24"

@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
+import { logAuditEvent } from "../utils/auditLogger";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Monitor, CheckCircle2, User, Calendar, Clock, ArrowLeft, Loader2, ShieldAlert, Laptop as LaptopIcon } from "lucide-react";
@@ -8,20 +9,20 @@ import { Monitor, CheckCircle2, User, Calendar, Clock, ArrowLeft, Loader2, Shiel
 export default function Success() {
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   const { studentId, scheduleId, isLaptopUser } = location.state || {};
   const labId = location.state?.labId || sessionStorage.getItem('kiosk_labId') || "lab-1";
   const labName = location.state?.labName || sessionStorage.getItem('kiosk_labName') || "Lab 1";
-  
+
   const [studentData, setStudentData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [timestamp, setTimestamp] = useState("");
-  const [attendanceType, setAttendanceType] = useState(""); 
-  const [restrictionMessage, setRestrictionMessage] = useState(""); 
+  const [attendanceType, setAttendanceType] = useState("");
+  const [restrictionMessage, setRestrictionMessage] = useState("");
   const [assignedPc, setAssignedPc] = useState(null);
-  const [countdown, setCountdown] = useState(0); 
+  const [countdown, setCountdown] = useState(0);
   const [isLaptopMode, setIsLaptopMode] = useState(false);
-  
+
   const hasProcessed = useRef(false);
 
   const formatToAMPM = (date) => {
@@ -41,7 +42,7 @@ export default function Success() {
         // 1. IDENTITY LOOKUP
         const { data: student, error: sError } = await supabase
           .from('students_lists_lm')
-          .select('*, is_laptop_user') 
+          .select('*, is_laptop_user')
           .eq('student_no', studentId)
           .maybeSingle();
 
@@ -50,78 +51,155 @@ export default function Success() {
 
         // SYNC STATE: Enforce boolean logic for Laptop Users
         const isLaptop = Boolean(isLaptopUser === true || student.is_laptop_user === true);
-        setIsLaptopMode(isLaptop); 
+        setIsLaptopMode(isLaptop);
 
-        const { data: sectionPeers } = await supabase
-          .from('students_lists_lm').select('student_no')
-          .eq('course', student.course).eq('year_level', student.year_level).eq('section_block', student.section_block)
-          .order('full_name', { ascending: true });
-
-        const rank = sectionPeers.findIndex(p => p.student_no === studentId);
-        const pcNumber = rank !== -1 ? rank + 1 : 0;
-        
-        setAssignedPc(isLaptop ? "Laptop" : `PC - ${pcNumber}`); 
-
-        // 2. ATTENDANCE LOGIC
+        // 2. CHECK IF LOGGING OUT
         const { data: activeLog } = await supabase
           .from('attendance_logs_lm')
           .select(`id, pc_no, lab_schedules_lm!inner (time_end, is_early_dismissal_active)`)
           .eq('student_no', studentId)
-          .eq('schedule_id', scheduleId) 
+          .eq('schedule_id', scheduleId)
           .is('time_out', null)
           .maybeSingle();
 
         if (activeLog) {
-            const schedule = activeLog.lab_schedules_lm;
-            const parseTime = (timeStr) => {
-              const [timePart, modifier] = timeStr.toLowerCase().split(/(am|pm)/);
-              let [hours, minutes] = timePart.split(':');
-              let h = parseInt(hours, 10);
-              if (modifier === 'pm' && h < 12) h += 12;
-              if (modifier === 'am' && h === 12) h = 0;
-              const d = new Date(now);
-              d.setHours(h, parseInt(minutes, 10), 0, 0);
-              return d;
-            };
+          // OUT LOGIC
+          setAssignedPc(activeLog.pc_no ? `PC - ${activeLog.pc_no.replace('PC-', '')}` : "Laptop");
 
-            const endTimeDate = parseTime(schedule.time_end);
-            
-            if (!schedule.is_early_dismissal_active && now < endTimeDate) {
-              setAttendanceType("Restricted");
-              setRestrictionMessage(`Session ongoing. Time-out restricted until ${formatToAMPM(endTimeDate)}.`);
-              setCountdown(8);
-            } else {
-              await supabase.from('attendance_logs_lm').update({ time_out: now.toISOString() }).eq('id', activeLog.id);
-              setAttendanceType("Out");
-              setCountdown(5); 
-            }
+          const schedule = activeLog.lab_schedules_lm;
+          const parseTime = (timeStr) => {
+            const [timePart, modifier] = timeStr.toLowerCase().split(/(am|pm)/);
+            let [hours, minutes] = timePart.split(':');
+            let h = parseInt(hours, 10);
+            if (modifier === 'pm' && h < 12) h += 12;
+            if (modifier === 'am' && h === 12) h = 0;
+            const d = new Date(now);
+            d.setHours(h, parseInt(minutes, 10), 0, 0);
+            return d;
+          };
+
+          const endTimeDate = parseTime(schedule.time_end);
+
+          if (!schedule.is_early_dismissal_active && now < endTimeDate) {
+            setAttendanceType("Restricted");
+            setRestrictionMessage(`Session ongoing. Time-out restricted until ${formatToAMPM(endTimeDate)}.`);
+            setCountdown(8);
+          } else {
+            await supabase.from('attendance_logs_lm').update({ time_out: now.toISOString() }).eq('id', activeLog.id);
+            await logAuditEvent({
+              labName: labName,
+              actor: "System",
+              category: "Student Logs",
+              action: "Student Time-Out",
+              description: `${student.full_name} (${studentId}) timed out from ${activeLog.pc_no ? `PC-${activeLog.pc_no}` : "Laptop"}.`,
+              severity: "Info"
+            });
+            setAttendanceType("Out");
+            setCountdown(5);
+          }
         } else {
-            if (!scheduleId) {
-              setAttendanceType("Restricted");
-              setRestrictionMessage("No active class session detected.");
-              setCountdown(8); 
-              setLoading(false);
-              return;
-            }
+          // IN LOGIC
+          if (!scheduleId) {
+            setAttendanceType("Restricted");
+            setRestrictionMessage("No active class session detected.");
+            setCountdown(8);
+            setLoading(false);
+            return;
+          }
 
-            const { error: insError } = await supabase
-                .from('attendance_logs_lm')
-                .insert([{ 
-                    student_no: studentId, 
-                    schedule_id: scheduleId, 
-                    time_in: now.toISOString(),
-                    pc_no: isLaptop ? null : pcNumber.toString(),  
-                    log_type: isLaptop ? 'Laptop' : 'PC' 
-                }]);
+          // FETCH SETTINGS
+          const { data: labSettings } = await supabase.from('lab_settings_lm').select('*').eq('lab_name', labName).maybeSingle();
+          const hardCapacity = labSettings ? labSettings.hard_capacity : true;
+          const autoAssignment = labSettings ? labSettings.auto_assignment : true;
 
-            if (insError) {
+          // FETCH ACTIVE SESSIONS FOR CURRENT LAB
+          const { data: activeSessions } = await supabase
+            .from('attendance_logs_lm')
+            .select('pc_no, lab_schedules_lm!inner(room)')
+            .eq('lab_schedules_lm.room', labName)
+            .is('time_out', null);
+
+          const activeCount = activeSessions ? activeSessions.length : 0;
+
+          if (hardCapacity && activeCount >= 40) {
+            setAttendanceType("Restricted");
+            setRestrictionMessage("Laboratory at Maximum Capacity");
+            setCountdown(8);
+            setLoading(false);
+            return;
+          }
+
+          let finalPcNo = "0";
+          if (isLaptop) {
+            finalPcNo = null;
+            setAssignedPc("Laptop");
+          } else {
+            if (autoAssignment) {
+              const { data: sectionPeers } = await supabase
+                .from('students_lists_lm').select('student_no, full_name')
+                .eq('course', student.course).eq('year_level', student.year_level).eq('section_block', student.section_block)
+                .order('full_name', { ascending: true });
+
+              const rankIndex = sectionPeers ? sectionPeers.findIndex(p => p.student_no === studentId) : -1;
+              const studentRank = rankIndex !== -1 ? rankIndex + 1 : activeCount + 1;
+
+              if (hardCapacity && studentRank > 40) {
                 setAttendanceType("Restricted");
-                setRestrictionMessage(insError.code === '23505' ? "Attendance already completed for this session." : insError.message);
+                setRestrictionMessage(`Access Denied: Section rank ${studentRank} exceeds laboratory capacity of 40.`);
                 setCountdown(8);
+                setLoading(false);
+                return;
+              }
+
+              let pcNumber = studentRank;
+              if (pcNumber > 40) pcNumber = 40;
+              finalPcNo = pcNumber.toString();
             } else {
-                setAttendanceType("In");
-                setCountdown(5); 
+              const occupiedArray = (activeSessions || [])
+                .map(s => parseInt(s.pc_no))
+                .filter(n => !isNaN(n) && n >= 1 && n <= 40);
+              const occupiedSet = new Set(occupiedArray);
+
+              let found = 0;
+              for (let i = 1; i <= 40; i++) {
+                if (!occupiedSet.has(i)) {
+                  found = i;
+                  break;
+                }
+              }
+              if (found === 0) found = Math.min(activeCount + 1, 40);
+              finalPcNo = found.toString();
             }
+            setAssignedPc(`PC - ${finalPcNo}`);
+          }
+
+          // INSERT ATTENDANCE
+          const { error: insError } = await supabase
+            .from('attendance_logs_lm')
+            .insert([{
+              student_no: studentId,
+              schedule_id: scheduleId,
+              time_in: now.toISOString(),
+              pc_no: finalPcNo,
+              log_type: isLaptop ? 'Laptop' : 'PC'
+            }]);
+
+          if (insError) {
+            setAttendanceType("Restricted");
+            setRestrictionMessage(insError.code === '23505' ? "Attendance already completed for this session." : insError.message);
+            setCountdown(8);
+          } else {
+            await logAuditEvent({
+              labName: labName,
+              actor: "System",
+              category: "Student Logs",
+              action: "Student Time-In",
+              description: `${student.full_name} (${studentId}) timed in at ${finalPcNo ? `PC-${finalPcNo.padStart(2, '0')}` : "Laptop"}.`,
+              severity: "Info"
+            });
+            setAttendanceType("In");
+            setCountdown(5);
+          }
         }
       } catch (e) {
         console.error(e);
@@ -154,8 +232,8 @@ export default function Success() {
 
   if (loading) return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-4">
-        <Loader2 className="w-10 h-10 text-sky-500 animate-spin" />
-        <p className="text-slate-500 font-mono text-[10px] tracking-widest uppercase">Validating Session...</p>
+      <Loader2 className="w-10 h-10 text-sky-500 animate-spin" />
+      <p className="text-slate-500 font-mono text-[10px] tracking-widest uppercase">Validating Session...</p>
     </div>
   );
 
@@ -166,17 +244,17 @@ export default function Success() {
     <div className="min-h-screen bg-slate-950 flex flex-col font-sans">
       <header className={`border-b ${isRestricted ? 'border-rose-800 bg-rose-950/20' : 'border-slate-800 bg-slate-900/50'} backdrop-blur-sm sticky top-0 z-50`}>
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className={`flex items-center justify-center w-10 h-10 rounded-xl ${isRestricted ? 'bg-rose-600' : 'bg-blue-600'} text-white shadow-lg`}>
-                {isRestricted ? <ShieldAlert size={20} /> : <Monitor size={20} />}
-              </div>
-              <h1 className="text-2xl font-semibold text-slate-100 uppercase tracking-tight">
-                {isRestricted ? "Access Restricted" : `Check-${attendanceType} Successful`}
-              </h1>
+          <div className="flex items-center gap-4">
+            <div className={`flex items-center justify-center w-10 h-10 rounded-xl ${isRestricted ? 'bg-rose-600' : 'bg-blue-600'} text-white shadow-lg`}>
+              {isRestricted ? <ShieldAlert size={20} /> : <Monitor size={20} />}
             </div>
-            <Button onClick={() => navigate("/kiosk-mode", { state: { labId, labName } })} variant="outline" className="bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700">
-              <ArrowLeft className="h-4 w-4 mr-2" /> Back to Kiosk
-            </Button>
+            <h1 className="text-2xl font-semibold text-slate-100 uppercase tracking-tight">
+              {isRestricted ? "Access Restricted" : `Check-${attendanceType} Successful`}
+            </h1>
+          </div>
+          <Button onClick={() => navigate("/kiosk-mode", { state: { labId, labName } })} variant="outline" className="bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700">
+            <ArrowLeft className="h-4 w-4 mr-2" /> Back to Kiosk
+          </Button>
         </div>
       </header>
 
@@ -189,16 +267,16 @@ export default function Success() {
                 {isRestricted ? <ShieldAlert className="w-14 h-14 text-rose-400" /> : <CheckCircle2 className="w-14 h-14 text-green-400 animate-in zoom-in duration-500" />}
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <h2 className={`text-4xl font-black uppercase tracking-tighter ${isRestricted ? 'text-rose-500' : 'text-slate-100'}`}>
                 {isRestricted ? "Denied" : attendanceType === "Out" ? "Session Complete" : "Access Confirmed"}
               </h2>
               <p className="text-slate-400 text-lg">
-                {isRestricted 
-                  ? restrictionMessage 
-                  : attendanceType === "Out" 
-                    ? "You have successfully signed out of the laboratory." 
+                {isRestricted
+                  ? restrictionMessage
+                  : attendanceType === "Out"
+                    ? "You have successfully signed out of the laboratory."
                     : "Welcome to the laboratory!"}
               </p>
             </div>

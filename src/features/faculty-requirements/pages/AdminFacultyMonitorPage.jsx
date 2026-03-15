@@ -105,11 +105,20 @@ export default function AdminFacultyMonitorPage() {
         pendingCount: selectedFaculty.pending_submissions,
         lateCount: selectedFaculty.late_submissions
       });
-      addToast({
-        title: "Email Sent",
-        description: `Reminder sent to ${result.email_sent_to}`,
-        variant: "success"
-      });
+
+      if (result.ignored) {
+        addToast({
+          title: "Email Skipped",
+          description: `Reminder for ${selectedFaculty.first_name} was skipped due to their email preferences.`,
+          variant: "warning"
+        });
+      } else {
+        addToast({
+          title: "Email Sent",
+          description: `Reminder sent to ${result.email_sent_to}`,
+          variant: "success"
+        });
+      }
       setReminderDialogOpen(false);
     } catch (err) {
       addToast({ title: "Error", description: err.message || "Failed to send reminder.", variant: "destructive" });
@@ -142,7 +151,7 @@ export default function AdminFacultyMonitorPage() {
       setBulkResult(result);
       addToast({
         title: `Bulk Send Complete`,
-        description: `${result.succeeded} sent, ${result.failed} failed out of ${result.total}`,
+        description: `${result.succeeded} sent, ${result.ignored || 0} skipped, ${result.failed} failed out of ${result.total}`,
         variant: result.failed === 0 ? 'success' : 'warning'
       });
     } catch (err) {
@@ -658,7 +667,8 @@ export default function AdminFacultyMonitorPage() {
                     ? <CheckCircle className="h-4 w-4 text-success shrink-0" />
                     : <AlertCircle className="h-4 w-4 text-warning shrink-0" />}
                   <p className="text-xs font-bold text-neutral-700">
-                    {bulkResult.succeeded} sent successfully
+                    {bulkResult.succeeded} sent 
+                    {bulkResult.ignored > 0 && ` · ${bulkResult.ignored} skipped`}
                     {bulkResult.failed > 0 && ` · ${bulkResult.failed} failed`}
                     {` · ${bulkResult.total} total`}
                   </p>

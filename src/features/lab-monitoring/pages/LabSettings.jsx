@@ -1,11 +1,16 @@
-import React, { useEffect } from "react";
-import { ShieldCheck, Monitor, Save, Database, RefreshCcw, Upload, CheckCircle2, AlertCircle } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { ShieldCheck, Monitor, Save, Database, RefreshCcw, Upload, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
 import SettingRow from "../components/settings/SettingRow";
 import ActionCard from "../components/settings/ActionCard";
 import ImportDialog from "../components/settings/ImportDialog";
 import { useLabSetting } from "../hooks/useLabSettings";
+import { useGlobalSettings } from "../context/LabSettingsContext";
+import { useAuth } from "../../auth/hooks/useAuth";
+import { logAuditEvent } from "../utils/auditLogger";
 
 export default function LabSettings() {
+    const { user } = useAuth();
     const {
         labName, isSaving, setIsSaving, isImportDialogOpen, handleImportDialogOpenChange,
         isPreviewDialogOpen, setIsPreviewDialogOpen, selectedFileName,
@@ -13,8 +18,90 @@ export default function LabSettings() {
         fileInputRef, openImportDialog, formatBytes, handleBrowseFile, handleFileInputChange,
         clearSelectedFile, handleDragOver, handleDragLeave, handleDrop,
         importDialogTitle, handleDownloadTemplate, handleUpload, isImporting,
-        importSuccessMessage, setImportSuccessMessage, setImportFileError
+        importSuccessMessage, setImportSuccessMessage, setImportFileError,
+        notificationTitle, setNotificationTitle,
+        settings, toggleSetting, handleThresholdChange, handleSaveChanges
     } = useLabSetting();
+
+    const { refreshSettings } = useGlobalSettings();
+
+    const [isBackingUp, setIsBackingUp] = useState(false);
+    const [isReconciling, setIsReconciling] = useState(false);
+
+    const handleSaveWrapper = async () => {
+        setNotificationTitle("Settings Updated");
+        await handleSaveChanges(user?.user_metadata?.full_name);
+        await refreshSettings();
+        setImportSuccessMessage("System protocols updated successfully");
+    };
+
+    const handleFullSystemBackup = async () => {
+        setIsBackingUp(true);
+        try {
+            const tables = [
+                'lab_settings_lm', 'laboratories_lm', 'pc_stations_lm',
+                'lab_schedules_lm', 'students_lists_lm', 'student_enrollments_lm',
+                'attendance_logs_lm', 'pc_maintenance_history_lm'
+            ];
+            const backupData = {};
+            for (const table of tables) {
+                const { data, error } = await supabase.from(table).select('*');
+                if (error) throw error;
+                backupData[table] = data;
+            }
+
+            const jsonStr = JSON.stringify(backupData, null, 2);
+            const blob = new Blob([jsonStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            a.download = `MASTER_BACKUP_${labName.replace(/\s+/g, '_')}_${timestamp}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            setNotificationTitle("Backup Complete");
+            setImportSuccessMessage("System backup completed successfully");
+            await logAuditEvent({
+                labName,
+                actor: user?.user_metadata?.full_name || "System",
+                category: 'Settings',
+                action: 'System Backup',
+                description: 'Full relational JSON snapshot generated',
+                severity: 'Info'
+            });
+        } catch (error) {
+            console.error(error);
+            setImportFileError("Failed to generate backup: " + error.message);
+        } finally {
+            setIsBackingUp(false);
+        }
+    };
+
+    const handleManualSync = async () => {
+        setIsReconciling(true);
+        try {
+            const { error } = await supabase.rpc('auto_checkout_ended_sessions');
+            if (error) throw error;
+            setNotificationTitle("Sync Complete");
+            setImportSuccessMessage('Room status reconciled with database triggers.');
+            await logAuditEvent({
+                labName,
+                actor: user?.user_metadata?.full_name || "System",
+                category: 'Override',
+                action: 'Manual Reconcile',
+                description: 'Triggered auto-checkout for all rooms',
+                severity: 'Warning'
+            });
+        } catch (error) {
+            console.error(error);
+            setImportFileError('Failed to reconcile room status: ' + error.message);
+        } finally {
+            setIsReconciling(false);
+        }
+    };
 
     // Auto-hide notifications after 3 seconds
     useEffect(() => {
@@ -22,23 +109,24 @@ export default function LabSettings() {
             const timer = setTimeout(() => {
                 setImportSuccessMessage("");
                 setImportFileError("");
+                setNotificationTitle("Import Successful");
             }, 3000);
             return () => clearTimeout(timer);
         }
-    }, [importSuccessMessage, importFileError, isImportDialogOpen, setImportSuccessMessage, setImportFileError]);
+    }, [importSuccessMessage, importFileError, isImportDialogOpen, setImportSuccessMessage, setImportFileError, setNotificationTitle]);
 
     return (
         <div className="p-8 space-y-10 bg-[#020617] min-h-screen text-slate-100 relative">
-            
+
             {/* Centered Glass Notification Overlay */}
             {(importSuccessMessage || (importFileError && !isImportDialogOpen)) && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 animate-in fade-in duration-300">
                     {/* The Full Screen Frosted Glass Backdrop */}
-                    <div 
-                        className="absolute inset-0 bg-slate-950/40 backdrop-blur-md pointer-events-auto" 
-                        onClick={() => { setImportSuccessMessage(""); setImportFileError(""); }} 
+                    <div
+                        className="absolute inset-0 bg-slate-950/40 backdrop-blur-md pointer-events-auto"
+                        onClick={() => { setImportSuccessMessage(""); setImportFileError(""); }}
                     />
-                    
+
                     <div className="relative z-10 pointer-events-auto animate-in zoom-in-95 duration-300">
                         {importSuccessMessage && (
                             <div className="flex flex-col items-center gap-5 bg-white/[0.03] border border-white/10 text-emerald-400 p-10 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.1)] backdrop-blur-2xl max-w-sm text-center">
@@ -46,10 +134,10 @@ export default function LabSettings() {
                                     <CheckCircle2 size={36} />
                                 </div>
                                 <div className="space-y-1">
-                                    <h3 className="text-xl font-bold text-white">Import Successful</h3>
+                                    <h3 className="text-xl font-bold text-white">{notificationTitle}</h3>
                                     <p className="text-xs text-slate-400 leading-relaxed px-4">{importSuccessMessage}</p>
                                 </div>
-                                <button 
+                                <button
                                     onClick={() => setImportSuccessMessage("")}
                                     className="mt-2 w-full text-[10px] uppercase tracking-[0.2em] font-black px-6 py-3 bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/40 rounded-xl transition-all duration-300 text-white"
                                 >
@@ -67,7 +155,7 @@ export default function LabSettings() {
                                     <h3 className="text-xl font-bold text-white">Import Fault</h3>
                                     <p className="text-xs text-slate-400 leading-relaxed px-4">{importFileError}</p>
                                 </div>
-                                <button 
+                                <button
                                     onClick={() => setImportFileError("")}
                                     className="mt-2 w-full text-[10px] uppercase tracking-[0.2em] font-black px-6 py-3 bg-white/5 hover:bg-rose-500/20 border border-white/10 hover:border-rose-500/40 rounded-xl transition-all duration-300 text-white"
                                 >
@@ -85,8 +173,8 @@ export default function LabSettings() {
                     <h1 className="text-2xl font-bold text-white tracking-tight">{labName} - System Settings</h1>
                     <p className="text-slate-400 text-sm italic">Manage core attendance protocols and hardware maintenance thresholds.</p>
                 </div>
-                <button 
-                    onClick={() => setIsSaving(true)} 
+                <button
+                    onClick={handleSaveWrapper}
                     disabled={isSaving}
                     className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold py-2.5 px-6 rounded-lg transition-all relative overflow-hidden group/btn disabled:opacity-50"
                 >
@@ -103,9 +191,36 @@ export default function LabSettings() {
                         <h2 className="text-sm font-black uppercase tracking-[0.2em] text-slate-400">Attendance Protocols</h2>
                     </div>
                     <div className="grid gap-4">
-                        <SettingRow label="Anti-Cutting Protocol" description="Enforce session locking based on official schedule."><div className="w-10 h-5 bg-sky-600 rounded-full flex items-center justify-end px-1"><div className="w-3.5 h-3.5 bg-white rounded-full shadow-sm" /></div></SettingRow>
-                        <SettingRow label="Hard Capacity Enforcer" description="Block Time-In if current occupancy reaches limit."><div className="w-10 h-5 bg-sky-600 rounded-full flex items-center justify-end px-1"><div className="w-3.5 h-3.5 bg-white rounded-full shadow-sm" /></div></SettingRow>
-                        <SettingRow label="Automated Assignment" description="Auto-assign seats based on surname rank."><div className="w-10 h-5 bg-sky-600 rounded-full flex items-center justify-end px-1"><div className="w-3.5 h-3.5 bg-white rounded-full shadow-sm" /></div></SettingRow>
+                        <SettingRow
+                            label="Anti-Cutting Protocol"
+                            description="Enforce session locking based on official schedule."
+                            checked={settings.anti_cutting}
+                            onChange={() => toggleSetting("anti_cutting")}
+                        >
+                            <div className={`w-10 h-5 rounded-full flex items-center px-1 cursor-pointer transition-colors ${settings.anti_cutting ? 'bg-sky-600 justify-end' : 'bg-slate-700 justify-start'}`} onClick={() => toggleSetting("anti_cutting")}>
+                                <div className="w-3.5 h-3.5 bg-white rounded-full shadow-sm" />
+                            </div>
+                        </SettingRow>
+                        <SettingRow
+                            label="Hard Capacity Enforcer"
+                            description="Block Time-In if current occupancy reaches limit."
+                            checked={settings.hard_capacity}
+                            onChange={() => toggleSetting("hard_capacity")}
+                        >
+                            <div className={`w-10 h-5 rounded-full flex items-center px-1 cursor-pointer transition-colors ${settings.hard_capacity ? 'bg-sky-600 justify-end' : 'bg-slate-700 justify-start'}`} onClick={() => toggleSetting("hard_capacity")}>
+                                <div className="w-3.5 h-3.5 bg-white rounded-full shadow-sm" />
+                            </div>
+                        </SettingRow>
+                        <SettingRow
+                            label="Automated Assignment"
+                            description="Auto-assign seats based on surname rank."
+                            checked={settings.auto_assignment}
+                            onChange={() => toggleSetting("auto_assignment")}
+                        >
+                            <div className={`w-10 h-5 rounded-full flex items-center px-1 cursor-pointer transition-colors ${settings.auto_assignment ? 'bg-sky-600 justify-end' : 'bg-slate-700 justify-start'}`} onClick={() => toggleSetting("auto_assignment")}>
+                                <div className="w-3.5 h-3.5 bg-white rounded-full shadow-sm" />
+                            </div>
+                        </SettingRow>
                     </div>
 
                     <section className="space-y-6">
@@ -117,12 +232,26 @@ export default function LabSettings() {
                                     <p className="text-sm font-bold text-slate-200">Predictive Health Threshold</p>
                                     <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black leading-relaxed">Limit for PC proactive alerts.</p>
                                 </div>
-                                <div className="flex items-center gap-2 bg-[#020617] border border-[#1e293b] rounded-lg px-2 py-1 shadow-inner">
-                                    <span className="text-sky-400 font-black text-xs">500</span><span className="text-[10px] text-slate-600 font-black ml-1">HRS</span>
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        className="h-6 w-6 flex items-center justify-center bg-[#1e293b] text-slate-400 rounded-md hover:bg-slate-700 transition"
+                                        onClick={() => handleThresholdChange(Math.max(100, settings.maintenance_threshold - 50))}
+                                    >
+                                        -
+                                    </button>
+                                    <div className="flex items-center gap-2 bg-[#020617] border border-[#1e293b] rounded-lg px-2 py-1 shadow-inner min-w-[60px] justify-center">
+                                        <span className="text-sky-400 font-black text-xs">{settings.maintenance_threshold}</span><span className="text-[10px] text-slate-600 font-black ml-1">HRS</span>
+                                    </div>
+                                    <button
+                                        className="h-6 w-6 flex items-center justify-center bg-[#1e293b] text-slate-400 rounded-md hover:bg-slate-700 transition"
+                                        onClick={() => handleThresholdChange(settings.maintenance_threshold + 50)}
+                                    >
+                                        +
+                                    </button>
                                 </div>
                             </div>
                             <div className="h-2 w-full bg-[#1e293b] rounded-full overflow-hidden">
-                                <div className="h-full w-[80%] bg-sky-500 shadow-[0_0_15px_rgba(14,165,233,0.3)]"></div>
+                                <div className="h-full bg-sky-500 shadow-[0_0_15px_rgba(14,165,233,0.3)] transition-all duration-300" style={{ width: `${Math.min(100, (settings.maintenance_threshold / 1000) * 100)}%` }}></div>
                             </div>
                         </div>
                     </section>
@@ -132,8 +261,8 @@ export default function LabSettings() {
                     <section className="space-y-5">
                         <div className="flex items-center gap-2"><Database size={18} className="text-sky-500" /><h2 className="text-sm font-black uppercase tracking-[0.2em] text-slate-400">Data & Audit</h2></div>
                         <div className="space-y-3">
-                            <ActionCard icon={RefreshCcw} title="Refresh Audit Logs" subtitle="Sync records" />
-                            <ActionCard icon={Database} title="Export System Backup" subtitle="Download Backup" iconColorClass="bg-emerald-500/10 text-emerald-500" />
+                            <ActionCard icon={isReconciling ? Loader2 : RefreshCcw} title="Reconcile Room Status" subtitle="Force-run auto-checkout triggers." onClick={handleManualSync} />
+                            <ActionCard icon={isBackingUp ? Loader2 : Database} title="Generate System Snapshot" subtitle="Full relational backup of all lab data and settings." iconColorClass="bg-emerald-500/10 text-emerald-500" onClick={handleFullSystemBackup} />
                         </div>
                     </section>
 
@@ -148,27 +277,27 @@ export default function LabSettings() {
             </div>
 
             <ImportDialog
-                isOpen={isImportDialogOpen} 
+                isOpen={isImportDialogOpen}
                 onOpenChange={handleImportDialogOpenChange}
-                isPreviewOpen={isPreviewDialogOpen} 
+                isPreviewOpen={isPreviewDialogOpen}
                 onPreviewOpenChange={setIsPreviewDialogOpen}
-                title={importDialogTitle} 
+                title={importDialogTitle}
                 fileInputRef={fileInputRef}
-                handleFileInputChange={handleFileInputChange} 
+                handleFileInputChange={handleFileInputChange}
                 handleDragOver={handleDragOver}
-                handleDragLeave={handleDragLeave} 
+                handleDragLeave={handleDragLeave}
                 handleDrop={handleDrop}
-                isDragActive={isDragActive} 
+                isDragActive={isDragActive}
                 handleBrowseFile={handleBrowseFile}
-                handleDownloadTemplate={handleDownloadTemplate} 
+                handleDownloadTemplate={handleDownloadTemplate}
                 selectedFileName={selectedFileName}
-                selectedFileSize={selectedFileSize} 
+                selectedFileSize={selectedFileSize}
                 formatBytes={formatBytes}
-                clearSelectedFile={clearSelectedFile} 
+                clearSelectedFile={clearSelectedFile}
                 previewHeaders={previewHeaders}
-                previewRows={previewRows} 
+                previewRows={previewRows}
                 importFileError={importFileError}
-                handleUpload={handleUpload} 
+                handleUpload={handleUpload}
                 isImporting={isImporting}
             />
         </div>
