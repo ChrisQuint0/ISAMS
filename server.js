@@ -499,7 +499,7 @@ app.post("/api/hte/students/batch-create", async (req, res) => {
 });
 // 12. Upload HTE/OJT Document
 app.post("/api/hte/upload", upload.single("file"), async (req, res) => {
-  const { studentId, fieldId, uploadedByRole } = req.body;
+  const { studentId, fieldId, uploadedByRole, actorName } = req.body;
   const file = req.file;
 
   if (!studentId || !fieldId || !file) {
@@ -578,6 +578,7 @@ app.post("/api/hte/upload", upload.single("file"), async (req, res) => {
       gdrive_view_link: gdriveViewLink,
       file_size_bytes: file.size,
       uploaded_by_role: uploadedByRole || 'student',
+      uploaded_by_name: actorName || (uploadedByRole === 'student' ? 'Student' : 'Coordinator'),
       uploaded_at: new Date().toISOString()
     };
 
@@ -679,6 +680,48 @@ app.post("/api/hte/delete", async (req, res) => {
   } catch (error) {
     console.error("Error deleting document:", error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// 14. Download HTE Document from GDrive
+app.get("/api/hte/download/:fileId", async (req, res) => {
+  const { fileId } = req.params;
+
+  try {
+    const auth = await loadToken();
+    if (!auth) return res.status(401).json({ error: "Google Drive not authenticated" });
+    const drive = google.drive({ version: "v3", auth });
+
+    // 1. Get file metadata for the name
+    const metadata = await drive.files.get({
+      fileId: fileId,
+      fields: "name, mimeType",
+    });
+
+    const fileName = metadata.data.name;
+    const mimeType = metadata.data.mimeType;
+
+    // 2. Get the file content
+    const response = await drive.files.get(
+      { fileId: fileId, alt: "media" },
+      { responseType: "stream" }
+    );
+
+    // 3. Set headers for download
+    res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+    res.setHeader("Content-Type", mimeType);
+
+    // 4. Pipe to response
+    response.data
+      .on("error", (err) => {
+        console.error("Stream error:", err);
+        res.status(500).end();
+      })
+      .pipe(res);
+
+  } catch (error) {
+    console.error("Download error:", error);
+    res.status(500).json({ error: error.message || "Failed to download document" });
   }
 });
 

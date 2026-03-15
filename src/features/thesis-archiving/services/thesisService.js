@@ -454,6 +454,32 @@ export const thesisService = {
     },
 
     /**
+     * Download an HTE document
+     */
+    async downloadHTEDocument(fileId, fileName) {
+        try {
+            // We use the direct backend URL for downloading
+            const url = `http://localhost:3000/api/hte/download/${fileId}`;
+            
+            const response = await fetch(url);
+            if (!response.ok) throw new Error("Failed to download file");
+
+            const blob = await response.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.setAttribute('download', fileName || 'download');
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(downloadUrl);
+        } catch (error) {
+            console.error("Download service error:", error);
+            throw error;
+        }
+    },
+
+    /**
      * Academic Year Management
      */
     async getAcademicYears() {
