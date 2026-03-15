@@ -1,25 +1,27 @@
 import React, { useState, useEffect } from "react";
 import { Laptop, Monitor, X, Wrench, RotateCcw, History, AlertTriangle, Clock, ShieldCheck, Loader2 } from "lucide-react";
 
-import PCGridLayout from "../layouts/PCGridLayout"; 
+import PCGridLayout from "../layouts/PCGridLayout";
 import StationInspector from "../components/pc-management/StationInspector";
-import BulkMaintenanceModal from "../components/pc-management/BulkMaintenanceModal"; 
+import BulkMaintenanceModal from "../components/pc-management/BulkMaintenanceModal";
 import ToastNotification from "../components/pc-management/ToastNotification";
-import { usePCManagement } from "../hooks/usePCManagement"; 
+import { usePCManagement } from "../hooks/usePCManagement";
+import { useAuth } from "../../auth/hooks/useAuth";
 
 export default function PCManagement() {
-    const labName = sessionStorage.getItem('active_lab_name') || "Lab 1"; 
+    const labName = sessionStorage.getItem('active_lab_name') || "Lab 1";
     const displayTitle = labName.replace(/^(Computer\s*)?Lab\s/i, 'Computer Laboratory ');
-    
-    const { 
-        stations, maintenanceHistory, loading, 
-        convertToLaptop, convertToPC, flagMaintenance, clearMaintenance, resetTimers 
+    const { user } = useAuth();
+
+    const {
+        stations, maintenanceHistory, loading,
+        convertToLaptop, convertToPC, flagMaintenance, clearMaintenance, resetTimers
     } = usePCManagement(labName);
 
     const [selectedPC, setSelectedPC] = useState(null);
     const [selectMode, setSelectMode] = useState(null);
     const [checkedPCs, setCheckedPCs] = useState([]);
-    const [bulkMode, setBulkMode] = useState(null); 
+    const [bulkMode, setBulkMode] = useState(null);
     const [bulkChecked, setBulkChecked] = useState([]);
     const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
     const [alertMessage, setAlertMessage] = useState(null);
@@ -59,12 +61,12 @@ export default function PCManagement() {
         setCheckedPCs([]); setSelectMode(null);
     };
 
-    const handleFlagMaintenance = async (pcId, note) => { await flagMaintenance([pcId], note); };
-    const handleClearMaintenance = async (pcId) => { await clearMaintenance([pcId]); };
+    const handleFlagMaintenance = async (pcId, note) => { await flagMaintenance([pcId], note, user?.user_metadata?.full_name); };
+    const handleClearMaintenance = async (pcId) => { await clearMaintenance([pcId], user?.user_metadata?.full_name); };
     const handleResetTimer = async (pcId) => { await resetTimers([pcId]); };
 
     const handleBulkMaintenance = async (customNote) => {
-        await flagMaintenance(bulkChecked, customNote);
+        await flagMaintenance(bulkChecked, customNote, user?.user_metadata?.full_name);
         setBulkChecked([]); setBulkMode(null); setIsBulkModalOpen(false);
     };
 
@@ -87,7 +89,7 @@ export default function PCManagement() {
                     <p className="text-slate-400 text-sm italic">Visual Capacity & Hardware Management</p>
                 </div>
             </div>
-            
+
             <div className="flex items-center gap-2">
                 {!bulkMode && !selectMode && (
                     <>
@@ -134,9 +136,9 @@ export default function PCManagement() {
 
             <div className="flex flex-col lg:flex-row gap-6 items-stretch">
                 <div className="flex-1 space-y-4 min-h-0">
-                    <PCGridLayout 
-                        stations={stations} 
-                        selectedPC={selectedPC} 
+                    <PCGridLayout
+                        stations={stations}
+                        selectedPC={selectedPC}
                         onSelectPC={setSelectedPC}
                         selectMode={!!selectMode || !!bulkMode}
                         checkedPCs={selectMode ? checkedPCs : bulkChecked}
@@ -147,7 +149,7 @@ export default function PCManagement() {
                 <div className="w-full lg:w-80 space-y-4 flex flex-col">
                     <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-6 shadow-2xl flex-1 min-h-0 flex flex-col group relative overflow-hidden hover:border-slate-600 transition-colors">
                         <h3 className="text-xs font-black text-slate-500 uppercase tracking-[0.2em] mb-6">Station Inspector</h3>
-                        <StationInspector 
+                        <StationInspector
                             selectedPC={selectedPC}
                             onFlagMaintenance={handleFlagMaintenance}
                             onClearMaintenance={handleClearMaintenance}
@@ -183,17 +185,17 @@ export default function PCManagement() {
                     )}
                 </div>
             </div>
-            
-            <BulkMaintenanceModal 
+
+            <BulkMaintenanceModal
                 isOpen={isBulkModalOpen}
                 onClose={() => setIsBulkModalOpen(false)}
                 onConfirm={handleBulkMaintenance}
                 pcCount={bulkChecked.length}
             />
 
-            <ToastNotification 
-                message={alertMessage} 
-                onClose={() => setAlertMessage(null)} 
+            <ToastNotification
+                message={alertMessage}
+                onClose={() => setAlertMessage(null)}
             />
         </div>
     );

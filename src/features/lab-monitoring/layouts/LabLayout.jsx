@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { LabSidebar } from "../components/LabSidebar";
 import { Outlet, useLocation, Link } from "react-router-dom";
+import { LabSettingsProvider } from "../context/LabSettingsContext";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -35,7 +36,7 @@ export default function LabLayout() {
 
   const getPageTitle = () => {
     const currentPath = location.pathname;
-    
+
     if (routeTitles[currentPath]) {
       return routeTitles[currentPath];
     }
@@ -47,44 +48,46 @@ export default function LabLayout() {
   const breadcrumbLabName = currentLabName.replace(/^(Computer\s*)?Lab\s/i, 'Computer Laboratory ');
 
   return (
-    <SidebarProvider>
-      <div className="flex min-h-full w-full bg-slate-950">
-        <LabSidebar labId={currentLabId} labName={currentLabName} />
+    <LabSettingsProvider labName={currentLabName}>
+      <SidebarProvider>
+        <div className="flex min-h-screen w-full bg-slate-950">
+          <LabSidebar labId={currentLabId} labName={currentLabName} />
 
-        <div className="flex-1 flex flex-col">
-          <header className="flex h-14 items-center gap-4 border-b border-slate-800 bg-slate-900/50 px-6 backdrop-blur-sm">
-            <SidebarTrigger className="text-slate-400 hover:text-slate-100" />
-            
-            <div className="h-4 w-px bg-slate-800" />
+          <div className="flex-1 flex flex-col">
+            <header className="flex h-14 items-center gap-4 border-b border-slate-800 bg-slate-900/50 px-6 backdrop-blur-sm">
+              <SidebarTrigger className="text-slate-400 hover:text-slate-100" />
 
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild className="text-slate-500 hover:text-slate-300">
-                    <Link to="/lab-monitoring">Computer Laboratories</Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator className="text-slate-700" />
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild className="text-slate-500 hover:text-slate-300">
-                    <Link to="/lab-dashboard">{breadcrumbLabName}</Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator className="text-slate-700" />
-                <BreadcrumbItem>
-                  <BreadcrumbPage className="text-slate-100 font-medium">
-                    {getPageTitle()}
-                  </BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-          </header>
+              <div className="h-4 w-px bg-slate-800" />
 
-          <main className="flex-1">
-            <Outlet context={{ labId: currentLabId, labName: currentLabName }} />
-          </main>
+              <Breadcrumb>
+                <BreadcrumbList>
+                  <BreadcrumbItem>
+                    <BreadcrumbLink asChild className="text-slate-500 hover:text-slate-300">
+                      <Link to="/lab-monitoring">Computer Laboratories</Link>
+                    </BreadcrumbLink>
+                  </BreadcrumbItem>
+                  <BreadcrumbSeparator className="text-slate-700" />
+                  <BreadcrumbItem>
+                    <BreadcrumbLink asChild className="text-slate-500 hover:text-slate-300">
+                      <Link to="/lab-dashboard">{breadcrumbLabName}</Link>
+                    </BreadcrumbLink>
+                  </BreadcrumbItem>
+                  <BreadcrumbSeparator className="text-slate-700" />
+                  <BreadcrumbItem>
+                    <BreadcrumbPage className="text-slate-100 font-medium">
+                      {getPageTitle()}
+                    </BreadcrumbPage>
+                  </BreadcrumbItem>
+                </BreadcrumbList>
+              </Breadcrumb>
+            </header>
+
+            <main className="flex-1">
+              <Outlet context={{ labId: currentLabId, labName: currentLabName }} />
+            </main>
+          </div>
         </div>
-      </div>
-    </SidebarProvider>
+      </SidebarProvider>
+    </LabSettingsProvider>
   );
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { logAuditEvent } from '../utils/auditLogger';
 
 export function usePCManagement(labName) {
     const [stations, setStations] = useState([]);
@@ -74,7 +75,7 @@ export function usePCManagement(labName) {
             const mergedStations = Array.from({ length: capacity }, (_, i) => {
                 const num = i + 1;
                 const pcId = `PC-${num.toString().padStart(2, '0')}`;
-                
+
                 const dbStat = dbStations?.find(s => s.pc_no === pcId);
                 const activeUser = activeLogs?.find(l => l.pc_no?.toString().padStart(2, '0') === num.toString().padStart(2, '0'));
 
@@ -88,7 +89,7 @@ export function usePCManagement(labName) {
                         studentId: activeUser.students_lists_lm?.student_no || "N/A",
                         section: activeUser.lab_schedules_lm?.section_block || "N/A",
                         timeIn: new Date(activeUser.time_in).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-                        logId: activeUser.id 
+                        logId: activeUser.id
                     };
                 }
 
@@ -97,8 +98,8 @@ export function usePCManagement(labName) {
                     status: status,
                     hours: dbStat?.usage_hours || 0,
                     maintenanceNote: dbStat?.maintenance_note || null,
-                    maintenanceDate: dbStat?.last_maintenance 
-                        ? new Date(dbStat.last_maintenance).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) 
+                    maintenanceDate: dbStat?.last_maintenance
+                        ? new Date(dbStat.last_maintenance).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
                         : null,
                     user: userObj
                 };
@@ -119,7 +120,7 @@ export function usePCManagement(labName) {
         const sub2 = supabase.channel('pc_history_changes').on('postgres_changes', { event: '*', table: 'pc_maintenance_history_lm' }, fetchData).subscribe();
         const sub3 = supabase.channel('attendance_changes_pc').on('postgres_changes', { event: '*', table: 'attendance_logs_lm' }, fetchData).subscribe();
         const sub4 = supabase.channel('schedule_changes_pc').on('postgres_changes', { event: '*', table: 'lab_schedules_lm' }, fetchData).subscribe(); // Updates map instantly when class changes
-        
+
         return () => {
             supabase.removeChannel(sub1);
             supabase.removeChannel(sub2);
@@ -191,28 +192,46 @@ export function usePCManagement(labName) {
         await fetchData();
     };
 
-    const flagMaintenance = async (pcIds, note) => {
-        const success = await upsertStations(pcIds, { 
-            status: 'Maintenance', 
-            maintenance_note: note, 
-            last_maintenance: new Date().toISOString() 
+    const flagMaintenance = async (pcIds, note, actorName = "Admin") => {
+        const success = await upsertStations(pcIds, {
+            status: 'Maintenance',
+            maintenance_note: note,
+            last_maintenance: new Date().toISOString()
         });
         if (success) {
             const historyPayloads = pcIds.map(pcId => ({ room: labName, pc_no: pcId, action: 'Flagged', note: note }));
             await supabase.from('pc_maintenance_history_lm').insert(historyPayloads);
+
+            await logAuditEvent({
+                labName: labName,
+                actor: actorName,
+                category: "PC Management",
+                action: pcIds.length > 1 ? "Bulk Flag Maintenance" : "Flag Maintenance",
+                description: `Flagged ${pcIds.join(', ')} for maintenance. Note: ${note}`,
+                severity: "Warning"
+            });
         }
         await fetchData();
     };
 
-    const clearMaintenance = async (pcIds) => {
-        const success = await upsertStations(pcIds, { 
-            status: 'Available', 
-            maintenance_note: null, 
-            usage_hours: 0 
+    const clearMaintenance = async (pcIds, actorName = "Admin") => {
+        const success = await upsertStations(pcIds, {
+            status: 'Available',
+            maintenance_note: null,
+            usage_hours: 0
         });
         if (success) {
             const historyPayloads = pcIds.map(pcId => ({ room: labName, pc_no: pcId, action: 'Cleared', note: 'Hardware resolved & usage timer reset.' }));
             await supabase.from('pc_maintenance_history_lm').insert(historyPayloads);
+
+            await logAuditEvent({
+                labName: labName,
+                actor: actorName,
+                category: "PC Management",
+                action: pcIds.length > 1 ? "Bulk Clear Maintenance" : "Clear Maintenance",
+                description: `Cleared maintenance flag for ${pcIds.join(', ')}. Details: Hardware resolved & usage timer reset.`,
+                severity: "Success"
+            });
         }
         await fetchData();
     };
