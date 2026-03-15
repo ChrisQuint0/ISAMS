@@ -331,7 +331,7 @@ const StudRecords = () => {
       </div>
 
       <Card className="bg-white border-neutral-200 shadow-sm flex flex-col rounded-lg overflow-hidden flex-1 p-0 z-10">
-        <div className="px-5 pt-3 pb-2 flex items-center justify-between bg-white relative z-20">
+        <div className="px-5 pt-5 pb-2 flex items-center justify-between bg-white relative z-20">
           <div className="flex items-center gap-2">
             <Users className="h-[15px] w-[15px] text-neutral-600" />
             <h3 className="text-[15px] font-bold text-neutral-900 uppercase tracking-wider leading-none">Enrollment Registry</h3>

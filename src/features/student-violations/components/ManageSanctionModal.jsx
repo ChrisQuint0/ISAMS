@@ -193,9 +193,9 @@ export function ManageSanctionModal({ isOpen, onClose, onSuccess, sanctionData }
 
     return (
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-            <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col bg-white border-neutral-200 text-neutral-900 p-0 overflow-hidden shadow-lg rounded-xl">
-                <div className="p-6 border-b border-neutral-100 shrink-0">
-                    <DialogHeader>
+            <DialogContent className="max-w-md bg-white border-neutral-200 text-neutral-900 p-0 overflow-hidden shadow-lg rounded-xl" style={{ maxWidth: "500px" }}>
+                <div className="p-6">
+                    <DialogHeader className="mb-4">
                         <DialogTitle className="text-xl font-bold text-neutral-900 tracking-tight">Manage Sanction</DialogTitle>
                         <DialogDescription className="text-neutral-500 font-medium">
                             Update the status and progress of this disciplinary action.
@@ -203,47 +203,64 @@ export function ManageSanctionModal({ isOpen, onClose, onSuccess, sanctionData }
                     </DialogHeader>
 
                     {errorMsg && (
-                        <div className="bg-red-50 border border-red-200 text-destructive-semantic p-3 rounded-md flex items-start gap-3 mt-4 text-sm font-medium">
-                            <AlertCircle className="w-5 h-5 shrink-0" />
+                        <div className="bg-red-50 border border-red-200 text-destructive-semantic p-3 rounded-md flex items-start gap-3 mb-4 text-xs font-medium">
+                            <AlertCircle className="w-4 h-4 shrink-0" />
                             <p>{errorMsg}</p>
                         </div>
                     )}
 
                     {successMsg && (
-                        <div className="bg-emerald-50 border border-emerald-200 text-success p-3 rounded-md flex items-center gap-3 mt-4 text-sm font-medium">
-                            <CheckCircle2 className="w-5 h-5" />
+                        <div className="bg-emerald-50 border border-emerald-200 text-success p-3 rounded-md flex items-center gap-3 mb-4 text-xs font-medium">
+                            <CheckCircle2 className="w-4 h-4 shrink-0" />
                             <p>{successMsg}</p>
                         </div>
                     )}
-                </div>
 
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                    <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-4 space-y-3 text-sm shadow-sm">
-                        <div className="grid grid-cols-2 gap-2">
-                            <div>
-                                <p className="text-neutral-500 text-xs uppercase font-bold tracking-wider">Student</p>
-                                <p className="text-neutral-900 font-bold">{sanctionData.student_name}</p>
-                            </div>
-                            <div>
-                                <p className="text-neutral-500 text-xs uppercase font-bold tracking-wider">Action</p>
-                                <p className="text-neutral-900 font-bold">{sanctionData.sanction_name}</p>
-                            </div>
-                            <div className="col-span-2">
-                                <p className="text-neutral-500 text-xs uppercase font-bold tracking-wider mt-1">Conditions</p>
-                                <p className="text-neutral-600 italic text-sm">{sanctionData.original_data?.description || 'None'}</p>
-                            </div>
+                    <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-3 grid grid-cols-2 gap-3 text-xs shadow-sm mb-4">
+                        <div>
+                            <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5">Student</p>
+                            <p className="text-neutral-900 font-bold">{sanctionData.student_name}</p>
+                        </div>
+                        <div>
+                            <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5">Action</p>
+                            <p className="text-neutral-900 font-bold">{sanctionData.sanction_name}</p>
+                        </div>
+                        <div className="col-span-2">
+                            <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5">Conditions</p>
+                            <p className="text-neutral-600 italic font-medium">{sanctionData.original_data?.description || 'None'}</p>
                         </div>
                     </div>
 
-                    <div className="space-y-2 border-t border-neutral-100 pt-1 mt-1">
+                    <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-3 grid grid-cols-2 gap-3 text-xs shadow-sm mb-4">
+                        <div>
+                            <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5">Sanction Assigned</p>
+                            <p className="text-neutral-900 font-bold">
+                                {sanctionData.original_data?.created_at
+                                    ? new Date(sanctionData.original_data.created_at).toLocaleString()
+                                    : 'N/A'}
+                            </p>
+                            <p className="text-neutral-500 font-medium">by {assignedByName}</p>
+                        </div>
+                        <div>
+                            <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5">Last Modified</p>
+                            <p className="text-neutral-900 font-bold">
+                                {sanctionData.original_data?.updated_at
+                                    ? new Date(sanctionData.original_data.updated_at).toLocaleString()
+                                    : 'N/A'}
+                            </p>
+                            <p className="text-neutral-500 font-medium">by {updatedByName}</p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2 mb-4">
                         <p className="text-neutral-500 text-xs uppercase font-bold tracking-wider">Attached Evidence</p>
                         {isLoadingEvidence ? (
-                            <div className="flex items-center gap-2 text-neutral-500 font-medium">
+                            <div className="flex items-center gap-2 text-neutral-500 font-medium text-xs">
                                 <Loader2 className="w-4 h-4 animate-spin" />
                                 <span>Loading evidence...</span>
                             </div>
                         ) : evidenceList.length > 0 ? (
-                            <div className="space-y-2 mt-2">
+                            <div className="space-y-2">
                                 {evidenceList.map((file) => (
                                     <a
                                         key={file.compliance_id}
@@ -271,11 +288,11 @@ export function ManageSanctionModal({ isOpen, onClose, onSuccess, sanctionData }
                         )}
                     </div>
 
-                    <form id="manage-sanction-form" onSubmit={handleSubmit} className="space-y-4 pb-2">
-                        <div className="space-y-2">
+                    <form id="manage-sanction-form" onSubmit={handleSubmit} className="space-y-4">
+                        <div className="space-y-1.5">
                             <Label htmlFor="status" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Sanction Status</Label>
                             <Select value={status} onValueChange={handleStatusChange}>
-                                <SelectTrigger className="w-full bg-white border-neutral-200 h-9 text-sm text-neutral-900 focus:ring-primary-500">
+                                <SelectTrigger className="w-full bg-white border-neutral-200 focus:ring-primary-500 h-9 text-sm text-neutral-900">
                                     <SelectValue placeholder="Select status" />
                                 </SelectTrigger>
                                 <SelectContent className="bg-white border-neutral-200 text-neutral-900">
@@ -288,7 +305,7 @@ export function ManageSanctionModal({ isOpen, onClose, onSuccess, sanctionData }
 
                         {status === 'Completed' && (
                             <div className="space-y-4 animate-in fade-in slide-in-from-top-1">
-                                <div className="space-y-2">
+                                <div className="space-y-1.5">
                                     <Label htmlFor="completionDate" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Date Completed <span className="text-destructive-semantic">*</span></Label>
                                     <Input
                                         id="completionDate"
@@ -300,7 +317,7 @@ export function ManageSanctionModal({ isOpen, onClose, onSuccess, sanctionData }
                                     />
                                 </div>
 
-                                <div className="space-y-2">
+                                <div className="space-y-1.5">
                                     <Label className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Compliance Evidence (Optional)</Label>
                                     {!file ? (
                                         <div className="border border-dashed border-neutral-300 rounded-lg p-4 flex flex-col items-center justify-center bg-neutral-50 hover:bg-neutral-100 transition-colors cursor-pointer group relative">
@@ -330,7 +347,7 @@ export function ManageSanctionModal({ isOpen, onClose, onSuccess, sanctionData }
                                                 type="button"
                                                 variant="ghost"
                                                 size="icon"
-                                                className="h-8 w-8 text-neutral-500 hover:text-red-600 hover:bg-red-50 shrink-0"
+                                                className="h-8 w-8 text-neutral-500 hover:text-destructive-semantic hover:bg-red-50 shrink-0"
                                                 onClick={() => setFile(null)}
                                             >
                                                 <X className="w-4 h-4" />
@@ -341,7 +358,7 @@ export function ManageSanctionModal({ isOpen, onClose, onSuccess, sanctionData }
                             </div>
                         )}
 
-                        <div className="space-y-2">
+                        <div className="space-y-1.5">
                             <Label htmlFor="remarks" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Remarks / Notes</Label>
                             <Textarea
                                 id="remarks"
@@ -351,40 +368,19 @@ export function ManageSanctionModal({ isOpen, onClose, onSuccess, sanctionData }
                                 className="bg-white border-neutral-200 min-h-[80px] text-sm text-neutral-900 resize-none focus-visible:ring-primary-500 placeholder:text-neutral-400"
                             />
                         </div>
+
+                        <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-neutral-100">
+                            <Button type="button" variant="ghost" onClick={() => handleOpenChange(false)} className="text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 h-9 px-4 text-sm font-bold">
+                                Close
+                            </Button>
+                            <Button form="manage-sanction-form" type="submit" className="bg-primary-600 hover:bg-primary-700 text-white h-9 px-6 text-sm font-bold shadow-md shadow-primary-900/10" disabled={isSubmitting}>
+                                {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                                {isUploading ? 'Uploading...' : 'Update Status'}
+                            </Button>
+                        </div>
                     </form>
                 </div>
 
-                <div className="p-6 border-t border-neutral-100 bg-neutral-50 rounded-b-xl shrink-0">
-                    {/* Read-only Audit Block */}
-                    <div className="bg-white border border-neutral-200 rounded-md p-3 grid grid-cols-2 gap-3 text-xs shadow-sm mb-4">
-                        <div>
-                            <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5">Sanction Assigned</p>
-                            <p className="text-neutral-900 font-bold">
-                                {sanctionData.original_data?.created_at
-                                    ? new Date(sanctionData.original_data.created_at).toLocaleString()
-                                    : 'N/A'}
-                            </p>
-                            <p className="text-neutral-500 font-medium">by {assignedByName}</p>
-                        </div>
-                        <div>
-                            <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5">Last Modified</p>
-                            <p className="text-neutral-900 font-bold">
-                                {sanctionData.original_data?.updated_at
-                                    ? new Date(sanctionData.original_data.updated_at).toLocaleString()
-                                    : 'N/A'}
-                            </p>
-                            <p className="text-neutral-500 font-medium">by {updatedByName}</p>
-                        </div>
-                    </div>
-
-                    <div className="flex justify-end gap-3">
-                        <Button type="button" variant="ghost" className="text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200 font-bold" onClick={() => handleOpenChange(false)}>Close</Button>
-                        <Button form="manage-sanction-form" type="submit" className="bg-warning hover:bg-amber-600 text-white font-bold shadow-md" disabled={isSubmitting}>
-                            {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                            {isUploading ? 'Uploading Evidence...' : 'Update Status'}
-                        </Button>
-                    </div>
-                </div>
 
             </DialogContent>
         </Dialog>

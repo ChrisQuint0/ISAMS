@@ -381,7 +381,7 @@ const StudViolations = () => {
       </div>
 
       <Card className="flex-1 bg-white border-neutral-200 flex flex-col rounded-lg overflow-hidden shadow-sm p-0 z-10">
-        <div className="px-5 pt-3 pb-2 flex items-center justify-between bg-white relative z-20">
+        <div className="px-5 pt-5 pb-2 flex items-center justify-between bg-white relative z-20">
           <div className="flex items-center gap-2">
             <ShieldAlert className="h-[15px] w-[15px] text-neutral-600" />
             <h3 className="text-[15px] font-bold text-neutral-900 uppercase tracking-wider leading-none">
@@ -398,9 +398,6 @@ const StudViolations = () => {
                 onChange={(e) => setSearchValue(e.target.value)}
               />
             </div>
-            <Button variant="outline" className="h-7 px-3 bg-white border-neutral-200 text-neutral-600 hover:text-primary-600 hover:bg-primary-50">
-              <Search className="h-3.5 w-3.5" />
-            </Button>
           </div>
         </div>
 
