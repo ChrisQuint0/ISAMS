@@ -20,6 +20,13 @@ export default function StudentDocumentPortal() {
     const [dataLoading, setDataLoading] = React.useState(true);
     const [dataError, setDataError] = React.useState(null);
 
+    const actorInfo = React.useMemo(() => ({
+        actorUserId: user?.id,
+        actorName: user?.user_metadata?.first_name 
+            ? `${user.user_metadata.first_name} ${user.user_metadata.last_name || ""}`.trim()
+            : user?.email || "Student"
+    }), [user]);
+
     React.useEffect(() => {
         if (loading) return;
         if (!user) return;
@@ -70,6 +77,7 @@ export default function StudentDocumentPortal() {
                     status: u.status,
                     file: u.status === "uploaded" ? { name: u.original_filename, size: u.file_size_bytes } : null,
                     uploadedBy: u.uploaded_by_role,
+                    uploadedByName: u.uploaded_by_name,
                     uploadedAt: u.uploaded_at,
                     gdrive_file_id: u.gdrive_file_id,
                     gdrive_view_link: u.gdrive_view_link,
@@ -102,7 +110,7 @@ export default function StudentDocumentPortal() {
     }
 
     const handleUpload = React.useCallback(async (studentId, fieldId, file) => {
-        const result = await thesisService.uploadHTEDocument(studentId, fieldId, file, "student");
+        const result = await thesisService.uploadHTEDocument(studentId, fieldId, file, "student", actorInfo);
         setStudentData((prev) => {
             if (!prev) return null;
             return {
@@ -114,6 +122,7 @@ export default function StudentDocumentPortal() {
                         status: "uploaded",
                         file: { name: file.name, size: file.size },
                         uploadedBy: "student",
+                        uploadedByName: actorInfo.actorName,
                         uploadedAt: result.upload?.uploaded_at || new Date().toISOString()
                     },
                 },
@@ -665,7 +674,7 @@ function OJTDocRow(props) {
                     <p className="text-sm font-semibold text-neutral-900 truncate">{field.name}</p>
                     {isUploaded && rec && rec.uploadedAt ? (
                         <p className="text-xs text-neutral-500 mt-0.5">
-                            Uploaded {formatTimestamp(rec.uploadedAt)}{rec.file ? " · " + formatFileSize(rec.file.size) : ""} · by You
+                            Uploaded {formatTimestamp(rec.uploadedAt)}{rec.file ? " · " + formatFileSize(rec.file.size) : ""} · by {rec.uploadedByName || (rec.uploadedBy === "coordinator" ? "Coordinator" : "You")}
                         </p>
                     ) : isNotRequired ? (
                         <p className="text-xs text-neutral-400 mt-0.5">Deactivated by coordinator — not counted toward completion</p>
@@ -713,7 +722,7 @@ function OJTDocRow(props) {
                         <div><p className="text-neutral-400 mb-0.5">File name</p><p className="font-semibold text-neutral-900 truncate">{rec.file ? rec.file.name : "—"}</p></div>
                         <div><p className="text-neutral-400 mb-0.5">File size</p><p className="font-semibold text-neutral-900">{rec.file ? formatFileSize(rec.file.size) : "—"}</p></div>
                         <div><p className="text-neutral-400 mb-0.5">Uploaded at</p><p className="font-semibold text-neutral-900">{formatTimestamp(rec.uploadedAt)}</p></div>
-                        <div><p className="text-neutral-400 mb-0.5">Uploaded by</p><p className="font-semibold text-neutral-900">{rec.uploadedBy === "coordinator" ? "Coordinator" : "You (Student)"}</p></div>
+                        <div><p className="text-neutral-400 mb-0.5">Uploaded by</p><p className="font-semibold text-neutral-900">{rec.uploadedByName || (rec.uploadedBy === "coordinator" ? "Coordinator" : "You (Student)")}</p></div>
                     </div>
                 </div>
             )}
@@ -855,7 +864,7 @@ function HTEDocRow(props) {
                         <div><p className="text-neutral-400 mb-0.5">File name</p><p className="font-semibold text-neutral-900 truncate">{rec.file ? rec.file.name : "—"}</p></div>
                         <div><p className="text-neutral-400 mb-0.5">File size</p><p className="font-semibold text-neutral-900">{rec.file ? formatFileSize(rec.file.size) : "—"}</p></div>
                         <div><p className="text-neutral-400 mb-0.5">Uploaded at</p><p className="font-semibold text-neutral-900">{formatTimestamp(rec.uploadedAt)}</p></div>
-                        <div><p className="text-neutral-400 mb-0.5">Uploaded by</p><p className="font-semibold text-neutral-900">{rec.uploadedBy === "coordinator" ? "Coordinator" : "You (Student)"}</p></div>
+                        <div><p className="text-neutral-400 mb-0.5">Uploaded by</p><p className="font-semibold text-neutral-900">{rec.uploadedByName || (rec.uploadedBy === "coordinator" ? "Coordinator" : "You (Student)")}</p></div>
                     </div>
                 </div>
             )}

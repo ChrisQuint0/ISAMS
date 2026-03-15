@@ -359,6 +359,7 @@ export default function HTEDocumentArchivePage() {
                         status: u.status,
                         file: u.status === "uploaded" ? { name: u.original_filename, size: u.file_size_bytes } : null,
                         uploadedBy: u.uploaded_by_role,
+                        uploadedByName: u.uploaded_by_name,
                         uploadedAt: u.uploaded_at,
                         gdrive_file_id: u.gdrive_file_id,
                         gdrive_view_link: u.gdrive_view_link
@@ -581,6 +582,7 @@ export default function HTEDocumentArchivePage() {
                         status: "uploaded",
                         file: { name: file.name, size: file.size },
                         uploadedBy: uploaderRole === "admin" ? "coordinator" : "student",
+                        uploadedByName: actorInfo.actorName,
                         uploadedAt: result.upload?.uploaded_at || new Date().toISOString()
                     };
                     return { ...s, uploads: newUploads };
@@ -599,6 +601,7 @@ export default function HTEDocumentArchivePage() {
                         status: "uploaded",
                         file: { name: file.name, size: file.size },
                         uploadedBy: uploaderRole === "admin" ? "coordinator" : "student",
+                        uploadedByName: actorInfo.actorName,
                         uploadedAt: result.upload?.uploaded_at || new Date().toISOString()
                     };
                     return { ...prev, uploads: newUploads };
@@ -1391,8 +1394,27 @@ function DocumentItem(props) {
     var isUploading = props.isUploading;
     var fileInputRef = React.useRef(null);
     var expandedArr = React.useState(false); var expanded = expandedArr[0]; var setExpanded = expandedArr[1];
+    var [downloadStatus, setDownloadStatus] = React.useState("idle"); // idle, loading, success
     var cfg = STATUS_CONFIG[status] || STATUS_CONFIG["pending"];
     var Icon = cfg.icon;
+
+    async function handleDownload() {
+        if (!rec || !rec.gdrive_file_id) return;
+        
+        setDownloadStatus("loading");
+        try {
+            await thesisService.downloadHTEDocument(rec.gdrive_file_id, rec.file?.name);
+            setDownloadStatus("success");
+            setTimeout(function() {
+                setDownloadStatus("idle");
+            }, 2000);
+        } catch (error) {
+            console.error("Download failed:", error);
+            onError("Failed to download file. Please try again.");
+            setDownloadStatus("idle");
+        }
+    }
+
     function handleFileChange(e) {
         var file = e.target.files[0];
         if (!file) return;
@@ -1409,13 +1431,30 @@ function DocumentItem(props) {
                         <div className={"h-9 w-9 rounded-lg border flex items-center justify-center flex-shrink-0 " + cfg.wrapper}><Icon className="h-4 w-4" /></div>
                         <div className="min-w-0 flex-1">
                             <p className="font-semibold text-neutral-900 text-sm truncate">{field.name}</p>
-                            {rec && rec.uploadedBy && !isInactive ? <p className="text-xs text-neutral-500">by {rec.uploadedBy === "coordinator" ? "Coordinator" : "Student"}</p> : null}
+                            {rec && (rec.uploadedByName || rec.uploadedBy) && !isInactive ? (
+                                <p className="text-xs text-neutral-500">by {rec.uploadedByName || (rec.uploadedBy === "coordinator" ? "Coordinator" : "Student")}</p>
+                            ) : null}
                         </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                         <span className={"text-xs px-2 py-0.5 rounded-full border font-semibold " + cfg.badge}>{cfg.text}</span>
                         {status === "uploaded" && !isInactive ? <button title={expanded ? "Hide details" : "View details"} onClick={function () { setExpanded(function (p) { return !p; }); }} className={btnIconGhost}><Eye className="h-3.5 w-3.5" /></button> : null}
-                        {status === "uploaded" && canDownload ? <button title="Download file" className={btnIconGhost}><Download className="h-3.5 w-3.5" /></button> : null}
+                        {status === "uploaded" && canDownload ? (
+                            <button 
+                                title="Download file" 
+                                className={btnIconGhost + (downloadStatus === "success" ? " text-success border-success/40 bg-success/5" : "")} 
+                                onClick={handleDownload}
+                                disabled={downloadStatus === "loading"}
+                            >
+                                {downloadStatus === "loading" ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : downloadStatus === "success" ? (
+                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                ) : (
+                                    <Download className="h-3.5 w-3.5" />
+                                )}
+                            </button>
+                        ) : null}
                         {!isInactive && canUpload ? (
                             <span>
                                 <input ref={fileInputRef} type="file" accept={ACCEPTED_EXTENSIONS.join(",")} onChange={handleFileChange} className="hidden" />
