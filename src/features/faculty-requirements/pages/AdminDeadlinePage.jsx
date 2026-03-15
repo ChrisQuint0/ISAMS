@@ -192,8 +192,7 @@ export default function AdminDeadlinePage() {
     return deadlines.some(d =>
       d.doc_type_id === parseInt(newDeadline.doc_type_id) &&
       d.semester === settings.semester &&
-      d.academic_year === settings.academic_year &&
-      d.status !== 'Passed'
+      d.academic_year === settings.academic_year
     );
   }, [newDeadline.doc_type_id, deadlines, settings]);
 
@@ -322,7 +321,7 @@ export default function AdminDeadlinePage() {
       ...editingDeadline,
       doc_type_id: parseInt(editingDeadline.doc_type_id),
       grace_period_days: parseInt(editingDeadline.grace_period_days)
-    });
+    }, true);
 
     if (success) {
       setIsEditDialogOpen(false);
@@ -544,7 +543,7 @@ export default function AdminDeadlinePage() {
                     <Input
                       type="date"
                       value={newDeadline.deadline_date}
-                      min={newDeadline.issue_date || todayStr}
+                      min={todayStr}
                       onChange={(e) => setNewDeadline(prev => ({ ...prev, deadline_date: e.target.value }))}
                       className={`bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 h-9 text-xs font-medium px-3 shadow-sm ${deadlineInvalidRange || deadlineInPast ? 'border-destructive focus-visible:ring-destructive/20' : ''}`}
                     />
@@ -577,7 +576,7 @@ export default function AdminDeadlinePage() {
                   <div className="space-y-1.5 pt-1 px-1">
                     {deadlineDuplicate && (
                       <p className="text-xs text-destructive font-medium italic flex items-center gap-1.5">
-                        <AlertCircle className="h-3.5 w-3.5" /> An active or upcoming deadline for this document type already exists.
+                        <AlertCircle className="h-3.5 w-3.5" /> A deadline for this document type already exists for this period.
                       </p>
                     )}
                     {deadlineInvalidRange && (
@@ -808,7 +807,7 @@ export default function AdminDeadlinePage() {
                     <Input
                       type="date"
                       value={editingDeadline.deadline_date}
-                      min={editingDeadline.issue_date || todayStr}
+                      min={todayStr}
                       onChange={(e) => setEditingDeadline({ ...editingDeadline, deadline_date: e.target.value })}
                       className={`bg-white border-neutral-200 text-neutral-900 shadow-sm focus-visible:ring-primary-500 transition-all font-medium px-3 h-9 ${(editingDeadline.deadline_date < todayStr && editingDeadline.deadline_date !== originalEditingDeadline?.deadline_date) || editingDeadline.issue_date > editingDeadline.deadline_date ? 'border-destructive' : ''}`}
                     />
@@ -829,10 +828,30 @@ export default function AdminDeadlinePage() {
                     <Input
                       type="number"
                       value={editingDeadline.grace_period_days}
+                      min="0"
                       onChange={(e) => setEditingDeadline({ ...editingDeadline, grace_period_days: e.target.value })}
                       className="bg-white border-neutral-200 text-neutral-900 shadow-sm focus-visible:ring-primary-500 transition-all font-medium px-3 h-9"
                     />
                   </div>
+
+                  {/* Dynamic Hard Cutoff Preview */}
+                  {editingDeadline.deadline_date && (
+                    <div className="col-span-2 pt-2">
+                       <div className="bg-primary-50/50 border border-primary-100 rounded-lg p-3 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <ShieldCheck className="h-4 w-4 text-primary-600" />
+                            <span className="text-[10px] font-bold text-primary-900 uppercase tracking-wider">Actual Cutoff</span>
+                          </div>
+                          <span className="text-xs font-bold text-primary-700">
+                            {(() => {
+                              const base = new Date(editingDeadline.deadline_date);
+                              base.setDate(base.getDate() + (parseInt(editingDeadline.grace_period_days) || 0));
+                              return base.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+                            })()}
+                          </span>
+                       </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
