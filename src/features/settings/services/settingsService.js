@@ -23,22 +23,29 @@ export const settingsService = {
   },
 
   /**
-   * Updates the value of a specific setting by ID.
+   * Gets the Google OAuth URL for a specific user.
    */
-  updateSetting: async (id, value) => {
+  getGoogleAuthUrl: async (userId) => {
     try {
-      const { data, error } = await supabase
-        .from(TABLE_NAME)
-        .update({ value, updated_at: new Date().toISOString() })
-        .eq("id", id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      const response = await fetch(`http://localhost:3000/api/auth/google/url?userId=${userId}`);
+      const data = await response.json();
+      return data.url;
     } catch (error) {
-      console.error(`Error updating setting ${id}:`, error);
-      throw error;
+      console.error("Error fetching Google auth URL:", error);
+      return null;
+    }
+  },
+
+  /**
+   * Gets the Google authentication status for a specific user.
+   */
+  getGoogleAuthStatus: async (userId) => {
+    try {
+      const response = await fetch(`http://localhost:3000/api/auth/google/status/${userId}`);
+      return await response.json();
+    } catch (error) {
+      console.error("Error fetching Google auth status:", error);
+      return { authenticated: false };
     }
   }
 };

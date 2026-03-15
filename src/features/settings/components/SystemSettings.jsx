@@ -4,10 +4,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { useLogo } from "../hooks/useLogo";
 import { useSettings } from "../hooks/useSettings";
-import { Loader2, Upload, Trash2, Image as ImageIcon, School, Save } from "lucide-react";
+import { useAuth } from "@/features/auth/hooks/useAuth";
+import { settingsService } from "../services/settingsService";
+import { Loader2, Upload, Trash2, Image as ImageIcon, School, Save, Key, CheckCircle2, AlertCircle } from "lucide-react";
 import ccsLogoDefault from "@/assets/images/ccs_logo.png";
 
 export function SystemSettings() {
+  const { user, rbac } = useAuth();
   const { logoUrl, isLoading: isLogoLoading, uploadLogo, deleteLogo } = useLogo();
   const { settings, isLoading: isSettingsLoading, updateCollegeName } = useSettings();
   
@@ -15,13 +18,54 @@ export function SystemSettings() {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   
-  const [collegeName, setCollegeName] = useState(settings.college_name);
+  const [collegeName, setCollegeName] = useState("");
   const [isSavingName, setIsSavingName] = useState(false);
+
+  // Google Auth State
+  const [googleStatus, setGoogleStatus] = useState({ authenticated: false, isLoading: true });
 
   // Sync state when settings load
   useEffect(() => {
-    setCollegeName(settings.college_name);
+    if (settings.college_name) {
+      setCollegeName(settings.college_name);
+    }
   }, [settings.college_name]);
+
+  useEffect(() => {
+    if (user?.id) {
+      checkGoogleStatus();
+    }
+  }, [user?.id]);
+
+  const checkGoogleStatus = async () => {
+    setGoogleStatus(prev => ({ ...prev, isLoading: true }));
+    try {
+      const status = await settingsService.getGoogleAuthStatus(user.id);
+      setGoogleStatus({ ...status, isLoading: false });
+    } catch (error) {
+      setGoogleStatus({ authenticated: false, isLoading: false });
+    }
+  };
+
+  const handleGoogleAuth = async () => {
+    try {
+      const url = await settingsService.getGoogleAuthUrl(user.id);
+      if (url) {
+        // Open in a new window/tab
+        const authWindow = window.open(url, "GoogleAuth", "width=600,height=700");
+        
+        // Polling to check if window closed
+        const timer = setInterval(() => {
+          if (authWindow.closed) {
+            clearInterval(timer);
+            checkGoogleStatus();
+          }
+        }, 1000);
+      }
+    } catch (error) {
+      alert("Failed to initiate Google authentication.");
+    }
+  };
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -74,8 +118,79 @@ export function SystemSettings() {
     }
   };
 
+  const isAdmin = 
+    rbac?.superadmin || 
+    rbac?.thesis_role === "admin" || 
+    rbac?.facsub_role === "admin" || 
+    rbac?.labman_role === "admin" || 
+    rbac?.studvio_role === "admin";
+
   return (
     <div className="space-y-6">
+      {/* Google Drive Connection - Only for admins */}
+      {isAdmin && (
+        <Card className="max-w-2xl border-border bg-card/50 backdrop-blur-sm shadow-xl">
+          <CardHeader>
+            <CardTitle className="text-xl font-bold flex items-center gap-2">
+              <Key className="h-5 w-5 text-primary-500" />
+              Google Drive Connection
+            </CardTitle>
+            <CardDescription>
+              Authenticate your Google account to manage uploads and ownership in Google Drive.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {googleStatus.isLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Checking connection status...
+              </div>
+            ) : googleStatus.authenticated ? (
+              <div className="bg-primary-500/5 border border-primary-500/20 rounded-lg p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-primary-500/10 flex items-center justify-center">
+                    <CheckCircle2 className="h-6 w-6 text-primary-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Connected as</p>
+                    <p className="text-xs text-muted-foreground">{googleStatus.email}</p>
+                  </div>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleGoogleAuth}
+                  className="border-primary-500/30 text-primary-600 hover:bg-primary-500/10"
+                >
+                  Change Account
+                </Button>
+              </div>
+            ) : (
+              <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-4 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center">
+                    <AlertCircle className="h-6 w-6 text-amber-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Not Connected</p>
+                    <p className="text-xs text-muted-foreground text-pretty">
+                      You are currently using the system's global Google Drive account. Authenticate to use your own.
+                    </p>
+                  </div>
+                </div>
+                <Button 
+                  onClick={handleGoogleAuth}
+                  className="w-full bg-[#008A45] hover:bg-[#007038] text-white"
+                >
+                  <img src="https://www.google.com/favicon.ico" className="w-4 h-4 mr-2" alt="Google" />
+                  Authenticate Google Account
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* College Name Settings */}
       <Card className="max-w-2xl border-border bg-card/50 backdrop-blur-sm shadow-xl">
         <CardHeader>
