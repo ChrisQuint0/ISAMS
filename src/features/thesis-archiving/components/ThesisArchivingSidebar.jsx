@@ -1,5 +1,6 @@
 import React from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import {
     Database,
     BookOpen,
@@ -36,6 +37,12 @@ import {
 export function ThesisArchivingSidebar() {
     const navigate = useNavigate();
     const location = useLocation();
+    const { user } = useAuth();
+
+    const displayName = user?.user_metadata?.full_name || 
+                        (user?.user_metadata?.first_name ? `${user.user_metadata.first_name} ${user.user_metadata.last_name || ''}`.trim() : null) || 
+                        user?.email || 
+                        "User Account";
 
     const isActive = (path) => location.pathname === path;
 
@@ -220,11 +227,8 @@ export function ThesisArchivingSidebar() {
                                     size="lg"
                                     className="w-full justify-start gap-3 hover:bg-neutral-50 text-neutral-900 group-data-[collapsible=icon]:justify-center"
                                 >
-                                    <div className="flex aspect-square size-8 items-center justify-center rounded-full bg-primary-100 shrink-0">
-                                        <User className="size-4 text-primary-600" />
-                                    </div>
                                     <div className="flex-1 text-left text-neutral-900 text-sm leading-tight group-data-[collapsible=icon]:hidden overflow-hidden min-w-0">
-                                        <span className="truncate font-medium block">User Account</span>
+                                        <span className="truncate font-medium block">{displayName}</span>
                                         <span className="truncate text-xs text-neutral-500">Thesis Archiving</span>
                                     </div>
                                     <ChevronUp className="ml-auto size-4 text-neutral-400 group-data-[collapsible=icon]:hidden shrink-0" />
@@ -233,10 +237,10 @@ export function ThesisArchivingSidebar() {
                             <DropdownMenuContent side="top" className="w-56 bg-white border-neutral-200 text-neutral-900 shadow-md">
                                 <DropdownMenuItem
                                     onClick={() => navigate("/dashboard")}
-                                    className="text-red-600 hover:bg-red-50 focus:bg-red-50 focus:text-red-700"
+                                    className="text-primary-600 hover:bg-primary-50 focus:bg-primary-50 focus:text-primary-700 cursor-pointer"
                                 >
-                                    <LogOut className="mr-2 h-4 w-4" />
-                                    <span>Sign out</span>
+                                    <LayoutDashboard className="mr-2 h-4 w-4" />
+                                    <span>Back to Module Dashboard</span>
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
