@@ -213,7 +213,7 @@ export function useAdminSettings() {
 
     try {
       await settingsService.updateFacultyManagement(original.user_id, field, value);
-      setSuccess('✓ Saved');
+      setSuccess('Faculty Information Saved');
       setTimeout(() => setSuccess(null), 1500);
     } catch (err) {
       console.error('updateFacultyManagement failed:', { facultyId, field, value, err });
@@ -292,7 +292,7 @@ export function useAdminSettings() {
         courseId,
         field === 'is_active' ? value : original.is_active
       );
-      setSuccess('✓ Saved');
+      setSuccess('Catalog Information Saved');
       setTimeout(() => setSuccess(null), 1500);
     } catch (err) {
       setError('Failed to update catalog: ' + err.message);

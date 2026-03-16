@@ -20,6 +20,7 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useFacultySubmission } from "../hooks/FacultySubmissionHook";
 import { FacultySubmissionService } from "../services/FacultySubmissionService";
+import { useSubmission } from "../contexts/SubmissionContext";
 import FilePreview from "../components/FilePreview";
 import {
   CloudUpload,
@@ -333,12 +334,17 @@ export default function FacultySubmissionPage() {
 
     const filesToUpload = stagedFiles.map(f => ({ file: f.file }));
 
+    const selectedCourse = courses.find(c => String(c.course_id) === String(formData.course));
+    const selectedDocType = requiredDocs.find(d => String(d.doc_type_id) === String(formData.documentType));
+
     const result = await submitDocument({
       files: filesToUpload,
       courseId: formData.course,
       docTypeId: formData.documentType,
       semester: currentSemester,
-      academicYear: currentAcademicYear
+      academicYear: currentAcademicYear,
+      courseCode: selectedCourse?.course_code || 'Unknown Course',
+      docTypeName: selectedDocType?.type_name || 'Document'
     });
 
     if (result) {
