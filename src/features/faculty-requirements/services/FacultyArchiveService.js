@@ -7,34 +7,54 @@ export const FacultyArchiveService = {
    */
   getOptions: async () => {
     try {
-      // Get unique semesters and academic years for this specific faculty
-      const { data: facultyRecord, error: fError } = await supabase
-        .from('faculty_fs')
-        .select('faculty_id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
-        .single();
+      const [semesterPeriods, systemSettings] = await Promise.all([
+        // All historical + active semesters from semester management
+        supabase.from('semester_history_fs').select('academic_year, semester, status').order('created_at', { ascending: false }),
+        // Current active semester from system settings
+        supabase.from('systemsettings_fs').select('setting_key, setting_value').in('setting_key', ['current_semester', 'current_academic_year'])
+      ]);
 
-      if (fError || !facultyRecord) throw fError || new Error("Faculty not found");
+      // Build current active semester from system settings
+      const settingsMap = {};
+      (systemSettings.data || []).forEach(s => { settingsMap[s.setting_key] = s.setting_value; });
+      const currentSemester = settingsMap['current_semester'];
+      const currentAcademicYear = settingsMap['current_academic_year'];
 
-      const { data: courses, error } = await supabase
-        .from('courses_fs')
-        .select('semester, academic_year')
-        .eq('faculty_id', facultyRecord.faculty_id);
+      // Build semester periods array with status labels
+      const historicalPeriods = (semesterPeriods.data || []).map(p => ({
+        academic_year: p.academic_year,
+        semester: p.semester,
+        status: p.status === 'COMPLETED' ? 'Completed' : 'Active'
+      }));
 
-      if (error) throw error;
+      // If current active semester isn't already in history, add it at the top
+      const isCurrentInHistory = historicalPeriods.some(
+        p => p.academic_year === currentAcademicYear && p.semester === currentSemester
+      );
+      if (currentSemester && currentAcademicYear && !isCurrentInHistory) {
+        historicalPeriods.unshift({
+          academic_year: currentAcademicYear,
+          semester: currentSemester,
+          status: 'Active'
+        });
+      }
 
-      const uniqueSemesters = [...new Set(courses?.map(c => c.semester))].filter(Boolean);
-      const uniqueYears = [...new Set(courses?.map(c => c.academic_year))].filter(Boolean);
+      const uniqueSemesters = [...new Set(historicalPeriods.map(p => p.semester))].filter(Boolean);
+      const uniqueYears = [...new Set(historicalPeriods.map(p => p.academic_year))].filter(Boolean);
 
       return {
-        semesters: uniqueSemesters.length ? uniqueSemesters : [],
-        academic_years: uniqueYears.length ? uniqueYears : []
+        semesters: uniqueSemesters,
+        academic_years: uniqueYears,
+        semesterPeriods: historicalPeriods,
+        currentSemester,
+        currentAcademicYear
       };
     } catch (error) {
       console.error('Error fetching options:', error);
-      return { semesters: [], academic_years: [] };
+      return { semesters: [], academic_years: [], semesterPeriods: [], currentSemester: null, currentAcademicYear: null };
     }
   },
+
 
   /**
    * Fetch courses for the faculty based on semester/year filters

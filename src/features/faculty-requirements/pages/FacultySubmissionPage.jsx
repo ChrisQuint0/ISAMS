@@ -859,13 +859,12 @@ export default function FacultySubmissionPage() {
                                 {sub.courses_fs?.course_code} ({sub.courses_fs?.section || 'No Section'})
                               </p>
                             </div>
-                              <Badge variant="outline" className={`px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-full shadow-sm shrink-0 ${sub.submission_status === 'APPROVED' || sub.submission_status === 'VALIDATED' ? 'bg-success/10 text-success border-success/20' :
+                              <Badge variant="outline" className={`px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-full shadow-sm shrink-0 ${sub.submission_status === 'SUBMITTED' || sub.submission_status === 'APPROVED' || sub.submission_status === 'VALIDATED' || sub.submission_status === 'RESUBMITTED' ? 'bg-success/10 text-success border-success/20' :
                                 sub.submission_status === 'REVISION_REQUESTED' ? 'bg-amber-100 text-amber-700 border-amber-200' :
-                                  sub.submission_status === 'RESUBMITTED' ? 'bg-blue-100 text-blue-700 border-blue-200' :
-                                    sub.submission_status === 'REJECTED' ? 'bg-destructive/10 text-destructive border-destructive/20' :
-                                      'bg-info/10 text-info border-info/20'
+                                  sub.submission_status === 'REJECTED' ? 'bg-destructive/10 text-destructive border-destructive/20' :
+                                    'bg-info/10 text-info border-info/20'
                               }`}>
-                              {sub.submission_status === 'REVISION_REQUESTED' ? 'REVISION ONGOING' : sub.submission_status === 'RESUBMITTED' ? 'ReSubmitted' : sub.submission_status}
+                              {sub.submission_status === 'REVISION_REQUESTED' ? 'REVISION ONGOING' : sub.submission_status === 'RESUBMITTED' ? 'SUBMITTED' : sub.submission_status}
                             </Badge>
                           </div>
 

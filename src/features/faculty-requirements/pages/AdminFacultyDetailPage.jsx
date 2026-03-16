@@ -1045,12 +1045,11 @@ export default function AdminFacultyDetailPage() {
                                                                 </span>
                                                             </div>
                                                             <Badge className={`text-[8px] font-extrabold tracking-widest px-1.5 py-0 shadow-none border uppercase ${doc.is_submitted_late ? 'bg-warning/10 border-warning/20 text-warning' :
-                                                                doc.status === 'RESUBMITTED' ? 'bg-blue-100 border-blue-200 text-blue-700' :
                                                                 isDone ? 'bg-success/10 border-success/20 text-success' :
                                                                     doc.status === 'REVISION_REQUESTED' ? 'bg-warning/10 border-warning/20 text-warning' :
                                                                         'bg-neutral-100 border-neutral-200 text-neutral-500'
                                                                 }`}>
-                                                                {doc.status === 'RESUBMITTED' ? 'ReSubmitted' : displayStatus}
+                                                                {doc.status === 'RESUBMITTED' ? 'SUBMITTED' : displayStatus}
                                                             </Badge>
                                                         </div>
                                                         <div className="flex items-center justify-between">

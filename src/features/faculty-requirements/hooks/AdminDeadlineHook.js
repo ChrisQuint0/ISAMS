@@ -35,38 +35,21 @@ export function useAdminDeadlines() {
         return new Date(y, m - 1, d);
       };
 
-      // Get real dynamic date
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      // Status calculation (Upcoming, Active, Grace Period, Passed)
+      // Map deadlines — DB already computes status & hard_cutoff_date
       const mappedDeadlines = allDeadlines.map(d => {
-        const startDate = parseLocalDate(d.issue_date);
         const dueDate = parseLocalDate(d.deadline_date);
-
-        if (!dueDate) return { ...d, status: 'Passed' };
-
-        // Calculate Hard Cutoff (Due Date + Grace Period)
-        const hardCutoff = new Date(dueDate);
-        hardCutoff.setDate(hardCutoff.getDate() + (d.grace_period_days || 0));
-        hardCutoff.setHours(0, 0, 0, 0);
-
-        let status = 'Passed';
-        if (d.is_active) {
-          if (today.getTime() < startDate?.getTime()) {
-            status = 'Upcoming';
-          } else if (today.getTime() <= dueDate.getTime()) {
-            status = 'Active';
-          } else if (today.getTime() <= hardCutoff.getTime()) {
-            status = 'Grace Period';
-          } else {
-            status = 'Passed';
-          }
-        }
+        const startDate = parseLocalDate(d.issue_date);
+        const hardCutoff = parseLocalDate(d.hard_cutoff_date) || (() => {
+          // Fallback: compute locally if DB column missing
+          const c = new Date(dueDate);
+          c.setDate(c.getDate() + (d.grace_period_days || 0));
+          return c;
+        })();
 
         return {
           ...d,
-          status,
+          // Trust the DB-computed status; fallback to 'Passed' if missing
+          status: d.status || 'Passed',
           deadline_date_obj: dueDate,
           start_date_obj: startDate,
           hard_cutoff_obj: hardCutoff
@@ -85,13 +68,17 @@ export function useAdminDeadlines() {
         });
 
       const next = upcoming[0] || null;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
       const daysLeft = next
         ? Math.floor((next.deadline_date_obj.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
         : 0;
 
       setStats({
         ...statistics,
-        next_deadline: next
+        next_deadline: next,
+        days_left: daysLeft
       });
 
     } catch (err) {
