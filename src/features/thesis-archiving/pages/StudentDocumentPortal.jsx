@@ -10,6 +10,7 @@ import {
 import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
 import { HTEArchivingHeader } from "./HTEDocumentArchivePage";
 import { thesisService } from "../services/thesisService";
+import { settingsService } from "@/features/settings/services/settingsService";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function StudentDocumentPortal() {
@@ -281,6 +282,7 @@ function StudentDocumentPortalContent(props) {
     var onUpload = props.onUpload;
     var onRemove = props.onRemove;
     var onSignOut = props.onSignOut;
+    const { user } = useAuth();
 
     var pa = React.useState(PAGE.OVERVIEW); var activePage = pa[0]; var setActivePage = pa[1];
     var ta = React.useState(null); var toast = ta[0]; var setToast = ta[1];
@@ -291,6 +293,20 @@ function StudentDocumentPortalContent(props) {
     async function handleUpload(fieldId, file) {
         var err = validateFile(file);
         if (err) { handleError(err); return; }
+
+        // Check Google Auth status before proceeding
+        try {
+            if (user?.id) {
+                var status = await settingsService.getGoogleAuthStatus(user.id);
+                if (!status.authenticated) {
+                    handleError("Error, google account not authenticated. Please authenticate your account first in the upper right corner.");
+                    return;
+                }
+            }
+        } catch (e) {
+            console.error("Auth check failed", e);
+        }
+
         setUploadingFieldId(fieldId);
         try {
             await onUpload(student.id, fieldId, file);
@@ -329,7 +345,7 @@ function StudentDocumentPortalContent(props) {
         <div className="flex min-h-screen w-full bg-neutral-100 text-neutral-900">
             <StudentSidebar activePage={activePage} onNavigate={setActivePage} student={student} onSignOut={onSignOut} />
             <div className="flex flex-col flex-1 w-0 min-w-0">
-                <HTEArchivingHeader role="student" students={[student]} studentId={student.id} showFieldConfig={false} />
+                <HTEArchivingHeader role="student" user={user} students={[student]} studentId={student.id} showFieldConfig={false} />
                 <main className="flex-1 w-full p-6">
                     {activePage === PAGE.OVERVIEW && <OverviewPage student={student} ojtFields={ojtFields} ojtActive={ojtActive} hteActive={hteActive} ojtUploaded={ojtUploaded} hteUploaded={hteUploaded} ojtPct={ojtPct} htePct={htePct} totalPct={totalPct} totalUp={totalUp} totalAct={totalAct} isComplete={isComplete} onNavigate={setActivePage} />}
                     {activePage === PAGE.OJT && <OJTPage student={student} fields={ojtFields} uploaded={ojtUploaded} total={ojtActive.length} pct={ojtPct} onUpload={handleUpload} onRemove={handleRemoveWrap} onError={handleError} uploadingFieldId={uploadingFieldId} />}

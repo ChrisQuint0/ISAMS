@@ -31,6 +31,7 @@ tesseract = { version = "0.13", optional = true }
 base64 = "0.21"
 dotenv = "0.15"
 tauri-plugin-fs = "2.4.5"
+tauri-plugin-shell = "2"
 
 [profile.dev]
 debug = 0

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -32,7 +32,15 @@ export function SystemSettings() {
   const [isSavingName, setIsSavingName] = useState(false);
 
   // Google Auth State
-  const [googleStatus, setGoogleStatus] = useState({ authenticated: false, isLoading: true });
+  const [googleStatus, setGoogleStatus] = useState({ 
+    authenticated: false, 
+    email: "",
+    isLoading: true,
+    authUrl: "" 
+  });
+  
+  const isFetching = useRef(false);
+  const lastCheckedId = useRef(null);
 
   // Dialog States
   const [alertDialog, setAlertDialog] = useState({ 
@@ -64,39 +72,86 @@ export function SystemSettings() {
     }
   }, [settings.college_name]);
 
-  useEffect(() => {
-    if (user?.id) {
-      checkGoogleStatus();
-    }
-  }, [user?.id]);
+  const checkGoogleStatus = useCallback(async (force = false) => {
+    if (!user?.id) return;
+    if (!force && isFetching.current) return;
+    if (!force && lastCheckedId.current === user.id && googleStatus.authUrl) return;
 
-  const checkGoogleStatus = async () => {
-    setGoogleStatus(prev => ({ ...prev, isLoading: true }));
+    isFetching.current = true;
+    lastCheckedId.current = user.id;
+
+    if (!googleStatus.authUrl) {
+      setGoogleStatus(prev => ({ ...prev, isLoading: true }));
+    }
+
     try {
       const status = await settingsService.getGoogleAuthStatus(user.id);
-      setGoogleStatus({ ...status, isLoading: false });
+      let url = "";
+      if (!status.authenticated) {
+        url = await settingsService.getGoogleAuthUrl(user.id);
+      }
+      setGoogleStatus({
+        authenticated: status.authenticated,
+        email: status.email || "",
+        isLoading: false,
+        authUrl: url || ""
+      });
     } catch (error) {
-      setGoogleStatus({ authenticated: false, isLoading: false });
+      console.error("Error checking Google status:", error);
+      setGoogleStatus(prev => ({ ...prev, authenticated: false, isLoading: false }));
+    } finally {
+      isFetching.current = false;
     }
-  };
+  }, [user?.id, googleStatus.authUrl]);
+
+  useEffect(() => {
+    if (user?.id && lastCheckedId.current !== user.id) {
+      checkGoogleStatus();
+    }
+  }, [user?.id, checkGoogleStatus]);
 
   const handleGoogleAuth = async () => {
+    let url = googleStatus.authUrl;
+    
     try {
-      const url = await settingsService.getGoogleAuthUrl(user.id);
-      if (url) {
-        // Open in a new window/tab
-        const authWindow = window.open(url, "GoogleAuth", "width=600,height=700");
-        
-        // Polling to check if window closed
-        const timer = setInterval(() => {
-          if (authWindow.closed) {
-            clearInterval(timer);
-            checkGoogleStatus();
-          }
-        }, 1000);
+      // If we don't have a URL yet (e.g. we were already authenticated), fetch it now
+      if (!url) {
+        setGoogleStatus(prev => ({ ...prev, isLoading: true }));
+        url = await settingsService.getGoogleAuthUrl(user.id);
+        if (!url) {
+          showAlert("Error", "Could not retrieve authentication link.");
+          setGoogleStatus(prev => ({ ...prev, isLoading: false }));
+          return;
+        }
+        setGoogleStatus(prev => ({ ...prev, authUrl: url, isLoading: false }));
       }
+
+      if (window.__TAURI_INTERNALS__) {
+        try {
+          // Use Tauri Shell Plugin to open external browser
+          const { open } = await import("@tauri-apps/plugin-shell");
+          await open(url);
+        } catch (err) {
+          console.error("Tauri shell open failed:", err);
+          // Fallback to standard open
+          window.open(url, "_blank");
+        }
+      } else {
+        // Standard browser behavior
+        window.open(url, "_blank");
+      }
+      
+      // Start polling to check if authentication is complete
+      const timer = setInterval(() => {
+        checkGoogleStatus(true);
+      }, 5000);
+      
+      // Stop polling after 5 minutes
+      setTimeout(() => clearInterval(timer), 300000);
     } catch (error) {
+      console.error("Google handleAuth error:", error);
       showAlert("Authentication Error", "Failed to initiate Google authentication. Please try again.", "destructive");
+      setGoogleStatus(prev => ({ ...prev, isLoading: false }));
     }
   };
 

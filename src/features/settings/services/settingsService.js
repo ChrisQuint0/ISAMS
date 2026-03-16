@@ -27,7 +27,7 @@ export const settingsService = {
    */
   getGoogleAuthUrl: async (userId) => {
     try {
-      const response = await fetch(`http://localhost:3000/api/auth/google/url?userId=${userId}`);
+      const response = await fetch(`/api/auth/google/url?userId=${userId}`);
       const data = await response.json();
       return data.url;
     } catch (error) {
@@ -41,7 +41,7 @@ export const settingsService = {
    */
   getGoogleAuthStatus: async (userId) => {
     try {
-      const response = await fetch(`http://localhost:3000/api/auth/google/status/${userId}`);
+      const response = await fetch(`/api/auth/google/status/${userId}`);
       return await response.json();
     } catch (error) {
       console.error("Error fetching Google auth status:", error);
