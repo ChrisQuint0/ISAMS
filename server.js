@@ -57,18 +57,35 @@ const oauth2Client = (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET)
 async function loadToken(userId) {
   if (!supabase || !oauth2Client) return null;
 
-  let query = supabase.from("google_auth_tokens").select("*");
-
+  let data;
   if (userId) {
-    query = query.eq("user_id", userId);
+    const { data: userData, error: userError } = await supabase
+      .from("google_auth_tokens")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle();
+    data = userData;
   } else {
-    // Fallback to legacy global token (id=1) for system-wide operations if no user specified
-    query = query.eq("id", 1);
+    // Fallback logic: Search for a token that has the full 'drive' scope needed for uploads
+    const { data: scopedTokens, error: scopeError } = await supabase
+      .from("google_auth_tokens")
+      .select("*")
+      .ilike("scope", "%auth/drive %"); // Notice the space to avoid matching drive.file
+
+    if (scopedTokens && scopedTokens.length > 0) {
+      data = scopedTokens[0];
+    } else {
+      // Final fallback to id=1
+      const { data: legacyData } = await supabase
+        .from("google_auth_tokens")
+        .select("*")
+        .eq("id", 1)
+        .maybeSingle();
+      data = legacyData;
+    }
   }
 
-  const { data, error } = await query.maybeSingle();
-
-  if (error || !data) return null;
+  if (!data) return null;
 
   oauth2Client.setCredentials({
     access_token: data.access_token,
@@ -513,7 +530,9 @@ app.post("/api/hte/upload", upload.single("file"), async (req, res) => {
   }
 
   try {
-    const auth = await loadToken(req.body.userId || req.body.actorUserId || null);
+    const isStudent = uploadedByRole === 'student';
+    // Use system token (id=1) for students, or user token if available
+    const auth = await loadToken(isStudent ? null : (req.body.userId || req.body.actorUserId || null));
     if (!auth) return res.status(401).json({ error: "Google Drive not authenticated" });
     const drive = google.drive({ version: "v3", auth });
 
@@ -638,7 +657,11 @@ app.post("/api/hte/delete", async (req, res) => {
   }
 
   try {
-    const auth = await loadToken(req.body.userId || req.body.actorUserId || null);
+    // Determine if we should use system token (for students) or user token
+    const { data: studentCheck } = await supabaseAdmin.from("hte_ojt_students").select("user_id").eq("id", studentId).single();
+    const isStudentOp = studentCheck && (req.body.userId === studentCheck.user_id || req.body.actorUserId === studentCheck.user_id);
+    
+    const auth = await loadToken(isStudentOp ? null : (req.body.userId || req.body.actorUserId || null));
     if (!auth) return res.status(401).json({ error: "Google Drive not authenticated" });
     const drive = google.drive({ version: "v3", auth });
 
@@ -694,7 +717,8 @@ app.get("/api/hte/download/:fileId", async (req, res) => {
   const { fileId } = req.params;
 
   try {
-    const auth = await loadToken(req.query.userId || null);
+    // Always use system token for downloads to ensure consistent access
+    const auth = await loadToken(null);
     if (!auth) return res.status(401).json({ error: "Google Drive not authenticated" });
     const drive = google.drive({ version: "v3", auth });
 
