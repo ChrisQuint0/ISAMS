@@ -1346,9 +1346,11 @@ export function HTEArchivingHeader(props) {
                             <span>Add Student</span>
                         </button>
                     )}
-                    <div className="flex items-center gap-1.5">
-                        <GoogleAuthButton userId={user?.id} />
-                    </div>
+                    {role === "admin" && (
+                        <div className="flex items-center gap-1.5">
+                            <GoogleAuthButton userId={user?.id} />
+                        </div>
+                    )}
                     {role === "admin" && <ThesisSettingsModal />}
                 </div>
             </div>

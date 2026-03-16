@@ -294,18 +294,7 @@ function StudentDocumentPortalContent(props) {
         var err = validateFile(file);
         if (err) { handleError(err); return; }
 
-        // Check Google Auth status before proceeding
-        try {
-            if (user?.id) {
-                var status = await settingsService.getGoogleAuthStatus(user.id);
-                if (!status.authenticated) {
-                    handleError("Error, google account not authenticated. Please authenticate your account first in the upper right corner.");
-                    return;
-                }
-            }
-        } catch (e) {
-            console.error("Auth check failed", e);
-        }
+        // Google Auth check removed for students - now using system token
 
         setUploadingFieldId(fieldId);
         try {
