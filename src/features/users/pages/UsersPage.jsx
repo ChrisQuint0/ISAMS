@@ -8,9 +8,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, UserRoundPlus, KeyRound } from "lucide-react";
 import { AddUserDialog } from "@/features/users/components/AddUserDialog";
 import { ResetPasswordDialog } from "@/features/users/components/ResetPasswordDialog";
+import { Input } from "@/components/ui/input";
+import { ArrowLeft, UserRoundPlus, KeyRound, Search } from "lucide-react";
 import { AgGridReact } from "ag-grid-react";
 import {
   ModuleRegistry,
@@ -202,6 +203,7 @@ export default function UsersPage() {
   const [rowData, setRowData] = useState([]);
   const [gridApi, setGridApi] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const onGridReady = (params) => {
     setGridApi(params.api);
@@ -518,25 +520,39 @@ export default function UsersPage() {
       {/* Main Content */}
       <main className="flex-1 max-w-7xl mx-auto px-6 py-8 w-full flex flex-col gap-6">
         {/* Filter Row */}
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-600">Filter by module:</span>
-          <Select value={moduleFilter} onValueChange={setModuleFilter}>
-            <SelectTrigger className="w-56 bg-white border-gray-300 text-gray-900 focus:ring-neutral-500">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="bg-white border-green-300 text-gray-900">
-              {MODULE_FILTER_OPTIONS.map((opt) => (
-                <SelectItem
-                  key={opt.value}
-                  value={opt.value}
-                  className="focus:bg-neutral-50 focus:text-gray-900"
-                >
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <span className="ml-auto text-xs text-slate-500">
+        <div className="flex flex-col md:flex-row md:items-center gap-4">
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-600">Filter by module:</span>
+            <Select value={moduleFilter} onValueChange={setModuleFilter}>
+              <SelectTrigger className="w-56 bg-white border-gray-300 text-gray-900 focus:ring-neutral-500">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-white border-green-300 text-gray-900">
+                {MODULE_FILTER_OPTIONS.map((opt) => (
+                  <SelectItem
+                    key={opt.value}
+                    value={opt.value}
+                    className="focus:bg-neutral-50 focus:text-gray-900"
+                  >
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="relative flex-1 md:max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              type="text"
+              placeholder="Search users..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 bg-white border-gray-300 text-gray-900 focus:border-emerald-500 focus:ring-emerald-500/20"
+            />
+          </div>
+
+          <span className="md:ml-auto text-xs text-slate-500">
             {displayed.length} user{displayed.length !== 1 ? "s" : ""}
           </span>
         </div>
@@ -558,6 +574,7 @@ export default function UsersPage() {
               loading={loading}
               onCellValueChanged={handleCellValueChanged}
               onGridReady={onGridReady}
+              quickFilterText={searchTerm}
             />
           </div>
         </div>
