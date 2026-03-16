@@ -10,7 +10,8 @@ import {
     LayoutDashboard,
     Archive,
     BarChart3,
-    History
+    History,
+    GraduationCap
 } from "lucide-react";
 import {
     Sidebar,
@@ -83,13 +84,13 @@ export function ThesisArchivingSidebar() {
                             className="hover:bg-neutral-50 data-[state=open]:bg-neutral-50 w-full"
                         >
                             {/* Icon Container */}
-                            <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary-500 text-white shadow-lg shadow-primary-500/20">
+                            <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary-500 text-white">
                                 <BookOpen className="size-4" />
                             </div>
 
                             {/* Text Container - SidebarMenuButton handles hiding this automatically */}
                             <div className="grid flex-1 text-left text-sm leading-tight">
-                                <span className="truncate font-bold text-neutral-900">
+                                <span className="truncate font-medium text-neutral-900">
                                     Thesis / HTE Archiving
                                 </span>
                             </div>
