@@ -47,5 +47,22 @@ export const settingsService = {
       console.error("Error fetching Google auth status:", error);
       return { authenticated: false };
     }
+  },
+
+  /**
+   * Updates the value of a specific setting by ID.
+   */
+  updateSetting: async (id, value) => {
+    try {
+      const { error } = await supabase
+        .from(TABLE_NAME)
+        .upsert({ id, value, updated_at: new Date().toISOString() });
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error(`Error updating setting ${id}:`, error);
+      throw error;
+    }
   }
 };

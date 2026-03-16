@@ -51,7 +51,9 @@ app.use((req, res, next) => {
 app.get("/", (req, res) => res.json({ status: "Thesis Backend Running", port: 3001 }));
 
 // Client for regular operations (obeying RLS)
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabase = (SUPABASE_URL && SUPABASE_KEY)
+    ? createClient(SUPABASE_URL, SUPABASE_KEY)
+    : null;
 
 // ADMIN/SERVICE Client to bypass RLS for critical transactions
 const supabaseAdmin = (SUPABASE_URL && SUPABASE_SERVICE_KEY)
