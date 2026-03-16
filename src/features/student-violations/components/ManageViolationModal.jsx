@@ -126,7 +126,7 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
     return (
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
             <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-hidden flex flex-col bg-white border-neutral-200 text-neutral-900 p-0 shadow-lg rounded-xl">
-                <div className="p-6 border-b border-neutral-100">
+                <div className="px-6 py-3 border-b border-neutral-100">
                     <DialogHeader>
                         <DialogTitle className="text-xl font-bold text-neutral-900 tracking-tight">Manage Violation</DialogTitle>
                         <DialogDescription className="text-neutral-500 font-medium">
@@ -149,8 +149,8 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
                     )}
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6 pt-4">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="flex-1 overflow-y-auto px-6 py-0 pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                    <div className="grid grid-cols-2 gap-4 text-sm mt-3">
                         <div className="space-y-1">
                             <p className="text-neutral-500 text-xs uppercase font-bold tracking-wider">Student Name</p>
                             <p className="font-bold text-neutral-900">{violationData.name}</p>
@@ -174,14 +174,34 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
                             </p>
                         </div>
 
-                        <div className="col-span-2 space-y-1 border-t border-neutral-100 pt-3 mt-2">
-                            <p className="text-neutral-500 text-xs uppercase font-bold tracking-wider">Description / Remarks</p>
-                            <p className="text-neutral-700 italic">{violationData.description || 'No additional description provided.'}</p>
+                        <div className="col-span-2 grid grid-cols-2 gap-4 border-t border-neutral-100 pt-3 mt-2">
+                            <div className="space-y-1">
+                                <p className="text-neutral-500 text-xs uppercase font-bold tracking-wider">Description / Remarks</p>
+                                <p className="text-neutral-700 italic">{violationData.description || 'No additional description provided.'}</p>
+                            </div>
+
+                            <div className="space-y-1">
+                                <p className="text-neutral-500 text-xs uppercase font-bold tracking-wider">Location</p>
+                                <p className="text-neutral-700">{violationData.location || 'N/A'}</p>
+                            </div>
                         </div>
 
-                        <div className="col-span-2 space-y-1 border-t border-neutral-100 pt-3">
-                            <p className="text-neutral-500 text-xs uppercase font-bold tracking-wider">Location</p>
-                            <p className="text-neutral-700">{violationData.location || 'N/A'}</p>
+                        {/* Read-only Audit Block */}
+                        <div className="col-span-2 bg-white border border-neutral-200 rounded-md p-3 grid grid-cols-2 gap-3 text-xs mt-1">
+                            <div>
+                                <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5">Violation Reported</p>
+                                <p className="text-neutral-900 font-bold">
+                                    {violationData.created_at ? new Date(violationData.created_at).toLocaleString() : 'N/A'}
+                                </p>
+                                <p className="text-neutral-500 font-medium">by {violationData.reported_by_name}</p>
+                            </div>
+                            <div>
+                                <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5">Last Modified</p>
+                                <p className="text-neutral-900 font-bold">
+                                    {violationData.updated_at ? new Date(violationData.updated_at).toLocaleString() : 'N/A'}
+                                </p>
+                                <p className="text-neutral-500 font-medium">by {violationData.updated_by_name}</p>
+                            </div>
                         </div>
 
                         <div className="col-span-2 space-y-2 border-t border-neutral-100 pt-3 mt-1">
@@ -254,24 +274,6 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
                 </div>
 
                 <div className="p-6 border-t border-neutral-100 bg-neutral-50 shrink-0 rounded-b-xl">
-                    {/* Read-only Audit Block */}
-                    <div className="bg-white border border-neutral-200 rounded-md p-3 grid grid-cols-2 gap-3 text-xs shadow-sm mb-4">
-                        <div>
-                            <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5">Violation Reported</p>
-                            <p className="text-neutral-900 font-bold">
-                                {violationData.created_at ? new Date(violationData.created_at).toLocaleString() : 'N/A'}
-                            </p>
-                            <p className="text-neutral-500 font-medium">by {violationData.reported_by_name}</p>
-                        </div>
-                        <div>
-                            <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5">Last Modified</p>
-                            <p className="text-neutral-900 font-bold">
-                                {violationData.updated_at ? new Date(violationData.updated_at).toLocaleString() : 'N/A'}
-                            </p>
-                            <p className="text-neutral-500 font-medium">by {violationData.updated_by_name}</p>
-                        </div>
-                    </div>
-
                     <form onSubmit={handleSubmit}>
                         <div className="space-y-2 mb-6">
                             <Label htmlFor="status" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Update Status</Label>

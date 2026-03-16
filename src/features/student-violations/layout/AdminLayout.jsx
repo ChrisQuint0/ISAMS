@@ -27,7 +27,7 @@ export default function AdminLayout() {
         <AdminSidebar />
        
         <SidebarInset className="bg-neutral-50 flex flex-col">
-          <header className="flex h-14 shrink-0 items-center gap-4 border-b border-neutral-200 bg-white/80 px-6 backdrop-blur-md sticky top-0 z-10">
+          <header className="flex h-14 shrink-0 items-center gap-4 border-b border-neutral-200 bg-white/80 px-6 backdrop-blur-md sticky top-0 z-50">
             <SidebarTrigger className="text-neutral-500 hover:text-primary-600 transition-colors" />
            
             <Separator orientation="vertical" className="h-4 bg-neutral-200" />
