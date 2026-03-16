@@ -1652,7 +1652,6 @@ app.get("/oauth2callback", async (req, res) => {
       console.error("Supabase error saving Google tokens:", error);
       return res.status(500).send(`Error saving tokens to database: ${error.message}. Please ensure the SQL migration script was run.`);
     }
-Line 1643: 
 
     // Success - redirect back to the app settings
     // Since this is a browser redirect, we send an HTML response that closes or redirects

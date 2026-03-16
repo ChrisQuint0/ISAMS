@@ -8,6 +8,16 @@ import { useAuth } from "@/features/auth/hooks/useAuth";
 import { settingsService } from "../services/settingsService";
 import { Loader2, Upload, Trash2, Image as ImageIcon, School, Save, Key, CheckCircle2, AlertCircle } from "lucide-react";
 import ccsLogoDefault from "@/assets/images/ccs_logo.png";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export function SystemSettings() {
   const { user, rbac } = useAuth();
@@ -23,6 +33,29 @@ export function SystemSettings() {
 
   // Google Auth State
   const [googleStatus, setGoogleStatus] = useState({ authenticated: false, isLoading: true });
+
+  // Dialog States
+  const [alertDialog, setAlertDialog] = useState({ 
+    open: false, 
+    title: "", 
+    description: "", 
+    variant: "default" 
+  });
+  
+  const [confirmDialog, setConfirmDialog] = useState({
+    open: false,
+    title: "",
+    description: "",
+    onConfirm: null
+  });
+
+  const showAlert = (title, description, variant = "default") => {
+    setAlertDialog({ open: true, title, description, variant });
+  };
+
+  const showConfirm = (title, description, onConfirm) => {
+    setConfirmDialog({ open: true, title, description, onConfirm });
+  };
 
   // Sync state when settings load
   useEffect(() => {
@@ -63,7 +96,7 @@ export function SystemSettings() {
         }, 1000);
       }
     } catch (error) {
-      alert("Failed to initiate Google authentication.");
+      showAlert("Authentication Error", "Failed to initiate Google authentication. Please try again.", "destructive");
     }
   };
 
@@ -86,23 +119,27 @@ export function SystemSettings() {
       await uploadLogo(selectedFile);
       setSelectedFile(null);
       setPreviewUrl(null);
-      alert("Logo updated successfully!");
+      showAlert("Success", "Logo updated successfully!");
     } catch (error) {
-      alert("Failed to upload logo. Please try again.");
+      showAlert("Upload Failed", "Failed to upload logo. Please try again.", "destructive");
     } finally {
       setIsUploading(false);
     }
   };
 
   const handleDelete = async () => {
-    if (window.confirm("Are you sure you want to delete the custom logo and revert to default?")) {
-      try {
-        await deleteLogo();
-        alert("Logo reverted to default.");
-      } catch (error) {
-        alert("Failed to delete logo.");
+    showConfirm(
+      "Revert to Default?",
+      "Are you sure you want to delete the custom logo and revert to the default CCS logo?",
+      async () => {
+        try {
+          await deleteLogo();
+          showAlert("Success", "Logo reverted to default.");
+        } catch (error) {
+          showAlert("Error", "Failed to delete logo.", "destructive");
+        }
       }
-    }
+    );
   };
 
   const handleSaveName = async () => {
@@ -110,9 +147,9 @@ export function SystemSettings() {
     setIsSavingName(true);
     try {
       await updateCollegeName(collegeName);
-      alert("College name updated successfully!");
+      showAlert("Success", "College name updated successfully!");
     } catch (error) {
-      alert("Failed to update college name.");
+      showAlert("Error", "Failed to update college name.", "destructive");
     } finally {
       setIsSavingName(false);
     }
@@ -317,6 +354,46 @@ export function SystemSettings() {
           </div>
         </CardContent>
       </Card>
+      {/* Alert Dialog */}
+      <AlertDialog open={alertDialog.open} onOpenChange={(open) => setAlertDialog(prev => ({ ...prev, open }))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className={alertDialog.variant === "destructive" ? "text-destructive" : ""}>
+              {alertDialog.title}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {alertDialog.description}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setAlertDialog(prev => ({ ...prev, open: false }))}>
+              Got it
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={confirmDialog.open} onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, open }))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmDialog.title}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmDialog.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (confirmDialog.onConfirm) confirmDialog.onConfirm();
+                setConfirmDialog(prev => ({ ...prev, open: false }));
+              }}
+              className="bg-primary-500 hover:bg-primary-600"
+            >
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
