@@ -903,8 +903,7 @@ export default function AdminSettingsPage() {
                                                             <SelectValue />
                                                         </SelectTrigger>
                                                         <SelectContent className="bg-white border-neutral-200 text-neutral-900">
-                                                            <SelectItem value="3days">3 days before deadline</SelectItem>
-                                                            <SelectItem value="7days">7 days before deadline</SelectItem>
+                                                            <SelectItem value="enabled">Enabled</SelectItem>
                                                             <SelectItem value="disabled">Disabled</SelectItem>
                                                         </SelectContent>
                                                     </Select>
