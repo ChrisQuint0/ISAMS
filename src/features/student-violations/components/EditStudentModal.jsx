@@ -141,17 +141,17 @@ export function EditStudentModal({ isOpen, onClose, onSuccess, studentData }) {
 
                 <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4 mt-4">
                     <div className="space-y-2">
-                        <Label htmlFor="first_name" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">First Name *</Label>
+                        <Label htmlFor="first_name" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">First Name <span className="text-destructive-semantic">*</span></Label>
                         <Input id="first_name" name="first_name" value={formData.first_name} onChange={handleInputChange} className="bg-white border-neutral-200 focus-visible:ring-primary-500 h-9 text-sm text-neutral-900" />
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="last_name" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Last Name *</Label>
+                        <Label htmlFor="last_name" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Last Name <span className="text-destructive-semantic">*</span></Label>
                         <Input id="last_name" name="last_name" value={formData.last_name} onChange={handleInputChange} className="bg-white border-neutral-200 focus-visible:ring-primary-500 h-9 text-sm text-neutral-900" />
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="course_year_section" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Course & Section *</Label>
+                        <Label htmlFor="course_year_section" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Course & Section <span className="text-destructive-semantic">*</span></Label>
                         <Input id="course_year_section" name="course_year_section" value={formData.course_year_section} onChange={handleInputChange} className="bg-white border-neutral-200 focus-visible:ring-primary-500 h-9 text-sm text-neutral-900" />
                     </div>
 

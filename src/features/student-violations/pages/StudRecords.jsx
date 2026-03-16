@@ -5,7 +5,7 @@ import { ModuleRegistry, AllCommunityModule, themeQuartz } from "ag-grid-communi
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
-import { Plus, Search, UserCheck, Users, GraduationCap, Edit2, UserX, Clock, Ban } from "lucide-react";
+import { Plus, Search, UserCheck, Users, GraduationCap, Edit2, UserX, Clock, Ban, Loader2, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,6 +13,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { AddStudentModal } from "../components/AddStudentModal";
 import { EditStudentModal } from "../components/EditStudentModal";
 
+// Custom theme using AG Grid v33+ Theming API with Quartz theme for a clean institutional look
 // Custom theme using AG Grid v33+ Theming API with Quartz theme for a clean institutional look
 const customTheme = themeQuartz.withParams({
   accentColor: 'var(--primary-600)',
@@ -29,6 +30,39 @@ const customTheme = themeQuartz.withParams({
   headerFontWeight: '700',
   fontSize: '13px',
 });
+
+// --- Reusable Stat Card (Extra Compact) ---
+const StatCard = ({ title, value, icon: Icon, description, trend, isUp, isLoading, borderTopClass = "bg-primary-500", iconClass = "text-primary-600 bg-primary-50 border-primary-100" }) => (
+  <Card className="bg-white border-neutral-200 shadow-sm rounded-lg overflow-hidden relative group transition-all hover:shadow-md hover:-translate-y-0.5 h-full flex flex-col">
+    <div className={`absolute top-0 left-0 w-full h-1 ${borderTopClass} transition-opacity opacity-70 group-hover:opacity-100`}></div>
+    <CardContent className="p-3 flex-1 flex flex-col justify-between relative z-10">
+      <div>
+        <div className="flex justify-between items-start mb-2">
+          <div className={`p-1.5 rounded-md border ${iconClass} transition-transform group-hover:scale-105 duration-300`}>
+            <Icon size={16} strokeWidth={2.5} />
+          </div>
+          {trend !== undefined && !isLoading && (
+            <div className={`px-2 py-0.5 rounded-full flex items-center text-[10px] font-bold ${isUp ? 'bg-success/10 text-success' : 'bg-destructive-semantic/10 text-destructive-semantic'}`}>
+              {isUp ? <ArrowUpRight size={12} className="mr-0.5" /> : <ArrowDownRight size={12} className="mr-0.5" />}
+              {trend}
+            </div>
+          )}
+        </div>
+        <div>
+          <h3 className="text-2xl font-black text-neutral-900 tracking-tighter leading-none mb-1">
+            {isLoading ? <Loader2 className="h-5 w-5 animate-spin text-neutral-300" /> : value}
+          </h3>
+          <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">{title}</p>
+        </div>
+      </div>
+      {description && (
+        <div className="mt-2 pt-2 border-t border-neutral-100/60 hidden">
+          <p className="text-[10px] text-neutral-400 font-medium">{description}</p>
+        </div>
+      )}
+    </CardContent>
+  </Card>
+);
 
 const StudRecords = () => {
   const [gridApi, setGridApi] = useState(null);
@@ -127,17 +161,25 @@ const StudRecords = () => {
       headerName: "Guardian",
       field: "guardian",
       flex: 1.5,
-      cellStyle: { color: 'var(--neutral-500)' },
       filter: true,
-      valueFormatter: (params) => params.value ? params.value : 'Not provided'
+      cellRenderer: (params) => {
+        if (!params.value) {
+          return <span className="text-neutral-400 italic">Not provided</span>;
+        }
+        return <span className="text-neutral-500">{params.value}</span>;
+      }
     },
     {
       headerName: "Guardian Contact",
       field: "guardianContact",
       flex: 1.5,
-      cellStyle: { color: 'var(--neutral-500)' },
       filter: true,
-      valueFormatter: (params) => params.value ? params.value : 'Not provided'
+      cellRenderer: (params) => {
+        if (!params.value) {
+          return <span className="text-neutral-400 italic">Not provided</span>;
+        }
+        return <span className="text-neutral-500">{params.value}</span>;
+      }
     },
     {
       headerName: "Status",
@@ -182,26 +224,27 @@ const StudRecords = () => {
     {
       headerName: "Actions",
       field: "actions",
-      flex: 0.8,
+      width: 100,
+      pinned: 'right',
+      headerClass: 'text-center',
       sortable: false,
       filter: false,
-      cellRenderer: (params) => {
-        return (
-          <div className="flex items-center h-full">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0 text-primary-600 hover:text-primary-700 hover:bg-primary-50"
-              onClick={() => {
-                setSelectedStudent(params.data);
-                setIsEditModalOpen(true);
-              }}
-            >
-              <Edit2 className="h-4 w-4" />
-            </Button>
-          </div>
-        );
-      }
+      cellRenderer: (params) => (
+        <div className="flex items-center justify-center h-full gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-neutral-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+            onClick={() => {
+              setSelectedStudent(params.data);
+              setIsEditModalOpen(true);
+            }}
+            title="Edit"
+          >
+            <Edit2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )
     }
   ], []);
 
@@ -221,7 +264,7 @@ const StudRecords = () => {
   const expelledStudents = students.filter(s => s.status === 'Expelled').length;
 
   return (
-    <div className="space-y-6 flex flex-col h-full animate-in fade-in duration-500 text-left bg-neutral-50">
+    <div className="space-y-6 flex flex-col h-full animate-in fade-in duration-500 text-left bg-neutral-50 px-2">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Student database</h1>
@@ -236,34 +279,92 @@ const StudRecords = () => {
       </div>
 
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <QuickStat title="Total students" value={totalStudents.toLocaleString()} icon={Users} color="text-primary-600" />
-        <QuickStat title="Active enrollment" value={activeStudents.toLocaleString()} icon={UserCheck} color="text-success" />
-        <QuickStat title="Graduated" value={graduatedStudents.toLocaleString()} icon={GraduationCap} color="text-info" />
-        <QuickStat title="On Leave (LOA)" value={loaStudents.toLocaleString()} icon={Clock} color="text-warning" />
-        <QuickStat title="Dropped" value={droppedStudents.toLocaleString()} icon={UserX} color="text-destructive-semantic" />
-        <QuickStat title="Expelled" value={expelledStudents.toLocaleString()} icon={Ban} color="text-destructive-semantic" />
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+        <StatCard 
+            title="Total Students" 
+            value={totalStudents.toLocaleString()} 
+            icon={Users} 
+            isLoading={isLoading} 
+            borderTopClass="bg-primary-500" 
+            iconClass="text-primary-600 bg-primary-50 border-primary-100" 
+        />
+        <StatCard 
+            title="Active" 
+            value={activeStudents.toLocaleString()} 
+            icon={UserCheck} 
+            isLoading={isLoading} 
+            borderTopClass="bg-success" 
+            iconClass="text-success bg-success/10 border-success/20" 
+        />
+        <StatCard 
+            title="Graduated" 
+            value={graduatedStudents.toLocaleString()} 
+            icon={GraduationCap} 
+            isLoading={isLoading} 
+            borderTopClass="bg-info" 
+            iconClass="text-info bg-info/10 border-info/20" 
+        />
+        <StatCard 
+            title="LOA" 
+            value={loaStudents.toLocaleString()} 
+            icon={Clock} 
+            isLoading={isLoading} 
+            borderTopClass="bg-warning" 
+            iconClass="text-warning bg-warning/10 border-warning/20" 
+        />
+        <StatCard 
+            title="Dropped" 
+            value={droppedStudents.toLocaleString()} 
+            icon={UserX} 
+            isLoading={isLoading} 
+            borderTopClass="bg-destructive-semantic" 
+            iconClass="text-destructive-semantic bg-destructive-semantic/10 border-destructive-semantic/20" 
+        />
+        <StatCard 
+            title="Expelled" 
+            value={expelledStudents.toLocaleString()} 
+            icon={Ban} 
+            isLoading={isLoading} 
+            borderTopClass="bg-destructive-semantic" 
+            iconClass="text-destructive-semantic bg-destructive-semantic/10 border-destructive-semantic/20" 
+        />
       </div>
 
-      <Card className="bg-white border-neutral-200 shadow-sm flex flex-col rounded-lg overflow-hidden flex-1">
-        <div className="px-4 py-4 flex items-center justify-between border-b border-neutral-100 bg-neutral-50/50">
-          <h3 className="text-base font-bold text-neutral-900 uppercase tracking-tight">Enrollment registry</h3>
-          <div className="flex items-center">
-            <div className="relative w-48 md:w-64 group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-primary-600 transition-colors" />
-              <Input
-                placeholder="Quick search..."
-                className="pl-10 h-8 bg-white border-neutral-200 text-neutral-900 placeholder:text-neutral-400 focus-visible:ring-primary-500 focus-visible:border-primary-500 transition-all font-medium text-xs rounded"
-                value={searchValue}
-                onChange={(e) => setSearchValue(e.target.value)}
-              />
-            </div>
+      <Card className="bg-white border-neutral-200 shadow-sm flex flex-col rounded-lg overflow-hidden flex-1 p-0 z-10">
+        <div className="px-5 pt-5 pb-2 flex items-center justify-between bg-white relative z-20">
+          <div className="flex items-center gap-2">
+            <Users className="h-[15px] w-[15px] text-neutral-600" />
+            <h3 className="text-[15px] font-bold text-neutral-900 uppercase tracking-wider leading-none">Enrollment Registry</h3>
+          </div>
+          <div className="relative w-56">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-400" />
+            <Input
+              placeholder="Search students..."
+              className="pl-8 h-7 bg-white border-neutral-200 text-neutral-900 placeholder:text-neutral-400 focus-visible:ring-primary-500 focus-visible:border-primary-500 transition-all font-medium text-xs shadow-sm rounded-md"
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+            />
           </div>
         </div>
 
-        <div className="w-full flex-1" style={{ minHeight: "500px" }}>
+        <div className="w-full flex-1 hide-ag-scrollbars [&_.ag-root-wrapper]:border-none [&_.ag-header]:border-t-0 -mt-[15px]" style={{ minHeight: "500px" }}>
+          <style>{`
+            .hide-ag-scrollbars .ag-body-viewport::-webkit-scrollbar,
+            .hide-ag-scrollbars .ag-body-vertical-scroll-viewport::-webkit-scrollbar,
+            .hide-ag-scrollbars .ag-body-horizontal-scroll-viewport::-webkit-scrollbar {
+              display: none !important;
+              width: 0 !important;
+              height: 0 !important;
+            }
+            .hide-ag-scrollbars .ag-body-viewport,
+            .hide-ag-scrollbars .ag-body-vertical-scroll-viewport,
+            .hide-ag-scrollbars .ag-body-horizontal-scroll-viewport {
+              -ms-overflow-style: none !important;
+              scrollbar-width: none !important;
+            }
+          `}</style>
           {isLoading ? (
-            <div className="flex items-center justify-center h-full text-neutral-500 font-medium">
+            <div className="flex items-center justify-center h-full text-neutral-500 font-medium pt-8">
               Loading student records...
             </div>
           ) : (
@@ -273,14 +374,13 @@ const StudRecords = () => {
               columnDefs={columnDefs}
               defaultColDef={defaultColDef}
               onGridReady={(params) => setGridApi(params.api)}
-              tooltipShowDelay={0}
-              animateRows={true}
-              rowHeight={42}
-              headerHeight={24}
-              pagination={true}
-              paginationPageSize={10}
-              suppressCellFocus={true}
               quickFilterText={searchValue}
+              animateRows={true}
+              rowHeight={48}
+              headerHeight={44}
+              pagination={true}
+              paginationPageSize={15}
+              suppressCellFocus={true}
             />
           )}
         </div>
@@ -301,21 +401,5 @@ const StudRecords = () => {
     </div>
   );
 };
-
-function QuickStat({ title, value, icon: Icon, color }) {
-  return (
-    <Card className="bg-white border-neutral-200 shadow-sm transition-all hover:shadow-md h-full">
-      <CardContent className="p-4 flex flex-col items-start justify-center text-left gap-1">
-        <div className="flex justify-between items-start w-full mb-1">
-          <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">{title}</p>
-          <div className={`p-1.5 rounded-lg bg-neutral-50 border border-neutral-100`}>
-            <Icon className={`h-4 w-4 ${color}`} />
-          </div>
-        </div>
-        <p className="text-2xl font-bold text-neutral-900 mt-0">{value}</p>
-      </CardContent>
-    </Card>
-  );
-}
 
 export default StudRecords;
