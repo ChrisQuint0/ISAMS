@@ -81,20 +81,24 @@ function buildEmailHtml(template, { facultyName, subject, message, pendingCount,
   const wrap = (body) => `<div style="${baseStyle}"><div style="${cardStyle}">${headerStr}${body}${footerStr}</div></div>`;
 
   if (template === "deadline_reminder") {
+    // Note: filenames in the context of reminders will now include Course - Section context if provided
     return {
-      subject: subject || "[ISAMS] Submission Reminder — Action Required",
+      subject: subject || "[ISAMS] Action Required — Your Pending Faculty Requirements",
       html: wrap(`
         <p style="font-size: 15px; color: #1e293b; margin: 0 0 12px;">Dear <strong>${facultyName}</strong>,</p>
-        ${message ? `
-        <div style="background: #f0fdf4; border-left: 4px solid #009845; padding: 14px 16px; border-radius: 4px; margin: 0 0 20px;">
-          <p style="margin: 0; font-size: 14px; color: #166534; line-height: 1.7;">${message}</p>
-        </div>` : `
-        <p style="font-size: 14px; color: #475569; line-height: 1.7;">This is a reminder that you have pending faculty requirement submissions that need your attention.</p>`}
+        <p style="font-size: 14px; color: #475569; line-height: 1.7;">This is a reminder that you have pending faculty requirement submissions that need your attention.</p>
+        
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;">
+          ${courseDetails ? `<p style="margin: 0 0 8px; font-size: 13px; color: #475569;"><strong style="color: #1e293b;">Course:</strong> ${courseDetails}</p>` : ""}
+          ${docType ? `<p style="margin: 0 0 8px; font-size: 13px; color: #475569;"><strong style="color: #1e293b;">Requirement:</strong> ${docType}</p>` : ""}
+        </div>
+
         ${pendingCount ? `
         <div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 16px; margin: 20px 0;">
-          <p style="margin: 0; font-size: 13px; font-weight: 700; color: #c2410c;">⚠ ${pendingCount} Pending Submission${parseInt(pendingCount) !== 1 ? "s" : ""}</p>
+          <p style="margin: 0; font-size: 13px; font-weight: 700; color: #c2410c;">⚠ You have ${pendingCount} pending submission${parseInt(pendingCount) !== 1 ? "s" : ""} in ISAMS.</p>
           ${lateCount && parseInt(lateCount) > 0 ? `<p style="margin: 6px 0 0; font-size: 12px; color: #dc2626;">🔴 ${lateCount} item${parseInt(lateCount) !== 1 ? "s" : ""} marked as Late</p>` : ""}
         </div>` : ""}
+        
         <p style="font-size: 14px; color: #475569; line-height: 1.7;">Please log in to the <strong>ISAMS portal</strong> to complete your submissions before the deadline.</p>
       `)
     };

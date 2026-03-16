@@ -179,7 +179,7 @@ export default function DashboardPage() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
-                        onClick={() => navigate("/settings")}
+                        onClick={() => navigate("/system-settings")}
                         className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-150 hover:scale-105 hover:bg-gray-100 border border-black/10"
                       >
                         <Settings className="h-3.5 w-3.5 text-gray-500" />

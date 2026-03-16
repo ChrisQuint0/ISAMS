@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
-import { getFolderLink, getFolderId, uploadToGDrive, ensureFolderStructure, deleteGDriveFile } from './gdriveSettings';
+import { getFolderLink, getFolderId, uploadToGDrive, ensureFolderStructure, deleteGDriveFile, getGDriveFileMetadata } from './gdriveSettings';
 
 export const facultyMonitorService = {
   /**
@@ -266,7 +266,7 @@ export const facultyMonitorService = {
    */
   requestRevision: async ({ submissionId, submissionIds, gdriveFileIds, shouldDelete, facultyId, reason, courseDetails, docType, filenames, manualUploads = [], courseId, docTypeId }) => {
     // Standardize IDs into an array
-    const ids = submissionIds || (submissionId ? [submissionId] : []);
+    const ids = (submissionIds || (submissionId ? [submissionId] : [])).filter(id => id && /^\d+$/.test(String(id)));
     const gIds = gdriveFileIds || [];
 
     // 0. Consolidate target revision records
@@ -291,16 +291,21 @@ export const facultyMonitorService = {
 
       for (const m of manualUploads) {
         if (existingGdriveIds.has(m.gdrive_file_id)) {
-          // This specific file is already tracked, just update its status via the 'ids' array later
           const matchedSub = existingRecords.find(r => r.gdrive_file_id === m.gdrive_file_id);
           if (matchedSub) finalIdsToUpdate.push(matchedSub.submission_id);
         } else {
-          // No record for this specific GDrive ID? Create one.
-          // Note: In ISAMS, a requirement (course+docType) can have multiple submissions (files).
+          // Robust ID Resolution
+          const targetDocTypeId = m.doc_type_id || docTypeId;
+          
+          if (!targetDocTypeId) {
+            console.error("[Service] Skipping manual upload insertion: Missing docTypeId", m);
+            continue;
+          }
+
           toInsert.push({
             faculty_id: facultyId,
             course_id: courseId,
-            doc_type_id: docTypeId,
+            doc_type_id: targetDocTypeId,
             gdrive_file_id: m.gdrive_file_id,
             original_filename: m.original_filename,
             standardized_filename: m.standardized_filename || m.original_filename,
@@ -321,10 +326,8 @@ export const facultyMonitorService = {
       }
     }
 
-    // 1. Move files to GDrive Trash (Soft Delete) if requested
-    if (shouldDelete && gIds.length > 0) {
-      await Promise.all(gIds.map(gid => deleteGDriveFile(gid)));
-    }
+    // 1. Removed: GDrive File Deletion logic as per USER request
+    // Files remain in GDrive and we monitor for modifiedTime updates instead.
 
     // 2. Update all identified records to REVISION_REQUESTED
     const uniqueIds = [...new Set(finalIdsToUpdate)];
@@ -426,6 +429,76 @@ export const facultyMonitorService = {
     const ignored = results.filter(r => r.status === 'fulfilled' && r.value.ignored).length;
     
     return { succeeded, failed, ignored, total: facultyList.length };
+  },
+
+  /**
+   * Sync a set of submissions with GDrive to detect resubmissions
+   * If a file's modifiedTime is significantly newer than submitted_at,
+   * and the status is REVISION_REQUESTED, we mark it as RESUBMITTED.
+   */
+  syncSubmissionsWithGDrive: async (submissionIds) => {
+    if (!submissionIds || submissionIds.length === 0) return;
+
+    try {
+      // 1. Get current submission records
+      const { data: dbRecords, error: dbError } = await supabase
+        .from('submissions_fs')
+        .select('submission_id, gdrive_file_id, submitted_at, submission_status')
+        .in('submission_id', submissionIds);
+
+      if (dbError) throw dbError;
+      if (!dbRecords || dbRecords.length === 0) return;
+
+      const updates = [];
+
+      // 2. Poll GDrive for each file
+      for (const record of dbRecords) {
+        if (!record.gdrive_file_id) continue;
+
+        try {
+          const metadata = await getGDriveFileMetadata(record.gdrive_file_id);
+          
+          if (metadata && metadata.modifiedTime) {
+            const modDate = new Date(metadata.modifiedTime);
+            const subDate = new Date(record.submitted_at);
+
+            // If modified at least 10 seconds AFTER submitted_at
+            // and currently in REVISION_REQUESTED status
+            if (modDate > new Date(subDate.getTime() + 10000)) {
+              if (record.submission_status === 'REVISION_REQUESTED') {
+                updates.push({
+                  submission_id: record.submission_id,
+                  submission_status: 'RESUBMITTED',
+                  updated_at: new Date().toISOString()
+                });
+              }
+            }
+          }
+        } catch (err) {
+          console.warn(`[Sync] Failed to fetch metadata for ${record.gdrive_file_id}:`, err.message);
+        }
+      }
+
+      // 3. Apply updates to DB
+      if (updates.length > 0) {
+        await Promise.all(updates.map(u => 
+          supabase
+            .from('submissions_fs')
+            .update({ 
+               submission_status: u.submission_status,
+               approval_remarks: 'Automatically detected resubmission via GDrive file update.'
+            })
+            .eq('submission_id', u.submission_id)
+        ));
+        
+        return updates.length;
+      }
+
+      return 0;
+    } catch (error) {
+      console.error('[Sync] Sync failed:', error);
+      return 0;
+    }
   }
 };
 

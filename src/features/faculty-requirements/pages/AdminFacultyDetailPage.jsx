@@ -58,7 +58,7 @@ export default function AdminFacultyDetailPage() {
     const [isUploading, setIsUploading] = useState(false);
     const [forceCourseId, setForceCourseId] = useState("");
     const [forceDocTypeId, setForceDocTypeId] = useState("");
-    const [forceFile, setForceFile] = useState(null);
+    const [forceFiles, setForceFiles] = useState([]);
     const [forceRequiredDocs, setForceRequiredDocs] = useState([]);
 
     // GDrive Edit State
@@ -244,46 +244,72 @@ export default function AdminFacultyDetailPage() {
     };
 
     const handleForceSubmission = async () => {
-        if (!forceCourseId || !forceDocTypeId || !forceFile) {
-            addToast({ title: "Missing Fields", description: "Please select a course, document type, and file.", variant: "warning" });
+        if (!forceCourseId || !forceDocTypeId || forceFiles.length === 0) {
+            addToast({ title: "Missing Fields", description: "Please select a course, document type, and at least one file.", variant: "warning" });
             return;
         }
 
-        // --- NEW: File Validation Logic (Requested by Admin) ---
-        const docRules = forceRequiredDocs.find(d => d.doc_type_id.toString() === forceDocTypeId.toString());
-        if (docRules) {
-            const ext = '.' + forceFile.name.split('.').pop().toLowerCase();
-            const allowedExts = docRules.allowed_extensions?.map(e => e.toLowerCase().trim()) || ['.pdf', '.docx', '.xlsx', '.png', '.jpg', '.jpeg'];
-
-            if (!allowedExts.includes(ext)) {
-                addToast({ title: "Invalid File Type", description: `Supported formats: ${allowedExts.join(', ')}`, variant: "destructive" });
-                return;
-            }
-        }
-
         setIsUploading(true);
-        try {
-            const result = await facultyMonitorService.adminUploadSubmission({
-                file: forceFile,
-                facultyId: id,
-                courseId: forceCourseId,
-                docTypeId: forceDocTypeId
-            });
+        let successCount = 0;
+        let failCount = 0;
+        let lateCount = 0;
 
-            // Handle Lateness feedback from result
-            if (result && result.is_late) {
-                addToast({ title: "Success (Late)", description: "Document force-added but marked as LATE.", variant: "success" });
-            } else {
-                addToast({ title: "Success", description: "Document force-added. Status: SUBMITTED", variant: "success" });
+        try {
+            const docRules = forceRequiredDocs.find(d => d.doc_type_id.toString() === forceDocTypeId.toString());
+            const allowedExts = docRules?.allowed_extensions?.map(e => e.toLowerCase().trim()) || ['.pdf', '.docx', '.xlsx', '.png', '.jpg', '.jpeg'];
+
+            for (let i = 0; i < forceFiles.length; i++) {
+                const file = forceFiles[i];
+                const ext = '.' + file.name.split('.').pop().toLowerCase();
+
+                if (!allowedExts.includes(ext)) {
+                    console.warn(`Skipping file ${file.name}: Invalid extension.`);
+                    failCount++;
+                    continue;
+                }
+
+                try {
+                    const result = await facultyMonitorService.adminUploadSubmission({
+                        file,
+                        facultyId: id,
+                        courseId: forceCourseId,
+                        docTypeId: forceDocTypeId
+                    });
+
+                    successCount++;
+                    if (result && result.is_late) lateCount++;
+                } catch (err) {
+                    console.error(`Failed to upload ${file.name}:`, err);
+                    failCount++;
+                }
             }
 
-            setForceFile(null);
-            setForceDocTypeId("");
-            setForceCourseId("");
-            loadData();
+            if (successCount > 0) {
+                const lateMsg = lateCount > 0 ? ` (${lateCount} marked as late)` : "";
+                addToast({ 
+                    title: "Upload Complete", 
+                    description: `Successfully uploaded ${successCount} of ${forceFiles.length} file(s)${lateMsg}.`,
+                    variant: "success" 
+                });
+            }
+
+            if (failCount > 0) {
+                addToast({ 
+                    title: "Upload Issues", 
+                    description: `${failCount} file(s) failed or were invalid.`, 
+                    variant: "destructive" 
+                });
+            }
+
+            if (successCount > 0) {
+                setForceFiles([]);
+                setForceDocTypeId("");
+                setForceCourseId("");
+                loadData();
+            }
         } catch (err) {
             console.error(err);
-            addToast({ title: "Error", description: "Failed to force add submission.", variant: "destructive" });
+            addToast({ title: "Error", description: "An unexpected error occurred during batch upload.", variant: "destructive" });
         } finally {
             setIsUploading(false);
         }
@@ -296,7 +322,11 @@ export default function AdminFacultyDetailPage() {
         setSelectedViewerFile(null);
         setSelectedFiles([]);
         setViewerCourseContext(course);
-        setViewerDocContext(doc);
+        const matchedDocType = docTypes.find(dt => dt.type_name === doc.doc_type);
+        setViewerDocContext({ 
+            ...doc, 
+            doc_type_id: doc.doc_type_id || matchedDocType?.doc_type_id 
+        });
 
         try {
             const { data: dbSubmissions, error } = await supabase
@@ -348,33 +378,29 @@ export default function AdminFacultyDetailPage() {
                 console.error("GDrive fetch error in viewer:", gdErr);
             }
 
-            const mergedFiles = [];
-            const processedGDriveIds = new Set();
+            const uniqueFilesMap = new Map();
 
+            // 1. Process literal GDrive files (Current Reality)
             if (gdriveFiles && gdriveFiles.length > 0) {
                 for (const gFile of gdriveFiles) {
-                    processedGDriveIds.add(gFile.id);
-                    const dbMatch = dbSubmissions?.find(db =>
-                        db.gdrive_file_id === gFile.id ||
-                        (db.gdrive_link && db.gdrive_link.includes(gFile.id))
-                    );
-
+                    const dbMatch = dbSubmissions?.find(db => db.gdrive_file_id === gFile.id);
+                    
                     if (dbMatch) {
-                        mergedFiles.push({
+                        uniqueFilesMap.set(gFile.id, {
                             ...dbMatch,
                             gdrive_file_id: gFile.id,
-                            original_filename: dbMatch.original_filename || gFile.name,
+                            original_filename: gFile.name, // Literal GDrive name
                             standardized_filename: dbMatch.standardized_filename || gFile.name,
                             gdrive_web_view_link: gFile.webViewLink,
                             file_size_bytes: gFile.size || dbMatch.file_size_bytes,
-                            submitted_at: gFile.createdTime || dbMatch.submitted_at
+                            submitted_at: dbMatch.submitted_at || gFile.createdTime
                         });
                     } else {
-                        mergedFiles.push({
-                            submission_id: gFile.id,
+                        uniqueFilesMap.set(gFile.id, {
+                            submission_id: gFile.id, // Fallback ID
                             gdrive_file_id: gFile.id,
                             original_filename: gFile.name,
-                            standardized_filename: gFile.name, // For manual uploads, we use the name from GDrive
+                            standardized_filename: gFile.name,
                             submission_status: "MANUAL UPLOAD",
                             gdrive_web_view_link: gFile.webViewLink,
                             file_size_bytes: gFile.size || 0,
@@ -384,15 +410,14 @@ export default function AdminFacultyDetailPage() {
                 }
             }
 
-            const dbOnlyFiles = [];
-            const remainingDbSubs = dbSubmissions?.filter(db => !processedGDriveIds.has(db.gdrive_file_id)) || [];
-
+            // 2. Process DB entries that aren't first-level in this folder
+            const remainingDbSubs = dbSubmissions?.filter(db => !uniqueFilesMap.has(db.gdrive_file_id)) || [];
             for (const db of remainingDbSubs) {
                 try {
                     if (db.gdrive_file_id) {
                         const meta = await getGDriveFileMetadata(db.gdrive_file_id);
                         if (meta && !meta.trashed) {
-                            dbOnlyFiles.push({
+                            uniqueFilesMap.set(db.gdrive_file_id, {
                                 ...db,
                                 original_filename: meta.name,
                                 submission_status: "MISPLACED/MOVED",
@@ -403,10 +428,11 @@ export default function AdminFacultyDetailPage() {
                         }
                     }
                 } catch (e) {
-                    console.log(`[Viewer] File ${db.gdrive_file_id} not found anywhere:`, e.message);
+                    console.log(`[Viewer] File ${db.gdrive_file_id} not found:`, e.message);
                 }
 
-                dbOnlyFiles.push({
+                // If truly gone or failed meta, add as missing
+                uniqueFilesMap.set(db.gdrive_file_id, {
                     ...db,
                     submission_status: db.submission_status === 'REVISION_REQUESTED'
                         ? 'REVISION_REQUESTED'
@@ -414,8 +440,26 @@ export default function AdminFacultyDetailPage() {
                 });
             }
 
-            const sortedFinal = [...mergedFiles, ...dbOnlyFiles].sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
+            const sortedFinal = Array.from(uniqueFilesMap.values()).sort((a, b) => 
+                new Date(b.submitted_at) - new Date(a.submitted_at)
+            );
             setViewerFiles(sortedFinal);
+
+            // Trigger Background Sync for REVISION_REQUESTED files
+            const revisionReqIds = sortedFinal
+                .filter(f => f.submission_status === 'REVISION_REQUESTED' && f.submission_id && /^\d+$/.test(String(f.submission_id)))
+                .map(f => f.submission_id);
+            
+            if (revisionReqIds.length > 0) {
+                facultyMonitorService.syncSubmissionsWithGDrive(revisionReqIds).then(count => {
+                    if (count > 0) {
+                        // Refresh data if anything was updated to RESUBMITTED
+                        loadData();
+                        handleOpenDocViewer(doc, course); 
+                    }
+                });
+            }
+
             if (sortedFinal.length > 0) {
                 handleSelectViewerFile(sortedFinal[0]);
             }
@@ -511,7 +555,7 @@ export default function AdminFacultyDetailPage() {
                 filenames,
                 manualUploads,
                 courseId: viewerCourseContext?.course_id || revisionDoc?.course_id,
-                docTypeId: viewerDocContext?.doc_type_id || revisionDoc?.doc_type_id
+                docTypeId: viewerDocContext?.doc_type_id || revisionDoc?.doc_type_id || docTypes.find(dt => dt.type_name === (viewerDocContext?.doc_type || revisionDoc?.doc_type))?.doc_type_id
             });
 
             // Count is exactly the set of targets processed
@@ -922,15 +966,18 @@ export default function AdminFacultyDetailPage() {
                                     type="file"
                                     id="force-inline-upload"
                                     className="hidden"
+                                    multiple
                                     accept={forceDocTypeId ? (forceRequiredDocs.find(d => d.doc_type_id.toString() === forceDocTypeId.toString())?.allowed_extensions?.join(',') || '.pdf,.docx,.xlsx,.png,.jpg,.jpeg') : undefined}
-                                    onChange={(e) => setForceFile(e.target.files[0])}
+                                    onChange={(e) => setForceFiles(Array.from(e.target.files))}
                                 />
                                 <label
                                     htmlFor="force-inline-upload"
                                     className="flex items-center justify-between px-3 h-9 border border-neutral-200 bg-white shadow-sm rounded-md cursor-pointer hover:border-primary-300 transition-colors w-full"
                                 >
                                     <span className="text-xs font-medium text-neutral-600 truncate mr-2">
-                                        {forceFile ? forceFile.name : "Select file"}
+                                        {forceFiles.length > 0
+                                            ? (forceFiles.length === 1 ? forceFiles[0].name : `${forceFiles.length} files selected`)
+                                            : "Select file(s)"}
                                     </span>
                                     <UploadCloud className="h-4 w-4 text-neutral-400 shrink-0" />
                                 </label>
@@ -938,7 +985,7 @@ export default function AdminFacultyDetailPage() {
 
                             <Button
                                 onClick={handleForceSubmission}
-                                disabled={isUploading || !forceCourseId || !forceDocTypeId || !forceFile}
+                                disabled={isUploading || !forceCourseId || !forceDocTypeId || forceFiles.length === 0}
                                 className="h-9 px-5 bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs shadow-sm transition-all active:scale-95 shrink-0"
                             >
                                 {isUploading ? <RefreshCw className="h-4 w-4 mr-1.5 animate-spin" /> : <Plus className="h-4 w-4 mr-1.5" />}
@@ -998,11 +1045,12 @@ export default function AdminFacultyDetailPage() {
                                                                 </span>
                                                             </div>
                                                             <Badge className={`text-[8px] font-extrabold tracking-widest px-1.5 py-0 shadow-none border uppercase ${doc.is_submitted_late ? 'bg-warning/10 border-warning/20 text-warning' :
+                                                                doc.status === 'RESUBMITTED' ? 'bg-blue-100 border-blue-200 text-blue-700' :
                                                                 isDone ? 'bg-success/10 border-success/20 text-success' :
                                                                     doc.status === 'REVISION_REQUESTED' ? 'bg-warning/10 border-warning/20 text-warning' :
                                                                         'bg-neutral-100 border-neutral-200 text-neutral-500'
                                                                 }`}>
-                                                                {displayStatus}
+                                                                {doc.status === 'RESUBMITTED' ? 'ReSubmitted' : displayStatus}
                                                             </Badge>
                                                         </div>
                                                         <div className="flex items-center justify-between">
@@ -1110,7 +1158,8 @@ export default function AdminFacultyDetailPage() {
                                                                                 submission_id: file.submission_id,
                                                                                 gdrive_file_id: file.gdrive_file_id,
                                                                                 original_filename: file.original_filename,
-                                                                                standardized_filename: file.standardized_filename
+                                                                                standardized_filename: file.standardized_filename,
+                                                                                doc_type_id: file.doc_type_id || viewerDocContext?.doc_type_id
                                                                             }]);
                                                                         }
                                                                     }}
@@ -1247,23 +1296,7 @@ export default function AdminFacultyDetailPage() {
                                 </div>
                             </div>
 
-                            <div className="bg-amber-50 border border-warning/30 rounded-lg p-3 shadow-sm">
-                                <div className="flex items-start gap-3">
-                                    <div className="pt-0.5">
-                                        <Checkbox
-                                            checked={shouldTrash}
-                                            onCheckedChange={(checked) => setShouldTrash(!!checked)}
-                                            className="border-warning data-[state=checked]:bg-warning data-[state=checked]:border-warning h-4 w-4 rounded shadow-sm"
-                                        />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-bold text-amber-900">Move target files to Google Drive Trash?</p>
-                                        <p className="text-[10px] font-medium text-amber-800 leading-relaxed mt-0.5">
-                                            Recommended to prevent folder clutter. Files can be recovered from trash within 30 days.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
+                                 {/* File Deletion Option Removed as per USER request */}
 
                             <div className="space-y-1.5">
                                 <Label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest pl-0.5">Revision Reason <span className="text-destructive">*</span></Label>
