@@ -377,7 +377,7 @@ export default function AdminFacultyMonitorPage() {
             </Button>
             <Button
               size="sm"
-              className="bg-gold-400 text-neutral-900 hover:text-neutral-900 hover:bg-gold-600 shadow-sm active:scale-95 transition-all text-xs font-bold"
+              className="bg-gold-600 text-black hover:text-black hover:bg-[#E5A800] shadow-sm active:scale-95 transition-all text-xs font-bold"
               onClick={() => {
                 setBulkSubject('');
                 setBulkMessage('');
@@ -667,7 +667,7 @@ export default function AdminFacultyMonitorPage() {
                     ? <CheckCircle className="h-4 w-4 text-success shrink-0" />
                     : <AlertCircle className="h-4 w-4 text-warning shrink-0" />}
                   <p className="text-xs font-bold text-neutral-700">
-                    {bulkResult.succeeded} sent 
+                    {bulkResult.succeeded} sent
                     {bulkResult.ignored > 0 && ` · ${bulkResult.ignored} skipped`}
                     {bulkResult.failed > 0 && ` · ${bulkResult.failed} failed`}
                     {` · ${bulkResult.total} total`}

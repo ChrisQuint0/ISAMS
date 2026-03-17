@@ -227,7 +227,7 @@ export default function FacultyDashboardPage() {
               size="sm"
               variant="outline"
               onClick={() => navigate("/faculty-requirements/hub")}
-              className="h-9 px-4 bg-gold-400 text-neutral-900 hover:text-neutral-900 hover:bg-gold-600 font-bold shadow-sm active:scale-95 transition-all text-xs"
+              className="h-9 px-4 bg-gold-600 text-black hover:text-black hover:bg-[#E5A800] font-bold shadow-sm active:scale-95 transition-all text-xs"
             >
               <Download className="h-3.5 w-3.5 mr-1.5" />
               Download Templates
