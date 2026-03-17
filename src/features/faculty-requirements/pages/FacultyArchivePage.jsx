@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Fragment } from "react";
+import React, { useState, useEffect, useMemo, Fragment } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,15 +81,26 @@ export default function FacultyArchivePage() {
     (course.section && course.section.toLowerCase().includes(query.toLowerCase()))
   );
 
-  // Set default semester and year when options are loaded
+  // Default to the active semester/year when options load
   useEffect(() => {
-    if (options?.semesters?.length > 0 && !selectedSemester) {
-      setSelectedSemester(options.semesters[0]);
-    }
-    if (options?.academic_years?.length > 0 && !selectedYear) {
+    if (options?.currentAcademicYear && !selectedYear) {
+      setSelectedYear(options.currentAcademicYear);
+    } else if (options?.academic_years?.length > 0 && !selectedYear) {
       setSelectedYear(options.academic_years[0]);
     }
+    if (options?.currentSemester && !selectedSemester) {
+      setSelectedSemester(options.currentSemester);
+    } else if (options?.semesters?.length > 0 && !selectedSemester) {
+      setSelectedSemester(options.semesters[0]);
+    }
   }, [options]);
+
+  // Dynamically filter semesters based on selected academic year
+  const filteredSemesters = useMemo(() => {
+    if (!options?.semesterPeriods?.length) return options?.semesters || [];
+    if (!selectedYear) return [...new Set(options.semesterPeriods.map(p => p.semester))].filter(Boolean);
+    return options.semesterPeriods.filter(p => p.academic_year === selectedYear);
+  }, [options, selectedYear]);
 
   useEffect(() => {
     if (selectedSemester && selectedYear) {
@@ -187,29 +198,61 @@ export default function FacultyArchivePage() {
               </div>
 
               <div className="flex-1 space-y-1 w-full min-w-[130px]">
+                <Label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-0.5">Academic Year</Label>
+                <Select
+                  value={selectedYear}
+                  onValueChange={(val) => {
+                    setSelectedYear(val);
+                    setSelectedSemester(''); // reset semester when year changes
+                  }}
+                >
+                  <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus:ring-primary-500/20 font-medium">
+                    <SelectValue placeholder="Select Year" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-neutral-200">
+                    {options?.academic_years?.map(year => {
+                      const isActive = year === options?.currentAcademicYear;
+                      return (
+                        <SelectItem key={year} value={year} className="text-xs font-medium">
+                          <span className="flex items-center gap-2">
+                            {year}
+                            {isActive && (
+                              <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/20">
+                                Active
+                              </span>
+                            )}
+                          </span>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex-1 space-y-1 w-full min-w-[130px]">
                 <Label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-0.5">Semester</Label>
                 <Select value={selectedSemester} onValueChange={setSelectedSemester}>
                   <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus:ring-primary-500/20 font-medium">
                     <SelectValue placeholder="Select Semester" />
                   </SelectTrigger>
                   <SelectContent className="bg-white border-neutral-200">
-                    {options?.semesters?.map(sem => (
-                      <SelectItem key={sem} value={sem} className="text-xs font-medium">{sem}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex-1 space-y-1 w-full min-w-[130px]">
-                <Label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-0.5">Academic Year</Label>
-                <Select value={selectedYear} onValueChange={setSelectedYear}>
-                  <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus:ring-primary-500/20 font-medium">
-                    <SelectValue placeholder="Select Year" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border-neutral-200">
-                    {options?.academic_years?.map(year => (
-                      <SelectItem key={year} value={year} className="text-xs font-medium">{year}</SelectItem>
-                    ))}
+                    {filteredSemesters.map(item => {
+                      const sem = typeof item === 'string' ? item : item.semester;
+                      const status = typeof item === 'object' ? item.status : null;
+                      const isActive = status === 'Active';
+                      return (
+                        <SelectItem key={sem} value={sem} className="text-xs font-medium">
+                          <span className="flex items-center gap-2">
+                            {sem}
+                            {isActive && (
+                              <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/20">
+                                Active
+                              </span>
+                            )}
+                          </span>
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>

@@ -286,18 +286,18 @@ export default function AdminFacultyDetailPage() {
 
             if (successCount > 0) {
                 const lateMsg = lateCount > 0 ? ` (${lateCount} marked as late)` : "";
-                addToast({ 
-                    title: "Upload Complete", 
+                addToast({
+                    title: "Upload Complete",
                     description: `Successfully uploaded ${successCount} of ${forceFiles.length} file(s)${lateMsg}.`,
-                    variant: "success" 
+                    variant: "success"
                 });
             }
 
             if (failCount > 0) {
-                addToast({ 
-                    title: "Upload Issues", 
-                    description: `${failCount} file(s) failed or were invalid.`, 
-                    variant: "destructive" 
+                addToast({
+                    title: "Upload Issues",
+                    description: `${failCount} file(s) failed or were invalid.`,
+                    variant: "destructive"
                 });
             }
 
@@ -323,9 +323,9 @@ export default function AdminFacultyDetailPage() {
         setSelectedFiles([]);
         setViewerCourseContext(course);
         const matchedDocType = docTypes.find(dt => dt.type_name === doc.doc_type);
-        setViewerDocContext({ 
-            ...doc, 
-            doc_type_id: doc.doc_type_id || matchedDocType?.doc_type_id 
+        setViewerDocContext({
+            ...doc,
+            doc_type_id: doc.doc_type_id || matchedDocType?.doc_type_id
         });
 
         try {
@@ -384,7 +384,7 @@ export default function AdminFacultyDetailPage() {
             if (gdriveFiles && gdriveFiles.length > 0) {
                 for (const gFile of gdriveFiles) {
                     const dbMatch = dbSubmissions?.find(db => db.gdrive_file_id === gFile.id);
-                    
+
                     if (dbMatch) {
                         uniqueFilesMap.set(gFile.id, {
                             ...dbMatch,
@@ -440,7 +440,7 @@ export default function AdminFacultyDetailPage() {
                 });
             }
 
-            const sortedFinal = Array.from(uniqueFilesMap.values()).sort((a, b) => 
+            const sortedFinal = Array.from(uniqueFilesMap.values()).sort((a, b) =>
                 new Date(b.submitted_at) - new Date(a.submitted_at)
             );
             setViewerFiles(sortedFinal);
@@ -449,13 +449,13 @@ export default function AdminFacultyDetailPage() {
             const revisionReqIds = sortedFinal
                 .filter(f => f.submission_status === 'REVISION_REQUESTED' && f.submission_id && /^\d+$/.test(String(f.submission_id)))
                 .map(f => f.submission_id);
-            
+
             if (revisionReqIds.length > 0) {
                 facultyMonitorService.syncSubmissionsWithGDrive(revisionReqIds).then(count => {
                     if (count > 0) {
                         // Refresh data if anything was updated to RESUBMITTED
                         loadData();
-                        handleOpenDocViewer(doc, course); 
+                        handleOpenDocViewer(doc, course);
                     }
                 });
             }
@@ -485,10 +485,10 @@ export default function AdminFacultyDetailPage() {
     };
 
     const handleRequestRevision = (doc, courseCode) => {
-        setRevisionDoc({ 
-            ...doc, 
-            courseCode, 
-            filenames: [doc.original_filename], 
+        setRevisionDoc({
+            ...doc,
+            courseCode,
+            filenames: [doc.original_filename],
             standardized_filename: doc.standardized_filename,
             course_id: doc.course_id || viewerCourseContext?.course_id,
             doc_type_id: doc.doc_type_id || viewerDocContext?.doc_type_id
@@ -1004,84 +1004,95 @@ export default function AdminFacultyDetailPage() {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
-                        {courses.map(course => (
-                            <Card key={course.course_id} className="bg-white border-neutral-200 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow group">
-                                <CardHeader className="bg-neutral-50/50 border-b border-neutral-200 py-3.5 px-4 flex-row justify-between items-center space-y-0">
-                                    <div className="min-w-0 flex-1">
-                                        <div className="flex items-center gap-2">
-                                            <CardTitle className="text-sm font-bold text-neutral-900 group-hover:text-primary-600 transition-colors truncate">
-                                                {course.course_code} - {course.section}
-                                            </CardTitle>
-                                            {!course.master_is_active && <Badge variant="destructive" className="text-[8px] h-4 px-1 uppercase tracking-wider">Inactive</Badge>}
+                        {courses.map(course => {
+                            const pct = Math.round((course.submitted_count / course.total_required) * 100) || 0;
+                            return (
+                                <Card key={course.course_id} className="bg-white border-neutral-200 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow group">
+                                    {/* Updated Header to match Faculty Dashboard EXACTLY */}
+                                    <div className="flex justify-between items-start p-4 bg-neutral-50/50 border-b border-neutral-100">
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <h3 className="text-sm font-bold text-neutral-900 group-hover:text-primary-600 transition-colors truncate">
+                                                    {course.course_code}
+                                                    {course.section && <span className="text-neutral-400 font-medium ml-1">· {course.section}</span>}
+                                                </h3>
+                                                {!course.master_is_active && (
+                                                    <Badge variant="outline" className="bg-neutral-100 text-neutral-500 border-neutral-200 text-[8px] h-4 px-1 uppercase tracking-wider">
+                                                        Inactive
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                            <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest truncate mt-0.5">{course.course_name}</p>
                                         </div>
-                                        <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest truncate mt-0.5">{course.course_name}</p>
+                                        <div className={`px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded-full border shadow-sm shrink-0 ml-4 ${pct === 100 ? 'bg-success/10 text-success border-success/20' :
+                                            pct >= 50 ? 'bg-primary-50 text-primary-700 border-primary-200' :
+                                                'bg-warning/10 text-warning border-warning/20'
+                                            }`}>
+                                            {pct}% Complete
+                                        </div>
                                     </div>
-                                    <div className="text-center shrink-0 bg-white border border-neutral-200 px-2 py-1 rounded-md shadow-sm mt-2">
-                                        <p className="text-xs font-black text-neutral-900">Completion: {course.submitted_count} / {course.total_required}</p>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="p-0 flex-1 flex flex-col">
-                                    <ScrollArea className="flex-1 h-[240px]">
-                                        <div className="p-4 space-y-2">
-                                            {course.documents && course.documents.map((doc, idx) => {
-                                                const isDone = ['SUBMITTED', 'RESUBMITTED', 'APPROVED', 'VALIDATED', 'ARCHIVED'].includes(doc.status);
-                                                const displayStatus = doc.status === 'REVISION_REQUESTED' ? 'ONGOING' :
-                                                    doc.is_submitted_late ? 'LATE' :
-                                                        (doc.status === 'APPROVED' || doc.status === 'VALIDATED' || doc.status === 'ARCHIVED') ? 'SUBMITTED' :
-                                                            doc.status;
+                                    <CardContent className="p-0 flex-1 flex flex-col">
+                                        <ScrollArea className="flex-1 h-[240px]">
+                                            <div className="p-4 space-y-2">
+                                                {course.documents && course.documents.map((doc, idx) => {
+                                                    const isDone = ['SUBMITTED', 'RESUBMITTED', 'APPROVED', 'VALIDATED', 'ARCHIVED'].includes(doc.status);
+                                                    const displayStatus = doc.status === 'REVISION_REQUESTED' ? 'ONGOING' :
+                                                        doc.is_submitted_late ? 'LATE' :
+                                                            (doc.status === 'APPROVED' || doc.status === 'VALIDATED' || doc.status === 'ARCHIVED') ? 'SUBMITTED' :
+                                                                (doc.status || 'PENDING');
 
-                                                // Minimalist List Design
-                                                return (
-                                                    <div key={idx} className="flex flex-col p-2.5 rounded-lg border border-neutral-100 bg-neutral-50/50 hover:bg-white hover:border-neutral-200 transition-all group/item">
-                                                        <div className="flex items-center justify-between mb-1.5">
-                                                            <div className="flex items-center gap-2">
-                                                                {isDone ? (
-                                                                    <CheckSquare className="h-3.5 w-3.5 text-success" />
-                                                                ) : (
-                                                                    <Square className="h-3.5 w-3.5 text-neutral-300" />
-                                                                )}
-                                                                <span className={`text-xs font-bold truncate ${isDone ? 'text-neutral-900' : 'text-neutral-500'}`}>
-                                                                    {doc.doc_type}
+                                                    // Minimalist List Design
+                                                    return (
+                                                        <div key={idx} className="flex flex-col p-2.5 rounded-lg border border-neutral-100 bg-neutral-50/50 hover:bg-white hover:border-neutral-200 transition-all group/item">
+                                                            <div className="flex items-center justify-between mb-1.5">
+                                                                <div className="flex items-center gap-2">
+                                                                    {isDone ? (
+                                                                        <CheckSquare className="h-3.5 w-3.5 text-success" />
+                                                                    ) : (
+                                                                        <Square className="h-3.5 w-3.5 text-neutral-300" />
+                                                                    )}
+                                                                    <span className={`text-xs font-bold truncate ${isDone ? 'text-neutral-900' : 'text-neutral-500'}`}>
+                                                                        {doc.doc_type}
+                                                                    </span>
+                                                                </div>
+                                                                <Badge className={`text-[8px] font-extrabold tracking-widest px-1.5 py-0 shadow-none border uppercase ${doc.is_submitted_late ? 'bg-warning/10 border-warning/20 text-warning' :
+                                                                    isDone ? 'bg-success/10 border-success/20 text-success' :
+                                                                        doc.status === 'REVISION_REQUESTED' ? 'bg-warning/10 border-warning/20 text-warning' :
+                                                                            'bg-neutral-100 border-neutral-200 text-neutral-500'
+                                                                    }`}>
+                                                                    {doc.status === 'RESUBMITTED' ? 'SUBMITTED' : displayStatus}
+                                                                </Badge>
+                                                            </div>
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest">
+                                                                    {doc.submitted_at ? new Date(doc.submitted_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'NOT SUBMITTED'}
                                                                 </span>
-                                                            </div>
-                                                            <Badge className={`text-[8px] font-extrabold tracking-widest px-1.5 py-0 shadow-none border uppercase ${doc.is_submitted_late ? 'bg-warning/10 border-warning/20 text-warning' :
-                                                                doc.status === 'RESUBMITTED' ? 'bg-blue-100 border-blue-200 text-blue-700' :
-                                                                isDone ? 'bg-success/10 border-success/20 text-success' :
-                                                                    doc.status === 'REVISION_REQUESTED' ? 'bg-warning/10 border-warning/20 text-warning' :
-                                                                        'bg-neutral-100 border-neutral-200 text-neutral-500'
-                                                                }`}>
-                                                                {doc.status === 'RESUBMITTED' ? 'ReSubmitted' : displayStatus}
-                                                            </Badge>
-                                                        </div>
-                                                        <div className="flex items-center justify-between">
-                                                            <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest">
-                                                                {doc.submitted_at ? new Date(doc.submitted_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'NOT SUBMITTED'}
-                                                            </span>
 
-                                                            {/* Controls */}
-                                                            <div className="flex gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
-                                                                {(doc.submitted_at || doc.status === 'VALIDATED' || doc.status === 'APPROVED' || doc.status === 'ARCHIVED' || doc.status === 'REVISION_REQUESTED' || doc.status === 'SUBMITTED') && (
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        onClick={() => handleOpenDocViewer(doc, course)}
-                                                                        className="h-6 w-6 rounded-md text-neutral-400 hover:text-primary-600 hover:bg-primary-50"
-                                                                        title="View Files"
-                                                                    >
-                                                                        <Eye className="h-3.5 w-3.5" />
-                                                                    </Button>
-                                                                )}
+                                                                {/* Controls */}
+                                                                <div className="flex gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
+                                                                    {(doc.submitted_at || doc.status === 'VALIDATED' || doc.status === 'APPROVED' || doc.status === 'ARCHIVED' || doc.status === 'REVISION_REQUESTED' || doc.status === 'SUBMITTED') && (
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            onClick={() => handleOpenDocViewer(doc, course)}
+                                                                            className="h-6 w-6 rounded-md text-neutral-400 hover:text-primary-600 hover:bg-primary-50"
+                                                                            title="View Files"
+                                                                        >
+                                                                            <Eye className="h-3.5 w-3.5" />
+                                                                        </Button>
+                                                                    )}
 
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </ScrollArea>
-                                </CardContent>
-                            </Card>
-                        ))}
+                                                    );
+                                                })}
+                                            </div>
+                                        </ScrollArea>
+                                    </CardContent>
+                                </Card>
+                            );
+                        })}
                     </div>
                 </div>
 
@@ -1296,7 +1307,7 @@ export default function AdminFacultyDetailPage() {
                                 </div>
                             </div>
 
-                                 {/* File Deletion Option Removed as per USER request */}
+                            {/* File Deletion Option Removed as per USER request */}
 
                             <div className="space-y-1.5">
                                 <Label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest pl-0.5">Revision Reason <span className="text-destructive">*</span></Label>

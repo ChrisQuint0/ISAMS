@@ -27,23 +27,20 @@ export function useFacultyAnalytics() {
     const [error, setError] = useState(null);
 
     // Dynamic Options
-    const [options, setOptions] = useState({ semesters: [], academic_years: [] });
+    const [options, setOptions] = useState({ 
+        semesters: [], 
+        academic_years: [], 
+        semesterPeriods: [], 
+        currentSemester: null, 
+        currentAcademicYear: null 
+    });
 
     const loadOptions = useCallback(async () => {
         try {
-            // Fetch distinct semesters and years from courses_fs (or improved source later)
-            // Using a direct query or rpc if available, but for now direct query is fine as per admin hook pattern
-            const { data } = await supabase
-                .from('courses_fs')
-                .select('semester, academic_year');
-
-            if (data) {
-                const sems = [...new Set(data.map(c => c.semester))].filter(Boolean).sort();
-                const years = [...new Set(data.map(c => c.academic_year))].filter(Boolean).sort().reverse();
-                setOptions({ semesters: sems, academic_years: years });
-            }
+            const data = await FacultyAnalyticsService.getOptions();
+            setOptions(data);
         } catch (err) {
-            console.error('Failed to load filter options:', err);
+            console.error('Failed to load analytics filter options:', err);
         }
     }, []);
 
@@ -54,8 +51,8 @@ export function useFacultyAnalytics() {
             const [overviewData, timelineData, historyData, courseData, onTimeData] = await Promise.all([
                 FacultyAnalyticsService.getAnalyticsOverview(semester, academicYear),
                 FacultyAnalyticsService.getSubmissionTimeline(semester, academicYear),
-                FacultyAnalyticsService.getSubmissionHistory(),
-                FacultyAnalyticsService.getCourseAnalytics(),
+                FacultyAnalyticsService.getSubmissionHistory(semester, academicYear),
+                FacultyAnalyticsService.getCourseAnalytics(semester, academicYear),
                 FacultyAnalyticsService.getOnTimeStats(semester, academicYear)
             ]);
 

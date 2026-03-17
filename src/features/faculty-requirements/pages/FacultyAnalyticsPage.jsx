@@ -29,16 +29,32 @@ export default function FacultyAnalyticsPage() {
     error,
     options
   } = useFacultyAnalytics();
-  const { toast } = useToast();
+  const { addToast: toast } = useToast();
 
   // State for filters
   const [selectedSemester, setSelectedSemester] = useState("All Semesters");
   const [selectedYear, setSelectedYear] = useState("All Years");
 
-  // Sync internal filter state with hook
+  // Sync internal filter state with active term from options
   useEffect(() => {
-    setTimelineFilter(null, null);
-  }, []);
+    if (options?.currentAcademicYear && (selectedYear === "All Years")) {
+      setSelectedYear(options.currentAcademicYear);
+      setTimelineFilter(selectedSemester === "All Semesters" ? null : selectedSemester, options.currentAcademicYear);
+    }
+    if (options?.currentSemester && (selectedSemester === "All Semesters")) {
+      setSelectedSemester(options.currentSemester);
+      setTimelineFilter(options.currentSemester, selectedYear === "All Years" ? (options.currentAcademicYear || null) : selectedYear);
+    }
+  }, [options]);
+
+  // Dynamically filter semesters based on selected academic year
+  const filteredSemestersList = useMemo(() => {
+    if (selectedYear === "All Years") return options?.semesters || [];
+    if (!options?.semesterPeriods?.length) return options?.semesters || [];
+    return options.semesterPeriods
+      .filter(p => p.academic_year === selectedYear)
+      .map(p => ({ semester: p.semester, status: p.status }));
+  }, [options, selectedYear]);
 
   // Handle errors via toast
   useEffect(() => {
@@ -58,6 +74,8 @@ export default function FacultyAnalyticsPage() {
 
   const handleYearChange = (val) => {
     setSelectedYear(val);
+    // When year changes, if current semester isn't in the new year's list, we might want to reset it or keep "All"
+    // For now, mirroring Archive behavior where we keep visibility but filters handle the rest
     setTimelineFilter(selectedSemester === "All Semesters" ? null : selectedSemester, val === "All Years" ? null : val);
   };
 
@@ -214,21 +232,6 @@ export default function FacultyAnalyticsPage() {
         <CardContent className="p-4 bg-white">
           <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-xl flex flex-col md:flex-row flex-wrap gap-3 items-start md:items-end shadow-sm">
             <div className="flex-[1.5] space-y-1 w-full min-w-[200px]">
-              <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-0.5">Semester</label>
-              <Select value={selectedSemester} onValueChange={handleSemesterChange}>
-                <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus:ring-primary-500/20 font-medium">
-                  <SelectValue placeholder="All Semesters" />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-neutral-200 text-neutral-900">
-                  <SelectItem value="All Semesters" className="font-medium text-xs">All Semesters</SelectItem>
-                  {options?.semesters?.map(sem => (
-                    <SelectItem key={sem} value={sem} className="font-medium text-xs">{sem}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex-[1.5] space-y-1 w-full min-w-[200px]">
               <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-0.5">Academic Year</label>
               <Select value={selectedYear} onValueChange={handleYearChange}>
                 <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus:ring-primary-500/20 font-medium">
@@ -236,9 +239,50 @@ export default function FacultyAnalyticsPage() {
                 </SelectTrigger>
                 <SelectContent className="bg-white border-neutral-200 text-neutral-900">
                   <SelectItem value="All Years" className="font-medium text-xs">All Years</SelectItem>
-                  {options?.academic_years?.map(year => (
-                    <SelectItem key={year} value={year} className="font-medium text-xs">{year}</SelectItem>
-                  ))}
+                  {options?.academic_years?.map(year => {
+                    const isActive = year === options?.currentAcademicYear;
+                    return (
+                      <SelectItem key={year} value={year} className="font-medium text-xs">
+                        <span className="flex items-center gap-2">
+                          {year}
+                          {isActive && (
+                             <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/20">
+                               Active
+                             </span>
+                          )}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex-[1.5] space-y-1 w-full min-w-[200px]">
+              <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-0.5">Semester</label>
+              <Select value={selectedSemester} onValueChange={handleSemesterChange}>
+                <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus:ring-primary-500/20 font-medium">
+                  <SelectValue placeholder="All Semesters" />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-neutral-200 text-neutral-900">
+                  <SelectItem value="All Semesters" className="font-medium text-xs">All Semesters</SelectItem>
+                  {filteredSemestersList.map(item => {
+                    const sem = typeof item === 'string' ? item : item.semester;
+                    const status = typeof item === 'object' ? item.status : null;
+                    const isActive = status === 'Active' || (sem === options?.currentSemester && selectedYear === options?.currentAcademicYear);
+                    return (
+                      <SelectItem key={sem} value={sem} className="font-medium text-xs">
+                        <span className="flex items-center gap-2">
+                          {sem}
+                          {isActive && (
+                            <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/20">
+                              Active
+                            </span>
+                          )}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>

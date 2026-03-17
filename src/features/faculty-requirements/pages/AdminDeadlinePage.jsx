@@ -472,7 +472,7 @@ export default function AdminDeadlinePage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 shrink-0">
           <StatCard
             title="Active Deadlines"
-            value={deadlines.filter(d => d.is_active).length}
+            value={deadlines.filter(d => d.status === 'Active' || d.status === 'Grace Period').length}
             icon={Calendar}
             color="text-success"
           />
