@@ -14,6 +14,7 @@ import { SimilarityScoreBadge } from "../components/SimilarityScoreBadge";
 import { SimilarityReportModal } from "../components/SimilarityReportModal";
 import { Badge } from "@/components/ui/badge";
 import { useSimilarityCheck } from "../hooks/useSimilarityCheck";
+import { similarityService } from "../services/similarityService";
 import { useToast } from "@/components/ui/toast/toaster";
 import { cn } from "@/lib/utils";
 
@@ -40,18 +41,20 @@ export default function SimilarityCheckPage() {
     const [downloadStatus, setDownloadStatus] = useState("idle"); // 'idle' | 'downloading' | 'done'
     const [exportStatus, setExportStatus] = useState("idle"); // 'idle' | 'exporting' | 'done'
 
-    const handleDownloadTemplate = () => {
+    const handleDownloadTemplate = async () => {
         setDownloadStatus("downloading");
 
-        // Simulate a slight delay for better UX
-        setTimeout(() => {
+        try {
+            const url = similarityService.getTemplateDownloadUrl();
+            if (!url) throw new Error("Could not get public URL");
+            
             const link = document.createElement("a");
-            link.href = "/thesis_template.docx";
+            link.href = url;
             link.download = "thesis_template.docx";
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            
+
             setDownloadStatus("done");
             addToast("success", "Template downloaded", "Fill it out and upload for similarity checking");
 
@@ -59,7 +62,11 @@ export default function SimilarityCheckPage() {
             setTimeout(() => {
                 setDownloadStatus("idle");
             }, 3000);
-        }, 800);
+        } catch (err) {
+            console.error("Download failed:", err);
+            setDownloadStatus("idle");
+            addToast("error", "Download Failed", "Could not retrieve the thesis template from storage");
+        }
     };
 
     const handleExportWithLoading = async () => {
@@ -68,7 +75,7 @@ export default function SimilarityCheckPage() {
             await handleExportPDF();
             setExportStatus("done");
             addToast("success", "Report Exported", "The similarity check report has been generated successfully");
-            
+
             // Reset back to idle after a delay
             setTimeout(() => {
                 setExportStatus("idle");
