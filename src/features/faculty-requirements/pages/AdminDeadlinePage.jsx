@@ -40,33 +40,7 @@ const AdminToastHandler = ({ success, error }) => {
 import { useAdminDeadlines } from '../hooks/AdminDeadlineHook';
 
 const ActionsRenderer = (props) => {
-  const [isConfirming, setIsConfirming] = useState(false);
-  const { data, openEditDialog, deleteDeadline } = props;
-
-  if (isConfirming) {
-    return (
-      <div className="flex gap-1 items-center h-full">
-        <Button
-          size="xs"
-          className="bg-destructive hover:bg-destructive/90 text-white text-[10px] h-6 px-2.5 font-bold shadow-sm rounded-md"
-          onClick={() => {
-            deleteDeadline(data.deadline_id);
-            setIsConfirming(false);
-          }}
-        >
-          Confirm
-        </Button>
-        <Button
-          size="xs"
-          variant="ghost"
-          className="text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 text-[10px] h-6 px-2.5 font-bold rounded-md"
-          onClick={() => setIsConfirming(false)}
-        >
-          Cancel
-        </Button>
-      </div>
-    );
-  }
+  const { data, openEditDialog } = props;
 
   return (
     <div className="flex gap-1 items-center h-full">
@@ -78,15 +52,6 @@ const ActionsRenderer = (props) => {
         onClick={() => data.status !== 'Passed' && openEditDialog(data)}
       >
         <Edit className="h-3.5 w-3.5 pointer-events-none" />
-      </Button>
-      <Button
-        size="icon"
-        variant="ghost"
-        title="Delete Deadline"
-        className="h-7 w-7 rounded-md text-neutral-400 hover:text-destructive-semantic hover:bg-destructive/10"
-        onClick={() => setIsConfirming(true)}
-      >
-        <Trash2 className="h-3.5 w-3.5 pointer-events-none" />
       </Button>
     </div>
   );
@@ -102,6 +67,7 @@ export default function AdminDeadlinePage() {
   const [editingDeadline, setEditingDeadline] = useState(null);
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [showCreateWarning, setShowCreateWarning] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null, confirmText: 'Confirm' });
 
   function initialFormState() {
@@ -260,7 +226,11 @@ export default function AdminDeadlinePage() {
 
   const handleCreateSubmit = async () => {
     if (!canCreateDeadline) return;
+    setShowCreateWarning(true);
+  };
 
+  const confirmCreate = async () => {
+    setShowCreateWarning(false);
     const success = await saveDeadline({
       ...newDeadline,
       semester: settings.semester,
@@ -440,8 +410,7 @@ export default function AdminDeadlinePage() {
       width: 140,
       cellRenderer: ActionsRenderer,
       cellRendererParams: {
-        openEditDialog,
-        deleteDeadline
+        openEditDialog
       }
     }
   ], []);
@@ -882,12 +851,45 @@ export default function AdminDeadlinePage() {
           </DialogContent>
         </Dialog>
 
-        {/* Confirmation Dialog */}
-        <Dialog open={confirmDialog.isOpen} onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, isOpen: open }))}>
-          <DialogContent className={`bg-white text-neutral-900 max-w-md shadow-2xl ${confirmDialog.confirmText === 'Delete' ? 'border-destructive/30' : 'border-neutral-200'}`}>
+        {/* Creation Permanence Warning Dialog */}
+        <Dialog open={showCreateWarning} onOpenChange={setShowCreateWarning}>
+          <DialogContent className="bg-white text-neutral-900 max-w-md shadow-2xl border-warning/30">
             <DialogHeader>
-              <DialogTitle className={`flex items-center gap-2 font-bold ${confirmDialog.confirmText === 'Delete' ? 'text-destructive' : 'text-neutral-900'}`}>
-                <AlertCircle className={`h-5 w-5 ${confirmDialog.confirmText === 'Delete' ? 'text-destructive' : 'text-warning'}`} />
+              <DialogTitle className="flex items-center gap-2 font-bold text-neutral-900">
+                <AlertCircle className="h-5 w-5 text-warning" />
+                Permanent Deadline Warning
+              </DialogTitle>
+              <DialogDescription className="text-neutral-600 mt-2 font-medium">
+                Once this deadline is created for <strong>{docTypes.find(dt => dt.id.toString() === newDeadline.doc_type_id)?.name}</strong>, it cannot be deleted or removed for this semester.
+                <br /><br />
+                Are you sure you want to proceed?
+              </DialogDescription>
+            </DialogHeader>
+
+            <DialogFooter className="gap-2 sm:gap-3 mt-4 border-t border-neutral-100 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setShowCreateWarning(false)}
+                className="text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 border-neutral-200 shadow-sm transition-all font-bold"
+              >
+                No, Go Back
+              </Button>
+              <Button
+                onClick={confirmCreate}
+                className="bg-primary-600 hover:bg-primary-700 text-white shadow-sm transition-all active:scale-95 font-bold"
+              >
+                Yes, Create Permanently
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Confirmation Dialog (Bulk Actions) */}
+        <Dialog open={confirmDialog.isOpen} onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, isOpen: open }))}>
+          <DialogContent className="bg-white text-neutral-900 max-w-md shadow-2xl border-neutral-200">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 font-bold text-neutral-900">
+                <AlertCircle className="h-5 w-5 text-warning" />
                 {confirmDialog.title}
               </DialogTitle>
               <DialogDescription className="text-neutral-600 mt-2 font-medium">
@@ -905,12 +907,8 @@ export default function AdminDeadlinePage() {
               </Button>
               <Button
                 onClick={confirmDialog.onConfirm}
-                className={`text-white shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2 ${confirmDialog.confirmText === 'Delete'
-                  ? 'bg-destructive hover:bg-destructive/90'
-                  : 'bg-primary-600 hover:bg-primary-700'
-                  }`}
+                className="text-white shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 font-bold"
               >
-                {confirmDialog.confirmText === 'Delete' && <Trash2 className="h-4 w-4" />}
                 {confirmDialog.confirmText}
               </Button>
             </DialogFooter>

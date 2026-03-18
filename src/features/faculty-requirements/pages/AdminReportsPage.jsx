@@ -83,6 +83,17 @@ export default function AdminReportsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config.reportType, config.semester, config.academicYear]);
 
+  // Dynamically filter semesters based on selected academic year
+  const filteredSemesters = React.useMemo(() => {
+    if (!options?.semesterPeriods) return options?.semesters || [];
+    if (!config.academicYear) return [];
+    return [...new Set(
+      options.semesterPeriods
+        .filter(p => p.academic_year === config.academicYear)
+        .map(p => p.semester)
+    )].filter(Boolean);
+  }, [options, config.academicYear]);
+
   // Filter Data based on Configuration
   const filteredData = React.useMemo(() => {
     if (!reportData || !reportData.data_preview) return null;
@@ -290,23 +301,38 @@ export default function AdminReportsPage() {
                       <SelectValue placeholder="Select semester" />
                     </SelectTrigger>
                     <SelectContent className="bg-white border-neutral-200">
-                      <SelectItem value="1st Semester" className="text-xs font-medium">1st Semester</SelectItem>
-                      <SelectItem value="2nd Semester" className="text-xs font-medium">2nd Semester</SelectItem>
-                      <SelectItem value="Summer" className="text-xs font-medium">Summer</SelectItem>
+                      {filteredSemesters.map(sem => {
+                        const period = options?.semesterPeriods?.find(
+                          p => p.semester === sem && p.academic_year === config.academicYear
+                        );
+                        const isActive = period?.status === 'Active';
+                        return (
+                          <SelectItem key={sem} value={sem} className="text-xs font-medium">
+                            {sem}
+                            {isActive && (
+                              <span className="ml-1.5 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/20"> Active</span>
+                            )}
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="flex-1 space-y-1 w-full min-w-[130px]">
                   <Label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-0.5">Academic Year</Label>
-                  <Select value={config.academicYear} onValueChange={(v) => setConfig({ ...config, academicYear: v })}>
+                  <Select value={config.academicYear} onValueChange={(v) => setConfig({ ...config, academicYear: v, semester: '' })}>
                     <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus:ring-primary-500/20 font-medium">
                       <SelectValue placeholder="Select year" />
                     </SelectTrigger>
                     <SelectContent className="bg-white border-neutral-200">
-                      <SelectItem value="All Years" className="text-xs font-medium">All Years</SelectItem>
-                      {options?.academic_years?.map(y => (
-                        <SelectItem key={y} value={y} className="text-xs font-medium">{y}</SelectItem>
+                      {options?.academic_years?.map(year => (
+                        <SelectItem key={year} value={year} className="text-xs font-medium">
+                          {year}
+                          {settings?.academic_year === year && (
+                            <span className="ml-1.5 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/20"> Active</span>
+                          )}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

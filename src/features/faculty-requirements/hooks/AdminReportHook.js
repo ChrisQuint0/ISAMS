@@ -12,13 +12,31 @@ export function useAdminReports() {
 
   const loadOptions = useCallback(async () => {
     try {
-      const { data } = await supabase
+      const { data: courses } = await supabase
         .from('courses_fs')
         .select('semester, academic_year');
-      if (data) {
-        const sems = [...new Set(data.map(c => c.semester))].filter(Boolean).sort();
-        const years = [...new Set(data.map(c => c.academic_year))].filter(Boolean).sort().reverse();
-        setOptions({ semesters: sems, academic_years: years });
+
+      const { data: deadlines } = await supabase
+        .from('deadlines_fs')
+        .select('semester, academic_year, is_active');
+
+      if (courses) {
+        const sems = [...new Set(courses.map(c => c.semester))].filter(Boolean).sort();
+        const years = [...new Set(courses.map(c => c.academic_year))].filter(Boolean).sort().reverse();
+        
+        const periodsMap = new Map();
+        deadlines?.forEach(d => {
+           const key = `${d.academic_year}|${d.semester}`;
+           if (d.is_active) periodsMap.set(key, 'Active');
+           else if (!periodsMap.has(key)) periodsMap.set(key, 'Inactive');
+        });
+        
+        const semesterPeriods = Array.from(periodsMap.entries()).map(([key, status]) => {
+           const [ay, sem] = key.split('|');
+           return { academic_year: ay, semester: sem, status };
+        });
+
+        setOptions({ semesters: sems, academic_years: years, semesterPeriods });
       }
     } catch (err) {
       console.error('Failed to load filter options:', err);
