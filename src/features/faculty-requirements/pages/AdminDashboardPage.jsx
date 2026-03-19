@@ -31,15 +31,23 @@ const DashboardToastHandler = ({ success, error }) => {
 };
 
 // ─── Deadline urgency helper ───────────────────────────────────────────────────
-function getDaysLeft(dateStr) {
-  if (!dateStr) return { label: 'No date', urgent: false, overdue: false, daysNum: null };
-  const due = new Date(dateStr);
+function getDaysLeft(dateStr, graceDays = 0) {
+  if (!dateStr) return { label: 'No date', urgent: false, overdue: false, grace: false };
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const due = new Date(y, m - 1, d);
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const diff = Math.floor((due - today) / 86400000);
-  if (diff === 0) return { label: 'Due today', urgent: true, overdue: false, daysNum: 0 };
-  if (diff === 1) return { label: 'Due tomorrow', urgent: true, overdue: false, daysNum: 1 };
-  if (diff > 0) return { label: `${diff} days left`, urgent: diff <= 3, overdue: false, daysNum: diff };
-  return { label: `${Math.abs(diff)}d overdue`, urgent: false, overdue: true, daysNum: diff };
+  
+  if (diff === 0) return { label: 'Due today', urgent: true, overdue: false, grace: false };
+  if (diff === 1) return { label: 'Due tomorrow', urgent: true, overdue: false, grace: false };
+  if (diff > 0) return { label: `${diff} days left`, urgent: diff <= 3, overdue: false, grace: false };
+  
+  // Check grace period
+  const cutoff = new Date(due); cutoff.setDate(cutoff.getDate() + graceDays);
+  const gDiff = Math.floor((cutoff - today) / 86400000);
+  
+  if (gDiff >= 0) return { label: `Grace: ${gDiff}d left`, urgent: true, overdue: false, grace: true };
+  return { label: 'Passed', urgent: false, overdue: true, grace: false };
 }
 
 // ─── Status badge helper ───────────────────────────────────────────────────────
@@ -351,34 +359,44 @@ export default function AdminDashboardPage() {
               </CardHeader>
               <CardContent className="p-4 space-y-2.5">
                 {(stats.upcoming_deadlines || []).map((dl, idx) => {
-                  const { label, urgent, overdue, daysNum } = getDaysLeft(dl.date);
+                  const { label, urgent, overdue, grace } = getDaysLeft(dl.date, dl.grace_period_days || 0);
                   const isOverdue = overdue;
-                  const isUrgent = urgent && !overdue;
+                  const isUrgent = urgent && !overdue && !grace;
+                  const isGrace = grace;
+                  
                   return (
                     <div
                       key={idx}
-                      className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${isOverdue ? 'bg-destructive/5 border-destructive/20' :
-                          isUrgent ? 'bg-warning/5 border-warning/20' :
-                            'bg-success/5 border-success/20'
-                        }`}
+                      className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
+                        isOverdue ? 'bg-destructive/5 border-destructive/20' :
+                        isGrace ? 'bg-warning/10 border-warning/20' :
+                        isUrgent ? 'bg-warning/5 border-warning/20' :
+                        'bg-success/5 border-success/20'
+                      }`}
                     >
-                      <div className={`p-2 rounded-lg border bg-white shadow-sm shrink-0 ${isOverdue ? 'border-destructive/30' :
-                          isUrgent ? 'border-warning/30' :
-                            'border-success/30'
-                        }`}>
-                        <Folder className={`h-4 w-4 ${isOverdue ? 'text-destructive' :
-                            isUrgent ? 'text-warning' :
-                              'text-success'
-                          }`} />
+                      <div className={`p-2 rounded-lg border bg-white shadow-sm shrink-0 ${
+                        isOverdue ? 'border-destructive/30' :
+                        isGrace ? 'border-warning/40' :
+                        isUrgent ? 'border-warning/30' :
+                        'border-success/30'
+                      }`}>
+                        <Folder className={`h-4 w-4 ${
+                          isOverdue ? 'text-destructive' :
+                          isGrace ? 'text-warning' :
+                          isUrgent ? 'text-warning' :
+                          'text-success'
+                        }`} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-neutral-900 truncate">{dl.label}</p>
                         <div className="flex items-center gap-2 mt-1">
-                          <span className={`text-[10px] font-black uppercase tracking-wider ${isOverdue ? 'text-destructive' :
-                              isUrgent ? 'text-warning' :
-                                'text-success'
-                            }`}>
-                            {dl.days_left === 0 ? 'Due Today' : `${dl.days_left} Days Left`}
+                          <span className={`text-[10px] font-black uppercase tracking-wider ${
+                            isOverdue ? 'text-destructive' :
+                            isGrace ? 'text-warning' :
+                            isUrgent ? 'text-warning' :
+                            'text-success'
+                          }`}>
+                            {label}
                           </span>
                           <span className="text-[10px] text-neutral-400 font-medium">
                             {new Date(dl.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
