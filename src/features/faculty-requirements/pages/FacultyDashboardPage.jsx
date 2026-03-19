@@ -48,7 +48,7 @@ function StatusBadge({ value }) {
   // Color mapping based on image and specific feedback
   const isGreen = ['APPROVED', 'VALIDATED', 'SUBMITTED', 'RESUBMITTED'].includes(v);
   const isRed = v === 'REJECTED';
-  const isOrange = v === 'REVISION_REQUESTED';
+  const isOrange = v === 'REVISION_REQUESTED' || v === 'LATE';
   const isPassed = v === 'PASSED';
 
   const cls = isGreen ? 'bg-[#E6F7F0] text-[#00A86B] border-[#00A86B]/20'
@@ -59,9 +59,10 @@ function StatusBadge({ value }) {
   const label = v === 'SUBMITTED' || v === 'RESUBMITTED' ? 'Submitted'
     : v === 'APPROVED' || v === 'VALIDATED' ? 'Approved'
       : v === 'REVISION_REQUESTED' ? 'Revision'
-        : v === 'REJECTED' ? 'Rejected'
-          : v === 'PASSED' ? 'Passed'
-            : v.charAt(0) + v.slice(1).toLowerCase();
+        : v === 'LATE' ? 'Late'
+          : v === 'REJECTED' ? 'Rejected'
+            : v === 'PASSED' ? 'Passed'
+              : v.charAt(0) + v.slice(1).toLowerCase();
 
   return (
     <span className={`font-bold text-xs px-2 py-0.5 rounded-full border shadow-none ${cls}`}>
@@ -96,7 +97,7 @@ export default function FacultyDashboardPage() {
     selectedViewerFile, setSelectedViewerFile,
     isViewerLoading, viewerCourseContext, viewerDocContext, fetchDocumentFiles
   } = useFacultyDashboard();
-  const { toast } = useToast();
+  const { addToast: toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const activeCoursesCount = useMemo(() => courses.filter(c => c.master_is_active !== false).length, [courses]);
   const inactiveCoursesCount = useMemo(() => courses.filter(c => c.master_is_active === false).length, [courses]);
@@ -116,9 +117,19 @@ export default function FacultyDashboardPage() {
     {
       field: "course_code",
       headerName: "Course",
-      flex: 0.8,
+      flex: 0.7,
       cellRenderer: (p) => (
         <span className="font-bold text-xs px-2 py-0.5 rounded-full border bg-primary-50 text-primary-700 border-primary-200 font-mono">
+          {p.value || '—'}
+        </span>
+      )
+    },
+    {
+      field: "section",
+      headerName: "Section",
+      flex: 0.8,
+      cellRenderer: (p) => (
+        <span className="font-bold text-xs px-2 py-0.5 rounded-full border bg-neutral-100 text-neutral-700 border-neutral-200 font-mono">
           {p.value || '—'}
         </span>
       )
@@ -135,7 +146,15 @@ export default function FacultyDashboardPage() {
       field: "status",
       headerName: "Status",
       width: 150,
-      cellRenderer: (p) => <StatusBadge value={p.value} />
+      cellRenderer: (p) => {
+        const isCompleted = p.value === 'SUBMITTED' || p.value === 'RESUBMITTED' || p.value === 'APPROVED' || p.value === 'VALIDATED';
+        const displayValue = p.data.is_submitted_late && isCompleted ? 'LATE' : p.value;
+        return (
+          <div className="flex items-center h-full">
+            <StatusBadge value={displayValue} />
+          </div>
+        );
+      }
     }
   ], []);
 
@@ -396,8 +415,10 @@ export default function FacultyDashboardPage() {
                       const isApproved = doc.status === 'APPROVED' || doc.status === 'VALIDATED';
                       // Custom Status Display Logic
                       const isDone = ['SUBMITTED', 'RESUBMITTED', 'APPROVED', 'VALIDATED', 'ARCHIVED'].includes(doc.status);
+                      const isLate = doc.is_submitted_late && isDone;
+                      
                       const displayStatus = doc.status === 'REVISION_REQUESTED' ? 'ONGOING' :
-                        doc.is_submitted_late ? 'LATE' :
+                        isLate ? 'LATE' :
                           (doc.status === 'APPROVED' || doc.status === 'VALIDATED' || doc.status === 'ARCHIVED') ? 'SUBMITTED' :
                             (doc.status || 'PENDING');
 
@@ -419,12 +440,12 @@ export default function FacultyDashboardPage() {
                                 {doc.description && <span className="ml-1.5 font-normal text-[10px] text-neutral-400 truncate hidden sm:inline-block">- {doc.description}</span>}
                               </span>
                             </div>
-                            <Badge className={`text-[8px] font-extrabold tracking-widest px-1.5 py-0 shadow-none border uppercase ${doc.is_submitted_late ? 'bg-warning/10 border-warning/20 text-warning' :
+                            <Badge className={`text-[8px] font-extrabold tracking-widest px-1.5 py-0 shadow-none border uppercase ${isLate ? 'bg-warning/10 border-warning/20 text-warning' :
                               isDone ? 'bg-success/10 border-success/20 text-success' :
                                 doc.status === 'REVISION_REQUESTED' ? 'bg-warning/10 border-warning/20 text-warning' :
                                   'bg-neutral-100 border-neutral-200 text-neutral-500'
                               }`}>
-                              {doc.status === 'RESUBMITTED' ? 'SUBMITTED' : displayStatus}
+                              {doc.status === 'RESUBMITTED' && !isLate ? 'SUBMITTED' : displayStatus}
                             </Badge>
                           </div>
 

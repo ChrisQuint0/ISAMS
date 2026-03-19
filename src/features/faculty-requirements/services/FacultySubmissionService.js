@@ -321,6 +321,7 @@ export const FacultySubmissionService = {
                     submission_id,
                     submitted_at,
                     submission_status,
+                    is_late,
                     original_filename,
                     courses_fs (course_code, course_name, section),
                     documenttypes_fs (type_name, doc_type_id),

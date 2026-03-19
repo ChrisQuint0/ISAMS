@@ -394,22 +394,26 @@ export default function FacultyArchivePage() {
                                         {(() => {
                                           const status = ver.submission_status || '';
                                           let colorClass = "bg-neutral-100 text-neutral-600 border-neutral-200";
+                                          let displayValue = status.split('_').join(' ').toLowerCase().split(' ').map(word =>
+                                            word.charAt(0).toUpperCase() + word.slice(1)
+                                          ).join(' ');
 
-                                          if (status === 'APPROVED' || status === 'SUBMITTED') {
+                                          const isCompleted = status === 'APPROVED' || status === 'SUBMITTED' || status === 'RESUBMITTED' || status === 'VALIDATED';
+
+                                          if (ver.is_submitted_late && isCompleted) {
+                                            colorClass = "bg-warning/10 text-warning border-warning/20";
+                                            displayValue = "Late";
+                                          } else if (isCompleted) {
                                             colorClass = "bg-success/10 text-success border-success/20";
-                                          } else if (status === 'REJECTED' || status === 'REVISION REQUESTED') {
+                                          } else if (status === 'REJECTED' || status === 'REVISION REQUESTED' || status === 'REVISION_REQUESTED') {
                                             colorClass = "bg-destructive/10 text-destructive border-destructive/20";
                                           } else if (status === 'PENDING') {
                                             colorClass = "bg-warning/10 text-warning border-warning/20";
                                           }
 
-                                          const displayValue = status.split('_').join(' ').toLowerCase().split(' ').map(word =>
-                                            word.charAt(0).toUpperCase() + word.slice(1)
-                                          ).join(' ');
-
                                           return (
                                             <Badge className={`font-bold text-xs px-2.5 py-0.5 rounded-full border shadow-none ${colorClass}`}>
-                                              {displayValue}
+                                              {displayValue === 'Revision Requested' ? 'Revision' : displayValue}
                                             </Badge>
                                           );
                                         })()}

@@ -171,13 +171,13 @@ export default function FacultyAnalyticsPage() {
         const status = p.value || 'SUBMITTED';
         const isApproved = status === 'APPROVED' || status === 'VALIDATED';
         const isRejected = status === 'REJECTED' || status === 'REVISION_REQUESTED';
-        const isLate = p.data.is_late;
+        const isLate = p.data.is_late || p.data.is_submitted_late; 
 
         if (isApproved) {
           return (
             <div className="flex items-center h-full">
-              <Badge className="font-bold text-xs px-2 py-0.5 rounded-full border shadow-none bg-success/10 text-success border-success/20">
-                Approved
+              <Badge className={`font-bold text-xs px-2 py-0.5 rounded-full border shadow-none ${isLate ? 'bg-warning/10 text-warning border-warning/20' : 'bg-success/10 text-success border-success/20'}`}>
+                {isLate ? 'Late & Approved' : 'Approved'}
               </Badge>
             </div>
           );
@@ -197,7 +197,7 @@ export default function FacultyAnalyticsPage() {
         return (
           <div className="flex items-center h-full">
             <Badge className={`font-bold text-xs px-2 py-0.5 rounded-full border shadow-none ${isLate ? 'bg-warning/10 text-warning border-warning/20' : 'bg-success/10 text-success border-success/20'}`}>
-              {isLate ? 'Late' : 'On Time'}
+              {isLate ? 'Late' : 'Submitted'}
             </Badge>
           </div>
         );
