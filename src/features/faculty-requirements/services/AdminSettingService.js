@@ -61,7 +61,7 @@ export const settingsService = {
       gdrive_folder_name: docType.folder || docType.gdrive_folder_name,
       description: docType.description,
       is_active: docType.is_active,
-      required_by_default: docType.required
+      required_by_default: true
     };
 
     if (docType.id) {
