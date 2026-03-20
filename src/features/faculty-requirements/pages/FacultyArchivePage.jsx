@@ -357,7 +357,7 @@ export default function FacultyArchivePage() {
                               {doc.type_name}
                             </span>
                             <Badge className="text-[10px] bg-neutral-100 text-neutral-600 border border-neutral-200 font-bold px-2 py-0 shadow-none uppercase tracking-widest">
-                              {doc.versions.length} Version{doc.versions.length !== 1 ? 's' : ''}
+                              {doc.versions.length} File{doc.versions.length !== 1 ? 's' : ''}
                             </Badge>
                           </div>
                           {expandedDocType === doc.doc_type_id ? <ChevronDown className="h-4 w-4 text-primary-500" /> : <ChevronRight className="h-4 w-4 text-neutral-400" />}
@@ -394,22 +394,26 @@ export default function FacultyArchivePage() {
                                         {(() => {
                                           const status = ver.submission_status || '';
                                           let colorClass = "bg-neutral-100 text-neutral-600 border-neutral-200";
+                                          let displayValue = status.split('_').join(' ').toLowerCase().split(' ').map(word =>
+                                            word.charAt(0).toUpperCase() + word.slice(1)
+                                          ).join(' ');
 
-                                          if (status === 'APPROVED' || status === 'SUBMITTED') {
+                                          const isCompleted = status === 'APPROVED' || status === 'SUBMITTED' || status === 'RESUBMITTED' || status === 'VALIDATED';
+
+                                          if (ver.is_submitted_late && isCompleted) {
+                                            colorClass = "bg-warning/10 text-warning border-warning/20";
+                                            displayValue = "Late";
+                                          } else if (isCompleted) {
                                             colorClass = "bg-success/10 text-success border-success/20";
-                                          } else if (status === 'REJECTED' || status === 'REVISION REQUESTED') {
+                                          } else if (status === 'REJECTED' || status === 'REVISION REQUESTED' || status === 'REVISION_REQUESTED') {
                                             colorClass = "bg-destructive/10 text-destructive border-destructive/20";
                                           } else if (status === 'PENDING') {
                                             colorClass = "bg-warning/10 text-warning border-warning/20";
                                           }
 
-                                          const displayValue = status.split('_').join(' ').toLowerCase().split(' ').map(word =>
-                                            word.charAt(0).toUpperCase() + word.slice(1)
-                                          ).join(' ');
-
                                           return (
                                             <Badge className={`font-bold text-xs px-2.5 py-0.5 rounded-full border shadow-none ${colorClass}`}>
-                                              {displayValue}
+                                              {displayValue === 'Revision Requested' ? 'Revision' : displayValue}
                                             </Badge>
                                           );
                                         })()}
@@ -471,19 +475,6 @@ export default function FacultyArchivePage() {
                                                         <Clock className="h-3 w-3" /> {new Date(v.archived_at).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                                       </span>
                                                     </div>
-                                                    <Button
-                                                      variant="ghost"
-                                                      size="sm"
-                                                      className="h-7 w-7 p-0 text-neutral-400 hover:text-primary-600 hover:bg-primary-50 transition-colors opacity-0 group-hover/version:opacity-100"
-                                                      title="Download Version"
-                                                      onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        if (v.gdrive_web_view_link) window.open(v.gdrive_web_view_link, '_blank');
-                                                        else triggerLocalError('Link not available');
-                                                      }}
-                                                    >
-                                                      <Download className="h-3.5 w-3.5" />
-                                                    </Button>
                                                   </li>
                                                 ))}
                                               </ul>

@@ -83,6 +83,17 @@ export default function AdminReportsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config.reportType, config.semester, config.academicYear]);
 
+  // Dynamically filter semesters based on selected academic year
+  const filteredSemesters = React.useMemo(() => {
+    if (!options?.semesterPeriods) return options?.semesters || [];
+    if (!config.academicYear) return [];
+    return [...new Set(
+      options.semesterPeriods
+        .filter(p => p.academic_year === config.academicYear)
+        .map(p => p.semester)
+    )].filter(Boolean);
+  }, [options, config.academicYear]);
+
   // Filter Data based on Configuration
   const filteredData = React.useMemo(() => {
     if (!reportData || !reportData.data_preview) return null;
@@ -107,7 +118,10 @@ export default function AdminReportsPage() {
         if (row.bot_issues) newRow['AI Analysis'] = row.bot_issues;
       }
       if (config.include_status_indicators) {
-        if (row.submission_status) newRow['Status'] = row.submission_status;
+        if (row.submission_status) {
+          const isCompleted = ['SUBMITTED', 'RESUBMITTED', 'APPROVED', 'VALIDATED'].includes(row.submission_status.toUpperCase());
+          newRow['Status'] = (row.is_submitted_late && isCompleted) ? 'LATE' : row.submission_status;
+        }
         if (row.status) newRow['Clearance'] = row.status;
       }
       if (config.include_performance_stats) {
@@ -126,7 +140,7 @@ export default function AdminReportsPage() {
     if (config.reportType === 'Submission Status Summary') {
       const rows = reportData.data_preview;
       const counts = {
-        'APPROVED': 0,
+        'LATE': 0,
         'SUBMITTED': 0,
         'REVISION REQUESTED': 0,
         'TOTAL FACULTY': 0
@@ -136,9 +150,15 @@ export default function AdminReportsPage() {
 
       rows.forEach(row => {
         const status = (row.submission_status || row.status || '').toUpperCase();
-        if (status === 'APPROVED' || status === 'CLEARED') counts['APPROVED']++;
-        else if (status === 'SUBMITTED') counts['SUBMITTED']++;
-        else if (status === 'REVISION_REQUESTED' || status === 'REVISION REQUESTED') counts['REVISION REQUESTED']++;
+        const isCompleted = ['SUBMITTED', 'RESUBMITTED', 'APPROVED', 'VALIDATED', 'CLEARED'].includes(status);
+        
+        if (row.is_submitted_late && isCompleted) {
+          counts['LATE']++;
+        } else if (isCompleted) {
+          counts['SUBMITTED']++;
+        } else if (status === 'REVISION_REQUESTED' || status === 'REVISION REQUESTED') {
+          counts['REVISION REQUESTED']++;
+        }
 
         if (row.faculty_name) uniqueFaculty.add(row.faculty_name);
       });
@@ -174,19 +194,25 @@ export default function AdminReportsPage() {
       if (key === 'Status' || key === 'Clearance') {
         baseCol.cellRenderer = (p) => {
           if (!p.value) return null;
-          const val = p.value.toUpperCase();
+          let val = p.value.toUpperCase();
           let colorClass = "bg-neutral-100 text-neutral-600 border-neutral-200";
 
-          if (val === 'APPROVED' || val === 'CLEARED' || val === 'ON TRACK' || val === 'ON TIME' || val === 'SUBMITTED') {
+          // Calculate isCompleted for late submission check
+          const isCompleted = val === 'SUBMITTED' || val === 'RESUBMITTED' || val === 'APPROVED' || val === 'VALIDATED' || val === 'CLEARED';
+          if (p.data?.is_submitted_late && isCompleted) {
+            val = 'LATE';
+          }
+
+          if (val === 'APPROVED' || val === 'CLEARED' || val === 'ON TRACK' || val === 'ON TIME' || val === 'SUBMITTED' || val === 'RESUBMITTED' || val === 'VALIDATED') {
             colorClass = "bg-success/10 text-success border-success/20";
-          } else if (val === 'AT RISK' || val === 'LATE' || val === 'REJECTED' || val === 'REVISION_REQUESTED') {
+          } else if (val === 'AT RISK' || val === 'REJECTED' || val === 'REVISION_REQUESTED') {
             colorClass = "bg-destructive/10 text-destructive border-destructive/20";
-          } else if (val === 'DELAYED' || val === 'PENDING' || val === 'NO SUBMISSIONS' || val === 'FAILED') {
+          } else if (val === 'LATE' || val === 'DELAYED' || val === 'PENDING' || val === 'NO SUBMISSIONS' || val === 'FAILED') {
             colorClass = "bg-warning/10 text-warning border-warning/20";
           }
 
           // Format: Capitalize first letter of each word
-          const displayValue = p.value.split('_').join(' ').toLowerCase().split(' ').map(word =>
+          const displayValue = val.split('_').join(' ').toLowerCase().split(' ').map(word =>
             word.charAt(0).toUpperCase() + word.slice(1)
           ).join(' ');
 
@@ -290,23 +316,42 @@ export default function AdminReportsPage() {
                       <SelectValue placeholder="Select semester" />
                     </SelectTrigger>
                     <SelectContent className="bg-white border-neutral-200">
-                      <SelectItem value="1st Semester" className="text-xs font-medium">1st Semester</SelectItem>
-                      <SelectItem value="2nd Semester" className="text-xs font-medium">2nd Semester</SelectItem>
-                      <SelectItem value="Summer" className="text-xs font-medium">Summer</SelectItem>
+                      {filteredSemesters.map(sem => {
+                        const period = options?.semesterPeriods?.find(
+                          p => p.semester === sem && p.academic_year === config.academicYear
+                        );
+                        const isActive = period?.status === 'Active';
+                        return (
+                          <SelectItem key={sem} value={sem} className="text-xs font-medium">
+                            <span className="flex items-center gap-2">
+                              {sem}
+                              {isActive && (
+                                <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/20">Active</span>
+                              )}
+                            </span>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="flex-1 space-y-1 w-full min-w-[130px]">
                   <Label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-0.5">Academic Year</Label>
-                  <Select value={config.academicYear} onValueChange={(v) => setConfig({ ...config, academicYear: v })}>
+                  <Select value={config.academicYear} onValueChange={(v) => setConfig({ ...config, academicYear: v, semester: '' })}>
                     <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus:ring-primary-500/20 font-medium">
                       <SelectValue placeholder="Select year" />
                     </SelectTrigger>
                     <SelectContent className="bg-white border-neutral-200">
-                      <SelectItem value="All Years" className="text-xs font-medium">All Years</SelectItem>
-                      {options?.academic_years?.map(y => (
-                        <SelectItem key={y} value={y} className="text-xs font-medium">{y}</SelectItem>
+                      {options?.academic_years?.map(year => (
+                        <SelectItem key={year} value={year} className="text-xs font-medium">
+                          <span className="flex items-center gap-2">
+                            {year}
+                            {settings?.academic_year === year && (
+                              <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/20">Active</span>
+                            )}
+                          </span>
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
