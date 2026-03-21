@@ -6,16 +6,23 @@ export default function ToastNotification({ message, onClose }) {
 
   return (
     <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-6 fade-in duration-300">
-      <div className="bg-rose-950/80 border border-rose-500/30 shadow-2xl shadow-rose-900/30 backdrop-blur-md px-6 py-4 rounded-2xl flex items-center gap-4">
-        <div className="bg-rose-500/20 p-2 rounded-full">
-          <AlertTriangle size={16} className="text-rose-400" />
+      <div className="backdrop-blur-md shadow-lg rounded-2xl flex items-center gap-4 px-6 py-4 border" style={{
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        borderColor: 'rgba(239, 68, 68, 0.3)'
+      }}>
+        <div className="p-2 rounded-full" style={{ backgroundColor: 'rgba(239, 68, 68, 0.2)' }}>
+          <AlertTriangle size={16} style={{ color: '#ef4444' }} />
         </div>
-        <span className="text-xs font-bold text-rose-200 uppercase tracking-widest">
+        <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#ef4444' }}>
           {message}
         </span>
         <button 
           onClick={onClose} 
-          className="ml-2 text-rose-400 hover:text-white transition-colors bg-rose-500/10 hover:bg-rose-500/30 p-1.5 rounded-lg"
+          className="ml-2 transition-colors p-1.5 rounded-lg"
+          style={{
+            color: '#ef4444',
+            backgroundColor: 'rgba(239, 68, 68, 0.1)'
+          }}
         >
           <X size={14} />
         </button>

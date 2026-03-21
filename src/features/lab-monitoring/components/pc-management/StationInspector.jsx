@@ -1,13 +1,20 @@
 import React, { useState } from "react";
 import { Monitor, Laptop, User, Wrench, RotateCcw, ShieldCheck, AlertTriangle, Clock, GraduationCap } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import StationMaintenanceModal from "./StationMaintenanceModal";
+
+// GSDS Color Tokens
+const GSDS_COLORS = {
+    primary500: '#008A45',
+    gold400: '#FFD700'
+};
 
 export default function StationInspector({ selectedPC, onFlagMaintenance, onClearMaintenance, onResetTimer }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     if (!selectedPC) {
         return (
-            <div className="flex flex-col items-center justify-center h-full text-slate-500 opacity-50 space-y-4">
+            <div className="flex flex-col items-center justify-center h-full space-y-4" style={{ color: '#9ca3af', opacity: 0.5 }}>
                 <Monitor size={48} strokeWidth={1} />
                 <p className="text-xs uppercase tracking-widest text-center">Select a station<br/>to view details</p>
             </div>
@@ -29,21 +36,18 @@ export default function StationInspector({ selectedPC, onFlagMaintenance, onClea
     return (
         <div className="space-y-5 flex-1 flex flex-col h-full">
             {/* Header: Station ID & Mode */}
-            <div className="flex items-center gap-4 border-b border-[#1e293b] pb-4">
-                <div className={`p-3 rounded-xl transition-colors duration-500 ${
-                    isMaintenance ? 'bg-amber-500/20 text-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.1)]'
-                    : isLaptop ? 'bg-purple-500/20 text-purple-500'
-                    : 'bg-sky-500/20 text-sky-500'
-                }`}>
+            <div className="flex items-center gap-4 border-b pb-4" style={{ borderColor: '#e5e7eb' }}>
+                <div className="p-3 rounded-xl transition-colors duration-500" style={{
+                    backgroundColor: isMaintenance ? 'rgba(245, 158, 11, 0.2)' : isLaptop ? 'rgba(255, 215, 0, 0.2)' : 'rgba(0, 138, 69, 0.2)',
+                    color: isMaintenance ? '#f59e0b' : isLaptop ? GSDS_COLORS.gold400 : GSDS_COLORS.primary500
+                }}>
                     {isLaptop ? <Laptop size={28} /> : <Monitor size={28} />}
                 </div>
                 <div>
-                    <h2 className="text-2xl font-bold text-white tracking-tight">{selectedPC.id}</h2>
-                    <span className={`text-[10px] font-black uppercase tracking-widest ${
-                        isMaintenance ? 'text-amber-500'
-                        : isLaptop ? 'text-purple-400'
-                        : 'text-slate-400'
-                    }`}>
+                    <h2 className="text-2xl font-bold tracking-tight" style={{ color: '#111827' }}>{selectedPC.id}</h2>
+                    <span className="text-[10px] font-black uppercase tracking-widest" style={{
+                        color: isMaintenance ? '#f59e0b' : isLaptop ? GSDS_COLORS.gold400 : GSDS_COLORS.primary500
+                    }}>
                         {selectedPC.status}
                     </span>
                 </div>
@@ -51,55 +55,66 @@ export default function StationInspector({ selectedPC, onFlagMaintenance, onClea
 
             {/* User Details Section */}
             <div>
-                <span className="text-[10px] text-slate-500 uppercase tracking-widest font-black">Current Occupant</span>
+                <span className="text-[10px] uppercase tracking-widest font-black" style={{ color: '#6b7280' }}>Current Occupant</span>
                 {selectedPC.user ? (
-                    <div className="bg-[#020617] p-4 rounded-lg border border-[#1e293b] mt-1 space-y-3 shadow-inner">
+                    <div className="p-4 rounded-lg mt-1 space-y-3 shadow-sm border" style={{ backgroundColor: '#ffffff', borderColor: '#e5e7eb' }}>
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-sky-500/20 flex items-center justify-center shrink-0 border border-sky-500/10">
-                                <User size={18} className="text-sky-400" />
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border" style={{
+                                backgroundColor: isLaptop ? 'rgba(255, 215, 0, 0.2)' : 'rgba(0, 138, 69, 0.2)',
+                                borderColor: isLaptop ? 'rgba(255, 215, 0, 0.3)' : 'rgba(0, 138, 69, 0.3)',
+                                color: isLaptop ? GSDS_COLORS.gold400 : GSDS_COLORS.primary500
+                            }}>
+                                <User size={18} />
                             </div>
                             <div className="min-w-0">
-                                <p className="text-base font-bold text-white truncate leading-tight">{selectedPC.user.name}</p>
-                                <p className="text-[10px] text-slate-500 font-mono tracking-wider">{selectedPC.user.studentId}</p>
+                                <p className="text-base font-bold truncate leading-tight" style={{ color: '#111827' }}>{selectedPC.user.name}</p>
+                                <p className="text-[10px] font-mono tracking-wider" style={{ color: '#6b7280' }}>{selectedPC.user.studentId}</p>
                             </div>
                         </div>
-                        <div className="flex gap-4 pt-1 border-t border-[#1e293b]/50">
+                        <div className="flex gap-4 pt-1" style={{ borderTop: '1px solid #e5e7eb' }}>
                             <div className="flex items-center gap-1.5">
-                                <GraduationCap size={12} className="text-slate-600" />
-                                <span className="text-[11px] text-slate-400 font-medium">{selectedPC.user.section}</span>
+                                <GraduationCap size={12} style={{ color: '#9ca3af' }} />
+                                <span className="text-[11px] font-medium" style={{ color: '#6b7280' }}>{selectedPC.user.section}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
-                                <Clock size={12} className="text-slate-600" />
-                                <span className="text-[11px] text-slate-400 font-medium">In: {selectedPC.user.timeIn}</span>
+                                <Clock size={12} style={{ color: '#9ca3af' }} />
+                                <span className="text-[11px] font-medium" style={{ color: '#6b7280' }}>In: {selectedPC.user.timeIn}</span>
                             </div>
                         </div>
                     </div>
                 ) : (
-                    <div className="flex items-center gap-2 mt-1 text-xs bg-[#020617] p-3 rounded-lg border border-[#1e293b] border-dashed">
-                        <User size={14} className="text-slate-700" />
-                        <span className="text-slate-600 italic">No active session detected</span>
+                    <div className="flex items-center gap-2 mt-1 text-xs p-3 rounded-lg border" style={{
+                        backgroundColor: '#f9fafb',
+                        borderColor: '#e5e7eb',
+                        borderStyle: 'dashed'
+                    }}>
+                        <User size={14} style={{ color: '#9ca3af' }} />
+                        <span style={{ color: '#9ca3af' }} className="italic">No active session detected</span>
                     </div>
                 )}
             </div>
 
             {/* Hardware Pulse: The Health Bar */}
             <div>
-                <span className="text-[10px] text-slate-500 uppercase tracking-widest font-black">Hardware Pulse</span>
-                <div className="bg-[#020617] p-3 rounded-lg border border-[#1e293b] mt-1 space-y-2">
+                <span className="text-[10px] uppercase tracking-widest font-black" style={{ color: '#6b7280' }}>Hardware Pulse</span>
+                <div className="p-3 rounded-lg mt-1 space-y-2 shadow-sm border" style={{ backgroundColor: '#ffffff', borderColor: '#e5e7eb' }}>
                     <div className="flex justify-between text-[10px] font-mono tracking-tighter">
-                        <span className={selectedPC.hours >= 500 ? "text-rose-500 font-bold animate-pulse" : "text-sky-400 font-bold"}>
+                        <span className="font-bold" style={{
+                            color: selectedPC.hours >= 500 ? '#ef4444' : '#3b82f6',
+                            animation: selectedPC.hours >= 500 ? 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'none'
+                        }}>
                             {displayHours} HRS
                         </span>
-                        <span className="text-slate-700">500.0 MAX</span>
+                        <span style={{ color: '#9ca3af' }}>500.0 MAX</span>
                     </div>
-                    <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                    <div className="h-1.5 w-full rounded-full overflow-hidden border" style={{ backgroundColor: '#f3f4f6', borderColor: '#e5e7eb' }}>
                         <div 
-                            className={`h-full transition-all duration-1000 ease-out ${
-                                selectedPC.hours >= 500 ? 'bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]' 
-                                : selectedPC.hours >= 400 ? 'bg-amber-500'
-                                : 'bg-sky-500'
-                            }`} 
-                            style={{ width: `${healthPercentage}%` }}
+                            className="h-full transition-all duration-1000 ease-out" 
+                            style={{ 
+                                width: `${healthPercentage}%`,
+                                backgroundColor: selectedPC.hours >= 500 ? '#ef4444' : selectedPC.hours >= 400 ? '#f59e0b' : '#3b82f6',
+                                boxShadow: selectedPC.hours >= 500 ? '0_0_10px_rgba(239,68,68,0.5)' : 'none'
+                            }}
                         ></div>
                     </div>
                 </div>
@@ -108,12 +123,15 @@ export default function StationInspector({ selectedPC, onFlagMaintenance, onClea
             {/* Maintenance Description (Conditional) */}
             {isMaintenance && selectedPC.maintenanceNote && (
                 <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                    <span className="text-[10px] text-amber-500 uppercase tracking-widest font-black flex items-center gap-1.5">
+                    <span className="text-[10px] uppercase tracking-widest font-black flex items-center gap-1.5" style={{ color: '#f59e0b' }}>
                         <AlertTriangle size={10} /> Maintenance Log
                     </span>
-                    <div className="bg-amber-500/5 p-3 rounded-lg border border-amber-500/20 mt-1 space-y-1.5">
-                        <p className="text-[11px] text-slate-300 leading-relaxed font-medium">{selectedPC.maintenanceNote}</p>
-                        <p className="text-[9px] text-slate-600 font-mono uppercase tracking-wider">Flagged: {selectedPC.maintenanceDate}</p>
+                    <div className="p-3 rounded-lg mt-1 space-y-1.5 shadow-sm border" style={{
+                        backgroundColor: 'rgba(245, 158, 11, 0.05)',
+                        borderColor: 'rgba(245, 158, 11, 0.2)'
+                    }}>
+                        <p className="text-[11px] leading-relaxed font-medium" style={{ color: '#111827' }}>{selectedPC.maintenanceNote}</p>
+                        <p className="text-[9px] font-mono uppercase tracking-wider" style={{ color: '#9ca3af' }}>Flagged: {selectedPC.maintenanceDate}</p>
                     </div>
                 </div>
             )}
@@ -121,38 +139,39 @@ export default function StationInspector({ selectedPC, onFlagMaintenance, onClea
             {/* Action Buttons */}
             <div className="mt-auto pt-4 space-y-2">
                 {isMaintenance ? (
-                    <button 
+                    <Button 
                         onClick={() => onClearMaintenance(selectedPC.id)}
-                        className="w-full flex items-center justify-center gap-2 bg-emerald-500/10 border border-emerald-500/20 hover:border-emerald-500/40 text-emerald-400 text-[11px] font-bold py-3 rounded-xl uppercase tracking-widest transition-all group/btn relative overflow-hidden"
+                        className="w-full flex items-center justify-center gap-2 text-[11px] font-bold h-auto py-3 uppercase tracking-widest"
+                        style={{
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            borderColor: 'rgba(16, 185, 129, 0.3)',
+                            color: '#10b981'
+                        }}
                     >
-                        <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/0 via-emerald-400/0 to-emerald-400/0 group-hover/btn:from-emerald-400/5 group-hover/btn:via-emerald-400/0 group-hover/btn:to-emerald-400/0 transition-all duration-500 pointer-events-none" />
-                        <div className="absolute inset-0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
                         <ShieldCheck size={14} /> Mark as Resolved
-                    </button>
+                    </Button>
                 ) : (
-                    <button 
+                    <Button 
                         onClick={() => setIsModalOpen(true)}
-                        className="w-full flex items-center justify-center gap-2 bg-[#1e293b] hover:bg-[#334155] text-slate-300 text-[11px] font-bold py-3 rounded-xl uppercase tracking-widest transition-all group/btn relative overflow-hidden border border-slate-800"
+                        variant="outline"
+                        className="w-full flex items-center justify-center gap-2 text-[11px] font-bold h-auto py-3 uppercase tracking-widest"
                     >
-                        <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover/btn:from-slate-400/5 group-hover/btn:via-slate-400/0 group-hover/btn:to-slate-400/0 transition-all duration-500 pointer-events-none" />
-                        <div className="absolute inset-0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
                         <Wrench size={14} /> Flag Maintenance
-                    </button>
+                    </Button>
                 )}
 
-                <button 
+                <Button 
                     onClick={() => onResetTimer(selectedPC.id)}
                     disabled={selectedPC.hours === 0}
-                    className={`w-full flex items-center justify-center gap-2 text-[11px] font-bold py-3 rounded-xl uppercase tracking-widest transition-all relative overflow-hidden group/btn2 ${
-                        selectedPC.hours > 0 
-                        ? "bg-amber-500 hover:bg-amber-600 text-slate-900 shadow-lg shadow-amber-500/20" 
-                        : "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700/50"
-                    }`}
+                    className="w-full flex items-center justify-center gap-2 text-[11px] font-bold h-auto py-3 uppercase tracking-widest"
+                    style={{
+                        backgroundColor: selectedPC.hours > 0 ? '#f59e0b' : '#d1d5db',
+                        color: selectedPC.hours > 0 ? '#1a1a1a' : '#9ca3af',
+                        opacity: selectedPC.hours > 0 ? 1 : 0.6
+                    }}
                 >
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/0 via-white/0 to-white/0 group-hover/btn2:from-white/10 group-hover/btn2:via-white/0 group-hover/btn2:to-white/0 transition-all duration-500 pointer-events-none" />
-                    <div className="absolute inset-0 -translate-x-full group-hover/btn2:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
                     <RotateCcw size={14} /> Reset Usage Hours
-                </button>
+                </Button>
             </div>
 
             <StationMaintenanceModal 
