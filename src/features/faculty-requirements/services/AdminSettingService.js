@@ -402,12 +402,14 @@ export const settingsService = {
       p_id: course.id || null,
     });
     if (error) throw error;
+    if (data && data.success === false) throw new Error(data.message || "Failed to save course assignment.");
     return data;
   },
 
   deleteCourse: async (courseId) => {
     const { data, error } = await supabase.rpc('delete_course_fs', { p_course_id: courseId });
     if (error) throw error;
+    if (data && data.success === false) throw new Error(data.message || "Failed to delete course assignment.");
     return data;
   },
 
