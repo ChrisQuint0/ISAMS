@@ -339,43 +339,67 @@ app.post("/api/hte/students/create", async (req, res) => {
   const { studentData, password, academicYear, semester } = req.body;
   const hteParentFolderId = (await getSetting("hte_parent_folder_id")) || DEFAULT_HTE_PARENT_FOLDER_ID;
 
+  let createdAuthUserId = null; // Track if we created a NEW auth user for rollback
+
   try {
     const auth = await loadToken(req.body.userId || null);
     if (!auth) return res.status(401).json({ error: "Google Drive not authenticated" });
     const drive = google.drive({ version: "v3", auth });
 
-    // 1. Create Auth User
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email: studentData.email,
-      password: password,
-      email_confirm: true,
-      user_metadata: {
-        first_name: studentData.firstName,
-        last_name: studentData.lastName,
-      },
-    });
-
-    if (authError) throw authError;
-    const userId = authData.user.id;
-
-    // 2. Set RBAC
-    await supabaseAdmin.from("user_rbac").upsert({
-      user_id: userId,
-      thesis: true, // Thesis Archiving module
-      thesis_role: "student",
-      status: "active"
-    });
-
-    // 3. Create GDrive Folder
-    // Pattern: {studentNo}_{lastName}_{semester}
-    const folderName = `${studentData.studentId}_${studentData.lastName}_${semester}`;
-    const folderId = await getOrCreateFolder(drive, folderName, hteParentFolderId);
-    const folderLink = `https://drive.google.com/drive/folders/${folderId}`;
-
-    // 4. Insert Student Record
-    const { data: student, error: studentError } = await supabaseAdmin
+    // 1. Check if student already exists in hte_ojt_students
+    const { data: existingStudent, error: findError } = await supabaseAdmin
       .from("hte_ojt_students")
-      .insert([{
+      .select("id, user_id, is_active")
+      .or(`email.eq.${studentData.email},student_no.eq.${studentData.studentId}`)
+      .maybeSingle();
+
+    if (findError) throw findError;
+
+    if (existingStudent && existingStudent.is_active) {
+      return res.status(400).json({ error: "Student with this Email or ID already exists and is active." });
+    }
+
+    let userId = existingStudent?.user_id || null;
+
+    // 2. Handle Auth User
+    if (!userId) {
+      // Create a NEW auth user. If it fails due to existing email (e.g. from another module), 
+      // we throw the error as requested (no cross-module reuse).
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email: studentData.email,
+        password: password || Math.random().toString(36).slice(-10) + "!",
+        email_confirm: true,
+        user_metadata: {
+          first_name: studentData.firstName,
+          last_name: studentData.lastName,
+        },
+      });
+
+      if (authError) {
+        // If user exists in another module, it will fail here with a conflict error.
+        throw authError; 
+      }
+      
+      userId = authData.user.id;
+      createdAuthUserId = userId; // Mark as newly created for potential rollback
+    }
+
+    try {
+      // 3. Set/Update RBAC
+      await supabaseAdmin.from("user_rbac").upsert({
+        user_id: userId,
+        thesis: true,
+        thesis_role: "student",
+        status: "active"
+      });
+
+      // 4. Create/Find GDrive Folder
+      const folderName = `${studentData.studentId}_${studentData.lastName}_${semester}`;
+      const folderId = await getOrCreateFolder(drive, folderName, hteParentFolderId);
+      const folderLink = `https://drive.google.com/drive/folders/${folderId}`;
+
+      // 5. Insert or Update Student Record
+      const studentPayload = {
         user_id: userId,
         student_no: studentData.studentId,
         first_name: studentData.firstName,
@@ -383,7 +407,7 @@ app.post("/api/hte/students/create", async (req, res) => {
         last_name: studentData.lastName,
         email: studentData.email,
         program: studentData.program,
-        section: studentData.sectionName || "", // For legacy compatibility
+        section: studentData.sectionName || "",
         section_id: studentData.sectionId,
         adviser_id: studentData.adviserId,
         academic_year: academicYear,
@@ -391,29 +415,62 @@ app.post("/api/hte/students/create", async (req, res) => {
         gdrive_folder_id: folderId,
         gdrive_folder_link: folderLink,
         overall_status: "incomplete",
-        is_active: true
-      }])
-      .select()
-      .single();
+        is_active: true,
+        updated_at: new Date().toISOString()
+      };
 
-    if (studentError) throw studentError;
+      let student;
+      if (existingStudent) {
+        const { data, error: updateError } = await supabaseAdmin
+          .from("hte_ojt_students")
+          .update(studentPayload)
+          .eq("id", existingStudent.id)
+          .select()
+          .single();
+        if (updateError) throw updateError;
+        student = data;
+      } else {
+        const { data, error: insertError } = await supabaseAdmin
+          .from("hte_ojt_students")
+          .insert([studentPayload])
+          .select()
+          .single();
+        if (insertError) throw insertError;
+        student = data;
+      }
 
-    res.json({ success: true, student });
+      res.json({ success: true, student });
 
-    // Log the event
-    await logAuditTrail(req, {
-      action: "Add",
-      description: `Enrolled new HTE student: ${studentData.firstName} ${studentData.lastName} (${studentData.studentId})`,
-      moduleAffected: "HTE Archiving",
-      recordId: student.id,
-      recordType: "hte_ojt_students",
-      newValues: student,
-      actorUserId: req.body.actorUserId || null,
-      actorName: req.body.actorName || "Admin"
-    });
+      // Action log...
+      await logAuditTrail(req, {
+        action: existingStudent ? "Update/Reactivate" : "Add",
+        description: existingStudent 
+          ? `Reactivated HTE student: ${studentData.firstName} ${studentData.lastName}`
+          : `Enrolled new HTE student: ${studentData.firstName} ${studentData.lastName}`,
+        moduleAffected: "HTE Archiving",
+        recordId: student.id,
+        recordType: "hte_ojt_students",
+        newValues: student,
+        actorUserId: req.body.actorUserId || null,
+        actorName: req.body.actorName || "Admin"
+      });
+
+    } catch (innerError) {
+      // ROLLBACK: If we created a new Auth user but setup failed, delete them
+      if (createdAuthUserId) {
+        console.warn(`[HTE Rollback] Deleting newly created auth user ${createdAuthUserId} due to setup failure: ${innerError.message}`);
+        await supabaseAdmin.auth.admin.deleteUser(createdAuthUserId);
+      }
+      throw innerError;
+    }
+
   } catch (error) {
     console.error("Error creating student:", error);
-    res.status(500).json({ error: error.message });
+    res.status(error.status === 422 || error.message.includes("already registered") ? 400 : 500).json({ 
+      error: error.message.includes("already registered") 
+        ? "Email already exists in the system (possibly in another module). Please use a unique email for this student." 
+        : error.message 
+    });
   }
 });
 
@@ -439,82 +496,127 @@ app.post("/api/hte/students/batch-create", async (req, res) => {
     const drive = google.drive({ version: "v3", auth });
 
     for (const studentData of students) {
+      let createdAuthUserId = null;
       try {
-        // 1. Create Auth User
-        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-          email: studentData.email,
-          password: studentData.password,
-          email_confirm: true,
-          user_metadata: {
-            first_name: studentData.firstName,
-            last_name: studentData.lastName,
-          },
-        });
-
-        if (authError) throw authError;
-        const userId = authData.user.id;
-
-        // 2. Set RBAC
-        await supabaseAdmin.from("user_rbac").upsert({
-          user_id: userId,
-          thesis: true,
-          thesis_role: "student",
-          status: "active"
-        });
-
-        // 3. Create GDrive Folder
-        const folderName = `${studentData.studentId}_${studentData.lastName}_${semester}`;
-        const folderId = await getOrCreateFolder(drive, folderName, hteParentFolderId);
-        const folderLink = `https://drive.google.com/drive/folders/${folderId}`;
-
-        // 4. Insert Student Record
-        const { error: studentError } = await supabaseAdmin
+        // 1. Check if student already exists in hte_ojt_students
+        const { data: existingStudent, error: findError } = await supabaseAdmin
           .from("hte_ojt_students")
-          .insert([{
+          .select("id, user_id, is_active")
+          .or(`email.eq.${studentData.email},student_no.eq.${studentData.studentId}`)
+          .maybeSingle();
+
+        if (findError) throw findError;
+
+        if (existingStudent && existingStudent.is_active) {
+          throw new Error("Student already exists and is active.");
+        }
+
+        let userId = existingStudent?.user_id || null;
+
+        // 2. Handle Auth User
+        if (!userId) {
+          // Create a NEW auth user. If it fails due to existing email (e.g. from another module), 
+          // we throw the error as requested (no cross-module reuse).
+          const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+            email: studentData.email,
+            password: studentData.password || Math.random().toString(36).slice(-10) + "!",
+            email_confirm: true,
+            user_metadata: {
+              first_name: studentData.firstName,
+              last_name: studentData.lastName,
+            },
+          });
+
+          if (authError) {
+            // Check for conflict
+            if (authError.message.includes("already registered") || authError.status === 422) {
+              throw new Error("Email already exists in the system (possibly in another module). Please use a unique email.");
+            }
+            throw authError;
+          }
+          
+          userId = authData.user.id;
+          createdAuthUserId = userId;
+        }
+
+        try {
+          // 3. Set/Update RBAC
+          await supabaseAdmin.from("user_rbac").upsert({
             user_id: userId,
-            student_no: studentData.studentId,
+            thesis: true,
+            thesis_role: "student",
+            status: "active"
+          });
+
+          // 4. GDrive Folder
+          const folderName = `${studentData.studentId}_${studentData.lastName}_${semester}`;
+          const folderId = await getOrCreateFolder(drive, folderName, hteParentFolderId);
+          const folderLink = `https://drive.google.com/drive/folders/${folderId}`;
+
+          // 5. Insert or Update Student Record
+          const studentPayload = {
+            user_id: userId,
+            student_no: studentData.studentId || studentData.studentNo,
             first_name: studentData.firstName,
             middle_name: studentData.middleName,
             last_name: studentData.lastName,
             email: studentData.email,
             program: studentData.program,
-            section: studentData.sectionName || "",
-            section_id: studentData.sectionId,
-            adviser_id: studentData.adviserId,
+            section: studentData.sectionName || studentData.section || "",
+            section_id: studentData.sectionId || null,
+            adviser_id: studentData.adviserId || null,
             academic_year: academicYear,
             semester: semester,
             gdrive_folder_id: folderId,
             gdrive_folder_link: folderLink,
             overall_status: "incomplete",
-            is_active: true
-          }]);
+            is_active: true,
+            updated_at: new Date().toISOString()
+          };
 
-        if (studentError) throw studentError;
+          if (existingStudent) {
+            const { error: updateError } = await supabaseAdmin
+              .from("hte_ojt_students")
+              .update(studentPayload)
+              .eq("id", existingStudent.id);
+            if (updateError) throw updateError;
+          } else {
+            const { error: insertError } = await supabaseAdmin
+              .from("hte_ojt_students")
+              .insert([studentPayload]);
+            if (insertError) throw insertError;
+          }
 
-        results.success++;
+          results.success++;
+        } catch (innerErr) {
+          // ROLLBACK for this specific student
+          if (createdAuthUserId) {
+            console.warn(`[Batch Rollback] Deleting newly created auth user ${createdAuthUserId} for ${studentData.email}`);
+            await supabaseAdmin.auth.admin.deleteUser(createdAuthUserId);
+          }
+          throw innerErr;
+        }
       } catch (err) {
         results.failed++;
         results.errors.push({
-          studentId: studentData.studentId,
+          studentId: studentData.studentId || studentData.studentNo,
           name: `${studentData.firstName} ${studentData.lastName}`,
           error: err.message
         });
       }
     }
 
-    res.json({ success: true, results });
-
-    // Log the event
+    // Log total result
     await logAuditTrail(req, {
-      action: "Add",
-      description: `Batch enrolled ${results.success} HTE students (${results.failed} failed)`,
+      action: "Batch Add/Update",
+      description: `Batch processed ${results.total} HTE students. Success: ${results.success}, Failed: ${results.failed}`,
       moduleAffected: "HTE Archiving",
-      recordType: "hte_ojt_students",
       newValues: results,
       actorUserId: req.body.actorUserId || null,
       actorName: req.body.actorName || "Admin"
     });
 
+    res.json({ success: true, results });
   } catch (error) {
     console.error("Error in batch student creation:", error);
     res.status(500).json({ error: error.message });
