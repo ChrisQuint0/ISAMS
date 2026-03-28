@@ -776,7 +776,7 @@ export default function AdminSettingsPage() {
         switch (actionType) {
             case 'RESET_SEMESTER':
                 config.title = 'Reset Semester Data';
-                config.description = `WARNING: Are you sure you want to RESET the ${settings.current_semester} of ${settings.current_academic_year}? This will delete all faculty submissions, but keep the faculty and course lists intact.`;
+                config.description = `WARNING: Are you sure you want to RESET the ${currentSettings.semester} of ${currentSettings.academic_year}? This will delete all faculty submissions, but keep the faculty and course lists intact.`;
                 config.confirmationText = 'RESET';
                 break;
             case 'PURGE_ARCHIVES':
@@ -799,7 +799,7 @@ export default function AdminSettingsPage() {
         let func = null;
 
         if (actionType === 'RESET_SEMESTER') {
-            func = () => settingsService.resetSemester(settings.current_semester, settings.current_academic_year);
+            func = () => settingsService.resetSemester(currentSettings.semester, currentSettings.academic_year);
         } else if (actionType === 'PURGE_ARCHIVES') {
             func = () => settingsService.purgeArchives(parseInt(settings.general_archive_retention) || 5);
         } else {
@@ -1463,11 +1463,13 @@ export default function AdminSettingsPage() {
                                                         <SelectValue placeholder="Select faculty…" />
                                                     </SelectTrigger>
                                                     <SelectContent className="bg-white border-neutral-200 text-neutral-900">
-                                                        {facultyList.filter(f => f.first_name && f.last_name).map(f => (
-                                                            <SelectItem key={f.faculty_id} value={f.faculty_id} disabled={!f.is_active} className={!f.is_active ? 'opacity-50' : ''}>
-                                                                {f.first_name} {f.last_name}
-                                                            </SelectItem>
-                                                        ))}
+                                                        {facultyList.filter(f => f.first_name && f.last_name)
+                                                            .sort((a, b) => (a.first_name + " " + a.last_name).localeCompare(b.first_name + " " + b.last_name))
+                                                            .map(f => (
+                                                                <SelectItem key={f.faculty_id} value={f.faculty_id} disabled={!f.is_active} className={!f.is_active ? 'opacity-50' : ''}>
+                                                                    {f.first_name} {f.last_name}
+                                                                </SelectItem>
+                                                            ))}
                                                     </SelectContent>
                                                 </Select>
                                             </div>
@@ -1733,18 +1735,20 @@ export default function AdminSettingsPage() {
                                         </CardTitle>
                                         <CardDescription className="text-neutral-500">Manage Clearance Certificates and visual calibration.</CardDescription>
                                     </div>
-                                    <Button
-                                        variant="default"
-                                        size="sm"
-                                        className="shadow-sm active:scale-95 transition-all"
-                                        onClick={() => {
-                                            setModalMode('CERTIFICATE');
-                                            setNewTemplate(prev => ({ ...prev, systemCategory: 'CLEARANCE_CERTIFICATE', courseCode: 'GENERAL' }));
-                                            setTemplateModalOpen(true);
-                                        }}
-                                    >
-                                        <Plus className="h-4 w-4 mr-1.5" /> Upload Certificate
-                                    </Button>
+                                    <div className="flex items-center gap-4">
+                                        <Button
+                                            variant="default"
+                                            size="sm"
+                                            className="shadow-sm active:scale-95 transition-all"
+                                            onClick={() => {
+                                                setModalMode('CERTIFICATE');
+                                                setNewTemplate(prev => ({ ...prev, systemCategory: 'CLEARANCE_CERTIFICATE', courseCode: 'GENERAL' }));
+                                                setTemplateModalOpen(true);
+                                            }}
+                                        >
+                                            <Plus className="h-4 w-4 mr-1.5" /> Upload Certificate
+                                        </Button>
+                                    </div>
                                 </CardHeader>
                                 <CardContent className="pt-6">
                                     <DataTable
@@ -1765,18 +1769,20 @@ export default function AdminSettingsPage() {
                                         </CardTitle>
                                         <CardDescription className="text-neutral-500">Manage Syllabus, Grade Sheets, and General templates.</CardDescription>
                                     </div>
-                                    <Button
-                                        variant="default"
-                                        size="sm"
-                                        className="shadow-sm active:scale-95 transition-all"
-                                        onClick={() => {
-                                            setModalMode('SYSTEM');
-                                            setNewTemplate(prev => ({ ...prev, systemCategory: '', courseCode: '' }));
-                                            setTemplateModalOpen(true);
-                                        }}
-                                    >
-                                        <Plus className="h-4 w-4 mr-1" /> Upload Template
-                                    </Button>
+                                    <div className="flex items-center gap-4">
+                                        <Button
+                                            variant="default"
+                                            size="sm"
+                                            className="shadow-sm active:scale-95 transition-all"
+                                            onClick={() => {
+                                                setModalMode('SYSTEM');
+                                                setNewTemplate(prev => ({ ...prev, systemCategory: '', courseCode: '' }));
+                                                setTemplateModalOpen(true);
+                                            }}
+                                        >
+                                            <Plus className="h-4 w-4 mr-1" /> Upload Template
+                                        </Button>
+                                    </div>
                                 </CardHeader>
                                 <CardContent className="pt-6">
                                     <DataTable
