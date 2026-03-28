@@ -108,7 +108,7 @@ export default function FacultySettingsPage() {
                 <Input
                   value={formData.firstName}
                   onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                  className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 h-9 text-xs font-medium shadow-sm"
+                  className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 focus-visible:border-primary-500 rounded-lg"
                 />
               </div>
               <div className="space-y-1.5">
@@ -116,7 +116,7 @@ export default function FacultySettingsPage() {
                 <Input
                   value={formData.lastName}
                   onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                  className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 h-9 text-xs font-medium shadow-sm"
+                  className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 focus-visible:border-primary-500 rounded-lg"
                 />
               </div>
             </div>
@@ -126,7 +126,7 @@ export default function FacultySettingsPage() {
               <Input
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 h-9 text-xs font-medium shadow-sm"
+                className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 focus-visible:border-primary-500 rounded-lg"
               />
               <div className="bg-warning/5 border border-warning/20 rounded-lg p-3 mt-3 flex items-start gap-2.5 shadow-sm">
                 <AlertCircle className="h-4 w-4 text-warning shrink-0 mt-0.5" />

@@ -415,7 +415,7 @@ export default function AdminFacultyMonitorPage() {
                   <Search className="absolute left-3 top-2.5 h-4 w-4 text-neutral-400" />
                   <Input
                     placeholder="By name or course..."
-                    className="pl-9 bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus-visible:ring-primary-500 font-medium"
+                    className="pl-9 bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus-visible:ring-primary-500 focus-visible:border-primary-500 rounded-lg"
                     value={filters.search}
                     onChange={e => setFilters(prev => ({ ...prev, search: e.target.value }))}
                   />

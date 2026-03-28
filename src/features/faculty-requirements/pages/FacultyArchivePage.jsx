@@ -192,7 +192,7 @@ export default function FacultyArchivePage() {
                     placeholder="Find by course code, name, or section..."
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    className="pl-8 bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus-visible:ring-primary-500 font-medium"
+                    className="pl-8 bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus-visible:ring-primary-500 focus-visible:border-primary-500 rounded-lg"
                   />
                 </div>
               </div>

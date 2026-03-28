@@ -4,7 +4,7 @@ import {
     Cpu, CheckCircle, AlertCircle, Play, Shield, FileText,
     Clock, Archive, HardDrive, Server, Activity,
     Wifi, WifiOff, Globe, Lock, Unlock, AlertTriangle,
-    ChevronUp, ChevronDown, Plus, Folder, File as FileIcon, LayoutTemplate, Users, BookOpen, X, Settings2, ArchiveRestore, Info
+    ChevronUp, ChevronDown, Plus, Folder, File as FileIcon, LayoutTemplate, Users, BookOpen, X, Settings2, ArchiveRestore, Info, Search
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -382,6 +382,7 @@ export default function AdminSettingsPage() {
     // Assign Faculty Modal state
     const [assignModalOpen, setAssignModalOpen] = useState(false);
     const [newAssignment, setNewAssignment] = useState({ master_course_id: '', section: '', faculty_id: '' });
+    const [facultyAssignmentsSearch, setFacultyAssignmentsSearch] = useState('');
 
     const selectedCatalogEntry = masterCourseList.find(c => c.id === Number(newAssignment.master_course_id));
     const SECTION_PATTERN = /^[A-Z]+-\d+[A-Z]$/;  // e.g. BSIT-3A
@@ -426,6 +427,20 @@ export default function AdminSettingsPage() {
         });
         return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
     }, [courseList, facultyList]);
+
+    const filteredFacultyGroups = useMemo(() => {
+        if (!facultyAssignmentsSearch.trim()) return facultyGroups;
+        const q = facultyAssignmentsSearch.toLowerCase();
+        return facultyGroups.filter(g => {
+            if (g.name.toLowerCase().includes(q)) return true;
+            return g.assignments.some(a =>
+                (a.course_code && a.course_code.toLowerCase().includes(q)) ||
+                (a.course_name && a.course_name.toLowerCase().includes(q)) ||
+                (a.section && String(a.section).toLowerCase().includes(q)) ||
+                (a.semester && a.semester.toLowerCase().includes(q))
+            );
+        });
+    }, [facultyGroups, facultyAssignmentsSearch]);
 
 
     // Column definitions for faculty tab
@@ -969,7 +984,7 @@ export default function AdminSettingsPage() {
                                                         value={mainGdriveLink}
                                                         onChange={(e) => setMainGdriveLink(e.target.value)}
                                                         disabled={!!settings.gdrive_root_folder_id && !isGdriveUnlocked}
-                                                        className={`bg-white border-neutral-200 text-neutral-900 focus-visible:border-primary focus-visible:ring-primary/20 h-10 shadow-sm ${!!settings.gdrive_root_folder_id && !isGdriveUnlocked ? 'bg-neutral-50 text-neutral-500 cursor-not-allowed' : ''}`}
+                                                        className={`bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 focus-visible:border-primary-500 rounded-lg ${!!settings.gdrive_root_folder_id && !isGdriveUnlocked ? 'bg-neutral-50 text-neutral-500 cursor-not-allowed' : ''}`}
                                                     />
                                                 </div>
 
@@ -1231,23 +1246,48 @@ export default function AdminSettingsPage() {
                                                 Overview of all faculty course loads. Assign a new section via the button.
                                             </CardDescription>
                                         </div>
-                                        <Button onClick={openAssignModal} className="shrink-0">
-                                            <Plus className="h-4 w-4 mr-2" /> Assign Faculty
-                                        </Button>
+                                        <div className="flex items-center gap-3 shrink-0">
+                                            <div className="relative w-64 hidden sm:block">
+                                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-neutral-400" />
+                                                <Input
+                                                    placeholder="Search faculty, course, sec..."
+                                                    className="pl-9 h-9 bg-neutral-50 border-neutral-200 focus-visible:ring-primary-500 focus-visible:border-primary-500 rounded-lg"
+                                                    value={facultyAssignmentsSearch}
+                                                    onChange={(e) => setFacultyAssignmentsSearch(e.target.value)}
+                                                />
+                                            </div>
+                                            <Button onClick={openAssignModal} className="shrink-0 h-9">
+                                                <Plus className="h-4 w-4 mr-2" /> Assign Faculty
+                                            </Button>
+                                        </div>
                                     </div>
                                 </CardHeader>
                                 <CardContent className="pt-6">
-                                    {facultyGroups.length === 0 ? (
+                                    {/* Mobile Search */}
+                                    <div className="sm:hidden mb-4 relative">
+                                        <Search className="absolute left-3 top-3 h-4 w-4 text-neutral-400" />
+                                        <Input
+                                            placeholder="Search assignments..."
+                                            className="pl-10 h-10 bg-neutral-50 border-neutral-200 focus-visible:ring-primary-500 focus-visible:border-primary-500 rounded-lg w-full"
+                                            value={facultyAssignmentsSearch}
+                                            onChange={(e) => setFacultyAssignmentsSearch(e.target.value)}
+                                        />
+                                    </div>
+                                    {filteredFacultyGroups.length === 0 ? (
                                         <div className="flex flex-col items-center justify-center py-16 text-center bg-neutral-50 border border-dashed border-neutral-200 rounded-xl">
                                             <div className="p-4 rounded-full bg-white border border-neutral-100 shadow-sm mb-4">
                                                 <Users className="h-8 w-8 text-neutral-300" />
                                             </div>
-                                            <p className="text-neutral-900 font-bold">No assignments yet</p>
-                                            <p className="text-neutral-500 text-sm mt-1">Click "Assign Faculty" to distribute course sections.</p>
+                                            <p className="text-neutral-900 font-bold">
+                                                {facultyGroups.length > 0 ? 'No results found' : 'No assignments yet'}
+                                            </p>
+                                            <p className="text-neutral-500 text-sm mt-1">
+                                                {facultyGroups.length > 0 ? 'Try adjusting your search query.' : 'Click "Assign Faculty" to distribute course sections.'}
+                                            </p>
                                         </div>
                                     ) : (
                                         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                                            {facultyGroups.map(group => {
+                                            {filteredFacultyGroups.map(group => {
                                                 const initials = group.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
                                                 return (
                                                     <div
@@ -1443,7 +1483,7 @@ export default function AdminSettingsPage() {
                                                         setNewAssignment(p => ({ ...p, section: normalized }));
                                                     }}
                                                     disabled={!newAssignment.master_course_id}
-                                                    className="bg-white border-neutral-200 text-neutral-900 font-mono disabled:bg-neutral-100 shadow-sm focus-visible:ring-primary-500"
+                                                    className="bg-white border-neutral-200 text-neutral-900 font-mono disabled:bg-neutral-100 shadow-sm focus-visible:ring-primary-500 focus-visible:border-primary-500 rounded-lg"
                                                 />
                                                 {newAssignment.section && !sectionFormatValid && (
                                                     <p className="text-[10px] text-amber-600 font-medium flex items-center gap-1 mt-1">
@@ -1459,7 +1499,7 @@ export default function AdminSettingsPage() {
                                                     onValueChange={v => setNewAssignment(p => ({ ...p, faculty_id: v }))}
                                                     disabled={!newAssignment.master_course_id}
                                                 >
-                                                    <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm disabled:bg-neutral-100 focus:ring-primary-500">
+                                                    <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm disabled:bg-neutral-100 focus:ring-primary-500 focus-visible:ring-primary-500 focus-visible:border-primary-500 rounded-lg">
                                                         <SelectValue placeholder="Select faculty…" />
                                                     </SelectTrigger>
                                                     <SelectContent className="bg-white border-neutral-200 text-neutral-900">
@@ -1558,7 +1598,7 @@ export default function AdminSettingsPage() {
                                                 placeholder="e.g. Quarterly Report"
                                                 value={newReq.name}
                                                 onChange={(e) => setNewReq({ ...newReq, name: e.target.value })}
-                                                className={`bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 shadow-sm ${isDuplicateRequirement ? 'border-destructive focus-visible:ring-destructive/20' : ''}`}
+                                                className={`bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 focus-visible:ring-primary-500 focus-visible:border-primary-500 rounded-lg`}
                                             />
                                             <div className="min-h-[1.25rem]">
                                                 {isDuplicateRequirement && (
@@ -1577,7 +1617,7 @@ export default function AdminSettingsPage() {
                                                 placeholder="e.g. Reports_Q1"
                                                 value={newReq.folder}
                                                 onChange={(e) => setNewReq({ ...newReq, folder: e.target.value.replace(/[^a-zA-Z0-9_-]/g, '_') })}
-                                                className={`bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 shadow-sm ${isDuplicateFolder ? 'border-destructive focus-visible:ring-destructive/20' : ''}`}
+                                                className={`bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 focus-visible:ring-primary-500 focus-visible:border-primary-500 rounded-lg`}
                                             />
                                             <div className="min-h-[1.25rem]">
                                                 {isDuplicateFolder && (
@@ -1596,7 +1636,7 @@ export default function AdminSettingsPage() {
                                                 placeholder="e.g. Please upload the latest signed copy..."
                                                 value={newReq.description}
                                                 onChange={(e) => setNewReq({ ...newReq, description: e.target.value })}
-                                                className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 shadow-sm"
+                                                className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 focus-visible:ring-primary-500 focus-visible:border-primary-500 rounded-lg"
                                             />
                                             <div className="min-h-[1.25rem]" />
                                         </div>
@@ -1836,7 +1876,7 @@ export default function AdminSettingsPage() {
                                                 placeholder="e.g. Christmas Break"
                                                 value={newHoliday.description}
                                                 onChange={e => setNewHoliday({ ...newHoliday, description: e.target.value })}
-                                                className={`bg-white border-neutral-200 text-neutral-900 shadow-sm focus-visible:ring-primary-500 ${holidayDescriptionDuplicate ? 'border-destructive focus-visible:ring-destructive/20' : ''}`}
+                                                className={`bg-white border-neutral-200 text-neutral-900 shadow-sm focus-visible:ring-primary-500 focus-visible:border-primary-500 rounded-lg ${holidayDescriptionDuplicate ? 'border-destructive focus-visible:ring-destructive/20' : ''}`}
                                             />
                                         </div>
                                         <Button
