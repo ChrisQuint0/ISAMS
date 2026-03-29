@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Save, Database, Terminal, Trash2, RefreshCw, Eye, Settings,
     Cpu, CheckCircle, AlertCircle, Play, Shield, FileText,
     Clock, Archive, HardDrive, Server, Activity,
     Wifi, WifiOff, Globe, Lock, Unlock, AlertTriangle,
-    ChevronUp, ChevronDown, Plus, Folder, File as FileIcon, LayoutTemplate, Users, BookOpen, X, Settings2, ArchiveRestore, Info, Search
+    ChevronUp, ChevronDown, Plus, Folder, File as FileIcon, LayoutTemplate, Users, BookOpen, X, Settings2, ArchiveRestore, Info, Search, ExternalLink
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -190,6 +191,7 @@ const SystemStatusCard = ({ systemHealth }) => {
 };
 
 export default function AdminSettingsPage() {
+    const navigate = useNavigate();
     const {
         loading, processing, setProcessing, error, success, setError, setSuccess,
         settings, testResult, clearTestResult,
@@ -1009,10 +1011,10 @@ export default function AdminSettingsPage() {
                                                     <Button
                                                         size="sm"
                                                         variant="ghost"
-                                                        className="text-neutral-500 hover:text-primary hover:bg-primary/10 transition-colors"
-                                                        onClick={() => window.open(`${import.meta.env.VITE_API_BASE || 'http://localhost:3002'}/api/auth`, '_blank')}
+                                                        className="text-neutral-500 hover:text-primary-600 hover:bg-primary-600/10 transition-colors text-[11px]"
+                                                        onClick={() => navigate('/system-settings')}
                                                     >
-                                                        <RefreshCw className="mr-2 h-3 w-3" /> Refresh Auth
+                                                        <ExternalLink className="mr-2 h-3 w-3" /> Manage GDrive Auth in System Settings
                                                     </Button>
 
                                                     {settings.gdrive_root_folder_id && (

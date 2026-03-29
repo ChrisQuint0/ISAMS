@@ -143,6 +143,40 @@ export default function AdminFacultyDetailPage() {
         }
     }, [faculty]);
 
+    // Auto-retrieve GDrive folder ID when faculty has no folder linked yet
+    useEffect(() => {
+        if (!faculty || faculty.gdrive_folder_id) return;
+
+        const autoLink = async () => {
+            try {
+                const rootFolderId = await getFolderLink();
+                if (!rootFolderId) return; // No root configured, skip silently
+
+                const { data: settings } = await supabase
+                    .from('systemsettings_fs')
+                    .select('setting_key, setting_value')
+                    .in('setting_key', ['current_semester', 'current_academic_year']);
+
+                const semester = settings?.find(s => s.setting_key === 'current_semester')?.setting_value;
+                const academicYear = settings?.find(s => s.setting_key === 'current_academic_year')?.setting_value;
+                const facultyName = `${faculty.first_name || ''} ${faculty.last_name || ''}`.trim();
+
+                const folderId = await ensureFolderStructure(rootFolderId, { academicYear, semester, facultyName });
+
+                if (folderId) {
+                    await settingsService.updateFacultyManagement(faculty.user_id, 'gdrive_folder_id', folderId);
+                    setFaculty(prev => ({ ...prev, gdrive_folder_id: folderId }));
+                    setGdriveFolderIdInput(folderId);
+                }
+            } catch (err) {
+                // Silent fail – admin can manually click Auto-Link if needed
+                console.warn('[GDrive Auto-Link] Silently failed:', err.message);
+            }
+        };
+
+        autoLink();
+    }, [faculty?.user_id, faculty?.gdrive_folder_id]);
+
     const stats = useMemo(() => {
         if (!courses || courses.length === 0) return { progress: 0, pending: 0, total: 0 };
         const total = courses.reduce((acc, c) => acc + (c.total_required || 0), 0);
