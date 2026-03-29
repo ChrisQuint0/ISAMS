@@ -157,7 +157,7 @@ export default function ReportsAnalytics() {
                 <div className="lg:col-span-1">
                     <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm h-full flex flex-col">
                         <h3 className="text-sm font-bold text-neutral-900 uppercase mb-1">Laptop vs. PC Usage</h3>
-                        <p className="text-[11px] text-neutral-500 mb-6 border-b border-neutral-200 pb-4">Distribution (Selected Date Range)</p>
+                        <p className="text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5 mb-6 border-b border-neutral-200 pb-4">Distribution (Selected Date Range)</p>
                         <div className="flex-1 flex flex-col items-center justify-center space-y-8">
                             {loading ? <Loader2 className="w-10 h-10 animate-spin text-primary-500" /> : (
                                 <>
@@ -189,7 +189,7 @@ export default function ReportsAnalytics() {
                 <div className="lg:col-span-1">
                     <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm h-full">
                         <h3 className="text-sm font-bold text-neutral-900 uppercase mb-1">Section Attendance Reports</h3>
-                        <p className="text-[11px] text-neutral-500 mb-4 border-b border-neutral-200 pb-4">Monthly totals & rates</p>
+                        <p className="text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5 mb-4 border-b border-neutral-200 pb-4">Monthly totals & rates</p>
                         <SectionAttendanceTable rawLogs={rawLogs} />
                     </div>
                 </div>
@@ -202,7 +202,7 @@ export default function ReportsAnalytics() {
                 </ChartBox>
                 <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm">
                     <h3 className="text-sm font-bold text-neutral-900 uppercase flex items-center gap-2"><Brain size={16} className="text-gold-500" /> Predicted High-Traffic Days</h3>
-                    <p className="text-[11px] text-neutral-500 mb-4 border-b border-neutral-200 pb-4">System-forecasted surge periods (next 3 weeks)</p>
+                    <p className="text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5 mb-4 border-b border-neutral-200 pb-4">System-forecasted surge periods (next 3 weeks)</p>
                     <HighTrafficDays rawLogs={rawLogs} />
                 </div>
             </div>
@@ -227,8 +227,8 @@ export default function ReportsAnalytics() {
 
             {/* Export Section */}
             <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm">
-                <h3 className="text-sm font-bold text-neutral-900 uppercase mb-1 font-mono tracking-tighter">Generate Official Reports</h3>
-                <p className="text-[11px] text-neutral-500 mb-6 border-b border-neutral-200 pb-4">Export filtered data for administrative submission</p>
+                <h3 className="text-sm font-bold text-neutral-900 uppercase tracking-wider">Generate Official Reports</h3>
+                <p className="text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5 mb-6 border-b border-neutral-200 pb-4">Export filtered data for administrative submission</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <ExportCard
                         title="End-of-Month Attendance"

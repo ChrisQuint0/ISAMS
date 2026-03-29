@@ -14,7 +14,7 @@ export default function ActivityItem({ time, text, detail, alert }) {
             
             <div className="space-y-0.5 flex-1 min-w-0">
                 <div className="flex justify-between items-center">
-                    <span className="text-[12px] font-black tracking-tight uppercase" style={{color: textColor}}>
+                    <span className="text-sm font-bold uppercase tracking-wider" style={{color: textColor}}>
                         {text}
                     </span>
                     <span className="text-[15px] font-mono font-bold" style={{color: timeColor, opacity: 0.8}}>{time}</span>

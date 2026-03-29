@@ -1,5 +1,6 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
+import { DataTable } from "@/components/DataTable";
 import {
     Dialog,
     DialogContent,
@@ -139,7 +140,7 @@ export default function ImportDialog({
                                             type="button"
                                             onClick={() => onPreviewOpenChange(true)}
                                             disabled={previewHeaders.length === 0 || previewRows.length === 0 || isImporting}
-                                            className="flex items-center gap-2 bg-neutral-100 border border-neutral-200 hover:border-neutral-300 text-neutral-900 text-[10px] font-bold py-2 px-4 rounded-lg uppercase tracking-widest transition-all shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className="flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white text-[10px] font-bold py-2 px-4 rounded-lg uppercase tracking-widest transition-all shrink-0 disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
                                         >
                                             <span>Preview Records</span>
                                         </button>
@@ -147,7 +148,7 @@ export default function ImportDialog({
                                             type="button"
                                             onClick={clearSelectedFile}
                                             disabled={isImporting}
-                                            className="flex items-center gap-1 bg-destructive-semantic/10 border border-destructive-semantic/20 hover:border-destructive-semantic/40 text-destructive-semantic text-[10px] font-bold py-2 px-4 rounded-lg uppercase tracking-widest transition-all shrink-0 disabled:opacity-50"
+                                            className="flex items-center gap-1 bg-destructive-semantic hover:bg-destructive-semantic/90 text-white text-[10px] font-bold py-2 px-4 rounded-lg uppercase tracking-widest transition-all shrink-0 disabled:opacity-50 shadow-md"
                                         >
                                             <Trash2 size={13} />
                                             <span>Remove File</span>
@@ -197,31 +198,17 @@ export default function ImportDialog({
                             </DialogDescription>
                         </div>
                     </DialogHeader>
-                    <div className="flex-1 overflow-auto px-6 py-4">
-                        <div className="rounded-xl border border-neutral-200 bg-neutral-50 overflow-x-auto">
-                            <table className="w-full border-collapse text-xs">
-                                <thead>
-                                    <tr className="bg-neutral-100">
-                                        {previewHeaders.map((header) => (
-                                            <th key={header} className="text-left p-2 border-b border-r border-neutral-200 last:border-r-0 text-neutral-700 font-black uppercase tracking-wider">
-                                                {/* Applied formatHeaderLabel here */}
-                                                {formatHeaderLabel(header)}
-                                            </th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {previewRows.map((row, rowIndex) => (
-                                        <tr key={`${selectedFileName}-${rowIndex}`} className="hover:bg-neutral-100/50">
-                                            {previewHeaders.map((header) => (
-                                                <td key={`${header}-${rowIndex}`} className="p-2 border-b border-r border-neutral-200 last:border-r-0 text-neutral-900">
-                                                    {String(row?.[header] ?? "-")}
-                                                </td>
-                                            ))}
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                    <div className="flex-1 overflow-auto px-6 py-4 flex flex-col">
+                        <div className="flex-1 w-full">
+                            <DataTable
+                                rowData={previewRows}
+                                columnDefs={previewHeaders.map((header) => ({
+                                    field: header,
+                                    headerName: formatHeaderLabel(header),
+                                    width: 150
+                                }))}
+                                className="!h-full"
+                            />
                         </div>
                     </div>
                     <DialogFooter className="gap-3 px-6 py-4 border-t border-neutral-200 bg-neutral-50">

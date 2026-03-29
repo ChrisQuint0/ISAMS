@@ -321,71 +321,71 @@ export default function Kiosk() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col">
-      <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-50">
+    <div className="min-h-screen bg-white flex flex-col">
+      <header className="border-b border-neutral-200 bg-neutral-50 sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-600 text-white shadow-lg">
+            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary-500 text-white shadow-md">
               <Monitor className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-2xl font-semibold text-slate-100 uppercase tracking-tight">Kiosk Mode</h1>
+              <h1 className=" text-[30px] font-bold text-neutral-900 tracking-tight">Kiosk Mode</h1>
               <div className="flex items-center gap-2 mt-0.5">
-                <p className="text-sm text-slate-400 font-medium">{labName}</p>
-                <span className="text-slate-600 text-xs">—</span>
+                <p className="text-neutral-600 text-sm italic">{labName}</p>
+                <span className="text-neutral-200 text-xs">—</span>
                 {currentClass ? (
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[10px] font-black uppercase tracking-widest">
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-success/10 border border-success/20 text-success text-[10px] font-black uppercase tracking-widest">
                     <UserCheck size={10} /> Active: {currentClass.subject_name} ({formatToAMPM(currentClass.time_start)} - {formatToAMPM(currentClass.time_end)})
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/20 text-rose-500 text-[10px] font-black uppercase tracking-widest animate-pulse">
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-destructive-semantic/10 border border-destructive-semantic/20 text-destructive-semantic text-[10px] font-black uppercase tracking-widest animate-pulse">
                     <ShieldAlert size={10} /> No Active Session
                   </span>
                 )}
               </div>
             </div>
           </div>
-          <span className="text-sm text-slate-400 hidden md:block font-mono tracking-wider">{timestamp}</span>
+          <span className="text-sm text-neutral-500 hidden md:block font-mono tracking-wider">{timestamp}</span>
         </div>
       </header>
 
       <main className="flex-1 max-w-7xl mx-auto px-6 py-10 w-full">
-        <Card className="group relative overflow-hidden bg-slate-900/50 border-slate-800 hover:border-slate-700 transition-all duration-300">
-          <CardHeader className="relative pb-3">
+        <Card className="relative overflow-hidden bg-neutral-50 border-neutral-200 shadow-md">
+          <CardHeader className="pb-3">
             <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-cyan-900/50 border border-cyan-800/50">
-                <ScanBarcode className="w-5 h-5 text-cyan-400" />
+              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary-500/10 border border-primary-500/20">
+                <ScanBarcode className="w-5 h-5 text-primary-500" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-slate-100 font-sans tracking-tight">Student Check-In</h2>
-                <p className="text-xs text-slate-400 uppercase tracking-[0.15em] font-medium">Scan Barcode, QR Code, or Enter Manually</p>
+                <h2 className="text-lg font-semibold text-neutral-900 font-sans tracking-tight">Student Check-In</h2>
+                <p className=" text-neutral-600 text-sm">Scan Barcode, QR Code, or Enter Manually</p>
               </div>
             </div>
           </CardHeader>
 
-          <CardContent className="relative space-y-8">
-            <div className="relative w-full max-w-2xl mx-auto rounded-xl border border-slate-700 bg-black/80 shadow-inner overflow-hidden flex flex-col items-center justify-center min-h-[350px]">
+          <CardContent className="space-y-8">
+            <div className="relative w-full h-[520px] rounded-xl border border-neutral-200 bg-neutral-900 shadow-md overflow-hidden flex flex-col items-center justify-center">
 
               {cameraStatus === 'loading' && (
-                <div className="absolute flex flex-col items-center justify-center inset-0 gap-3 text-cyan-500 z-10 bg-slate-950">
+                <div className="absolute flex flex-col items-center justify-center inset-0 gap-3 text-primary-500 z-10 bg-neutral-900">
                   <Loader2 className="w-8 h-8 animate-spin" />
                   <p className="text-xs uppercase tracking-widest font-bold">Connecting Camera...</p>
                 </div>
               )}
 
               {cameraStatus === 'error' && (
-                <div className="absolute flex flex-col items-center justify-center inset-0 gap-3 text-rose-400 z-10 bg-slate-950">
+                <div className="absolute flex flex-col items-center justify-center inset-0 gap-3 text-destructive-semantic z-10 bg-neutral-900">
                   <AlertTriangle className="w-10 h-10" />
                   <div className="text-center">
                     <p className="text-sm font-bold uppercase tracking-wider">Camera Error</p>
-                    <p className="text-xs text-rose-400/70 mt-1">Make sure Camo Studio is running.</p>
+                    <p className="text-xs text-destructive-semantic/70 mt-1">Make sure Camo Studio is running.</p>
                   </div>
                 </div>
               )}
 
               <video 
                 ref={videoRef} 
-                className={`w-full max-h-[350px] object-contain transition-opacity duration-500 ${cameraStatus === 'active' ? 'opacity-100' : 'opacity-0'}`} 
+                className={`w-full h-full object-cover transition-opacity duration-500 scale-x-[-1] ${cameraStatus === 'active' ? 'opacity-100' : 'opacity-0'}`} 
                 autoPlay 
                 playsInline 
                 muted 
@@ -394,11 +394,11 @@ export default function Kiosk() {
               {cameraStatus === 'active' && (
                 <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                   <div className="relative w-5/6 max-w-[500px] h-2/3 max-h-[300px]">
-                    <div className={`absolute left-0 top-0 h-6 w-10 border-l-4 border-t-4 transition-colors ${isProcessing ? 'border-emerald-400' : 'border-cyan-400'}`} />
-                    <div className={`absolute right-0 top-0 h-6 w-10 border-r-4 border-t-4 transition-colors ${isProcessing ? 'border-emerald-400' : 'border-cyan-400'}`} />
-                    <div className={`absolute left-0 bottom-0 h-6 w-10 border-b-4 border-l-4 transition-colors ${isProcessing ? 'border-emerald-400' : 'border-cyan-400'}`} />
-                    <div className={`absolute right-0 bottom-0 h-6 w-10 border-b-4 border-r-4 transition-colors ${isProcessing ? 'border-emerald-400' : 'border-cyan-400'}`} />
-                    <div className={`absolute inset-x-0 top-1/2 h-0.5 transition-colors animate-pulse ${isProcessing ? 'bg-emerald-400' : 'bg-cyan-400/60'}`} />
+                    <div className={`absolute left-0 top-0 h-6 w-10 border-l-4 border-t-4 transition-colors ${isProcessing ? 'border-success' : 'border-primary-500'}`} />
+                    <div className={`absolute right-0 top-0 h-6 w-10 border-r-4 border-t-4 transition-colors ${isProcessing ? 'border-success' : 'border-primary-500'}`} />
+                    <div className={`absolute left-0 bottom-0 h-6 w-10 border-b-4 border-l-4 transition-colors ${isProcessing ? 'border-success' : 'border-primary-500'}`} />
+                    <div className={`absolute right-0 bottom-0 h-6 w-10 border-b-4 border-r-4 transition-colors ${isProcessing ? 'border-success' : 'border-primary-500'}`} />
+                    <div className={`absolute inset-x-0 top-1/2 h-0.5 transition-colors animate-pulse ${isProcessing ? 'bg-success' : 'bg-primary-500/60'}`} />
                   </div>
                 </div>
               )}
@@ -406,7 +406,7 @@ export default function Kiosk() {
 
             <div className="flex flex-col items-center gap-4">
               <div
-                className="relative flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/60 px-5 py-4 cursor-text"
+                className="relative flex items-center gap-1.5 rounded-xl border-2 border-neutral-300 bg-neutral-200 px-5 py-4 cursor-text shadow-md"
                 onClick={focusInput}
               >
                 <input
@@ -422,25 +422,25 @@ export default function Kiosk() {
                 {visibleChars().map((char, idx) => (
                   <div
                     key={idx}
-                    className={`relative flex h-12 w-12 items-center justify-center rounded-lg border text-lg font-semibold text-slate-100 md:h-14 md:w-14 transition-all duration-200 ${
+                    className={`relative flex h-12 w-12 items-center justify-center rounded-lg border text-lg font-semibold text-neutral-900 md:h-14 md:w-14 transition-all duration-200 ${
                       slots[idx] === "-"
-                        ? "w-10 border-transparent text-slate-500"
+                        ? "w-10 border-transparent text-neutral-500"
                         : isFocused && idx === getActiveSlotIndex()
-                        ? "border-cyan-400 bg-slate-900/80 ring-1 ring-cyan-400/30"
-                        : "border-slate-600 bg-slate-900/80"
+                        ? "border-primary-500 bg-neutral-50 ring-1 ring-primary-500/30 shadow-sm"
+                        : "border-neutral-200 bg-neutral-50 shadow-sm"
                     }`}
                   >
                     {char || (slots[idx] === "-" ? "-" : "")}
                   </div>
                 ))}
               </div>
-              <p className="text-xs text-slate-500 uppercase tracking-widest font-mono">Format: XX-XXXXX</p>
+              <p className="text-xs text-neutral-500 uppercase tracking-widest font-mono">Format: XX-XXXXX</p>
               
               {sanitizedId(idEntry).length === 7 && (
                 <Button
                   onClick={() => handleSubmitId(idEntry)}
                   disabled={!currentClass || isProcessing}
-                  className="bg-cyan-600 hover:bg-cyan-700 text-white px-12 py-3 h-auto text-base font-bold uppercase tracking-widest shadow-lg disabled:opacity-30 transition-all min-w-[200px]"
+                  className="bg-primary-600 hover:bg-primary-700 text-white px-12 py-3 h-auto text-base font-bold uppercase tracking-widest shadow-md disabled:opacity-30 transition-all min-w-[200px]"
                 >
                   {isProcessing ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Confirm Check-In"}
                 </Button>
@@ -450,8 +450,8 @@ export default function Kiosk() {
         </Card>
       </main>
 
-      <footer className="border-t border-slate-800 bg-slate-900/30">
-        <div className="max-w-7xl mx-auto px-6 py-6 text-[10px] text-slate-700 text-center font-black uppercase tracking-[0.5em]">
+      <footer className="border-t border-neutral-200 bg-neutral-100 shadow-sm">
+        <div className="max-w-7xl mx-auto px-6 py-6 text-[10px] text-neutral-500 text-center font-black uppercase tracking-[0.5em]">
           ISAMS — College of Computer Studies Laboratory Management © 2026
         </div>
       </footer>

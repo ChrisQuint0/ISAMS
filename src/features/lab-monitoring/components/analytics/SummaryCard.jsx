@@ -9,7 +9,7 @@ export default function SummaryCard({ title, value, icon, trend, trendUp }) {
                     {icon}
                 </div>
                 {trend && (
-                    <div className={`flex items-center gap-1 text-[10px] font-black tracking-widest px-2 py-1 rounded-md ${
+                    <div className={`flex items-center gap-1 text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5 px-2 py-1 rounded-md ${
                         trendUp ? "bg-success/10 text-success" : "bg-destructive-semantic/10 text-destructive-semantic"
                     }`}>
                         {trendUp ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
@@ -19,7 +19,7 @@ export default function SummaryCard({ title, value, icon, trend, trendUp }) {
             </div>
             <div>
                 <h3 className="text-3xl font-bold text-neutral-900 tracking-tight mb-1">{value}</h3>
-                <p className="text-neutral-500 text-[10px] font-black uppercase tracking-widest">{title}</p>
+                <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mt-0.5">{title}</p>
             </div>
         </div>
     );

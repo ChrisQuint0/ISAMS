@@ -194,7 +194,7 @@ export default function LabDashboard() {
                     </div>
 
                     <div className="col-span-12 lg:col-span-5 bg-white border border-neutral-200 rounded-2xl p-6 shadow-md relative overflow-hidden flex flex-col group hover:border-neutral-300 transition-colors">
-                        <h3 className="text-[10px] font-black text-neutral-900 uppercase tracking-widest mb-4 flex gap-2"><Monitor size={12} className="text-primary-600" /> Device Distribution</h3>
+                        <h3 className="text-sm font-bold text-neutral-900 uppercase tracking-wider mb-4 flex gap-2"><Monitor size={12} className="text-primary-600" /> Device Distribution</h3>
                         <div className="flex flex-1 items-center justify-between gap-6">
                             <div className="relative w-48 h-48 flex items-center justify-center flex-shrink-0">
                                 <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
@@ -228,13 +228,13 @@ export default function LabDashboard() {
 
             <div className="grid grid-cols-12 gap-5 h-[45vh]">
                 <div className="col-span-12 lg:col-span-8 bg-white border border-neutral-200 rounded-2xl p-4 shadow-md flex flex-col overflow-hidden">
-                    <h2 className="text-[10px] font-black text-neutral-900 uppercase tracking-widest mb-4 flex gap-2"><BarChart3 size={12} className="text-primary-600" /> Occupancy Trend Analysis</h2>
+                    <h2 className="text-sm font-bold text-neutral-900 uppercase tracking-wider mb-4 flex gap-2"><BarChart3 size={12} className="text-primary-600" /> Occupancy Trend Analysis</h2>
                     <div className="flex-1 min-h-0">
                         <OccupancyChart labName={labName} />
                     </div>
                 </div>
                 <div className="col-span-12 lg:col-span-4 bg-white border border-neutral-200 rounded-2xl p-4 shadow-md flex flex-col overflow-hidden">
-                    <h2 className="text-[10px] font-black text-neutral-900 uppercase tracking-widest mb-4 flex gap-2"><Clock size={12} className="text-success" /> Live Audit Trail</h2>
+                    <h2 className="text-sm font-bold text-neutral-900 uppercase tracking-wider mb-4 flex gap-2"><Clock size={12} className="text-success" /> Live Audit Trail</h2>
                     <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                         {activities.length > 0 ? activities.map((log) => (
                             <ActivityItem
@@ -247,7 +247,7 @@ export default function LabDashboard() {
                                     })`}
                             />
                         )) : (
-                            <div className="text-center py-10 text-neutral-600 font-mono text-xs italic">No activity recorded for {labName}</div>
+                            <div className="w-full h-[250px] mt-4 flex items-center justify-center text-neutral-500 font-mono text-xs uppercase tracking-widest border border-dashed border-neutral-200 rounded-lg">No activity recorded for {labName}</div>
                         )}
                     </div>
                 </div>

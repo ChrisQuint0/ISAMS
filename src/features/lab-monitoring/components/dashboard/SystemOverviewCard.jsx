@@ -14,7 +14,7 @@ export default function SystemOverviewCard({ label, value, sub, color = "info", 
     return (
         <div className="bg-white border border-neutral-200 p-5 rounded-2xl relative overflow-hidden group hover:border-neutral-300 transition-colors shadow-md">
             <div className="flex justify-between items-start mb-2">
-                <p className="text-neutral-900 text-[10px] font-black uppercase tracking-normal flex items-center gap-1.5">
+                <p className="text-sm font-bold text-neutral-900 uppercase tracking-wider flex items-center gap-1.5">
                     {label}
                     {live && (
                         <span className="relative flex h-1.5 w-1.5">
@@ -27,11 +27,11 @@ export default function SystemOverviewCard({ label, value, sub, color = "info", 
             </div>
             <div className="flex items-baseline gap-2">
                 <p className="text-3xl font-bold text-neutral-900 tracking-normal">{value}</p>
-                <p className="text-neutral-500 text-[10px] font-medium italic">{sub}</p>
+                <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mt-0.5">{sub}</p>
             </div>
 
             {trend && (
-                <div className="mt-3 inline-flex items-center gap-1 text-[10px] font-black tracking-normal px-2 py-0.5 rounded-md" style={{
+                <div className="mt-3 inline-flex items-center gap-1 text-[10px] text-neutral-500 uppercase tracking-wider px-2 py-0.5 rounded-md" style={{
                     backgroundColor: trendUp ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)",
                     color: trendUp ? "#10b981" : "#ef4444"
                 }}>
