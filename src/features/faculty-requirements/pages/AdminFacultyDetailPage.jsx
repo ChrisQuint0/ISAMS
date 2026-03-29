@@ -207,7 +207,9 @@ export default function AdminFacultyDetailPage() {
         doc.text(`Faculty: ${faculty?.first_name} ${faculty?.last_name}`, 14, 48);
         doc.setFont(undefined, 'normal');
         doc.setFontSize(10);
-        doc.text(`Department: ${faculty?.department}`, 14, 54);
+        if (faculty?.emp_id) {
+            doc.text(`ID: ${faculty.emp_id}`, 14, 54);
+        }
         doc.text(`Status: ${isFullyCleared ? 'CLEARED' : 'PENDING'}`, 14, 59);
         doc.text(`Overall Progress: ${stats.progress}%`, 14, 64);
 
@@ -248,6 +250,9 @@ export default function AdminFacultyDetailPage() {
         doc.setFontSize(12);
         doc.setTextColor(0);
         doc.text(`Faculty Performance Review: ${faculty?.first_name} ${faculty?.last_name}`, 14, 48);
+        if (faculty?.emp_id) {
+            doc.text(`ID: ${faculty.emp_id}`, 14, 53);
+        }
 
         const tableData = [];
         courses.forEach(course => {
@@ -746,11 +751,15 @@ export default function AdminFacultyDetailPage() {
                                 </Badge>
                             </div>
                             <div className="flex items-center text-neutral-500 text-xs font-medium gap-3 mt-1">
-                                <span>{faculty.department} Department</span>
-                                <span className="w-1 h-1 rounded-full bg-neutral-300"></span>
-                                <span>{faculty.employment_type}</span>
-                                <span className="w-1 h-1 rounded-full bg-neutral-300"></span>
-                                <span className="font-mono">ID: {faculty.emp_id || 'N/A'}</span>
+                                {faculty.employment_type && (
+                                    <span>{faculty.employment_type}</span>
+                                )}
+                                {faculty.employment_type && faculty.emp_id && (
+                                    <span className="w-1 h-1 rounded-full bg-neutral-300"></span>
+                                )}
+                                {faculty.emp_id && (
+                                    <span className="font-mono">ID: {faculty.emp_id}</span>
+                                )}
                             </div>
                         </div>
                     </div>
