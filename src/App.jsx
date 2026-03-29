@@ -2,6 +2,7 @@ import { Titlebar } from "@/components/Titlebar";
 import { AuthProvider } from "@/features/auth/contexts/AuthContext";
 import { AppRoutes } from "@/routes/AppRoutes";
 import { ToastProvider } from "@/components/ui/toast/toaster";
+import { SubmissionProvider } from "@/features/faculty-requirements/contexts/SubmissionContext";
 import "./style.css";
 
 function App() {
@@ -11,7 +12,9 @@ function App() {
       <div className="flex-1 min-h-0 overflow-auto relative">
         <AuthProvider>
           <ToastProvider>
-            <AppRoutes />
+            <SubmissionProvider>
+              <AppRoutes />
+            </SubmissionProvider>
           </ToastProvider>
         </AuthProvider>
       </div>

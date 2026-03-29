@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Fragment } from "react";
+import React, { useState, useEffect, useMemo, Fragment } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,15 +81,26 @@ export default function FacultyArchivePage() {
     (course.section && course.section.toLowerCase().includes(query.toLowerCase()))
   );
 
-  // Set default semester and year when options are loaded
+  // Default to the active semester/year when options load
   useEffect(() => {
-    if (options?.semesters?.length > 0 && !selectedSemester) {
-      setSelectedSemester(options.semesters[0]);
-    }
-    if (options?.academic_years?.length > 0 && !selectedYear) {
+    if (options?.currentAcademicYear && !selectedYear) {
+      setSelectedYear(options.currentAcademicYear);
+    } else if (options?.academic_years?.length > 0 && !selectedYear) {
       setSelectedYear(options.academic_years[0]);
     }
+    if (options?.currentSemester && !selectedSemester) {
+      setSelectedSemester(options.currentSemester);
+    } else if (options?.semesters?.length > 0 && !selectedSemester) {
+      setSelectedSemester(options.semesters[0]);
+    }
   }, [options]);
+
+  // Dynamically filter semesters based on selected academic year
+  const filteredSemesters = useMemo(() => {
+    if (!options?.semesterPeriods?.length) return options?.semesters || [];
+    if (!selectedYear) return [...new Set(options.semesterPeriods.map(p => p.semester))].filter(Boolean);
+    return options.semesterPeriods.filter(p => p.academic_year === selectedYear);
+  }, [options, selectedYear]);
 
   useEffect(() => {
     if (selectedSemester && selectedYear) {
@@ -187,29 +198,61 @@ export default function FacultyArchivePage() {
               </div>
 
               <div className="flex-1 space-y-1 w-full min-w-[130px]">
+                <Label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-0.5">Academic Year</Label>
+                <Select
+                  value={selectedYear}
+                  onValueChange={(val) => {
+                    setSelectedYear(val);
+                    setSelectedSemester(''); // reset semester when year changes
+                  }}
+                >
+                  <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus:ring-primary-500/20 font-medium">
+                    <SelectValue placeholder="Select Year" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-neutral-200">
+                    {options?.academic_years?.map(year => {
+                      const isActive = year === options?.currentAcademicYear;
+                      return (
+                        <SelectItem key={year} value={year} className="text-xs font-medium">
+                          <span className="flex items-center gap-2">
+                            {year}
+                            {isActive && (
+                              <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/20">
+                                Active
+                              </span>
+                            )}
+                          </span>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex-1 space-y-1 w-full min-w-[130px]">
                 <Label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-0.5">Semester</Label>
                 <Select value={selectedSemester} onValueChange={setSelectedSemester}>
                   <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus:ring-primary-500/20 font-medium">
                     <SelectValue placeholder="Select Semester" />
                   </SelectTrigger>
                   <SelectContent className="bg-white border-neutral-200">
-                    {options?.semesters?.map(sem => (
-                      <SelectItem key={sem} value={sem} className="text-xs font-medium">{sem}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex-1 space-y-1 w-full min-w-[130px]">
-                <Label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-0.5">Academic Year</Label>
-                <Select value={selectedYear} onValueChange={setSelectedYear}>
-                  <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus:ring-primary-500/20 font-medium">
-                    <SelectValue placeholder="Select Year" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border-neutral-200">
-                    {options?.academic_years?.map(year => (
-                      <SelectItem key={year} value={year} className="text-xs font-medium">{year}</SelectItem>
-                    ))}
+                    {filteredSemesters.map(item => {
+                      const sem = typeof item === 'string' ? item : item.semester;
+                      const status = typeof item === 'object' ? item.status : null;
+                      const isActive = status === 'Active';
+                      return (
+                        <SelectItem key={sem} value={sem} className="text-xs font-medium">
+                          <span className="flex items-center gap-2">
+                            {sem}
+                            {isActive && (
+                              <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/20">
+                                Active
+                              </span>
+                            )}
+                          </span>
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
@@ -314,7 +357,7 @@ export default function FacultyArchivePage() {
                               {doc.type_name}
                             </span>
                             <Badge className="text-[10px] bg-neutral-100 text-neutral-600 border border-neutral-200 font-bold px-2 py-0 shadow-none uppercase tracking-widest">
-                              {doc.versions.length} Version{doc.versions.length !== 1 ? 's' : ''}
+                              {doc.versions.length} File{doc.versions.length !== 1 ? 's' : ''}
                             </Badge>
                           </div>
                           {expandedDocType === doc.doc_type_id ? <ChevronDown className="h-4 w-4 text-primary-500" /> : <ChevronRight className="h-4 w-4 text-neutral-400" />}
@@ -351,22 +394,26 @@ export default function FacultyArchivePage() {
                                         {(() => {
                                           const status = ver.submission_status || '';
                                           let colorClass = "bg-neutral-100 text-neutral-600 border-neutral-200";
+                                          let displayValue = status.split('_').join(' ').toLowerCase().split(' ').map(word =>
+                                            word.charAt(0).toUpperCase() + word.slice(1)
+                                          ).join(' ');
 
-                                          if (status === 'APPROVED' || status === 'SUBMITTED') {
+                                          const isCompleted = status === 'APPROVED' || status === 'SUBMITTED' || status === 'RESUBMITTED' || status === 'VALIDATED';
+
+                                          if (ver.is_submitted_late && isCompleted) {
+                                            colorClass = "bg-warning/10 text-warning border-warning/20";
+                                            displayValue = "Late";
+                                          } else if (isCompleted) {
                                             colorClass = "bg-success/10 text-success border-success/20";
-                                          } else if (status === 'REJECTED' || status === 'REVISION REQUESTED') {
+                                          } else if (status === 'REJECTED' || status === 'REVISION REQUESTED' || status === 'REVISION_REQUESTED') {
                                             colorClass = "bg-destructive/10 text-destructive border-destructive/20";
                                           } else if (status === 'PENDING') {
                                             colorClass = "bg-warning/10 text-warning border-warning/20";
                                           }
 
-                                          const displayValue = status.split('_').join(' ').toLowerCase().split(' ').map(word =>
-                                            word.charAt(0).toUpperCase() + word.slice(1)
-                                          ).join(' ');
-
                                           return (
                                             <Badge className={`font-bold text-xs px-2.5 py-0.5 rounded-full border shadow-none ${colorClass}`}>
-                                              {displayValue}
+                                              {displayValue === 'Revision Requested' ? 'Revision' : displayValue}
                                             </Badge>
                                           );
                                         })()}
@@ -428,19 +475,6 @@ export default function FacultyArchivePage() {
                                                         <Clock className="h-3 w-3" /> {new Date(v.archived_at).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                                       </span>
                                                     </div>
-                                                    <Button
-                                                      variant="ghost"
-                                                      size="sm"
-                                                      className="h-7 w-7 p-0 text-neutral-400 hover:text-primary-600 hover:bg-primary-50 transition-colors opacity-0 group-hover/version:opacity-100"
-                                                      title="Download Version"
-                                                      onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        if (v.gdrive_web_view_link) window.open(v.gdrive_web_view_link, '_blank');
-                                                        else triggerLocalError('Link not available');
-                                                      }}
-                                                    >
-                                                      <Download className="h-3.5 w-3.5" />
-                                                    </Button>
                                                   </li>
                                                 ))}
                                               </ul>

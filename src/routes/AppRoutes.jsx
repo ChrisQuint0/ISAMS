@@ -99,7 +99,7 @@ export function AppRoutes() {
         />
 
         <Route
-          path="/settings"
+          path="/system-settings"
           element={
             <ProtectedRoute>
               <AdminGuard>

@@ -4,7 +4,7 @@ import {
     Cpu, CheckCircle, AlertCircle, Play, Shield, FileText,
     Clock, Archive, HardDrive, Server, Activity,
     Wifi, WifiOff, Globe, Lock, Unlock, AlertTriangle,
-    ChevronUp, ChevronDown, Plus, Folder, File as FileIcon, LayoutTemplate, Users, BookOpen, X, Settings2, ArchiveRestore
+    ChevronUp, ChevronDown, Plus, Folder, File as FileIcon, LayoutTemplate, Users, BookOpen, X, Settings2, ArchiveRestore, Info
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -21,6 +21,12 @@ import { DataTable } from "@/components/DataTable";
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription
 } from "@/components/ui/dialog";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { ToastProvider, useToast } from "@/components/ui/toast/toaster";
 
 import { AgGridReact } from 'ag-grid-react';
@@ -202,7 +208,7 @@ export default function AdminSettingsPage() {
     const [testFile, setTestFile] = useState(null);
     const [testDocTypeId, setTestDocTypeId] = useState('');
 
-    const [newReq, setNewReq] = useState({ name: '', folder: '', description: '', required: true });
+    const [newReq, setNewReq] = useState({ name: '', folder: '', description: '' });
     const [newHoliday, setNewHoliday] = useState({ startDate: '', endDate: '', description: '' });
     const [isHolidayConfirmOpen, setIsHolidayConfirmOpen] = useState(false);
     const todayStr = useMemo(() => new Date().toLocaleDateString('en-CA'), []);
@@ -770,7 +776,7 @@ export default function AdminSettingsPage() {
         switch (actionType) {
             case 'RESET_SEMESTER':
                 config.title = 'Reset Semester Data';
-                config.description = `WARNING: Are you sure you want to RESET the ${settings.current_semester} of ${settings.current_academic_year}? This will delete all faculty submissions, but keep the faculty and course lists intact.`;
+                config.description = `WARNING: Are you sure you want to RESET the ${currentSettings.semester} of ${currentSettings.academic_year}? This will delete all faculty submissions, but keep the faculty and course lists intact.`;
                 config.confirmationText = 'RESET';
                 break;
             case 'PURGE_ARCHIVES':
@@ -793,7 +799,7 @@ export default function AdminSettingsPage() {
         let func = null;
 
         if (actionType === 'RESET_SEMESTER') {
-            func = () => settingsService.resetSemester(settings.current_semester, settings.current_academic_year);
+            func = () => settingsService.resetSemester(currentSettings.semester, currentSettings.academic_year);
         } else if (actionType === 'PURGE_ARCHIVES') {
             func = () => settingsService.purgeArchives(parseInt(settings.general_archive_retention) || 5);
         } else {
@@ -903,8 +909,7 @@ export default function AdminSettingsPage() {
                                                             <SelectValue />
                                                         </SelectTrigger>
                                                         <SelectContent className="bg-white border-neutral-200 text-neutral-900">
-                                                            <SelectItem value="3days">3 days before deadline</SelectItem>
-                                                            <SelectItem value="7days">7 days before deadline</SelectItem>
+                                                            <SelectItem value="enabled">Enabled</SelectItem>
                                                             <SelectItem value="disabled">Disabled</SelectItem>
                                                         </SelectContent>
                                                     </Select>
@@ -1458,11 +1463,13 @@ export default function AdminSettingsPage() {
                                                         <SelectValue placeholder="Select faculty…" />
                                                     </SelectTrigger>
                                                     <SelectContent className="bg-white border-neutral-200 text-neutral-900">
-                                                        {facultyList.filter(f => f.first_name && f.last_name).map(f => (
-                                                            <SelectItem key={f.faculty_id} value={f.faculty_id} disabled={!f.is_active} className={!f.is_active ? 'opacity-50' : ''}>
-                                                                {f.first_name} {f.last_name}
-                                                            </SelectItem>
-                                                        ))}
+                                                        {facultyList.filter(f => f.first_name && f.last_name)
+                                                            .sort((a, b) => (a.first_name + " " + a.last_name).localeCompare(b.first_name + " " + b.last_name))
+                                                            .map(f => (
+                                                                <SelectItem key={f.faculty_id} value={f.faculty_id} disabled={!f.is_active} className={!f.is_active ? 'opacity-50' : ''}>
+                                                                    {f.first_name} {f.last_name}
+                                                                </SelectItem>
+                                                            ))}
                                                     </SelectContent>
                                                 </Select>
                                             </div>
@@ -1594,18 +1601,7 @@ export default function AdminSettingsPage() {
                                             <div className="min-h-[1.25rem]" />
                                         </div>
 
-                                        {/* Required Checkbox Column */}
-                                        <div className="w-auto shrink-0 space-y-1.5">
-                                            <Label className="text-xs font-bold text-transparent select-none uppercase pointer-events-none">_</Label>
-                                            <div className="h-9 flex items-center">
-                                                <CheckboxItem
-                                                    label="Required"
-                                                    checked={newReq.required}
-                                                    onChange={(c) => setNewReq({ ...newReq, required: c })}
-                                                />
-                                            </div>
-                                            <div className="min-h-[1.25rem]" />
-                                        </div>
+
 
                                         {/* Add Button Column */}
                                         <div className="w-auto shrink-0 space-y-1.5">
@@ -1617,7 +1613,7 @@ export default function AdminSettingsPage() {
                                                     onClick={() => {
                                                         if (canAddDocType) {
                                                             addDocRequirement(newReq);
-                                                            setNewReq({ name: '', folder: '', description: '', required: true });
+                                                            setNewReq({ name: '', folder: '', description: '' });
                                                         }
                                                     }}
                                                 >
@@ -1651,10 +1647,7 @@ export default function AdminSettingsPage() {
                                                     >
                                                         {/* Card Header */}
                                                         <div className={`flex items-start gap-4 px-5 py-4 border-b border-neutral-100 ${isActive ? 'bg-neutral-50/50' : 'opacity-60'}`}>
-                                                            <div className={`flex-shrink-0 w-11 h-11 rounded-lg flex items-center justify-center border shadow-sm ${req.required
-                                                                ? 'bg-primary-50 text-primary-600 border-primary-200'
-                                                                : 'bg-white text-neutral-400 border-neutral-200'
-                                                                }`}>
+                                                            <div className="flex-shrink-0 w-11 h-11 rounded-lg flex items-center justify-center border shadow-sm bg-primary-50 text-primary-600 border-primary-200">
                                                                 <FileIcon className="h-5 w-5" />
                                                             </div>
                                                             <div className="flex-1 min-w-0">
@@ -1670,15 +1663,7 @@ export default function AdminSettingsPage() {
 
                                                         {/* Card Body — badges row */}
                                                         <div className={`px-5 py-3 flex items-center gap-2 flex-wrap ${!isActive && 'opacity-60'}`}>
-                                                            {req.required ? (
-                                                                <Badge variant="outline" className="text-[10px] border-primary-200 text-primary-700 bg-primary-50 px-2 py-0 h-5 shadow-sm font-bold">
-                                                                    Required
-                                                                </Badge>
-                                                            ) : (
-                                                                <Badge variant="outline" className="text-[10px] border-neutral-200 text-neutral-600 bg-white px-2 py-0 h-5 shadow-sm font-bold">
-                                                                    Optional
-                                                                </Badge>
-                                                            )}
+
                                                             <Badge variant="outline" className={`text-[10px] px-2 py-0 h-5 shadow-sm font-bold ${isActive
                                                                 ? 'border-success/20 text-success bg-success/5'
                                                                 : 'border-neutral-200 text-neutral-500 bg-neutral-100'
@@ -1750,18 +1735,20 @@ export default function AdminSettingsPage() {
                                         </CardTitle>
                                         <CardDescription className="text-neutral-500">Manage Clearance Certificates and visual calibration.</CardDescription>
                                     </div>
-                                    <Button
-                                        variant="default"
-                                        size="sm"
-                                        className="shadow-sm active:scale-95 transition-all"
-                                        onClick={() => {
-                                            setModalMode('CERTIFICATE');
-                                            setNewTemplate(prev => ({ ...prev, systemCategory: 'CLEARANCE_CERTIFICATE', courseCode: 'GENERAL' }));
-                                            setTemplateModalOpen(true);
-                                        }}
-                                    >
-                                        <Plus className="h-4 w-4 mr-1.5" /> Upload Certificate
-                                    </Button>
+                                    <div className="flex items-center gap-4">
+                                        <Button
+                                            variant="default"
+                                            size="sm"
+                                            className="shadow-sm active:scale-95 transition-all"
+                                            onClick={() => {
+                                                setModalMode('CERTIFICATE');
+                                                setNewTemplate(prev => ({ ...prev, systemCategory: 'CLEARANCE_CERTIFICATE', courseCode: 'GENERAL' }));
+                                                setTemplateModalOpen(true);
+                                            }}
+                                        >
+                                            <Plus className="h-4 w-4 mr-1.5" /> Upload Certificate
+                                        </Button>
+                                    </div>
                                 </CardHeader>
                                 <CardContent className="pt-6">
                                     <DataTable
@@ -1782,18 +1769,20 @@ export default function AdminSettingsPage() {
                                         </CardTitle>
                                         <CardDescription className="text-neutral-500">Manage Syllabus, Grade Sheets, and General templates.</CardDescription>
                                     </div>
-                                    <Button
-                                        variant="default"
-                                        size="sm"
-                                        className="shadow-sm active:scale-95 transition-all"
-                                        onClick={() => {
-                                            setModalMode('SYSTEM');
-                                            setNewTemplate(prev => ({ ...prev, systemCategory: '', courseCode: '' }));
-                                            setTemplateModalOpen(true);
-                                        }}
-                                    >
-                                        <Plus className="h-4 w-4 mr-1" /> Upload Template
-                                    </Button>
+                                    <div className="flex items-center gap-4">
+                                        <Button
+                                            variant="default"
+                                            size="sm"
+                                            className="shadow-sm active:scale-95 transition-all"
+                                            onClick={() => {
+                                                setModalMode('SYSTEM');
+                                                setNewTemplate(prev => ({ ...prev, systemCategory: '', courseCode: '' }));
+                                                setTemplateModalOpen(true);
+                                            }}
+                                        >
+                                            <Plus className="h-4 w-4 mr-1" /> Upload Template
+                                        </Button>
+                                    </div>
                                 </CardHeader>
                                 <CardContent className="pt-6">
                                     <DataTable
@@ -2677,7 +2666,7 @@ const InfoRow = ({ label, value }) => (
     </div>
 );
 
-const CheckboxItem = ({ label, checked, onChange }) => (
+const CheckboxItem = ({ label, checked, onChange, tooltip }) => (
     <div className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-white border border-neutral-200 hover:border-primary-400 shadow-sm transition-all cursor-pointer group" onClick={() => onChange(!checked)}>
         <Checkbox
             id={label}
@@ -2685,12 +2674,28 @@ const CheckboxItem = ({ label, checked, onChange }) => (
             onCheckedChange={onChange}
             className="border-neutral-300 data-[state=checked]:bg-primary-600 data-[state=checked]:border-primary-600 h-4 w-4 rounded shadow-sm group-hover:border-primary-400"
         />
-        <label
-            htmlFor={label}
-            className="text-sm font-bold leading-none text-neutral-700 cursor-pointer select-none group-hover:text-neutral-900"
-        >
-            {label}
-        </label>
+        <div className="flex items-center gap-1.5 flex-1 cursor-pointer">
+            <label
+                htmlFor={label}
+                className="text-sm font-bold leading-none text-neutral-700 cursor-pointer select-none group-hover:text-neutral-900"
+            >
+                {label}
+            </label>
+            {tooltip && (
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <div onClick={(e) => e.stopPropagation()}>
+                                <Info className="h-3.5 w-3.5 text-neutral-400 hover:text-primary-500 transition-colors" />
+                            </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-[280px] bg-neutral-900 text-white border-neutral-800 text-[11px] p-2.5 shadow-xl">
+                            {tooltip}
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            )}
+        </div>
     </div>
 );
 

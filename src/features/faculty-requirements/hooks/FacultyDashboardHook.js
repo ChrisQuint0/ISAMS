@@ -14,6 +14,7 @@ export function useFacultyDashboard() {
     const [courses, setCourses] = useState([]);
     const [recentActivity, setRecentActivity] = useState([]);
     const [notifications, setNotifications] = useState([]);
+    const [deadlines, setDeadlines] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [settings, setSettings] = useState({ semester: '', academic_year: '' });
@@ -31,18 +32,16 @@ export function useFacultyDashboard() {
 
             console.log("Fetching dashboard data for user:", userId);
 
-            const [statsData, coursesData, activityData, notificationsData, settingsResponse, facultyResponse, templatesResponse] = await Promise.all([
+            const [statsData, coursesData, activityData, notificationsData, settingsResponse, facultyResponse, templatesResponse, deadlinesResponse] = await Promise.all([
                 FacultyDashboardService.getDashboardStats(),
                 FacultyDashboardService.getCoursesStatus(),
                 FacultyDashboardService.getRecentActivity(),
                 FacultyDashboardService.getNotifications(),
                 supabase.from('systemsettings_fs').select('setting_key, setting_value').in('setting_key', ['current_semester', 'current_academic_year']),
                 supabase.from('faculty_fs').select('first_name, last_name, employment_type').eq('user_id', userId).maybeSingle(),
-                supabase.from('templates_fs').select('*').eq('is_active_default', true)
+                supabase.from('templates_fs').select('*').eq('is_active_default', true),
+                supabase.rpc('get_all_deadlines_fs')
             ]);
-
-            console.log("Faculty Response:", facultyResponse);
-            console.log("Templates Response:", templatesResponse);
 
             setStats(statsData || {
                 overall_progress: 0,
@@ -54,6 +53,13 @@ export function useFacultyDashboard() {
             setCourses(coursesData || []);
             setRecentActivity(activityData || []);
             setNotifications(notificationsData || []);
+
+            // Filter active deadlines for Deadlines Card
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const activeDeadlines = (deadlinesResponse?.data || [])
+                .filter(d => d.status === 'Active' || d.status === 'Grace Period')
+                .sort((a, b) => new Date(a.deadline_date) - new Date(b.deadline_date));
+            setDeadlines(activeDeadlines);
 
             // FIX 1: Properly map the array of database rows into an object
             if (settingsResponse && settingsResponse.data) {
@@ -103,6 +109,59 @@ export function useFacultyDashboard() {
         }
     }, []);
 
+    // --- Document Viewer State ---
+    const [isDocViewerOpen, setIsDocViewerOpen] = useState(false);
+    const [viewerFiles, setViewerFiles] = useState([]);
+    const [selectedViewerFile, setSelectedViewerFile] = useState(null);
+    const [isViewerLoading, setIsViewerLoading] = useState(false);
+    const [viewerCourseContext, setViewerCourseContext] = useState(null);
+    const [viewerDocContext, setViewerDocContext] = useState(null);
+
+    const fetchDocumentFiles = async (doc, course) => {
+        setIsDocViewerOpen(true);
+        setIsViewerLoading(true);
+        setViewerFiles([]);
+        setSelectedViewerFile(null);
+        setViewerCourseContext(course);
+        setViewerDocContext(doc);
+
+        try {
+            const { data: authData } = await supabase.auth.getUser();
+            const userId = authData.user?.id;
+            
+            // Get faculty id first
+            const { data: facultyRaw } = await supabase
+                .from('faculty_fs')
+                .select('faculty_id')
+                .eq('user_id', userId)
+                .single();
+                
+            if (!facultyRaw) throw new Error("Could not find faculty profile");
+
+            const { data: dbSubmissions, error } = await supabase
+                .from('submissions_fs')
+                .select(`*, documenttypes_fs!inner(type_name)`)
+                .eq('faculty_id', facultyRaw.faculty_id)
+                .eq('course_id', course.course_id)
+                .eq('documenttypes_fs.type_name', doc.doc_type)
+                .order('submitted_at', { ascending: false });
+
+            if (error) throw error;
+
+            // Sort files: newest first
+            const sortedFinal = (dbSubmissions || []).sort((a, b) => 
+                new Date(b.submitted_at) - new Date(a.submitted_at)
+            );
+            
+            setViewerFiles(sortedFinal);
+
+        } catch (err) {
+            console.error("Failed to load document files:", err);
+        } finally {
+            setIsViewerLoading(false);
+        }
+    };
+
     const markNotificationAsRead = async (id) => {
         try {
             await FacultyDashboardService.markNotificationRead(id);
@@ -120,15 +179,27 @@ export function useFacultyDashboard() {
 
     return {
         stats,
-        settings, // Export settings
+        settings,
         courses,
         recentActivity,
         notifications,
+        deadlines,
         facultyProfile,
         templates,
         loading,
         error,
         refreshDashboard: fetchDashboardData,
-        markNotificationAsRead
+        markNotificationAsRead,
+        
+        // Viewer Exports
+        isDocViewerOpen, 
+        setIsDocViewerOpen,
+        viewerFiles,
+        selectedViewerFile,
+        setSelectedViewerFile,
+        isViewerLoading,
+        viewerCourseContext,
+        viewerDocContext,
+        fetchDocumentFiles
     };
 }

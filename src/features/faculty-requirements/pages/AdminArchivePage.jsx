@@ -71,6 +71,32 @@ export default function AdminArchivePage() {
     doc_type: 'All Document Types'
   });
 
+  // Dynamically filter which semesters apply to the selected academic year (Bulk)
+  const filteredSemesters = useMemo(() => {
+    if (!options?.semesterPeriods) return options?.semesters || [];
+    if (bulkConfig.academic_year === 'All Years') {
+      return [...new Set(options.semesterPeriods.map(p => p.semester))].filter(Boolean);
+    }
+    return [...new Set(
+      options.semesterPeriods
+        .filter(p => p.academic_year === bulkConfig.academic_year)
+        .map(p => p.semester)
+    )].filter(Boolean);
+  }, [options, bulkConfig.academic_year]);
+
+  // Dynamically filter which semesters apply to the selected academic year (Filter Grid)
+  const archiveFilteredSemesters = useMemo(() => {
+    if (!options?.semesterPeriods) return options?.semesters || [];
+    if (filters.academic_year === 'All Years') {
+      return [...new Set(options.semesterPeriods.map(p => p.semester))].filter(Boolean);
+    }
+    return [...new Set(
+      options.semesterPeriods
+        .filter(p => p.academic_year === filters.academic_year)
+        .map(p => p.semester)
+    )].filter(Boolean);
+  }, [options, filters.academic_year]);
+
   const [downloading, setDownloading] = useState(false);
 
   const handleBulkExport = async () => {
@@ -246,13 +272,20 @@ export default function AdminArchivePage() {
 
                 <div className="flex-1 space-y-1 w-full min-w-[130px]">
                   <Label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-0.5">Academic Year</Label>
-                  <Select value={filters.academic_year} onValueChange={(v) => updateFilter('academic_year', v)}>
+                  <Select value={filters.academic_year} onValueChange={(v) => { updateFilter('academic_year', v); updateFilter('semester', 'All Semesters'); }}>
                     <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus:ring-primary-500/20 font-medium">
                       <SelectValue placeholder="All Years" />
                     </SelectTrigger>
                     <SelectContent className="bg-white border-neutral-200">
                       <SelectItem value="All Years" className="text-xs font-medium">All Years</SelectItem>
-                      {options.years?.map(y => <SelectItem key={y} value={y} className="text-xs font-medium">{y}</SelectItem>)}
+                      {options.years?.map(year => (
+                        <SelectItem key={year} value={year} className="text-xs font-medium">
+                          {year}
+                          {options?.currentAcademicYear === year && (
+                            <span className="ml-1.5 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/20"> Active</span>
+                          )}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -265,7 +298,20 @@ export default function AdminArchivePage() {
                     </SelectTrigger>
                     <SelectContent className="bg-white border-neutral-200">
                       <SelectItem value="All Semesters" className="text-xs font-medium">All Semesters</SelectItem>
-                      {options.semesters?.map(s => <SelectItem key={s} value={s} className="text-xs font-medium">{s}</SelectItem>)}
+                      {archiveFilteredSemesters.map(sem => {
+                        const period = options?.semesterPeriods?.find(
+                          p => p.semester === sem && (filters.academic_year === 'All Years' || p.academic_year === filters.academic_year)
+                        );
+                        const isActive = period?.status === 'Active';
+                        return (
+                          <SelectItem key={sem} value={sem} className="text-xs font-medium">
+                            {sem}
+                            {isActive && (
+                              <span className="ml-1.5 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/20"> Active</span>
+                            )}
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
@@ -348,31 +394,56 @@ export default function AdminArchivePage() {
             <CardContent className="p-5 space-y-5 bg-white">
               <div className="space-y-4">
                 <div className="space-y-1.5 flex-1 min-w-[130px]">
-                  <Label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-0.5">Academic Year & Semester</Label>
+                  <Label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-0.5">Academic Year</Label>
                   <Select
-                    value={bulkConfig.semester !== 'All Semesters' && bulkConfig.academic_year !== 'All Years' ? `${bulkConfig.semester}||${bulkConfig.academic_year}` : 'All||All'}
+                    value={bulkConfig.academic_year}
                     onValueChange={(v) => {
-                      if (v === 'All||All') {
-                        setBulkConfig({ ...bulkConfig, semester: 'All Semesters', academic_year: 'All Years' });
-                      } else {
-                        const [sem, yr] = v.split("||");
-                        setBulkConfig({ ...bulkConfig, semester: sem, academic_year: yr });
-                      }
+                      setBulkConfig({ ...bulkConfig, academic_year: v, semester: 'All Semesters' });
                     }}
                   >
                     <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus:ring-primary-500/20 font-medium">
-                      <SelectValue placeholder="All Available Semesters" />
+                      <SelectValue placeholder="All Academic Years" />
                     </SelectTrigger>
                     <SelectContent className="bg-white border-neutral-200">
-                      <SelectItem value="All||All" className="text-xs font-medium font-bold text-primary-600">All Semesters</SelectItem>
+                      <SelectItem value="All Years" className="text-xs font-medium font-bold text-primary-600">All Academic Years</SelectItem>
                       {options?.years?.map(year => (
-                        options?.semesters?.map(sem => (
-                          <SelectItem key={`${sem}-${year}`} value={`${sem}||${year}`} className="text-xs font-medium">
-                            {sem}, {year}
-                          </SelectItem>
-                        ))
+                        <SelectItem key={year} value={year} className="text-xs font-medium">
+                          {year}
+                          {options?.currentAcademicYear === year && (
+                            <span className="ml-1.5 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/20"> Active</span>
+                          )}
+                        </SelectItem>
                       ))}
-                      {(!options?.years?.length) && <SelectItem value="loading">Loading options...</SelectItem>}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5 flex-1 min-w-[130px]">
+                  <Label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-0.5">Semester</Label>
+                  <Select
+                    value={bulkConfig.semester}
+                    onValueChange={(v) => setBulkConfig({ ...bulkConfig, semester: v })}
+                  >
+                    <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus:ring-primary-500/20 font-medium">
+                      <SelectValue placeholder="All Semesters" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border-neutral-200">
+                      <SelectItem value="All Semesters" className="text-xs font-medium font-bold text-primary-600">All Semesters</SelectItem>
+                      {filteredSemesters.map(sem => {
+                        // Find the status of this semester within the selected year
+                        const period = options?.semesterPeriods?.find(
+                          p => p.semester === sem && (bulkConfig.academic_year === 'All Years' || p.academic_year === bulkConfig.academic_year)
+                        );
+                        const isActive = period?.status === 'Active';
+                        return (
+                          <SelectItem key={sem} value={sem} className="text-xs font-medium">
+                            {sem}
+                            {isActive && (
+                              <span className="ml-1.5 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/20"> Active</span>
+                            )}
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>

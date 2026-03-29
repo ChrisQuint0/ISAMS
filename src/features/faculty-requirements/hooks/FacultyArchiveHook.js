@@ -5,7 +5,7 @@ export function useFacultyArchive() {
   const [courseList, setCourseList] = useState([]);
   const [history, setHistory] = useState([]);
   const [submissionVersions, setSubmissionVersions] = useState([]);
-  const [options, setOptions] = useState({ semesters: [], academic_years: [] });
+  const [options, setOptions] = useState({ semesters: [], academic_years: [], semesterPeriods: [], currentSemester: null, currentAcademicYear: null });
   
   const [loading, setLoading] = useState(false);
   const [downloadingCourseId, setDownloadingCourseId] = useState(null);

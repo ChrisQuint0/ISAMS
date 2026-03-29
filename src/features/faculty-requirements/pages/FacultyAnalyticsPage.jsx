@@ -3,16 +3,34 @@ import { useNavigate } from "react-router-dom";
 import { useFacultyAnalytics } from "../hooks/FacultyAnalyticsHook";
 import {
   RefreshCw, AlertCircle, Clock, CheckCircle, AlertTriangle,
-  Calendar, Filter, ArrowRight, BookOpen, History
+  Calendar, Filter, ArrowRight, BookOpen, History,
+  FileX, Star, Upload
 } from "lucide-react";
 
 // UI Components
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/DataTable";
-import { useToast } from "@/components/ui/toast/toaster";
+import { useToast, ToastProvider } from "@/components/ui/toast/toaster";
+
+// ─── Deadline countdown helper (matches FacultyDashboardPage exactly) ──────────
+function getDaysLeft(dateStr, graceDays = 0) {
+  if (!dateStr) return { label: 'No deadline set', urgent: false, overdue: false, grace: false };
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const due = new Date(y, m - 1, d);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const diff = Math.floor((due - today) / 86400000);
+  if (diff === 0) return { label: 'Due today', urgent: true, overdue: false, grace: false };
+  if (diff === 1) return { label: 'Due tomorrow', urgent: true, overdue: false, grace: false };
+  if (diff > 0) return { label: `${diff}d left`, urgent: diff <= 3, overdue: false, grace: false };
+  // Deadline passed — check grace window
+  const cutoff = new Date(due); cutoff.setDate(cutoff.getDate() + graceDays);
+  const gDiff = Math.floor((cutoff - today) / 86400000);
+  if (gDiff >= 0) return { label: `Grace: ${gDiff}d left`, urgent: true, overdue: false, grace: true };
+  return { label: `${Math.abs(diff)}d overdue`, urgent: false, overdue: true, grace: false };
+}
 
 export default function FacultyAnalyticsPage() {
   const navigate = useNavigate();
@@ -29,36 +47,51 @@ export default function FacultyAnalyticsPage() {
     error,
     options
   } = useFacultyAnalytics();
-  const { toast } = useToast();
+  const { addToast } = useToast();
 
   // State for filters
-  const [selectedSemester, setSelectedSemester] = useState("All Semesters");
-  const [selectedYear, setSelectedYear] = useState("All Years");
+  const [selectedSemester, setSelectedSemester] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
 
-  // Sync internal filter state with hook
+  // Sync internal filter state with active term from options
   useEffect(() => {
-    setTimelineFilter(null, null);
-  }, []);
+    if (options?.currentAcademicYear && !selectedYear) {
+      setSelectedYear(options.currentAcademicYear);
+      setTimelineFilter(selectedSemester || null, options.currentAcademicYear);
+    }
+    if (options?.currentSemester && !selectedSemester) {
+      setSelectedSemester(options.currentSemester);
+      setTimelineFilter(options.currentSemester, selectedYear || options.currentAcademicYear || null);
+    }
+  }, [options]);
+
+  // Dynamically filter semesters based on selected academic year
+  const filteredSemestersList = useMemo(() => {
+    if (!selectedYear || !options?.semesterPeriods?.length) return options?.semesters || [];
+    return options.semesterPeriods
+      .filter(p => p.academic_year === selectedYear)
+      .map(p => ({ semester: p.semester, status: p.status }));
+  }, [options, selectedYear]);
 
   // Handle errors via toast
   useEffect(() => {
     if (error) {
-      toast({
+      addToast({
         variant: "destructive",
         title: "Error fetching analytics",
         description: error,
       });
     }
-  }, [error, toast]);
+  }, [error]);
 
   const handleSemesterChange = (val) => {
     setSelectedSemester(val);
-    setTimelineFilter(val === "All Semesters" ? null : val, selectedYear === "All Years" ? null : selectedYear);
+    setTimelineFilter(val || null, selectedYear || null);
   };
 
   const handleYearChange = (val) => {
     setSelectedYear(val);
-    setTimelineFilter(selectedSemester === "All Semesters" ? null : selectedSemester, val === "All Years" ? null : val);
+    setTimelineFilter(selectedSemester || null, val || null);
   };
 
   const courseColDefs = useMemo(() => [
@@ -138,13 +171,13 @@ export default function FacultyAnalyticsPage() {
         const status = p.value || 'SUBMITTED';
         const isApproved = status === 'APPROVED' || status === 'VALIDATED';
         const isRejected = status === 'REJECTED' || status === 'REVISION_REQUESTED';
-        const isLate = p.data.is_late;
+        const isLate = p.data.is_late || p.data.is_submitted_late; 
 
         if (isApproved) {
           return (
             <div className="flex items-center h-full">
-              <Badge className="font-bold text-xs px-2 py-0.5 rounded-full border shadow-none bg-success/10 text-success border-success/20">
-                Approved
+              <Badge className={`font-bold text-xs px-2 py-0.5 rounded-full border shadow-none ${isLate ? 'bg-warning/10 text-warning border-warning/20' : 'bg-success/10 text-success border-success/20'}`}>
+                {isLate ? 'Late & Approved' : 'Approved'}
               </Badge>
             </div>
           );
@@ -164,7 +197,7 @@ export default function FacultyAnalyticsPage() {
         return (
           <div className="flex items-center h-full">
             <Badge className={`font-bold text-xs px-2 py-0.5 rounded-full border shadow-none ${isLate ? 'bg-warning/10 text-warning border-warning/20' : 'bg-success/10 text-success border-success/20'}`}>
-              {isLate ? 'Late' : 'On Time'}
+              {isLate ? 'Late' : 'Submitted'}
             </Badge>
           </div>
         );
@@ -195,6 +228,7 @@ export default function FacultyAnalyticsPage() {
   const offset = circumference - (overview.completion_rate / 100) * circumference;
 
   return (
+    <ToastProvider>
     <div className="space-y-6 flex flex-col h-full bg-neutral-50/30">
 
       {/* Header */}
@@ -214,31 +248,55 @@ export default function FacultyAnalyticsPage() {
         <CardContent className="p-4 bg-white">
           <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-xl flex flex-col md:flex-row flex-wrap gap-3 items-start md:items-end shadow-sm">
             <div className="flex-[1.5] space-y-1 w-full min-w-[200px]">
-              <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-0.5">Semester</label>
-              <Select value={selectedSemester} onValueChange={handleSemesterChange}>
-                <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus:ring-primary-500/20 font-medium">
-                  <SelectValue placeholder="All Semesters" />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-neutral-200 text-neutral-900">
-                  <SelectItem value="All Semesters" className="font-medium text-xs">All Semesters</SelectItem>
-                  {options?.semesters?.map(sem => (
-                    <SelectItem key={sem} value={sem} className="font-medium text-xs">{sem}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex-[1.5] space-y-1 w-full min-w-[200px]">
               <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-0.5">Academic Year</label>
               <Select value={selectedYear} onValueChange={handleYearChange}>
                 <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus:ring-primary-500/20 font-medium">
                   <SelectValue placeholder="All Years" />
                 </SelectTrigger>
                 <SelectContent className="bg-white border-neutral-200 text-neutral-900">
-                  <SelectItem value="All Years" className="font-medium text-xs">All Years</SelectItem>
-                  {options?.academic_years?.map(year => (
-                    <SelectItem key={year} value={year} className="font-medium text-xs">{year}</SelectItem>
-                  ))}
+                  {options?.academic_years?.map(year => {
+                    const isActive = year === options?.currentAcademicYear;
+                    return (
+                      <SelectItem key={year} value={year} className="font-medium text-xs">
+                        <span className="flex items-center gap-2">
+                          {year}
+                          {isActive && (
+                             <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/20">
+                               Active
+                             </span>
+                          )}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex-[1.5] space-y-1 w-full min-w-[200px]">
+              <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-0.5">Semester</label>
+              <Select value={selectedSemester} onValueChange={handleSemesterChange}>
+                <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus:ring-primary-500/20 font-medium">
+                  <SelectValue placeholder="All Semesters" />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-neutral-200 text-neutral-900">
+                  {filteredSemestersList.map(item => {
+                    const sem = typeof item === 'string' ? item : item.semester;
+                    const status = typeof item === 'object' ? item.status : null;
+                    const isActive = status === 'Active' || (sem === options?.currentSemester && selectedYear === options?.currentAcademicYear);
+                    return (
+                      <SelectItem key={sem} value={sem} className="font-medium text-xs">
+                        <span className="flex items-center gap-2">
+                          {sem}
+                          {isActive && (
+                            <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/20">
+                              Active
+                            </span>
+                          )}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -292,28 +350,42 @@ export default function FacultyAnalyticsPage() {
           </CardHeader>
           <CardContent className="p-5 flex-1 flex flex-col min-h-0">
             <div className="space-y-4 max-h-[240px] overflow-y-auto pr-3 custom-scrollbar flex-1">
-              {timeline.map((item, index) => (
-                <div key={index} className="group">
-                  <div className="flex justify-between text-xs mb-1.5">
-                    <span className="text-neutral-700 font-bold group-hover:text-primary-700 transition-colors truncate pr-2">{item.label}</span>
-                    <span className={`font-bold text-xs px-2 py-0.5 shrink-0 ${item.status === 'On Time' || item.status === 'Early' ? 'text-success' :
-                      item.status === 'Late' ? 'text-warning' :
-                        item.status === 'Submitted' ? 'text-info' : 'text-neutral-400'
-                      }`}>
-                      {item.date ? `${new Date(item.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} (${item.status})` : `Pending`}
-                    </span>
+              {timeline.map((item, index) => {
+                const total = item.total_courses ?? 1;
+                const submitted = item.submitted_courses ?? (item.status === 'Pending' ? 0 : total);
+                const pct = total > 0 ? Math.round((submitted / total) * 100) : 0;
+                const isComplete = submitted >= total && total > 0;
+                const barColor = isComplete ? 'bg-success' : (submitted > 0 ? 'bg-warning' : 'bg-neutral-300');
+
+                return (
+                  <div key={index} className="group">
+                    <div className="flex justify-between items-center text-xs mb-1.5 gap-2">
+                      <span className="text-neutral-700 font-bold group-hover:text-primary-700 transition-colors truncate">{item.label}</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {/* X/Y counter */}
+                        <span className="text-[10px] font-black text-neutral-400 tabular-nums">
+                          {submitted}/{total}
+                        </span>
+                        {/* Status badge */}
+                        {isComplete ? (
+                          <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-success/10 text-success border border-success/20">Completed</span>
+                        ) : submitted > 0 ? (
+                          <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-warning/10 text-warning border border-warning/20">Partial</span>
+                        ) : (
+                          <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-neutral-100 text-neutral-400 border border-neutral-200">Pending</span>
+                        )}
+                      </div>
+                    </div>
+                    {/* Progress bar */}
+                    <div className="h-1.5 bg-neutral-100 rounded-full overflow-hidden border border-neutral-200/50 shadow-inner">
+                      <div
+                        className={`h-full transition-all duration-500 ${barColor}`}
+                        style={{ width: `${Math.max(pct, submitted > 0 ? 8 : 0)}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-1.5 bg-neutral-100 rounded-full overflow-hidden border border-neutral-200/50 shadow-inner">
-                    <div
-                      className={`h-full transition-all ${item.status === 'On Time' || item.status === 'Early' ? 'bg-success' :
-                        item.status === 'Late' ? 'bg-warning' :
-                          item.status === 'Submitted' ? 'bg-info' : 'bg-neutral-200'
-                        }`}
-                      style={{ width: item.status === 'Pending' ? '15%' : '100%' }}
-                    ></div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               {timeline.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full text-neutral-400 space-y-3 py-8 bg-neutral-50/50 rounded-xl border border-dashed border-neutral-200">
                   <div className="p-3 bg-white rounded-full shadow-sm border border-neutral-100">
@@ -400,6 +472,88 @@ export default function FacultyAnalyticsPage() {
         </Card>
       </div>
 
+      {/* ── Pending Documents ───────────────────────────────────────────────────── */}
+
+        {/* Pending Documents Card */}
+        {(() => {
+          const pending = timeline
+            .filter(t => t.status === 'Pending')
+            .filter(item => !getDaysLeft(item.deadline_date, item.grace_period_days || 0).overdue);
+          return (
+            <Card className="bg-white border-neutral-200 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow">
+              <CardHeader className="bg-neutral-50/50 border-b border-neutral-200 py-3.5 px-4 shrink-0">
+                <CardTitle className="text-base font-bold text-neutral-900 flex items-center gap-2">
+                  <FileX className="h-4 w-4 text-destructive" /> Pending Documents
+                  {pending.length > 0 && (
+                    <span className="ml-auto text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-destructive/10 text-destructive border border-destructive/20">
+                      {pending.length} missing
+                    </span>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 flex flex-col justify-between flex-1 gap-4">
+                {pending.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center gap-3 bg-success/5 rounded-xl border border-success/20 flex-1">
+                    <CheckCircle className="h-8 w-8 text-success" />
+                    <div>
+                      <p className="font-black text-success text-sm">All documents submitted!</p>
+                      <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest mt-1">You are fully compliant for this period.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 gap-2.5">
+                      {pending.map((item, i) => {
+                        const { label, urgent, overdue, grace } = getDaysLeft(item.deadline_date, item.grace_period_days || 0);
+                        const deadlineFmt = item.deadline_date
+                          ? (() => { const [y,m,d] = item.deadline_date.split('-').map(Number); return new Date(y, m-1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); })()
+                          : null;
+                        return (
+                          <div key={i} className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
+                            overdue ? 'bg-destructive/5 border-destructive/20' :
+                            grace   ? 'bg-warning/5 border-warning/20' :
+                            urgent  ? 'bg-warning/5 border-warning/20' :
+                            'bg-success/5 border-success/20'
+                          }`}>
+                            <div className={`p-1.5 rounded border bg-white shrink-0 ${
+                              overdue ? 'border-destructive/30' : (grace || urgent) ? 'border-warning/30' : 'border-success/30'
+                            }`}>
+                              <Clock className={`h-4 w-4 ${
+                                overdue ? 'text-destructive' : (grace || urgent) ? 'text-warning' : 'text-success'
+                              }`} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-neutral-900 truncate">{item.label}</p>
+                              {deadlineFmt && (
+                                <p className="text-[10px] text-neutral-400 font-medium mt-0.5">
+                                  {grace ? 'Grace period — ' : ''}{deadlineFmt} deadline
+                                </p>
+                              )}
+                            </div>
+                            <span className={`text-[10px] font-extrabold uppercase tracking-wider shrink-0 ${
+                              overdue ? 'text-destructive' : (grace || urgent) ? 'text-warning' : 'text-success'
+                            }`}>
+                              {label}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <Button
+                      onClick={() => navigate('/faculty-requirements/submission')}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs transition-all active:scale-95 shadow-sm"
+                    >
+                      <Upload className="h-3.5 w-3.5" />
+                      Submit Documents
+                    </Button>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })()}
+
+
       {/* Course Completion Breakdown Table */}
       <Card className="bg-white border-neutral-200 shadow-sm flex-1 flex flex-col min-h-[350px] overflow-hidden">
         <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-3.5 px-5 shrink-0">
@@ -435,5 +589,6 @@ export default function FacultyAnalyticsPage() {
       </Card>
 
     </div>
+    </ToastProvider>
   );
 }

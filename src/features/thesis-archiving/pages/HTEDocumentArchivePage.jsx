@@ -15,6 +15,13 @@ import { thesisService } from "../services/thesisService";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { AgGridReact } from 'ag-grid-react';
 import { ModuleRegistry, AllCommunityModule, themeQuartz } from 'ag-grid-community';
+import { settingsService } from "@/features/settings/services/settingsService";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -785,6 +792,7 @@ export default function HTEDocumentArchivePage() {
 
             <HTEArchivingHeader
                 role={role}
+                user={user}
                 students={students}
                 studentId={studentId}
                 showFieldConfig={showFieldConfig}
@@ -1162,9 +1170,149 @@ export default function HTEDocumentArchivePage() {
     );
 }
 
+// ── Google Auth Button ──────────────────────────────────────────────────────
+function GoogleAuthButton(props) {
+    var userId = props.userId;
+    var [authState, setAuthState] = React.useState({
+        authenticated: false,
+        email: "",
+        isLoading: false,
+        authUrl: ""
+    });
+    
+    var isFetching = React.useRef(false);
+    var lastCheckedId = React.useRef(null);
+    var authUrlRef = React.useRef(""); // Use a ref to store the URL and avoid circular dependencies
+
+    var checkStatus = React.useCallback(async function (force) {
+        if (!userId) return;
+        // Prevent concurrent or redundant checks
+        if (!force && isFetching.current) return;
+        if (!force && lastCheckedId.current === userId && authUrlRef.current) return;
+
+        isFetching.current = true;
+        lastCheckedId.current = userId;
+        
+        // Show loading only if we don't have a URL yet
+        if (!authUrlRef.current) {
+            setAuthState(function(prev) { return { ...prev, isLoading: true }; });
+        }
+
+        try {
+            console.log("GoogleAuthButton: Checking status for", userId);
+            var res = await settingsService.getGoogleAuthStatus(userId);
+            
+            var url = "";
+            if (!res.authenticated) {
+                console.log("GoogleAuthButton: Not authenticated, fetching URL");
+                url = await settingsService.getGoogleAuthUrl(userId);
+            }
+            
+            authUrlRef.current = url || "";
+            setAuthState({
+                authenticated: res.authenticated,
+                email: res.email,
+                isLoading: false,
+                authUrl: url || ""
+            });
+            console.log("GoogleAuthButton: Done", { authenticated: res.authenticated, hasUrl: !!url });
+        } catch (error) {
+            console.error("GoogleAuthButton: Fetch failed", error);
+            setAuthState(function(prev) { return { ...prev, isLoading: false }; });
+        } finally {
+            isFetching.current = false;
+        }
+    }, [userId]);
+
+    React.useEffect(function () {
+        if (userId && lastCheckedId.current !== userId) {
+            checkStatus();
+        }
+    }, [userId, checkStatus]);
+
+    async function handleAuthClick(e) {
+        if (!authState.authUrl) return;
+        
+        // Use Tauri Shell Plugin if in Tauri environment
+        if (window.__TAURI_INTERNALS__) {
+            try {
+                const { open } = await import("@tauri-apps/plugin-shell");
+                await open(authState.authUrl);
+                if (e && e.preventDefault) e.preventDefault();
+            } catch (err) {
+                console.error("Tauri shell open failed:", err);
+                // Fallback to standard open
+                window.open(authState.authUrl, "_blank");
+            }
+        } else {
+            window.open(authState.authUrl, "_blank");
+        }
+
+        // Start polling for status changes
+        var timer = setInterval(function () {
+            checkStatus(true);
+        }, 5000);
+        setTimeout(function () { clearInterval(timer); }, 300000);
+    }
+
+    var status = authState;
+    var authUrl = authState.authUrl;
+
+    return (
+        <TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    {status.authenticated ? (
+                        <button
+                            className={btnSmSecondary + " relative group border-primary-500/30 bg-primary-500/5 hover:bg-primary-500/10"}
+                        >
+                            <img 
+                                src="https://www.google.com/favicon.ico" 
+                                className="w-3.5 h-3.5" 
+                                alt="Google" 
+                            />
+                            <span className="text-[11px] font-semibold text-primary-700 ml-1">Connected</span>
+                            <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary-500 rounded-full border border-white shadow-sm" />
+                        </button>
+                    ) : (
+                         <a
+                            href={authUrl || "#"}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={handleAuthClick}
+                            className={btnSmDefault + " relative group " + (!authUrl ? "opacity-50 pointer-events-none" : "hover:scale-[1.02]")}
+                        >
+                            {status.isLoading ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin text-white/80" />
+                            ) : (
+                                <>
+                                    <img 
+                                      src="https://www.google.com/favicon.ico" 
+                                      className="w-3.5 h-3.5 brightness-[2.5]" 
+                                      alt="Google" 
+                                    />
+                                    <span>Authenticate</span>
+                                </>
+                            )}
+                        </a>
+                    )}
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-[10px] p-2 max-w-[200px]">
+                    {status.isLoading ? "Checking connection..." : (
+                        status.authenticated 
+                            ? <div><p className="font-bold text-primary-600">Connected</p><p className="truncate">{status.email}</p></div>
+                            : <div><p className="font-bold">Not Connected</p><p>{authUrl ? "Click to authenticate your Google Drive to enable uploads" : "Preparing authentication link..."}</p></div>
+                    )}
+                </TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
+    );
+}
+
 // ── Header ───────────────────────────────────────────────────────────────────
 export function HTEArchivingHeader(props) {
     var role = props.role;
+    var user = props.user;
     var students = props.students;
     var studentId = props.studentId;
     var showFieldConfig = props.showFieldConfig;
@@ -1198,7 +1346,12 @@ export function HTEArchivingHeader(props) {
                             <span>Add Student</span>
                         </button>
                     )}
-                    <ThesisSettingsModal />
+                    {role === "admin" && (
+                        <div className="flex items-center gap-1.5">
+                            <GoogleAuthButton userId={user?.id} />
+                        </div>
+                    )}
+                    {role === "admin" && <ThesisSettingsModal />}
                 </div>
             </div>
         </header>

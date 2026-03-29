@@ -1,16 +1,20 @@
 import { useState, useEffect } from 'react';
 import { FacultySubmissionService } from '../services/FacultySubmissionService';
 import { supabase } from '@/lib/supabaseClient';
+import { useSubmission } from '../contexts/SubmissionContext';
 
 export function useFacultySubmission() {
+    const { activeSubmissions, submitToQueue } = useSubmission();
     const [courses, setCourses] = useState([]);
     const [requiredDocs, setRequiredDocs] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState(null);
     const [currentSemester, setCurrentSemester] = useState(null);
     const [currentAcademicYear, setCurrentAcademicYear] = useState(null);
     const [ocrEnabled, setOcrEnabled] = useState(true);
+
+    // Derive isSubmitting from the global queue
+    const isSubmitting = Object.values(activeSubmissions).some(s => s.status === 'processing');
 
     const loadSettings = async () => {
         try {
@@ -63,31 +67,30 @@ export function useFacultySubmission() {
         }
     };
 
-    const submitDocument = async ({ files, courseId, docTypeId, semester, academicYear }) => {
-        setIsSubmitting(true);
+    const submitDocument = async ({ files, courseId, docTypeId, semester, academicYear, courseCode, docTypeName }) => {
         setError(null);
-        let hasLate = false;
         try {
-            for (const fileObj of files) {
-                const data = await FacultySubmissionService.uploadSubmission({
-                    file: fileObj.file,
-                    courseId,
-                    docTypeId,
-                    semester,
-                    academicYear
-                });
-                if (data && data.is_late) {
-                    hasLate = true;
-                }
+            const result = await submitToQueue({
+                files,
+                courseId,
+                docTypeId,
+                semester,
+                academicYear,
+                courseCode,
+                docTypeName
+            });
+            
+            if (!result.success) {
+                setError(result.error);
+                return false;
             }
-            return { is_late: hasLate };
+            
+            return { is_late: result.is_late };
         } catch (err) {
             console.error(err);
             setError(err.message || 'Submission failed');
-            setTimeout(() => setError(null), 3000); // FIX: Clear sticky error
+            setTimeout(() => setError(null), 3000);
             return false;
-        } finally {
-            setIsSubmitting(false);
         }
     };
 

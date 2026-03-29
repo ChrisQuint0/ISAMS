@@ -146,7 +146,19 @@ export const FacultySubmissionService = {
             // Re-create the file object with the new name
             const renamedFile = new File([file], standardizedName, { type: file.type });
 
-            // 5.c Upload the file
+            // 5.c Check for existing file with the same standardized name to prevent duplicates
+            try {
+                const existingFiles = await listGDriveFiles(targetFolderId);
+                const duplicateFile = existingFiles?.find(f => f.name === standardizedName);
+                if (duplicateFile) {
+                    console.log(`[FacultySubmissionService] Deleting existing duplicate file: ${standardizedName} (${duplicateFile.id})`);
+                    await deleteGDriveFile(duplicateFile.id);
+                }
+            } catch (err) {
+                console.warn("[FacultySubmissionService] Failed to check/delete duplicate file, proceeding with upload:", err);
+            }
+
+            // 5.d Upload the file
             const gdriveFile = await uploadToGDrive(renamedFile, targetFolderId);
 
             // 6. Insert/Update into Submissions table with Versioning via RPC
@@ -168,31 +180,12 @@ export const FacultySubmissionService = {
 
             if (insertError) throw insertError;
 
-            // 7. Status Lifecycle Logic: If this requirement had a revision request, mark ALL related records as RESUBMITTED
-            // We check if ANY file in this (faculty, course, docType) is in REVISION_REQUESTED state
-            const { data: revisionRecords } = await supabase
-                .from('submissions_fs')
-                .select('submission_id')
-                .eq('faculty_id', faculty.faculty_id)
-                .eq('course_id', courseId)
-                .eq('doc_type_id', docTypeId)
-                .eq('submission_status', 'REVISION_REQUESTED');
-
-            if (revisionRecords && revisionRecords.length > 0) {
-                // Update ALL records for this requirement in one go
-                // This ensures the dashboard and admin sidebar stay in sync
-                await supabase
-                    .from('submissions_fs')
-                    .update({ 
-                        submission_status: 'SUBMITTED',
-                        approval_remarks: 'File re-submitted by faculty after revision request.'
-                    })
-                    .eq('faculty_id', faculty.faculty_id)
-                    .eq('course_id', courseId)
-                    .eq('doc_type_id', docTypeId);
-                
-                console.log(`[Service] Synced ${revisionRecords.length} records to RESUBMITTED for requirement.`);
-            }
+            // 7. Status Lifecycle Logic: The individual record status is handled by the RPC.
+            // We NO LONGER mark ALL records as SUBMITTED here because that causes over-resubmission bugs
+            // in multi-file requirements (like 'Other Files'). 
+            // The Admin can see which specific files were re-submitted and which are still pending revision.
+            
+            return data;
 
             return data;
 
@@ -328,6 +321,7 @@ export const FacultySubmissionService = {
                     submission_id,
                     submitted_at,
                     submission_status,
+                    is_late,
                     original_filename,
                     courses_fs (course_code, course_name, section),
                     documenttypes_fs (type_name, doc_type_id),

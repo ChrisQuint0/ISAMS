@@ -149,7 +149,7 @@ export function AddOffenseModal({ isOpen, onClose, onSuccess, editingOffense }) 
 
                     <form onSubmit={handleSave} className="space-y-4">
                         <div className="space-y-1.5">
-                            <Label htmlFor="name" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Offense Name *</Label>
+                            <Label htmlFor="name" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Offense Name <span className="text-destructive-semantic">*</span></Label>
                             <Input
                                 id="name"
                                 value={formData.name}
@@ -161,7 +161,7 @@ export function AddOffenseModal({ isOpen, onClose, onSuccess, editingOffense }) 
                         </div>
 
                         <div className="space-y-1.5">
-                            <Label htmlFor="severity" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Severity Group *</Label>
+                            <Label htmlFor="severity" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Severity Group <span className="text-destructive-semantic">*</span></Label>
                             <Select
                                 value={formData.severity}
                                 onValueChange={(val) => setFormData({ ...formData, severity: val })}

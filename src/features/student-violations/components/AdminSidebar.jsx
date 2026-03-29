@@ -104,14 +104,14 @@ export function AdminSidebar() {
                     tooltip={item.label}
                     className={`text-neutral-600 hover:text-primary-700 hover:bg-neutral-100 transition-all rounded-md h-10 w-full ${
                       isActive(item.path)
-                        ? "!bg-primary-600 !text-white shadow-md shadow-emerald-900/10 font-bold"
+                        ? "!bg-primary-600 !text-white shadow-md shadow-emerald-900/10"
                         : ""
                     }`}
                   >
                     <item.icon
                       className={isActive(item.path) ? "size-5" : "size-[18px]"}
                     />
-                    <span className="text-[14px] font-medium">
+                    <span className="text-[15px] tracking-tight">
                       {item.label}
                     </span>
                   </SidebarMenuButton>
@@ -130,7 +130,7 @@ export function AdminSidebar() {
               onClick={() => navigate("/violation-settings")}
             >
               <Settings className="size-4" />
-              <span className="group-data-[collapsible=icon]:hidden ml-3 font-medium text-sm">
+              <span className="group-data-[collapsible=icon]:hidden ml-3 text-[15px] tracking-tight">
                 System Settings
               </span>
             </SidebarMenuButton>
