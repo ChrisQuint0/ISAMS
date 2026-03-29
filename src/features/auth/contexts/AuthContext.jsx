@@ -1,6 +1,7 @@
 import { createContext, useState, useEffect, useRef } from "react";
 import { authService } from "@/features/auth/services/authService";
 import { supabase } from "@/lib/supabaseClient";
+import { auditService } from "@/features/thesis-archiving/services/auditService";
 
 const AuthContext = createContext(null);
 
@@ -49,6 +50,37 @@ export function AuthProvider({ children }) {
       // Fetch RBAC in the background after loading is resolved.
       if (currentUser) {
         fetchRbac(currentUser.id);
+
+        // Record a Login audit event — but ONLY for thesis archiving users.
+        // We run this only on an explicit SIGNED_IN event (not INITIAL_SESSION)
+        // to avoid duplicate entries on every page refresh.
+        if (event === "SIGNED_IN") {
+          (async () => {
+            try {
+              const { data: rbacRow } = await supabase
+                .from("user_rbac")
+                .select("thesis")
+                .eq("user_id", currentUser.id)
+                .single();
+
+              if (rbacRow?.thesis) {
+                const meta = currentUser.user_metadata ?? {};
+                const displayName =
+                  (meta.first_name && meta.last_name)
+                    ? `${meta.first_name} ${meta.last_name}`
+                    : currentUser.email;
+
+                await auditService.logLogin({
+                  userId: currentUser.id,
+                  actorName: displayName,
+                });
+              }
+            } catch (err) {
+              // Never block auth flow; just log the error
+              console.error("[AuthContext] Login audit error:", err);
+            }
+          })();
+        }
       } else {
         setRbac(null);
       }
