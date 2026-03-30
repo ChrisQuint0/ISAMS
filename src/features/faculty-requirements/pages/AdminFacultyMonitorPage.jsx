@@ -167,6 +167,8 @@ export default function AdminFacultyMonitorPage() {
     {
       headerName: "Faculty",
       field: "last_name",
+      sort: 'asc',
+      sortIndex: 1,
       flex: 2,
       minWidth: 240,
       cellRenderer: (p) => {
@@ -222,6 +224,8 @@ export default function AdminFacultyMonitorPage() {
     {
       headerName: "Progress",
       field: "overall_progress",
+      sort: 'desc',
+      sortIndex: 0,
       flex: 1.8,  // Slightly wider to fit all info
       minWidth: 190,
       cellRenderer: (p) => {

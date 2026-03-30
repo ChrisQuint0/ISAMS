@@ -37,15 +37,15 @@ function getDaysLeft(dateStr, graceDays = 0) {
   const due = new Date(y, m - 1, d);
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const diff = Math.floor((due - today) / 86400000);
-  
+
   if (diff === 0) return { label: 'Due today', urgent: true, overdue: false, grace: false };
   if (diff === 1) return { label: 'Due tomorrow', urgent: true, overdue: false, grace: false };
   if (diff > 0) return { label: `${diff} days left`, urgent: diff <= 3, overdue: false, grace: false };
-  
+
   // Check grace period
   const cutoff = new Date(due); cutoff.setDate(cutoff.getDate() + graceDays);
   const gDiff = Math.floor((cutoff - today) / 86400000);
-  
+
   if (gDiff >= 0) return { label: `Grace: ${gDiff}d left`, urgent: true, overdue: false, grace: true };
   return { label: 'Passed', urgent: false, overdue: true, grace: false };
 }
@@ -64,8 +64,8 @@ function StatusBadge({ value }) {
     : v === 'APPROVED' || v === 'VALIDATED' ? 'Approved'
       : v === 'REVISION_REQUESTED' ? 'Revision'
         : v === 'LATE' ? 'Late'
-        : v === 'REJECTED' ? 'Rejected'
-          : v.charAt(0) + v.slice(1).toLowerCase();
+          : v === 'REJECTED' ? 'Rejected'
+            : v.charAt(0) + v.slice(1).toLowerCase();
   return (
     <span className={`inline-flex items-center whitespace-nowrap h-fit font-bold text-xs px-2 py-0.5 rounded-full border shadow-none ${cls}`}>
       {label}
@@ -223,22 +223,11 @@ export default function AdminDashboardPage() {
                   </div>
                   <h3 className="font-bold text-neutral-900 text-sm">Faculty Statistics</h3>
                 </div>
-                <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full border shadow-sm bg-primary-50 text-primary-600 border-primary-200">
-                  {stats.total_faculty || 0} Total
-                </span>
               </div>
-              <div className="flex items-center justify-between mt-1">
-                <div className="flex flex-col">
-                  <span className="text-3xl font-black text-primary-600 leading-none">{stats.active_faculty || 0}</span>
-                  <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mt-1">Current Semester</span>
-                  <p className="text-[9px] text-neutral-400 font-medium mt-0.5 leading-tight">{stats.active_faculty || 0} faculties within this semester</p>
-                </div>
-                <div className="h-10 w-px bg-neutral-100 mx-4" />
-                <div className="flex flex-col items-end text-right">
-                  <span className="text-3xl font-black text-neutral-400 leading-none">{stats.inactive_faculty || 0}</span>
-                  <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mt-1">Other Semester</span>
-                  <p className="text-[9px] text-neutral-400 font-medium mt-0.5 leading-tight">{stats.inactive_faculty || 0} not in this semester</p>
-                </div>
+              <div className="flex flex-col items-center justify-center mt-2 text-center pb-2">
+                <span className="text-4xl font-black text-primary-600 leading-none">{stats.active_faculty || 0}</span>
+                <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mt-2">Total Faculty</span>
+                <p className="text-[10px] text-neutral-400 font-medium mt-1 leading-tight">{stats.active_faculty || 0} faculties assigned to this semester</p>
               </div>
             </CardContent>
           </Card>
@@ -363,39 +352,35 @@ export default function AdminDashboardPage() {
                   const isOverdue = overdue;
                   const isUrgent = urgent && !overdue && !grace;
                   const isGrace = grace;
-                  
+
                   return (
                     <div
                       key={idx}
-                      className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
-                        isOverdue ? 'bg-destructive/5 border-destructive/20' :
+                      className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${isOverdue ? 'bg-destructive/5 border-destructive/20' :
                         isGrace ? 'bg-warning/10 border-warning/20' :
-                        isUrgent ? 'bg-warning/5 border-warning/20' :
-                        'bg-success/5 border-success/20'
-                      }`}
+                          isUrgent ? 'bg-warning/5 border-warning/20' :
+                            'bg-success/5 border-success/20'
+                        }`}
                     >
-                      <div className={`p-2 rounded-lg border bg-white shadow-sm shrink-0 ${
-                        isOverdue ? 'border-destructive/30' :
+                      <div className={`p-2 rounded-lg border bg-white shadow-sm shrink-0 ${isOverdue ? 'border-destructive/30' :
                         isGrace ? 'border-warning/40' :
-                        isUrgent ? 'border-warning/30' :
-                        'border-success/30'
-                      }`}>
-                        <Folder className={`h-4 w-4 ${
-                          isOverdue ? 'text-destructive' :
+                          isUrgent ? 'border-warning/30' :
+                            'border-success/30'
+                        }`}>
+                        <Folder className={`h-4 w-4 ${isOverdue ? 'text-destructive' :
                           isGrace ? 'text-warning' :
-                          isUrgent ? 'text-warning' :
-                          'text-success'
-                        }`} />
+                            isUrgent ? 'text-warning' :
+                              'text-success'
+                          }`} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-neutral-900 truncate">{dl.label}</p>
                         <div className="flex items-center gap-2 mt-1">
-                          <span className={`text-[10px] font-black uppercase tracking-wider ${
-                            isOverdue ? 'text-destructive' :
+                          <span className={`text-[10px] font-black uppercase tracking-wider ${isOverdue ? 'text-destructive' :
                             isGrace ? 'text-warning' :
-                            isUrgent ? 'text-warning' :
-                            'text-success'
-                          }`}>
+                              isUrgent ? 'text-warning' :
+                                'text-success'
+                            }`}>
                             {label}
                           </span>
                           <span className="text-[10px] text-neutral-400 font-medium">

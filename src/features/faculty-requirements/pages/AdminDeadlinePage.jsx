@@ -5,7 +5,7 @@ import { ModuleRegistry, AllCommunityModule, themeQuartz } from 'ag-grid-communi
 ModuleRegistry.registerModules([AllCommunityModule]);
 import {
   Edit, CalendarCheck, CalendarPlus, Clock, Trash2, Calendar, RefreshCw, AlertCircle,
-  RotateCcw, CheckCircle, ArrowRight, X, Search, Settings, Plus, Save, ShieldCheck, Activity
+  RotateCcw, CheckCircle, ArrowRight, X, Search, Settings, Plus, Save, ShieldCheck, Activity, History
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -446,10 +446,10 @@ export default function AdminDeadlinePage() {
             color="text-success"
           />
           <StatCard
-            title="Completion Rate"
-            value={`${completionRate}%`}
-            icon={CheckCircle}
-            color="text-success"
+            title="Passed Deadlines"
+            value={deadlines.filter(d => d.status === 'Passed').length}
+            icon={History}
+            color="text-neutral-500"
           />
           <StatCard
             title="Next Deadline"
