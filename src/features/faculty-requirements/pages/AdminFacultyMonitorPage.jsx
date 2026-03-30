@@ -69,7 +69,7 @@ export default function AdminFacultyMonitorPage() {
     const total = facultyList.length;
     const cleared = facultyList.filter(f => f.overall_progress >= 100).length;
     const pending = facultyList.reduce((acc, f) => acc + (f.pending_submissions || 0), 0);
-    const atRisk = facultyList.filter(f => f.status === 'At Risk' || f.status === 'Delayed').length;
+    const atRisk = facultyList.filter(f => f.status === 'At Risk' || f.status === 'In Progress').length;
     return { total, cleared, pending, atRisk };
   }, [facultyList]);
 
@@ -81,7 +81,8 @@ export default function AdminFacultyMonitorPage() {
     switch (status) {
       case 'On Track': return 'bg-success/10 text-success border-success/20';
       case 'At Risk': return 'bg-warning/10 text-warning border-warning/20';
-      case 'Delayed': return 'bg-destructive/10 text-destructive-semantic border-destructive/20';
+      case 'In Progress': return 'bg-primary-50 text-primary-600 border-primary-200';
+      case 'No Submissions': return 'bg-neutral-100 text-neutral-500 border-neutral-200';
       default: return 'bg-neutral-100 text-neutral-500 border-neutral-200';
     }
   };
@@ -130,7 +131,7 @@ export default function AdminFacultyMonitorPage() {
   // --- Bulk reminder scope helpers ---
   const bulkTargets = useMemo(() => {
     if (bulkScope === 'at_risk') return facultyList.filter(f => f.status === 'At Risk');
-    if (bulkScope === 'delayed') return facultyList.filter(f => f.status === 'Delayed');
+    if (bulkScope === 'in_progress') return facultyList.filter(f => f.status === 'In Progress');
     if (bulkScope === 'not_cleared') return facultyList.filter(f => f.overall_progress < 100);
     return facultyList; // 'all'
   }, [bulkScope, facultyList]);
@@ -209,14 +210,9 @@ export default function AdminFacultyMonitorPage() {
       width: 130,
       cellRenderer: (p) => {
         if (!p.value) return null;
-        const styles = {
-          'On Track': 'bg-success/10 text-success border-success/20',
-          'At Risk': 'bg-warning/10 text-warning border-warning/20',
-          'Delayed': 'bg-destructive/10 text-destructive-semantic border-destructive/20',
-        };
         return (
           <div className="flex items-center h-full">
-            <span className={`font-bold text-xs px-2 py-0.5 rounded-full border ${styles[p.value] || 'bg-neutral-100 text-neutral-500 border-neutral-200'}`}>
+            <span className={`font-bold text-xs px-2 py-0.5 rounded-full border ${getStatusColor(p.value)}`}>
               {p.value}
             </span>
           </div>
@@ -396,7 +392,7 @@ export default function AdminFacultyMonitorPage() {
           <StatCard icon={Users} label="Total Faculty" value={stats.total} color="text-primary-600" sub="Currently monitored" />
           <StatCard icon={Award} label="Fully Cleared" value={stats.cleared} color="text-success" sub="100% completion" />
           <StatCard icon={Clock} label="Pending Items" value={stats.pending} color="text-warning" sub="Across all faculty" />
-          <StatCard icon={AlertTriangle} label="At Risk / Delayed" value={stats.atRisk} color="text-destructive-semantic" sub="Needs attention" />
+          <StatCard icon={AlertTriangle} label="At Risk / In Progress" value={stats.atRisk} color="text-destructive-semantic" sub="Needs attention" />
         </div>
 
         {/* Filter Card */}
@@ -415,7 +411,7 @@ export default function AdminFacultyMonitorPage() {
                   <Search className="absolute left-3 top-2.5 h-4 w-4 text-neutral-400" />
                   <Input
                     placeholder="By name or course..."
-                    className="pl-9 bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus-visible:ring-primary-500 font-medium"
+                    className="pl-9 bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus-visible:ring-primary-500 focus-visible:border-primary-500 rounded-lg"
                     value={filters.search}
                     onChange={e => setFilters(prev => ({ ...prev, search: e.target.value }))}
                   />
@@ -462,7 +458,8 @@ export default function AdminFacultyMonitorPage() {
                     <SelectItem value="All Status" className="font-medium text-xs">All Status</SelectItem>
                     <SelectItem value="On Track" className="font-medium text-xs text-success">On Track</SelectItem>
                     <SelectItem value="At Risk" className="font-medium text-xs text-warning">At Risk</SelectItem>
-                    <SelectItem value="Delayed" className="font-medium text-xs text-destructive">Delayed</SelectItem>
+                    <SelectItem value="In Progress" className="font-medium text-xs text-primary-600">In Progress</SelectItem>
+                    <SelectItem value="No Submissions" className="font-medium text-xs text-neutral-500">No Submissions</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -617,7 +614,7 @@ export default function AdminFacultyMonitorPage() {
                   </SelectTrigger>
                   <SelectContent className="bg-white border-neutral-200">
                     <SelectItem value="at_risk" className="font-medium text-xs">At Risk faculty only</SelectItem>
-                    <SelectItem value="delayed" className="font-medium text-xs">Delayed faculty only</SelectItem>
+                    <SelectItem value="in_progress" className="font-medium text-xs">In Progress faculty only</SelectItem>
                     <SelectItem value="not_cleared" className="font-medium text-xs">All faculty not yet cleared</SelectItem>
                     <SelectItem value="all" className="font-medium text-xs">All faculty (entire list)</SelectItem>
                   </SelectContent>

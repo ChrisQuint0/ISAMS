@@ -150,13 +150,27 @@ function buildEmailHtml(template, { facultyName, subject, message, pendingCount,
 
 // Helper to load token
 async function loadToken() {
-  const { data, error } = await supabase
+  let data;
+
+  // Try to find a token that has the full 'drive' scope needed for uploads
+  const { data: scopedTokens } = await supabase
     .from("google_auth_tokens")
     .select("*")
-    .eq("id", 1)
-    .single();
+    .ilike("scope", "%auth/drive %");
 
-  if (error || !data) return null;
+  if (scopedTokens && scopedTokens.length > 0) {
+    data = scopedTokens[0];
+  } else {
+    // Fallback to id=1
+    const { data: legacyData } = await supabase
+      .from("google_auth_tokens")
+      .select("*")
+      .eq("id", 1)
+      .maybeSingle();
+    data = legacyData;
+  }
+
+  if (!data) return null;
 
   oauth2Client.setCredentials({
     access_token: data.access_token,
@@ -588,8 +602,25 @@ app.post("/api/send-email", async (req, res) => {
 });
 
 app.get("/api/status", async (req, res) => {
-  const { data } = await supabase.from("google_auth_tokens").select("id").eq("id", 1).single();
-  res.json({ authenticated: !!data });
+  // Check if we have any valid admin token (matching fallback logic)
+  const { data: scopedTokens } = await supabase
+    .from("google_auth_tokens")
+    .select("id")
+    .ilike("scope", "%auth/drive %")
+    .limit(1);
+
+  if (scopedTokens && scopedTokens.length > 0) {
+    return res.json({ authenticated: true });
+  }
+
+  // Fallback to id=1
+  const { data: legacyData } = await supabase
+    .from("google_auth_tokens")
+    .select("id")
+    .eq("id", 1)
+    .maybeSingle();
+
+  res.json({ authenticated: !!legacyData });
 });
 
 app.listen(port, () => {

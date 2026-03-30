@@ -263,7 +263,7 @@ export default function AdminArchivePage() {
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-neutral-400" />
                     <Input
                       placeholder="Find by filename, faculty, or course..."
-                      className="pl-8 bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus-visible:ring-primary-500 font-medium"
+                      className="pl-8 bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus-visible:ring-primary-500 focus-visible:border-primary-500 rounded-lg font-medium"
                       value={filters.search_query}
                       onChange={(e) => updateFilter('search_query', e.target.value)}
                     />
