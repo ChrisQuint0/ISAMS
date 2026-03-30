@@ -45,7 +45,7 @@ export function Titlebar() {
 
   return (
     <div
-      className="h-[var(--titlebar-height)] flex items-center justify-between bg-white border-b border-gray-100 select-none shrink-0 relative overflow-hidden"
+      className="h-[var(--titlebar-height)] flex items-center justify-between bg-white border-b border-gray-100 select-none shrink-0 relative overflow-hidden z-[100]"
     >
       {/* Background Drag Region */}
       <div 
