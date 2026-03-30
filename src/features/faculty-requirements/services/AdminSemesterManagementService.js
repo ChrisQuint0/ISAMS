@@ -80,14 +80,12 @@ export const semesterService = {
         return data || [];
     },
 
-    // Get list of faculty names who haven't reached 100% completion (for rollover warning)
+    // Get list of faculty names who haven't reached 100% completion IN THE CURRENT SEMESTER ONLY
     getIncompleteFaculty: async () => {
-        const { data, error } = await supabase.rpc('get_faculty_management_fs');
+        const { data, error } = await supabase.rpc('get_incomplete_faculty_current_semester_fs');
         if (error) throw error;
 
-        return (data || [])
-            .filter(f => parseFloat(f.completion_rate || '0') < 100)
-            .map(f => `${f.first_name} ${f.last_name}`);
+        return (data || []).map(row => row.full_name);
     },
 
     // Full Semester Rollover Protocol:
