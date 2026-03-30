@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Minus, Square, Copy, X } from "lucide-react";
-import isamsLogo from "@/assets/images/isams_logo_icon.png";
+import isamsLogo from "@/assets/images/isams_logo_icon.svg";
 
 export function Titlebar() {
   const [isMaximized, setIsMaximized] = useState(false);
@@ -48,9 +48,9 @@ export function Titlebar() {
       className="h-[var(--titlebar-height)] flex items-center justify-between bg-white border-b border-gray-100 select-none shrink-0 relative overflow-hidden z-[100]"
     >
       {/* Background Drag Region */}
-      <div 
-        data-tauri-drag-region 
-        className="absolute inset-0 z-0 cursor-default" 
+      <div
+        data-tauri-drag-region
+        className="absolute inset-0 z-0 cursor-default"
       />
 
       <div className="relative z-10 flex items-center px-4 gap-2 pointer-events-none">

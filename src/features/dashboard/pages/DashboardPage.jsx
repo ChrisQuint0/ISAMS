@@ -7,7 +7,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { LogOut, UserRoundPlus, ArrowUpRight, Settings } from "lucide-react";
-import isamsFavicon from "@/assets/images/isams_favicon.png";
+import isamsLogo from "@/assets/images/isams_logo_icon.svg";
 import thesisIcon from "@/assets/icons/thesis_icon.svg";
 import facReqIcon from "@/assets/icons/fac_req_icon.svg";
 import classlistIcon from "@/assets/icons/classlist_icon.svg";
@@ -139,14 +139,8 @@ export default function DashboardPage() {
       >
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden"
-              style={{
-                background: "linear-gradient(135deg, #008A45, #00c46a)",
-                boxShadow: "0 2px 12px rgba(0,138,69,0.35)",
-              }}
-            >
-              <img src={isamsFavicon} alt="ISAMS" className="w-6 h-6 object-contain" />
+            <div className="w-9 h-9 flex items-center justify-center overflow-hidden">
+              <img src={isamsLogo} alt="ISAMS" className="w-9 h-9 object-contain" />
             </div>
             <p className="text-sm font-semibold text-gray-900">
               {isStudent(rbac) ? "Student Portal" : "ISAMS Dashboard"}
