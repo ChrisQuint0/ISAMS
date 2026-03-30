@@ -150,7 +150,21 @@ const StudViolations = () => {
             updated_by_name: userMap[v.updated_by] || v.updated_by || 'Unknown'
           };
         });
-        setViolations(formattedData);
+        const statusPriority = {
+          'Pending': 1,
+          'Under Investigation': 2,
+          'Resolved': 3,
+          'Dismissed': 4
+        };
+
+        const sortedData = formattedData.sort((a, b) => {
+          const pA = statusPriority[a.status] || 5;
+          const pB = statusPriority[b.status] || 5;
+          if (pA !== pB) return pA - pB;
+          return new Date(b.created_at) - new Date(a.created_at);
+        });
+
+        setViolations(sortedData);
       }
 
       // 2. Fetch Sanctions
