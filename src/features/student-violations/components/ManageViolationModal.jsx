@@ -9,9 +9,41 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabaseClient";
-import { CheckCircle2, AlertCircle, Loader2, FileText, ExternalLink, ShieldCheck } from "lucide-react";
+import { CheckCircle2, AlertCircle, Loader2, FileText, ExternalLink, ShieldCheck, X, Trash2 } from "lucide-react";
 import { ImposeSanctionModal } from "./ImposeSanctionModal";
+import { uploadEvidenceToGDrive, deleteEvidenceFromGDrive } from "../services/gdriveEvidenceUpload";
+
+const getFileIdFromUrl = (url) => {
+    if (!url) return null;
+    const matchD = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (matchD) return matchD[1];
+    const matchId = url.match(/id=([a-zA-Z0-9_-]+)/);
+    if (matchId) return matchId[1];
+    return null;
+};
+
+const formatLongDate = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr;
+    return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+};
+
+const formatLongDateTime = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr;
+    return date.toLocaleString('en-US', { 
+        month: 'long', 
+        day: 'numeric', 
+        year: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: true
+    });
+};
 
 export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData }) {
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -22,6 +54,8 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
 
     const [evidenceList, setEvidenceList] = useState([]);
     const [isLoadingEvidence, setIsLoadingEvidence] = useState(false);
+    const [newEvidenceFiles, setNewEvidenceFiles] = useState([]);
+    const [isUploadingEvidence, setIsUploadingEvidence] = useState(false);
 
     const [isImposeSanctionOpen, setIsImposeSanctionOpen] = useState(false);
     const [existingSanction, setExistingSanction] = useState(null);
@@ -72,6 +106,53 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
         setSuccessMsg(null);
         setIsSubmitting(false);
         setEvidenceList([]);
+        setNewEvidenceFiles([]);
+    };
+
+    const handleFileChange = (e) => {
+        if (e.target.files && e.target.files.length > 0) {
+            setNewEvidenceFiles(prev => [...prev, ...Array.from(e.target.files)]);
+        }
+        e.target.value = null; // reset
+    };
+
+    const removeNewFile = (indexToRemove) => {
+        setNewEvidenceFiles(prev => prev.filter((_, index) => index !== indexToRemove));
+    };
+
+    const handleDeleteEvidence = async (evidenceId) => {
+        const file = evidenceList.find(e => e.evidence_id === evidenceId);
+        if (!file) return;
+
+        if (!window.confirm("Are you sure you want to delete this evidence?")) return;
+        
+        try {
+            // Delete from GDrive
+            const fileId = getFileIdFromUrl(file.file_url);
+            if (fileId) {
+                try {
+                    await deleteEvidenceFromGDrive(fileId);
+                } catch (gdriveErr) {
+                    console.warn("Could not delete from GDrive or already deleted:", gdriveErr);
+                    // Do not block database deletion if GDrive deletion fails (e.g. already deleted manually)
+                }
+            }
+
+            const { error } = await supabase
+                .from('violation_evidence_sv')
+                .delete()
+                .eq('evidence_id', evidenceId);
+
+            if (error) throw error;
+            
+            setEvidenceList(prev => prev.filter(e => e.evidence_id !== evidenceId));
+            setSuccessMsg("Evidence removed successfully.");
+            setTimeout(() => setSuccessMsg(null), 3000);
+        } catch (err) {
+            console.error("Error deleting evidence:", err);
+            setErrorMsg("Failed to remove evidence.");
+            setTimeout(() => setErrorMsg(null), 3000);
+        }
     };
 
     const handleOpenChange = (open) => {
@@ -101,6 +182,38 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
             const { data: { user }, error: authError } = await supabase.auth.getUser();
             if (authError || !user) throw new Error("Authentication error. Please log in again.");
 
+            if (newEvidenceFiles.length > 0) {
+                setIsUploadingEvidence(true);
+                const evidenceInsertData = [];
+                for (const file of newEvidenceFiles) {
+                    try {
+                        const folderId = "1G2uqwZBMuwdoZg5-Ic7K0ODZNip3LxqN"; // Violation evidence folder
+                        const uploadResult = await uploadEvidenceToGDrive(file, folderId);
+                        evidenceInsertData.push({
+                            violation_id: violationData.violation_id,
+                            file_name: file.name,
+                            file_url: uploadResult.webViewLink || uploadResult.webContentLink,
+                            file_type: file.type || 'application/octet-stream',
+                            uploaded_by: user.id
+                        });
+                    } catch (uploadError) {
+                        console.error(`Error uploading ${file.name}:`, uploadError);
+                        throw new Error(`Failed to upload ${file.name}: ${uploadError.message}`);
+                    }
+                }
+
+                if (evidenceInsertData.length > 0) {
+                    const { error: evidenceError } = await supabase
+                        .from('violation_evidence_sv')
+                        .insert(evidenceInsertData);
+
+                    if (evidenceError) {
+                        throw new Error("Failed to link new evidence to violation.");
+                    }
+                }
+                setIsUploadingEvidence(false);
+            }
+
             const { error } = await supabase
                 .from('violations_sv')
                 .update({ status, updated_by: user.id })
@@ -117,7 +230,7 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
             console.error("Error updating violation:", error);
             setErrorMsg(`Failed to update violation: ${error.message || 'Unknown error'}`);
         } finally {
-            setIsSubmitting(false);
+            setIsUploadingEvidence(false);
         }
     };
 
@@ -169,7 +282,7 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
                         <div className="space-y-1">
                             <p className="text-neutral-500 text-xs uppercase font-bold tracking-wider">Incident Date/Time</p>
                             <p className="font-bold text-neutral-900">
-                                {violationData.incident_date ? new Date(violationData.incident_date).toLocaleDateString() : 'N/A'}
+                                {formatLongDate(violationData.incident_date)}
                                 {violationData.incident_time ? ` at ${violationData.incident_time}` : ''}
                             </p>
                         </div>
@@ -191,14 +304,14 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
                             <div>
                                 <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5">Violation Reported</p>
                                 <p className="text-neutral-900 font-bold">
-                                    {violationData.created_at ? new Date(violationData.created_at).toLocaleString() : 'N/A'}
+                                    {formatLongDateTime(violationData.created_at)}
                                 </p>
                                 <p className="text-neutral-500 font-medium">by {violationData.reported_by_name}</p>
                             </div>
                             <div>
                                 <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5">Last Modified</p>
                                 <p className="text-neutral-900 font-bold">
-                                    {violationData.updated_at ? new Date(violationData.updated_at).toLocaleString() : 'N/A'}
+                                    {formatLongDateTime(violationData.updated_at)}
                                 </p>
                                 <p className="text-neutral-500 font-medium">by {violationData.updated_by_name}</p>
                             </div>
@@ -214,23 +327,34 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
                             ) : evidenceList.length > 0 ? (
                                 <div className="space-y-2 mt-2">
                                     {evidenceList.map((file) => (
-                                        <a
-                                            key={file.evidence_id}
-                                            href={file.file_url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="flex items-center justify-between p-2.5 rounded-md bg-neutral-50 border border-neutral-200 hover:border-primary-300 hover:bg-primary-50 transition-colors group"
-                                        >
-                                            <div className="flex items-center gap-3 overflow-hidden">
-                                                <div className="p-1.5 bg-white shadow-sm border border-neutral-100 rounded text-primary-500 shrink-0">
-                                                    <FileText className="w-4 h-4" />
+                                        <div key={file.evidence_id} className="flex items-center gap-2">
+                                            <a
+                                                href={file.file_url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex-1 flex items-center justify-between p-2.5 rounded-md bg-neutral-50 border border-neutral-200 hover:border-primary-300 hover:bg-primary-50 transition-colors group"
+                                            >
+                                                <div className="flex items-center gap-3 overflow-hidden">
+                                                    <div className="p-1.5 bg-white shadow-sm border border-neutral-100 rounded text-primary-500 shrink-0">
+                                                        <FileText className="w-4 h-4" />
+                                                    </div>
+                                                    <span className="text-neutral-700 font-medium truncate text-xs group-hover:text-primary-700 transition-colors">
+                                                        {file.file_name}
+                                                    </span>
                                                 </div>
-                                                <span className="text-neutral-700 font-medium truncate text-xs group-hover:text-primary-700 transition-colors">
-                                                    {file.file_name}
-                                                </span>
-                                            </div>
-                                            <ExternalLink className="w-4 h-4 shrink-0 text-neutral-400 group-hover:text-primary-500 opacity-0 group-hover:opacity-100 transition-all shadow-sm" />
-                                        </a>
+                                                <ExternalLink className="w-4 h-4 shrink-0 text-neutral-400 group-hover:text-primary-500 opacity-0 group-hover:opacity-100 transition-all shadow-sm" />
+                                            </a>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => handleDeleteEvidence(file.evidence_id)}
+                                                className="h-10 w-10 text-neutral-400 hover:text-destructive-semantic hover:bg-red-50 shrink-0"
+                                                title="Delete evidence"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </Button>
+                                        </div>
                                     ))}
                                 </div>
                             ) : (
@@ -258,7 +382,7 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
                                     <div className="col-span-2">
                                         <p className="text-neutral-500 text-xs uppercase tracking-wider font-bold mb-1">Duration / Deadline</p>
                                         <p className="text-neutral-700 font-medium">
-                                            {existingSanction.start_date || 'N/A'} {existingSanction.deadline_date ? ` to ${existingSanction.deadline_date}` : ''}
+                                            {formatLongDate(existingSanction.start_date)} {existingSanction.deadline_date ? ` to ${formatLongDate(existingSanction.deadline_date)}` : ''}
                                         </p>
                                     </div>
                                     {existingSanction.description && (
@@ -270,6 +394,45 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
                                 </div>
                             </div>
                         )}
+
+                        <div className="col-span-2 space-y-3 border-t border-neutral-100 pt-3 mt-4">
+                            <Label className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Add Additional Evidence</Label>
+                            <div className="flex flex-col gap-3">
+                                <Input
+                                    type="file"
+                                    multiple
+                                    onChange={handleFileChange}
+                                    className="bg-white border-neutral-200 text-neutral-600 file:bg-primary-50 hover:file:bg-primary-100 file:text-primary-700 file:font-bold file:border-0 file:mr-4 file:px-4 file:py-2 file:rounded-md transition-all cursor-pointer h-11 pt-[6px]"
+                                    accept="image/*,video/*,.pdf,.doc,.docx"
+                                />
+
+                                {newEvidenceFiles.length > 0 && (
+                                    <div className="space-y-2 mt-2">
+                                        <p className="text-xs text-neutral-500 font-bold">New files to upload ({newEvidenceFiles.length}):</p>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                            {newEvidenceFiles.map((file, idx) => (
+                                                <div key={idx} className="flex items-center justify-between p-2 rounded-md border border-neutral-200 bg-neutral-50">
+                                                    <div className="flex items-center gap-2 overflow-hidden">
+                                                        <FileText className="w-4 h-4 text-primary-500 shrink-0" />
+                                                        <span className="text-xs font-medium text-neutral-700 truncate" title={file.name}>
+                                                            {file.name}
+                                                        </span>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeNewFile(idx)}
+                                                        className="p-1 rounded text-neutral-400 hover:bg-neutral-200 hover:text-destructive-semantic transition-colors shrink-0"
+                                                        title="Remove file"
+                                                    >
+                                                        <X className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -293,9 +456,9 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
 
                         <div className="flex justify-end gap-3">
                             <Button type="button" variant="ghost" className="text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200 font-bold" onClick={() => handleOpenChange(false)}>Close</Button>
-                            <Button type="submit" className="bg-primary-600 hover:bg-primary-700 text-white font-bold shadow-md" disabled={isSubmitting || status === violationData.status}>
+                            <Button type="submit" className="bg-primary-600 hover:bg-primary-700 text-white font-bold shadow-md" disabled={isSubmitting || (status === violationData.status && newEvidenceFiles.length === 0)}>
                                 {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                                Save Changes
+                                {isUploadingEvidence ? 'Uploading...' : 'Save Changes'}
                             </Button>
                         </div>
                     </form>

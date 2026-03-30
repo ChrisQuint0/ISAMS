@@ -36,6 +36,14 @@ const customTheme = themeQuartz.withParams({
   fontSize: '13px',
 });
 
+// Helper to format dates to "March 16, 2026"
+const formatLongDate = (dateStr) => {
+  if (!dateStr || dateStr === 'None') return 'None';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return dateStr;
+  return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+};
+
 
 // --- Reusable Stat Card (Matching Analytics.jsx but Scaled Down) ---
 const StatCard = ({ title, value, icon: Icon, description, trend, isUp, isLoading, borderTopClass = "bg-primary-500", iconClass = "text-primary-600 bg-primary-50 border-primary-100" }) => (
@@ -167,7 +175,7 @@ const StudViolations = () => {
             : 'Unknown',
           sanction_name: s.penalty_name,
           status: s.status,
-          due_date: s.deadline_date || 'None',
+          due_date: formatLongDate(s.deadline_date),
           assigned_by_name: userMap[s.assigned_by] || s.assigned_by || 'Unknown',
           updated_by_name: userMap[s.updated_by] || s.updated_by || 'Unknown',
           original_data: s
