@@ -188,17 +188,15 @@ export default function AdminFacultyMonitorPage() {
                 <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-primary-400" />
               </span>
               <div className="flex gap-1 items-center mt-0.5">
-                <span className="text-[9px] uppercase font-bold text-neutral-400 tracking-wider">
-                  {f.employment_type || 'Faculty'}
-                </span>
-                {f.courses?.length > 0 && (
-                  <>
-                    <span className="text-neutral-300">•</span>
-                    <span className="text-[9px] font-mono text-primary-500 font-bold">
-                      {f.courses.slice(0, 2).map(c => c.course_code).join(', ')}
-                      {f.courses.length > 2 && ' ...'}
-                    </span>
-                  </>
+                {f.courses?.length > 0 ? (
+                  <span className="text-[9px] font-mono text-primary-500 font-bold">
+                    {f.courses.slice(0, 3).map(c => `${c.section} • ${c.course_code}`).join(', ')}
+                    {f.courses.length > 3 && ' ...'}
+                  </span>
+                ) : (
+                  <span className="text-[9px] uppercase font-bold text-neutral-400 tracking-wider">
+                    No Courses Assigned
+                  </span>
                 )}
               </div>
             </div>
