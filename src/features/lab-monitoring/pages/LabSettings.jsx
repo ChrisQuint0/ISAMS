@@ -172,7 +172,7 @@ export default function LabSettings() {
                     <h1 className="text-[30px] font-bold text-neutral-900 tracking-tight">{labName} - System Settings</h1>
                     <p className="text-neutral-600 text-sm italic">Manage core attendance protocols and hardware maintenance thresholds.</p>
                 </div>
-                <Button onClick={handleSaveWrapper} disabled={isSaving}>
+                <Button onClick={handleSaveWrapper} disabled={isSaving} className="bg-primary-500 hover:bg-primary-600 text-white">
                     <Save size={16} /> <span>{isSaving ? "Saving..." : "Save Changes"}</span>
                 </Button>
             </div>
@@ -181,7 +181,7 @@ export default function LabSettings() {
                 <section className="xl:col-span-4 flex flex-col gap-6">
                     <div className="flex items-center gap-2">
                         <ShieldCheck size={18} className="text-primary-500" />
-                        <h2 className="text-sm font-black uppercase tracking-[0.2em] text-neutral-600">Attendance Protocols</h2>
+                        <h2 className="text-sm font-bold text-neutral-900 uppercase tracking-wider">Attendance Protocols</h2>
                     </div>
                     <div className="grid gap-4">
                         <SettingRow
@@ -217,12 +217,12 @@ export default function LabSettings() {
                     </div>
 
                     <section className="space-y-6">
-                        <div className="flex items-center gap-2"><Monitor size={18} className="text-primary-500" /><h2 className="text-sm font-black uppercase tracking-[0.2em] text-neutral-600">Hardware Maintenance</h2></div>
+                        <div className="flex items-center gap-2"><Monitor size={18} className="text-primary-500" /><h2 className=" text-sm font-bold text-neutral-900 uppercase tracking-wider">Hardware Maintenance</h2></div>
                         <div className="p-6 bg-white border border-neutral-200 rounded-xl flex flex-col gap-6 shadow-sm transition-colors">
                             <div className="flex justify-between items-center">
                                 <div className="space-y-1">
                                     <p className="text-sm font-bold text-neutral-900">Predictive Health Threshold</p>
-                                    <p className="text-[10px] text-neutral-600 uppercase tracking-widest font-black leading-relaxed">Limit for PC proactive alerts.</p>
+                                    <p className="text-[11px] text-neutral-600 uppercase tracking-wide">Limit for PC proactive alerts.</p>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <Button
@@ -253,7 +253,7 @@ export default function LabSettings() {
 
                 <div className="xl:col-span-3 flex flex-col gap-8">
                     <section className="space-y-5">
-                        <div className="flex items-center gap-2"><Database size={18} className="text-primary-500" /><h2 className="text-sm font-black uppercase tracking-[0.2em] text-neutral-600">Data & Audit</h2></div>
+                        <div className="flex items-center gap-2"><Database size={18} className="text-primary-500" /><h2 className="text-sm font-bold text-neutral-900 uppercase tracking-wider">Data & Audit</h2></div>
                         <div className="space-y-3">
                             <ActionCard icon={isReconciling ? Loader2 : RefreshCcw} title="Reconcile Room Status" subtitle="Force-run auto-checkout triggers." onClick={handleManualSync} />
                             <ActionCard icon={isBackingUp ? Loader2 : Database} title="Generate System Snapshot" subtitle="Full relational backup of all lab data and settings." iconColorClass="bg-primary-500/10 text-primary-500" onClick={handleFullSystemBackup} />
@@ -261,7 +261,7 @@ export default function LabSettings() {
                     </section>
 
                     <section className="space-y-5">
-                        <div className="flex items-center gap-2"><Upload size={18} className="text-primary-500" /><h2 className="text-sm font-black uppercase tracking-[0.2em] text-neutral-600">Data Import</h2></div>
+                        <div className="flex items-center gap-2"><Upload size={18} className="text-primary-500" /><h2 className=" text-sm font-bold text-neutral-900 uppercase tracking-wider">Data Import</h2></div>
                         <div className="space-y-3">
                             <ActionCard icon={Upload} title="Import Classlist" subtitle="Upload CSV for students." onClick={() => openImportDialog("classlist")} />
                             <ActionCard icon={Database} title="Import Laboratory Schedule" subtitle="Upload CSV for schedules." iconColorClass="bg-primary-500/10 text-primary-500" onClick={() => openImportDialog("schedule")} />

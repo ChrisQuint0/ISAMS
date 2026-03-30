@@ -16,7 +16,7 @@ export default function StationInspector({ selectedPC, onFlagMaintenance, onClea
         return (
             <div className="flex flex-col items-center justify-center h-full space-y-4" style={{ color: '#9ca3af', opacity: 0.5 }}>
                 <Monitor size={48} strokeWidth={1} />
-                <p className="text-xs uppercase tracking-widest text-center">Select a station<br/>to view details</p>
+                <p className="w-full h-[250px] mt-4 flex items-center justify-center text-neutral-500 font-mono text-xs uppercase tracking-widest">Select a station<br/>to view details</p>
             </div>
         );
     }
@@ -44,7 +44,10 @@ export default function StationInspector({ selectedPC, onFlagMaintenance, onClea
                     {isLaptop ? <Laptop size={28} /> : <Monitor size={28} />}
                 </div>
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight" style={{ color: '#111827' }}>{selectedPC.id}</h2>
+                    <h2 className="text-sm font-bold text-neutral-900 uppercase tracking-wider flex items-center gap-2" style={{ color: '#111827' }}>
+                        {isLaptop ? <Laptop size={16} /> : <Monitor size={16} />}
+                        {selectedPC.id}
+                    </h2>
                     <span className="text-[10px] font-black uppercase tracking-widest" style={{
                         color: isMaintenance ? '#f59e0b' : isLaptop ? GSDS_COLORS.gold400 : GSDS_COLORS.primary500
                     }}>

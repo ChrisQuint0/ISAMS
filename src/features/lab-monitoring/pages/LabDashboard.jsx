@@ -106,7 +106,7 @@ export default function LabDashboard() {
         <div className="p-8 bg-neutral-100 min-h-screen flex items-center justify-center text-primary-600">
             <div className="text-center space-y-4">
                 <div className="w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto" />
-                <p className="text-neutral-500 font-mono text-xs uppercase tracking-widest animate-pulse">
+                <p className="w-full h-[250px] mt-4 flex items-center justify-center text-neutral-500 font-mono text-xs uppercase tracking-widest">
                     Synchronizing {labName} Metrics...
                 </p>
             </div>

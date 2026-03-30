@@ -139,7 +139,12 @@ export default function PCGridLayout({ stations, selectedPC, onSelectPC, selectM
 
     return (
         <div className="bg-white border rounded-2xl p-8 shadow-lg relative overflow-hidden group transition-colors" style={{ borderColor: GSDS_COLORS.neutral200 }}>
-            {/* PC Grid */}
+            <div className="mb-3 py-0.5 px-8 rounded-md border text-center mx-auto" style={{ backgroundColor: '#fafafa', width: '300px' }}>
+                <p className="text-[8px] font-medium uppercase tracking-widest text-neutral-500">
+                    Whiteboard
+                </p>
+            </div>
+
             <div className="grid grid-cols-5 md:grid-cols-8 gap-4 max-w-5xl mx-auto">
                 {stations.map(renderStationButton)}
             </div>

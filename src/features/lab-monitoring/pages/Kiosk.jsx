@@ -321,7 +321,7 @@ export default function Kiosk() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="min-h-screen bg-neutral-100 flex flex-col">
       <header className="border-b border-neutral-200 bg-neutral-50 sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">

@@ -211,7 +211,9 @@ export default function PCManagement() {
 
                 <div className="w-full lg:w-80 space-y-4 flex flex-col">
                     <div className="bg-white border rounded-2xl p-6 shadow-md flex-1 min-h-0 flex flex-col group relative overflow-hidden" style={{ borderColor: '#e5e7eb' }}>
-                        <h3 className="text-xs font-black uppercase tracking-[0.2em] mb-6" style={{ color: '#6b7280' }}>Station Inspector</h3>
+                        <h3 className="text-sm font-bold text-neutral-900 uppercase tracking-wider flex items-center gap-2 mb-6">
+                            <Monitor size={12} style={{ color: '#008A45' }} /> Station Inspector
+                        </h3>
                         <StationInspector
                             selectedPC={selectedPC}
                             onFlagMaintenance={handleFlagMaintenance}
@@ -223,12 +225,12 @@ export default function PCManagement() {
             </div>
 
             <div className="bg-white border rounded-2xl p-5 shadow-md" style={{ borderColor: '#e5e7eb' }}>
-                <h3 className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 mb-4" style={{ color: '#6b7280' }}>
+                <h3 className="text-sm font-bold text-neutral-900 uppercase tracking-wider flex items-center gap-2 mb-4">
                     <History size={12} style={{ color: '#f59e0b' }} /> Maintenance History
                 </h3>
                 <div className="space-y-2 overflow-y-auto pr-1 max-h-64 relative z-10">
                     {maintenanceHistory.length === 0 ? (
-                        <p className="text-xs italic text-center py-6" style={{ color: '#9ca3af' }}>No maintenance events recorded</p>
+                        <p className="w-full h-[250px] mt-4 flex items-center justify-center text-neutral-500 font-mono text-xs uppercase tracking-widest" style={{ color: '#9ca3af' }}>No maintenance events recorded</p>
                     ) : (
                         maintenanceHistory.map((entry) => (
                             <div key={entry.id} className="border rounded-lg p-3 transition-colors" style={{

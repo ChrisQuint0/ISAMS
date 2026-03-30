@@ -420,7 +420,7 @@ export default function AuditTrails() {
                     onRowClicked={onRowClicked}
                     animateRows={true}
                     suppressCellFocus={true}
-                    overlayNoRowsTemplate='<span class="text-neutral-500 text-sm">No audit events found for the selected filters</span>'
+                    overlayNoRowsTemplate='<span class="w-full h-[250px] mt-4 flex items-center justify-center text-neutral-500 font-mono text-xs uppercase tracking-widest">No audit events found for the selected filters</span>'
                 />
             </div>
 

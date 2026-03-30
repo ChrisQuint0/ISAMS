@@ -158,8 +158,8 @@ export default function LabSchedule() {
                     <div className="flex items-center gap-3 h-full">
                         <div className={`w-2 h-2 rounded-full ${c.dot} shrink-0`} />
                         <div className="flex flex-col justify-center leading-tight">
-                            <span className={`font-bold text-sm ${c.text}`}>{params.data.subject}</span>
-                            <span className="text-xs text-neutral-500 font-mono uppercase truncate">{params.data.desc}</span>
+                            <span className={`font-bold text-[15px] text-neutral-900 uppercase tracking-wider mt-0.5`}>{params.data.subject}</span>
+                            <span className=" text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5">{params.data.desc}</span>
                         </div>
                     </div>
                 );
@@ -267,13 +267,13 @@ export default function LabSchedule() {
             {/* Scrollable Legend Row */}
             {uniqueSubjects.length > 0 && (
                 <div className="flex items-center gap-2 overflow-x-auto pb-2 -mt-2 custom-scrollbar">
-                    <span className="text-[10px] font-black text-neutral-900 uppercase tracking-widest mr-2 shrink-0">Color Legend:</span>
+                    <span className=" text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5 font-bold">Color Legend:</span>
                     {uniqueSubjects.map((subject, i) => {
                         const c = colorMap[subject] || BLOCK_COLORS[0];
                         return (
                             <div key={i} className={`flex items-center gap-2 px-3 py-1.5 rounded-md border ${c.bg} ${c.border} shrink-0 shadow-sm`}>
                                 <div className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
-                                <span className={`text-[9px] font-bold uppercase tracking-wider ${c.text}`}>{subject}</span>
+                                <span className={` text-[10px] text-neutral-900 uppercase tracking-wider mt-0.5 font-bold`}>{subject}</span>
                             </div>
                         );
                     })}
@@ -289,7 +289,7 @@ export default function LabSchedule() {
             ) : view === "timetable" ? (
                 <div className="h-full w-full bg-white border border-neutral-200 rounded-2xl shadow-lg overflow-hidden">
                     <div className="h-full overflow-auto custom-scrollbar">
-                        <table className="w-full border-collapse relative z-20" style={{ minWidth: 900 }}>
+                        <table className="w-full border-collapse relative z-20" style={{ minWidth: 900, tableLayout: 'fixed' }}>
                             <thead className="sticky top-0 z-30 shadow-sm">
                                 <tr>
                                     <th className="w-20 bg-neutral-100 p-3 backdrop-blur-sm">
@@ -297,7 +297,7 @@ export default function LabSchedule() {
                                     </th>
                                     {DAYS.map(day => (
                                         <th key={day} className="bg-neutral-100 p-3 text-center backdrop-blur-sm">
-                                            <span className="text-[10px] font-black text-neutral-900 uppercase tracking-[0.2em]">{day.slice(0, 3)}</span>
+                                            <span className="text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5">{day.slice(0, 3)}</span>
                                         </th>
                                     ))}
                                 </tr>
@@ -307,7 +307,7 @@ export default function LabSchedule() {
                                 {HOURS.map(hour => (
                                     <tr key={hour} className="hover:bg-neutral-50 transition-colors">
                                         <td className="p-3 text-right align-top">
-                                            <span className="text-[10px] font-mono text-neutral-500 whitespace-nowrap">{formatHour(hour)}</span>
+                                            <span className="text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5 whitespace-nowrap">{formatHour(hour)}</span>
                                         </td>
 
                                         {DAYS.map(day => {
@@ -328,16 +328,16 @@ export default function LabSchedule() {
                                                         <div className={`h-full rounded-lg ${c.bg} border ${c.border} p-2 cursor-pointer hover:scale-[1.02] transition-transform duration-200 shadow-sm hover:shadow-md flex flex-col justify-between`}>
                                                             <div className="space-y-1">
                                                                 <div className="flex items-start justify-between gap-1.5">
-                                                                    <span className={`text-base font-bold ${c.text} leading-tight`}>{entry.subject}</span>
-                                                                    <span className={`text-xs font-black uppercase tracking-widest ${c.sub} shrink-0 bg-neutral-100 px-2 py-1 rounded`}>{entry.section}</span>
+                                                                    <span className={`text-lg font-bold text-neutral-900 uppercase tracking-wider`}>{entry.subject}</span>
+                                                                    <span className={`text-sm font-bold text-neutral-900 uppercase tracking-wider shrink-0 bg-neutral-100 px-2 py-1 rounded`}>{entry.section}</span>
                                                                 </div>
                                                                 <div className="flex items-center gap-1">
                                                                     <User size={10} className="text-neutral-500" />
-                                                                    <span className="text-[12px] font-bold text-neutral-700">{entry.prof}</span>
+                                                                    <span className="text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5">{entry.prof}</span>
                                                                 </div>
                                                                 <div className="flex items-center gap-1">
                                                                     <Clock size={10} className="text-neutral-500" />
-                                                                    <span className="text-[12px] font-mono text-neutral-700">{entry.time_start} – {entry.time_end}</span>
+                                                                    <span className="text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5">{entry.time_start} – {entry.time_end}</span>
                                                                 </div>
                                                             </div>
                                                             <div className="mt-1.5 pt-1.5 border-t border-neutral-200 flex items-center justify-end gap-1 opacity-0 hover:opacity-100 transition-opacity">

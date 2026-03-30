@@ -203,8 +203,8 @@ export default function LabSelectionPage() {
                 <Monitor className="w-5 h-5" />
               </div>
               <div>
-                <h1 className="text-2xl font-semibold text-neutral-900">Laboratory Monitoring</h1>
-                <p className="text-sm text-neutral-500 mt-0.5">Select a laboratory to manage</p>
+                <h1 className="text-[30px] font-bold text-neutral-900 tracking-tight">Laboratory Monitoring</h1>
+                <p className="text-neutral-600 text-sm italic">Select a laboratory to manage</p>
               </div>
             </div>
             <Button
@@ -232,8 +232,8 @@ export default function LabSelectionPage() {
 
         <div className="flex items-end justify-between mb-8">
           <div>
-            <h2 className="text-xl font-semibold text-neutral-900 mb-2">Available Laboratories</h2>
-            <p className="text-neutral-500 text-sm italic">Live occupancy metrics tracked across all registered rooms</p>
+            <h2 className="text-sm font-bold text-neutral-900 uppercase tracking-wider">Available Laboratories</h2>
+            <p className="text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5">Live occupancy metrics tracked across all registered rooms</p>
           </div>
 
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -281,7 +281,7 @@ export default function LabSelectionPage() {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 space-y-4">
              <Loader2 className="w-8 h-8 text-primary-600 animate-spin" />
-             <p className="text-neutral-500 font-mono text-xs uppercase tracking-widest">Polling Fleet Registry...</p>
+             <p className="w-full h-[250px] mt-4 flex items-center justify-center text-neutral-500 font-mono text-xs uppercase tracking-widest">Polling Fleet Registry...</p>
           </div>
         ) : (
           <div className={`grid gap-6 transition-all duration-500 ease-in-out ${getSmartGridLayout(laboratories.length)}`}>
@@ -291,21 +291,21 @@ export default function LabSelectionPage() {
               return (
                 <div key={lab.id} onClick={() => handleLabClick(lab)} className="cursor-pointer h-full flex flex-col">
                   <Card className={`group relative overflow-hidden flex-1 bg-neutral-50 hover:bg-neutral-100 border-neutral-200 hover:border-neutral-300 hover:shadow-xl transition-all duration-300`}>
-                    <CardHeader className="relative pb-2">
+                    <CardHeader className="relative pb-0.5">
                       <div className="flex items-start gap-4">
                         <div className={`flex-shrink-0 w-14 h-14 rounded-xl ${palette.iconBg} border ${palette.iconBorder} flex items-center justify-center group-hover:border-neutral-300 transition-all duration-300`}>
                           <Monitor className={`w-7 h-7 ${palette.iconColor} group-hover:scale-110 transition-transform duration-300`} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <CardTitle className="text-lg font-semibold text-neutral-900 transition-colors duration-300">
+                          <CardTitle className="text-[17px] font-bold text-neutral-900 uppercase tracking-wider">
                             {lab.title}
                           </CardTitle>
                           <div className="flex items-center gap-3 mt-1.5 font-mono">
-                            <span className="text-xs text-neutral-500">{lab.pc_count} PCs</span>
+                            <span className="text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5">{lab.pc_count} PCs</span>
                             <span className="text-xs text-neutral-400">•</span>
-                            <span className="text-xs text-neutral-500">{lab.seat_count} Seats</span>
+                            <span className="text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5">{lab.seat_count} Seats</span>
                             <span className="text-xs text-neutral-400">•</span>
-                            <span className={`text-xs font-bold ${lab.currentOccupancy > 0 ? 'text-success' : 'text-neutral-500'}`}>
+                            <span className="text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5">
                               {lab.currentOccupancy} / {lab.seat_count} occupied
                             </span>
                           </div>
@@ -319,8 +319,8 @@ export default function LabSelectionPage() {
                         </Button>
                       </div>
                     </CardHeader>
-                    <CardContent className="relative pt-2 pb-5 flex flex-col justify-between h-full">
-                      <p className="text-sm text-neutral-500 italic line-clamp-2 leading-relaxed group-hover:text-neutral-600 transition-colors mb-4">
+                    <CardContent className="relative pt-0 pb-0 flex flex-col justify-between h-full">
+                      <p className="text-[10px] text-neutral-500 uppercase tracking-wider -mt-4">
                         {lab.description}
                       </p>
                       

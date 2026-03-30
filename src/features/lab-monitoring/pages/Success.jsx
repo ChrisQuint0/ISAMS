@@ -231,7 +231,7 @@ export default function Success() {
   }, [loading, countdown, navigate, labId, labName]);
 
   if (loading) return (
-    <div className="min-h-screen bg-neutral-50 flex flex-col items-center justify-center space-y-4">
+    <div className="min-h-screen bg-neutral-100 flex flex-col items-center justify-center space-y-4">
       <Loader2 className="w-10 h-10 text-primary-500 animate-spin" />
       <p className="text-neutral-500 font-mono text-[10px] tracking-widest uppercase">Validating Session...</p>
     </div>
@@ -241,7 +241,7 @@ export default function Success() {
   const sectionBlockFormatted = studentData ? `${studentData.course}-${studentData.year_level}${studentData.section_block}` : "N/A";
 
   return (
-    <div className="min-h-screen bg-neutral-50 flex flex-col font-sans">
+    <div className="min-h-screen bg-neutral-100 flex flex-col font-sans">
       <header className={`border-b ${isRestricted ? 'border-destructive-semantic/20 bg-destructive-semantic/5' : 'border-neutral-200 bg-neutral-100'} sticky top-0 z-50 shadow-sm`}>
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -252,7 +252,7 @@ export default function Success() {
               {isRestricted ? "Access Restricted" : `Check-${attendanceType} Successful`}
             </h1>
           </div>
-          <Button onClick={() => navigate("/kiosk-mode", { state: { labId, labName } })} variant="outline" className="bg-neutral-100 text-neutral-900 border-neutral-200 hover:bg-neutral-200">
+          <Button onClick={() => navigate("/kiosk-mode", { state: { labId, labName } })} variant="outline" className="bg-white text-neutral-900 border-neutral-200 hover:bg-neutral-200">
             <ArrowLeft className="h-4 w-4 mr-2" /> Back to Kiosk
           </Button>
         </div>
@@ -281,7 +281,7 @@ export default function Success() {
             </div>
           </div>
 
-          <Card className={`bg-neutral-50 border-neutral-200 shadow-md transition-all duration-300 ${isRestricted ? 'ring-1 ring-destructive-semantic/20' : 'hover:border-neutral-300'}`}>
+          <Card className={`bg-white border-neutral-200 shadow-md transition-all duration-300 ${isRestricted ? 'ring-1 ring-destructive-semantic/20' : 'hover:border-neutral-300'}`}>
             <CardContent className="p-8 space-y-6 text-left">
               <div className="space-y-4">
                 <div className="flex items-start gap-6 pb-6 border-b border-neutral-200">
@@ -292,7 +292,7 @@ export default function Success() {
                     <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-1">
                       {isLaptopMode && !isRestricted ? "Device Mode" : "Assigned Workstation"}
                     </p>
-                    <h3 className={`text-6xl font-black tracking-tighter tabular-nums ${isLaptopMode && !isRestricted ? "text-primary-600" : "text-neutral-900"}`}>
+                    <h3 className={`text-4xl font-black tracking-tighter tabular-nums ${isLaptopMode && !isRestricted ? "text-primary-600" : "text-neutral-900"}`}>
                       {assignedPc}
                     </h3>
                   </div>
