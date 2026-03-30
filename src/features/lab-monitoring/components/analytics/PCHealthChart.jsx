@@ -3,7 +3,7 @@ import { Line, LineChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
 
 const chartConfig = {
-    score: { label: "Avg Health Score", color: "#34d399" }, // Emerald green
+    score: { label: "Avg Health Score", color: "var(--success)" }, // Success green
 };
 
 export default function PCHealthChart({ rawLogs = [] }) {
@@ -69,7 +69,7 @@ export default function PCHealthChart({ rawLogs = [] }) {
 
     if (!chartData.length) {
         return (
-            <div className="w-full h-[250px] mt-4 flex items-center justify-center text-slate-500 font-mono text-xs uppercase tracking-widest border border-dashed border-slate-800 rounded-lg">
+            <div className="w-full h-[250px] mt-4 flex items-center justify-center text-neutral-500 font-mono text-xs uppercase tracking-widest border border-dashed border-neutral-200 rounded-lg">
                 Insufficient PC Data
             </div>
         );
@@ -78,10 +78,10 @@ export default function PCHealthChart({ rawLogs = [] }) {
     return (
         <ChartContainer config={chartConfig} className="w-full h-[250px] mt-4">
             <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--neutral-200)" vertical={false} />
                 <XAxis 
                     dataKey="timeframe" 
-                    stroke="#94a3b8" 
+                    stroke="var(--neutral-500)" 
                     fontSize={11} 
                     tickLine={false} 
                     axisLine={false} 
@@ -89,23 +89,23 @@ export default function PCHealthChart({ rawLogs = [] }) {
                 />
                 {/* Fixed the domain from 70 to 100 so the line movements look drastic and readable */}
                 <YAxis 
-                    stroke="#94a3b8" 
+                    stroke="var(--neutral-500)" 
                     fontSize={11} 
                     tickLine={false} 
                     axisLine={false} 
                     domain={[70, 100]} 
                 />
                 <ChartTooltip
-                    cursor={{ stroke: "#334155", strokeWidth: 1, strokeDasharray: "4 4" }}
+                    cursor={{ stroke: "var(--neutral-300)", strokeWidth: 1, strokeDasharray: "4 4" }}
                     content={({ active, payload, label }) => {
                         if (!active || !payload?.length) return null;
                         return (
-                            <div style={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: 8, padding: "8px 12px", boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}>
-                                <p style={{ color: "#94a3b8", fontSize: 11, marginBottom: 4, fontWeight: 700 }}>Week of {label}</p>
+                            <div style={{ backgroundColor: "#ffffff", border: "1px solid var(--neutral-200)", borderRadius: 8, padding: "8px 12px", boxShadow: "0 8px 32px rgba(0,0,0,0.1)" }}>
+                                <p style={{ color: "var(--neutral-500)", fontSize: 11, marginBottom: 4, fontWeight: 700 }}>Week of {label}</p>
                                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                    <div style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: "#34d399" }} />
-                                    <span style={{ color: "#e2e8f0", fontSize: 12 }}>Avg. Health</span>
-                                    <span style={{ color: "#fff", fontSize: 13, fontWeight: 700, marginLeft: 4 }}>{payload[0].value}%</span>
+                                    <div style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: "var(--success)" }} />
+                                    <span style={{ color: "var(--neutral-900)", fontSize: 12 }}>Avg. Health</span>
+                                    <span style={{ color: "var(--neutral-900)", fontSize: 13, fontWeight: 700, marginLeft: 4 }}>{payload[0].value}%</span>
                                 </div>
                             </div>
                         );
@@ -116,8 +116,8 @@ export default function PCHealthChart({ rawLogs = [] }) {
                     dataKey="score"
                     stroke="var(--color-score)"
                     strokeWidth={3}
-                    dot={{ r: 4, fill: "#020617", stroke: "var(--color-score)", strokeWidth: 2 }}
-                    activeDot={{ r: 6, fill: "var(--color-score)", stroke: "#fff", strokeWidth: 2 }}
+                    dot={{ r: 4, fill: "#ffffff", stroke: "var(--color-score)", strokeWidth: 2 }}
+                    activeDot={{ r: 6, fill: "var(--color-score)", stroke: "#ffffff", strokeWidth: 2 }}
                 />
             </LineChart>
         </ChartContainer>

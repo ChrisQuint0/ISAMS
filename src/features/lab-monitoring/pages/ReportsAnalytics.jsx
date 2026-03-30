@@ -3,7 +3,7 @@ import { useOutletContext } from "react-router-dom";
 import {
     Users, Wrench, Clock, FileText, FileSpreadsheet,
     Calendar, BarChart3, Laptop, Monitor,
-    Brain, Sun, Activity, CalendarDays, Loader2
+    Brain, Sun, Activity, Loader2
 } from "lucide-react";
 
 import {
@@ -102,7 +102,7 @@ export default function ReportsAnalytics() {
     };
 
     return (
-        <div className="p-8 space-y-8 bg-[#020617] min-h-screen text-slate-100 font-sans">
+        <div className="p-6 space-y-8 bg-neutral-100 min-h-screen text-neutral-900 font-sans">
             <ExportMonthModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
@@ -113,27 +113,26 @@ export default function ReportsAnalytics() {
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-white tracking-tight">{labName} — Reports & Analytics</h1>
-                    <p className="text-slate-400 text-sm italic">Analytics, Forecasting, Predictions & Overall Reports</p>
+                    <h1 className="text-[30px] font-bold text-neutral-900 tracking-tight">{labName} — Reports & Analytics</h1>
+                    <p className="text-neutral-600 text-sm italic">Analytics, Forecasting, Predictions & Overall Reports</p>
                 </div>
 
                 <div className="flex items-center gap-3 flex-wrap">
                     <Select value={semester} onValueChange={setSemester}>
-                        <SelectTrigger className="w-fit min-w-[200px] h-10 bg-[#0f172a] border-[#1e293b] text-slate-300 font-bold rounded-lg px-3 flex items-center gap-2 hover:bg-[#1e293b]">
-                            <Calendar size={16} className="text-sky-500 shrink-0" />
+                        <SelectTrigger className="w-fit min-w-[180px] h-9 bg-white border-neutral-200 text-neutral-900 font-semibold text-sm rounded-lg px-3 flex items-center gap-2 hover:bg-neutral-100">
+                            <Calendar size={14} className="text-primary-500 shrink-0" />
                             <SelectValue placeholder="Select Semester" />
                         </SelectTrigger>
-                        <SelectContent className="bg-[#0f172a] border-[#1e293b] text-slate-300 font-medium">
+                        <SelectContent className="bg-white border-neutral-200 text-neutral-900 font-medium">
                             <SelectItem value="spring-2026" className="py-2.5">Spring Semester (Jan - May 2026)</SelectItem>
                             <SelectItem value="fall-2025" className="py-2.5">Fall Semester (Aug - Dec 2025)</SelectItem>
                         </SelectContent>
                     </Select>
 
-                    <div className="flex items-center gap-2 bg-[#0f172a] border border-[#1e293b] rounded-lg px-3 py-2">
-                        <CalendarDays size={13} className="text-slate-500 shrink-0" />
-                        <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="bg-transparent text-xs text-slate-300 outline-none border-none [color-scheme:dark] w-[120px]" />
-                        <span className="text-[9px] text-slate-600 font-bold uppercase">to</span>
-                        <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="bg-transparent text-xs text-slate-300 outline-none border-none [color-scheme:dark] w-[120px]" />
+                    <div className="flex items-center gap-2 bg-white border border-neutral-200 rounded-lg px-3 py-2">
+                        <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="bg-transparent text-sm text-neutral-900 outline-none border-none w-[130px] font-semibold" />
+                        <span className="text-[9px] text-neutral-500 font-semibold uppercase">to</span>
+                        <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="bg-transparent text-sm text-neutral-900 outline-none border-none w-[130px] font-semibold" />
                     </div>
                 </div>
             </div>
@@ -156,22 +155,22 @@ export default function ReportsAnalytics() {
                     </ChartBox>
                 </div>
                 <div className="lg:col-span-1">
-                    <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-6 shadow-xl h-full flex flex-col">
-                        <h3 className="text-sm font-bold text-white uppercase mb-1">Laptop vs. PC Usage</h3>
-                        <p className="text-[11px] text-slate-500 mb-6 border-b border-[#1e293b] pb-4">Distribution (Selected Date Range)</p>
+                    <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm h-full flex flex-col">
+                        <h3 className="text-sm font-bold text-neutral-900 uppercase mb-1">Laptop vs. PC Usage</h3>
+                        <p className="text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5 mb-6 border-b border-neutral-200 pb-4">Distribution (Selected Date Range)</p>
                         <div className="flex-1 flex flex-col items-center justify-center space-y-8">
-                            {loading ? <Loader2 className="w-10 h-10 animate-spin text-sky-500" /> : (
+                            {loading ? <Loader2 className="w-10 h-10 animate-spin text-primary-500" /> : (
                                 <>
-                                    <div className="relative w-44 h-44 rounded-full flex items-center justify-center" style={{ background: `conic-gradient(#38bdf8 0% ${metrics.pcPercentage || 0}%, #a855f7 ${metrics.pcPercentage || 0}% 100%)` }}>
-                                        <div className="absolute w-[80%] h-[80%] bg-[#0f172a] rounded-full" />
+                                    <div className="relative w-44 h-44 rounded-full flex items-center justify-center" style={{ background: `conic-gradient(var(--primary-500) 0% ${metrics.pcPercentage || 0}%, var(--gold-500) ${metrics.pcPercentage || 0}% 100%)` }}>
+                                        <div className="absolute w-[80%] h-[80%] bg-white rounded-full" />
                                         <div className="relative text-center z-10">
-                                            <span className="text-3xl font-bold text-white">{metrics.pcPercentage || 0}%</span><br />
-                                            <span className="text-[10px] uppercase text-slate-500">Lab PCs</span>
+                                            <span className="text-3xl font-bold text-primary-500">{metrics.pcPercentage || 0}%</span><br />
+                                            <span className="text-[10px] uppercase text-neutral-500">Lab PCs</span>
                                         </div>
                                     </div>
                                     <div className="flex gap-6 text-[11px] font-bold uppercase tracking-widest">
-                                        <span className="flex items-center gap-2 text-sky-400"><div className="w-3 h-3 rounded-full bg-sky-500" /> PC ({metrics.pcPercentage || 0}%)</span>
-                                        <span className="flex items-center gap-2 text-purple-400"><div className="w-3 h-3 rounded-full bg-purple-500" /> Laptop ({metrics.laptopPercentage || 0}%)</span>
+                                        <span className="flex items-center gap-2 text-primary-600"><div className="w-3 h-3 rounded-full bg-primary-500" /> PC ({metrics.pcPercentage || 0}%)</span>
+                                        <span className="flex items-center gap-2 text-gold-600"><div className="w-3 h-3 rounded-full bg-gold-500" /> Laptop ({metrics.laptopPercentage || 0}%)</span>
                                     </div>
                                 </>
                             )}
@@ -188,9 +187,9 @@ export default function ReportsAnalytics() {
                     </ChartBox>
                 </div>
                 <div className="lg:col-span-1">
-                    <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-6 h-full">
-                        <h3 className="text-sm font-bold text-white uppercase mb-1">Section Attendance Reports</h3>
-                        <p className="text-[11px] text-slate-500 mb-4 border-b border-[#1e293b] pb-4">Monthly totals & rates</p>
+                    <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm h-full">
+                        <h3 className="text-sm font-bold text-neutral-900 uppercase mb-1">Section Attendance Reports</h3>
+                        <p className="text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5 mb-4 border-b border-neutral-200 pb-4">Monthly totals & rates</p>
                         <SectionAttendanceTable rawLogs={rawLogs} />
                     </div>
                 </div>
@@ -201,9 +200,9 @@ export default function ReportsAnalytics() {
                 <ChartBox title="Peak Laboratory Usage" subtitle="Daily student logins trend (this week)">
                     <UsageChart rawLogs={rawLogs} />
                 </ChartBox>
-                <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-6 shadow-xl">
-                    <h3 className="text-sm font-bold text-white uppercase flex items-center gap-2"><Brain size={16} className="text-amber-400" /> Predicted High-Traffic Days</h3>
-                    <p className="text-[11px] text-slate-500 mb-4 border-b border-[#1e293b] pb-4">System-forecasted surge periods (next 3 weeks)</p>
+                <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm">
+                    <h3 className="text-sm font-bold text-neutral-900 uppercase flex items-center gap-2"><Brain size={16} className="text-gold-500" /> Predicted High-Traffic Days</h3>
+                    <p className="text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5 mb-4 border-b border-neutral-200 pb-4">System-forecasted surge periods (next 3 weeks)</p>
                     <HighTrafficDays rawLogs={rawLogs} />
                 </div>
             </div>
@@ -227,9 +226,9 @@ export default function ReportsAnalytics() {
             </div>
 
             {/* Export Section */}
-            <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-6 shadow-xl">
-                <h3 className="text-sm font-bold text-white uppercase mb-1 font-mono tracking-tighter">Generate Official Reports</h3>
-                <p className="text-[11px] text-slate-500 mb-6 border-b border-[#1e293b] pb-4">Export filtered data for administrative submission</p>
+            <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm">
+                <h3 className="text-sm font-bold text-neutral-900 uppercase tracking-wider">Generate Official Reports</h3>
+                <p className="text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5 mb-6 border-b border-neutral-200 pb-4">Export filtered data for administrative submission</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <ExportCard
                         title="End-of-Month Attendance"
@@ -252,7 +251,7 @@ export default function ReportsAnalytics() {
                     <ExportCard
                         title="Section Attendance Summary"
                         description="Analyze attendance rates per class section."
-                        icon={<Users size={24} className="text-sky-500" />}
+                        icon={<Users size={24} className="text-primary-500" />}
                         onExport={(format) => handleInitiateExport("Section Attendance Summary", "section-summary", format)}
                     />
                     <ExportCard

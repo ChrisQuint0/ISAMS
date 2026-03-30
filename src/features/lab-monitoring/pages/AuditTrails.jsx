@@ -4,7 +4,7 @@ import {
     Download, Filter, Shield, ShieldAlert, User, Clock,
     CalendarDays, Settings, Monitor, PenLine,
     AlertTriangle, KeyRound, Eye, X, UserCog, RefreshCw,
-    FileText, FileSpreadsheet
+    FileText, FileSpreadsheet, Download as DownloadIcon
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { handleAuditTrailExcel, handleAuditTrailPDF } from "../utils/exportUtils";
@@ -14,31 +14,31 @@ import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-communi
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 const auditTheme = themeBalham.withParams({
-    accentColor: '#3b82f6',
-    backgroundColor: '#020617',
-    foregroundColor: '#e2e8f0',
-    borderColor: '#1e293b',
-    headerBackgroundColor: '#0f172a',
-    headerTextColor: '#94a3b8',
-    oddRowBackgroundColor: '#020617',
+    accentColor: '#008a45',
+    backgroundColor: '#ffffff',
+    foregroundColor: '#111827',
+    borderColor: '#e5e7eb',
+    headerBackgroundColor: '#f9fafb',
+    headerTextColor: '#374151',
+    oddRowBackgroundColor: '#ffffff',
     rowHeight: 48,
     headerHeight: 40,
 });
 
 const categoryConfig = {
-    "Authentication": { icon: KeyRound, color: "sky", bg: "bg-sky-500/10", text: "text-sky-400", border: "border-sky-500/20" },
-    "PC Management": { icon: Monitor, color: "purple", bg: "bg-purple-500/10", text: "text-purple-400", border: "border-purple-500/20" },
-    "Settings": { icon: Settings, color: "amber", bg: "bg-amber-500/10", text: "text-amber-400", border: "border-amber-500/20" },
-    "Student Logs": { icon: User, color: "emerald", bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/20" },
-    "Schedule": { icon: CalendarDays, color: "cyan", bg: "bg-cyan-500/10", text: "text-cyan-400", border: "border-cyan-500/20" },
-    "Override": { icon: ShieldAlert, color: "rose", bg: "bg-rose-500/10", text: "text-rose-400", border: "border-rose-500/20" },
+    "Authentication": { icon: KeyRound, bg: "bg-primary-500", text: "text-neutral-900", border: "border-primary-500" },
+    "PC Management": { icon: Monitor, bg: "bg-gold-500", text: "text-neutral-900", border: "border-gold-500" },
+    "Settings": { icon: Settings, bg: "bg-primary-600", text: "text-neutral-900", border: "border-primary-600" },
+    "Student Logs": { icon: User, bg: "bg-success", text: "text-neutral-900", border: "border-success" },
+    "Schedule": { icon: CalendarDays, bg: "bg-primary-700", text: "text-neutral-900", border: "border-primary-700" },
+    "Override": { icon: ShieldAlert, bg: "bg-destructive-semantic", text: "text-neutral-900", border: "border-destructive-semantic" },
 };
 
 const severityConfig = {
-    "Info": { bg: "bg-sky-500/10", text: "text-sky-400", border: "border-sky-500/20", dot: "bg-sky-400" },
-    "Warning": { bg: "bg-amber-500/10", text: "text-amber-400", border: "border-amber-500/20", dot: "bg-amber-400" },
-    "Critical": { bg: "bg-rose-500/10", text: "text-rose-400", border: "border-rose-500/20", dot: "bg-rose-400" },
-    "Success": { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/20", dot: "bg-emerald-400" },
+    "Info": { bg: "bg-info", text: "text-white", border: "border-info", dot: "bg-info" },
+    "Warning": { bg: "bg-warning", text: "text-white", border: "border-warning", dot: "bg-warning" },
+    "Critical": { bg: "bg-destructive-semantic", text: "text-white", border: "border-destructive-semantic", dot: "bg-destructive-semantic" },
+    "Success": { bg: "bg-success", text: "text-white", border: "border-success", dot: "bg-success" },
 };
 
 const getInitialManilaDates = () => {
@@ -162,82 +162,82 @@ export default function AuditTrails() {
 
     const columnDefs = useMemo(() => [
         {
-            headerName: "Severity",
+            headerName: "SEVERITY",
             field: "severity",
             width: 150,
             cellStyle: { display: 'flex', alignItems: 'center', padding: '6px' },
             cellRenderer: (params) => {
                 const cfg = severityConfig[params.value] || severityConfig["Info"];
                 return (
-                    <span className={`inline-flex items-center justify-center w-full h-full rounded text-[10px] font-black uppercase tracking-tighter border text-center ${cfg.bg} ${cfg.text} ${cfg.border}`}>
+                    <span className={`inline-flex items-center justify-center w-full h-full rounded text-[10px] font-bold uppercase tracking-tighter border text-center ${cfg.bg} ${cfg.text} ${cfg.border}`}>
                         {params.value}
                     </span>
                 );
             },
         },
         {
-            headerName: "Timestamp",
+            headerName: "TIMESTAMP",
             field: "timestamp",
             width: 200,
             cellRenderer: (params) => (
                 <div className="flex items-center gap-2 h-full">
-                    <Clock size={12} className="text-slate-600 shrink-0" />
-                    <span className="text-xs text-slate-300 font-mono">{params.value}</span>
+                    <Clock size={12} className="text-neutral-500 shrink-0" />
+                    <span className="text-xs text-neutral-700 font-mono">{params.value}</span>
                 </div>
             ),
         },
         {
-            headerName: "Category",
+            headerName: "CATEGORY",
             field: "category",
             width: 160,
             cellRenderer: (params) => {
                 const cfg = categoryConfig[params.value];
-                if (!cfg) return <span className="text-xs text-slate-400">{params.value}</span>;
+                if (!cfg) return <span className="text-xs text-neutral-600">{params.value}</span>;
                 const Icon = cfg.icon;
                 return (
                     <div className="flex items-center gap-2 h-full">
                         <div className={`p-1 rounded-md ${cfg.bg} border ${cfg.border}`}>
                             <Icon size={12} className={cfg.text} />
                         </div>
-                        <span className={`text-xs font-bold ${cfg.text}`}>{params.value}</span>
+                        <span className={`text-xs font-semibold ${cfg.text}`}>{params.value}</span>
                     </div>
                 );
             },
         },
         {
-            headerName: "Action",
+            headerName: "ACTION",
             field: "action",
             width: 220,
             cellRenderer: (params) => (
                 <div className="flex items-center h-full">
-                    <span className="text-xs font-semibold text-slate-100">{params.value}</span>
+                    <span className="text-xs font-semibold text-neutral-900">{params.value}</span>
                 </div>
             ),
         },
         {
-            headerName: "Performed By",
+            headerName: "PERFORMED BY",
             field: "user",
             width: 200,
             cellRenderer: (params) => {
                 const isSystem = params.value === "System";
                 return (
                     <div className="flex items-center gap-2 h-full">
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${isSystem ? "bg-slate-800 border border-slate-700" : "bg-sky-500/15 border border-sky-500/20"}`}>
-                            {isSystem ? <RefreshCw size={10} className="text-slate-500" /> : <UserCog size={10} className="text-sky-400" />}
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${isSystem ? "bg-neutral-200 border border-neutral-300" : "bg-primary-500/15 border border-primary-500/20"}`}>
+                            {isSystem ? <RefreshCw size={10} className="text-neutral-500" /> : <UserCog size={10} className="text-primary-600" />}
                         </div>
-                        <span className={`text-xs ${isSystem ? "text-slate-500 italic" : "text-slate-200 font-medium"}`}>{params.value}</span>
+                        <span className={`text-xs ${isSystem ? "text-neutral-500 italic" : "text-neutral-800 font-medium"}`}>{params.value}</span>
                     </div>
                 );
             },
         },
         {
-            headerName: "Description",
+            headerName: "DESCRIPTION",
             field: "description",
             flex: 1,
             minWidth: 300,
             cellRenderer: (params) => (
                 <div className="flex items-center h-full">
-                    <span className="text-xs text-slate-400 truncate">{params.value}</span>
+                    <span className="text-xs text-neutral-600 truncate">{params.value}</span>
                 </div>
             ),
         },
@@ -269,60 +269,62 @@ export default function AuditTrails() {
     }, [formattedData, labName, dateFrom, dateTo, exportFormat]);
 
     return (
-        <div className="p-8 space-y-6 bg-[#020617] min-h-screen text-slate-100">
+        <div className="p-6 space-y-6 bg-neutral-100 min-h-screen text-neutral-900">
 
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-white tracking-tight">{labName} — Audit Trails</h1>
-                    <p className="text-slate-400 text-sm italic">Complete activity log of all system events, admin actions & overrides</p>
+                    <h1 className="text-[30px] font-bold text-neutral-900 tracking-tight">{labName} — Audit Trails</h1>
+                    <p className="text-neutral-500 text-sm italic">Complete activity log of all system events, admin actions & overrides</p>
                 </div>
 
                 <div className="flex items-center gap-3 flex-wrap">
-                    <div className="flex items-center gap-2 bg-[#0f172a] border border-[#1e293b] rounded-lg px-3 py-2 hover:border-slate-600 transition-colors">
-                        <CalendarDays size={13} className="text-slate-500 shrink-0" />
+                    <div className="flex items-center gap-2 bg-white border border-neutral-200 rounded-lg px-3 py-2 hover:border-neutral-300 transition-colors shadow-sm">
+                        <CalendarDays size={13} className="text-neutral-500 shrink-0" />
                         <input
                             type="date"
                             value={dateFrom}
                             onChange={(e) => setDateFrom(e.target.value)}
-                            className="bg-transparent text-xs text-slate-300 outline-none border-none [color-scheme:dark] w-[120px]"
+                            className="bg-transparent text-xs font-bold text-neutral-900 outline-none border-none [color-scheme:light] w-[120px]"
                         />
-                        <span className="text-[9px] text-slate-600 font-bold uppercase">to</span>
+                        <span className="text-[9px] text-neutral-500 font-bold uppercase">to</span>
                         <input
                             type="date"
                             value={dateTo}
                             onChange={(e) => setDateTo(e.target.value)}
-                            className="bg-transparent text-xs text-slate-300 outline-none border-none [color-scheme:dark] w-[120px]"
+                            className="bg-transparent text-xs font-bold text-neutral-900 outline-none border-none [color-scheme:light] w-[120px]"
                         />
                     </div>
 
                     <div className="flex items-center gap-0">
-                        <div className="flex items-center bg-[#0f172a] border border-[#1e293b] rounded-l-lg p-0.5">
+                        <div className="flex items-center bg-white border border-neutral-200 rounded-l-lg p-0.5 shadow-sm">
                             <button
                                 onClick={() => setExportFormat("excel")}
                                 className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-[9px] font-bold uppercase tracking-widest transition-all ${exportFormat === "excel"
-                                    ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                                    : "text-slate-500 hover:text-slate-300 border border-transparent"
+                                    ? "bg-primary-500 text-white border border-primary-500"
+                                    : "text-neutral-500 hover:text-neutral-700 border border-transparent"
                                     }`}
                             >
-                                <FileSpreadsheet size={11} /> Excel
+                                <FileSpreadsheet size={11} className={exportFormat === "excel" ? "text-white" : "text-primary-500"} /> Excel
                             </button>
                             <button
                                 onClick={() => setExportFormat("pdf")}
                                 className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-[9px] font-bold uppercase tracking-widest transition-all ${exportFormat === "pdf"
-                                    ? "bg-rose-500/15 text-rose-400 border border-rose-500/30"
-                                    : "text-slate-500 hover:text-slate-300 border border-transparent"
+                                    ? "bg-gold-500 text-neutral-900 border border-gold-500"
+                                    : "text-neutral-900 hover:text-neutral-700 border border-transparent"
                                     }`}
                             >
-                                <FileText size={11} /> PDF
+                                <FileText size={11} className="text-neutral-900" /> PDF
                             </button>
                         </div>
                         <button
                             onClick={handleExport}
-                            className="flex items-center gap-2 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-r-lg bg-blue-500/10 border border-blue-500/20 border-l-0 hover:border-blue-500/40 text-blue-400 transition-all group/btn relative overflow-hidden"
+                            className={`flex items-center gap-2 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-r-lg border border-l-0 transition-all shadow-sm ${
+                                exportFormat === "excel"
+                                    ? "bg-primary-500 border-primary-500 hover:bg-primary-600 text-white"
+                                    : "bg-gold-500 border-gold-500 hover:bg-gold-600 text-neutral-900"
+                            }`}
                         >
-                            <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover/btn:from-slate-400/5 group-hover/btn:via-slate-400/0 group-hover/btn:to-slate-400/0 transition-all duration-500 pointer-events-none" />
-                            <div className="absolute inset-0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
-                            <Download size={13} /> Export .{exportFormat}
+                            <Download size={13} className={exportFormat === "excel" ? "text-white" : "text-neutral-900"} /> Export .{exportFormat}
                         </button>
                     </div>
                 </div>
@@ -330,39 +332,36 @@ export default function AuditTrails() {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
-                    { label: "Total Events", value: stats.total, icon: <Shield size={18} />, color: "sky" },
-                    { label: "Critical", value: stats.critical, icon: <ShieldAlert size={18} />, color: "rose" },
-                    { label: "Warnings", value: stats.warnings, icon: <AlertTriangle size={18} />, color: "amber" },
-                    { label: "Today", value: stats.today, icon: <Clock size={18} />, color: "emerald" },
+                    { label: "Total Events", value: stats.total, icon: <Shield size={18} className="text-info" />, accent: "bg-info" },
+                    { label: "Critical", value: stats.critical, icon: <ShieldAlert size={18} className="text-destructive-semantic" />, accent: "bg-destructive-semantic" },
+                    { label: "Warnings", value: stats.warnings, icon: <AlertTriangle size={18} className="text-warning" />, accent: "bg-warning" },
+                    { label: "Today", value: stats.today, icon: <Clock size={18} className="text-success" />, accent: "bg-success" },
                 ].map((stat, i) => {
-                    const accentMap = { sky: "bg-sky-500", rose: "bg-rose-500", amber: "bg-amber-500", emerald: "bg-emerald-500" };
                     return (
-                        <div key={i} className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-5 relative overflow-hidden group hover:border-slate-600 transition-colors">
-                            <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none" />
-                            <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
-                            <div className={`absolute left-0 top-0 bottom-0 w-1 ${accentMap[stat.color]}`} />
+                        <div key={i} className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
+                            <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl ${stat.accent}`}/>
                             <div className="flex justify-between items-start mb-2">
-                                <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">{stat.label}</p>
-                                <span className="text-slate-600 group-hover:text-slate-400 transition-colors">{stat.icon}</span>
+                                <p className="text-neutral-500 text-[10px] font-semibold uppercase tracking-widest">{stat.label}</p>
+                                <span className="text-neutral-600">{stat.icon}</span>
                             </div>
-                            <p className="text-3xl font-bold text-white tracking-tight">{stat.value}</p>
+                            <p className="text-3xl font-bold text-neutral-900 tracking-tight">{stat.value}</p>
                         </div>
                     );
                 })}
             </div>
 
             <div className="flex items-center gap-3 flex-wrap">
-                <div className="flex items-center gap-2 text-slate-500">
+                <div className="flex items-center gap-2 text-neutral-500">
                     <Filter size={14} />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Filters</span>
+                    <span className="text-[10px] font-semibold uppercase tracking-widest">Filters</span>
                 </div>
 
-                <div className="flex items-center gap-1 bg-[#0f172a] border border-[#1e293b] rounded-lg p-0.5">
+                <div className="flex items-center gap-1 bg-white border border-neutral-200 rounded-lg p-0.5 shadow-sm">
                     <button
                         onClick={() => setCategoryFilter("all")}
                         className={`px-3 py-1.5 rounded-md text-[9px] font-bold uppercase tracking-widest transition-all ${categoryFilter === "all"
-                            ? "bg-slate-800 text-slate-200 border border-slate-700"
-                            : "text-slate-500 hover:text-slate-300 border border-transparent"
+                            ? "bg-primary-500 text-white border border-primary-500"
+                            : "text-neutral-900 hover:text-neutral-700 border border-transparent"
                             }`}
                     >
                         All
@@ -374,8 +373,8 @@ export default function AuditTrails() {
                                 key={key}
                                 onClick={() => setCategoryFilter(categoryFilter === key ? "all" : key)}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[9px] font-bold uppercase tracking-widest transition-all ${categoryFilter === key
-                                    ? `${cfg.bg} ${cfg.text} border ${cfg.border}`
-                                    : "text-slate-500 hover:text-slate-300 border border-transparent"
+                                    ? "bg-primary-500 text-white border border-primary-500"
+                                    : "text-neutral-900 hover:text-neutral-700 border border-transparent"
                                     }`}
                             >
                                 <Icon size={10} />
@@ -385,12 +384,12 @@ export default function AuditTrails() {
                     })}
                 </div>
 
-                <div className="flex items-center gap-1 bg-[#0f172a] border border-[#1e293b] rounded-lg p-0.5 ml-auto">
+                <div className="flex items-center gap-1 bg-white border border-neutral-200 rounded-lg p-0.5 shadow-sm ml-auto">
                     <button
                         onClick={() => setSeverityFilter("all")}
                         className={`px-3 py-1.5 rounded-md text-[9px] font-bold uppercase tracking-widest transition-all ${severityFilter === "all"
-                            ? "bg-slate-800 text-slate-200 border border-slate-700"
-                            : "text-slate-500 hover:text-slate-300 border border-transparent"
+                            ? "bg-primary-500 text-white border border-primary-500"
+                            : "text-neutral-900 hover:text-neutral-700 border border-transparent"
                             }`}
                     >
                         All
@@ -400,8 +399,8 @@ export default function AuditTrails() {
                             key={key}
                             onClick={() => setSeverityFilter(severityFilter === key ? "all" : key)}
                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[9px] font-bold uppercase tracking-widest transition-all ${severityFilter === key
-                                ? `${cfg.bg} ${cfg.text} border ${cfg.border}`
-                                : "text-slate-500 hover:text-slate-300 border border-transparent"
+                                ? "bg-primary-500 text-white border border-primary-500"
+                                : "text-neutral-900 hover:text-neutral-700 border border-transparent"
                                 }`}
                         >
                             <div className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
@@ -411,7 +410,7 @@ export default function AuditTrails() {
                 </div>
             </div>
 
-            <div className="rounded-2xl border border-[#1e293b] overflow-hidden shadow-2xl" style={{ height: "calc(100vh - 420px)" }}>
+            <div className="rounded-2xl border border-neutral-200 overflow-hidden shadow-md" style={{ height: "calc(100vh - 420px)" }}>
                 <AgGridReact
                     theme={auditTheme}
                     rowData={formattedData}
@@ -420,29 +419,28 @@ export default function AuditTrails() {
                     onGridReady={onGridReady}
                     onRowClicked={onRowClicked}
                     animateRows={true}
-                    rowSelection={{ mode: 'singleRow' }}
                     suppressCellFocus={true}
-                    overlayNoRowsTemplate='<span class="text-slate-500 text-sm">No audit events found for the selected filters</span>'
+                    overlayNoRowsTemplate='<span class="w-full h-[250px] mt-4 flex items-center justify-center text-neutral-500 font-mono text-xs uppercase tracking-widest">No audit events found for the selected filters</span>'
                 />
             </div>
 
-            <div className={`fixed inset-y-0 right-0 w-[420px] bg-[#0f172a] border-l border-[#1e293b] shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${drawerOpen ? "translate-x-0" : "translate-x-full"}`}>
+            <div className={`fixed inset-y-0 right-0 w-[420px] bg-white border-l border-neutral-200 shadow-lg z-50 transform transition-transform duration-300 ease-in-out ${drawerOpen ? "translate-x-0" : "translate-x-full"}`}>
                 {selectedEvent && (
                     <div className="flex flex-col h-full">
                         {/* Drawer Header */}
-                        <div className="flex items-center justify-between p-6 border-b border-[#1e293b]">
+                        <div className="flex items-center justify-between p-6 border-b border-neutral-200">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-[#1e293b] rounded-xl flex items-center justify-center">
-                                    <Eye size={18} className="text-slate-400" />
+                                <div className="w-10 h-10 bg-neutral-100 rounded-xl flex items-center justify-center">
+                                    <Eye size={18} className="text-neutral-600" />
                                 </div>
                                 <div>
-                                    <h3 className="text-sm font-bold text-white">Event Details</h3>
-                                    <p className="text-[10px] text-slate-500 font-mono">{selectedEvent.id}</p>
+                                    <h3 className="text-sm font-semibold text-neutral-900">Event Details</h3>
+                                    <p className="text-[10px] text-neutral-500 font-mono">{selectedEvent.id}</p>
                                 </div>
                             </div>
                             <button
                                 onClick={() => setDrawerOpen(false)}
-                                className="p-2 text-slate-500 hover:text-slate-200 bg-[#1e293b] hover:bg-[#334155] rounded-lg transition-all"
+                                className="p-2 text-neutral-500 hover:text-neutral-700 bg-neutral-100 hover:bg-neutral-200 rounded-lg transition-all"
                             >
                                 <X size={14} />
                             </button>
@@ -461,31 +459,31 @@ export default function AuditTrails() {
 
                             <div className="space-y-3">
                                 {[
-                                    { label: "Timestamp", value: selectedEvent.timestamp, icon: <Clock size={13} className="text-slate-600" /> },
+                                    { label: "Timestamp", value: selectedEvent.timestamp, icon: <Clock size={13} className="text-neutral-500" /> },
                                     {
                                         label: "Category", value: selectedEvent.category, icon: (() => {
                                             const cfg = categoryConfig[selectedEvent.category];
                                             const Icon = cfg?.icon || Shield;
-                                            return <Icon size={13} className={cfg?.text || "text-slate-600"} />;
+                                            return <Icon size={13} className={cfg?.text || "text-neutral-500"} />;
                                         })()
                                     },
-                                    { label: "Action", value: selectedEvent.action, icon: <PenLine size={13} className="text-slate-600" /> },
-                                    { label: "Performed By", value: selectedEvent.user, icon: <User size={13} className="text-slate-600" /> },
-                                    { label: "IP Address", value: selectedEvent.ip, icon: <KeyRound size={13} className="text-slate-600" /> },
+                                    { label: "Action", value: selectedEvent.action, icon: <PenLine size={13} className="text-neutral-500" /> },
+                                    { label: "Performed By", value: selectedEvent.user, icon: <User size={13} className="text-neutral-500" /> },
+                                    { label: "IP Address", value: selectedEvent.ip, icon: <KeyRound size={13} className="text-neutral-500" /> },
                                 ].map((item, i) => (
-                                    <div key={i} className="flex items-start gap-3 p-3 bg-[#020617] border border-[#1e293b] rounded-xl">
+                                    <div key={i} className="flex items-start gap-3 p-3 bg-neutral-50 border border-neutral-200 rounded-xl shadow-sm">
                                         <div className="mt-0.5 shrink-0">{item.icon}</div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-600 mb-0.5">{item.label}</p>
-                                            <p className="text-xs text-slate-200 font-medium">{item.value}</p>
+                                            <p className="text-[9px] font-semibold uppercase tracking-widest text-neutral-500 mb-0.5">{item.label}</p>
+                                            <p className="text-xs text-neutral-800 font-medium">{item.value}</p>
                                         </div>
                                     </div>
                                 ))}
                             </div>
 
-                            <div className="p-4 bg-[#020617] border border-[#1e293b] rounded-xl">
-                                <p className="text-[9px] font-black uppercase tracking-widest text-slate-600 mb-2">Full Description</p>
-                                <p className="text-xs text-slate-300 leading-relaxed">{selectedEvent.description}</p>
+                            <div className="p-4 bg-neutral-50 border border-neutral-200 rounded-xl shadow-sm">
+                                <p className="text-[9px] font-semibold uppercase tracking-widest text-neutral-500 mb-2">Full Description</p>
+                                <p className="text-xs text-neutral-700 leading-relaxed">{selectedEvent.description}</p>
                             </div>
                         </div>
                     </div>
@@ -493,7 +491,7 @@ export default function AuditTrails() {
             </div>
 
             {drawerOpen && (
-                <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setDrawerOpen(false)} />
+                <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setDrawerOpen(false)} />
             )}
         </div>
     );

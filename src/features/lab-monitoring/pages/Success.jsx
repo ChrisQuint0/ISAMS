@@ -231,9 +231,9 @@ export default function Success() {
   }, [loading, countdown, navigate, labId, labName]);
 
   if (loading) return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-4">
-      <Loader2 className="w-10 h-10 text-sky-500 animate-spin" />
-      <p className="text-slate-500 font-mono text-[10px] tracking-widest uppercase">Validating Session...</p>
+    <div className="min-h-screen bg-neutral-100 flex flex-col items-center justify-center space-y-4">
+      <Loader2 className="w-10 h-10 text-primary-500 animate-spin" />
+      <p className="text-neutral-500 font-mono text-[10px] tracking-widest uppercase">Validating Session...</p>
     </div>
   );
 
@@ -241,18 +241,18 @@ export default function Success() {
   const sectionBlockFormatted = studentData ? `${studentData.course}-${studentData.year_level}${studentData.section_block}` : "N/A";
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col font-sans">
-      <header className={`border-b ${isRestricted ? 'border-rose-800 bg-rose-950/20' : 'border-slate-800 bg-slate-900/50'} backdrop-blur-sm sticky top-0 z-50`}>
+    <div className="min-h-screen bg-neutral-100 flex flex-col font-sans">
+      <header className={`border-b ${isRestricted ? 'border-destructive-semantic/20 bg-destructive-semantic/5' : 'border-neutral-200 bg-neutral-100'} sticky top-0 z-50 shadow-sm`}>
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className={`flex items-center justify-center w-10 h-10 rounded-xl ${isRestricted ? 'bg-rose-600' : 'bg-blue-600'} text-white shadow-lg`}>
+            <div className={`flex items-center justify-center w-10 h-10 rounded-xl ${isRestricted ? 'bg-destructive-semantic' : 'bg-primary-500'} text-white shadow-md`}>
               {isRestricted ? <ShieldAlert size={20} /> : <Monitor size={20} />}
             </div>
-            <h1 className="text-2xl font-semibold text-slate-100 uppercase tracking-tight">
+            <h1 className="text-2xl font-semibold text-neutral-900 uppercase tracking-tight">
               {isRestricted ? "Access Restricted" : `Check-${attendanceType} Successful`}
             </h1>
           </div>
-          <Button onClick={() => navigate("/kiosk-mode", { state: { labId, labName } })} variant="outline" className="bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700">
+          <Button onClick={() => navigate("/kiosk-mode", { state: { labId, labName } })} variant="outline" className="bg-white text-neutral-900 border-neutral-200 hover:bg-neutral-200">
             <ArrowLeft className="h-4 w-4 mr-2" /> Back to Kiosk
           </Button>
         </div>
@@ -262,17 +262,16 @@ export default function Success() {
         <div className="w-full space-y-6">
           <div className="flex flex-col items-center text-center space-y-4 mb-8">
             <div className="relative">
-              <div className={`absolute inset-0 ${isRestricted ? 'bg-rose-600/20' : 'bg-green-600/20'} blur-3xl rounded-full animate-pulse`} />
-              <div className={`relative flex items-center justify-center w-24 h-24 rounded-full ${isRestricted ? 'bg-rose-900/30 border-rose-700' : 'bg-green-900/30 border-green-700'} border-2`}>
-                {isRestricted ? <ShieldAlert className="w-14 h-14 text-rose-400" /> : <CheckCircle2 className="w-14 h-14 text-green-400 animate-in zoom-in duration-500" />}
+              <div className={`flex items-center justify-center w-24 h-24 rounded-full ${isRestricted ? 'bg-destructive-semantic/10 border-destructive-semantic/30' : 'bg-success/10 border-success/30'} border-2 shadow-md`}>
+                {isRestricted ? <ShieldAlert className={`w-14 h-14 ${isRestricted ? 'text-destructive-semantic' : 'text-success'}`} /> : <CheckCircle2 className={`w-14 h-14 ${isRestricted ? 'text-destructive-semantic' : 'text-success'} animate-in zoom-in duration-500`} />}
               </div>
             </div>
 
             <div className="space-y-2">
-              <h2 className={`text-4xl font-black uppercase tracking-tighter ${isRestricted ? 'text-rose-500' : 'text-slate-100'}`}>
+              <h2 className={`text-4xl font-black uppercase tracking-tighter ${isRestricted ? 'text-destructive-semantic' : 'text-neutral-900'}`}>
                 {isRestricted ? "Denied" : attendanceType === "Out" ? "Session Complete" : "Access Confirmed"}
               </h2>
-              <p className="text-slate-400 text-lg">
+              <p className="text-neutral-600 text-lg">
                 {isRestricted
                   ? restrictionMessage
                   : attendanceType === "Out"
@@ -282,48 +281,48 @@ export default function Success() {
             </div>
           </div>
 
-          <Card className={`bg-slate-900/50 border-slate-800 shadow-2xl transition-all duration-300 ${isRestricted ? 'ring-1 ring-rose-500/30' : 'hover:border-slate-700'}`}>
+          <Card className={`bg-white border-neutral-200 shadow-md transition-all duration-300 ${isRestricted ? 'ring-1 ring-destructive-semantic/20' : 'hover:border-neutral-300'}`}>
             <CardContent className="p-8 space-y-6 text-left">
               <div className="space-y-4">
-                <div className="flex items-start gap-6 pb-6 border-b border-slate-800">
-                  <div className={`flex items-center justify-center w-16 h-16 rounded-2xl ${isRestricted ? 'bg-rose-900/50 border-rose-800/50' : isLaptopMode ? 'bg-purple-900/50 border-purple-800/50' : 'bg-blue-900/50 border-blue-800/50'} border`}>
-                    {isLaptopMode && !isRestricted ? <LaptopIcon className="w-8 h-8 text-purple-400" /> : <User className={`w-8 h-8 ${isRestricted ? 'text-rose-400' : 'text-blue-400'}`} />}
+                <div className="flex items-start gap-6 pb-6 border-b border-neutral-200">
+                  <div className={`flex items-center justify-center w-16 h-16 rounded-2xl ${isRestricted ? 'bg-destructive-semantic/10 border-destructive-semantic/20' : isLaptopMode ? 'bg-primary-500/10 border-primary-500/20' : 'bg-primary-500/10 border-primary-500/20'} border shadow-sm`}>
+                    {isLaptopMode && !isRestricted ? <LaptopIcon className="w-8 h-8 text-primary-600" /> : <User className={`w-8 h-8 ${isRestricted ? 'text-destructive-semantic' : 'text-primary-600'}`} />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">
+                    <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-1">
                       {isLaptopMode && !isRestricted ? "Device Mode" : "Assigned Workstation"}
                     </p>
-                    <h3 className={`text-6xl font-black tracking-tighter tabular-nums ${isLaptopMode && !isRestricted ? "text-purple-400" : "text-white"}`}>
+                    <h3 className={`text-4xl font-black tracking-tighter tabular-nums ${isLaptopMode && !isRestricted ? "text-primary-600" : "text-neutral-900"}`}>
                       {assignedPc}
                     </h3>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex items-center gap-3 p-4 rounded-xl bg-slate-800/50 border border-slate-700/50">
-                    <User className="w-5 h-5 text-slate-400" />
-                    <div><p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Student</p><p className="text-sm text-slate-200 font-medium truncate">{studentData?.full_name || "Guest"}</p></div>
+                  <div className="flex items-center gap-3 p-4 rounded-xl bg-neutral-100 border border-neutral-200 shadow-sm">
+                    <User className="w-5 h-5 text-neutral-500" />
+                    <div><p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Student</p><p className="text-sm text-neutral-900 font-medium truncate">{studentData?.full_name || "Guest"}</p></div>
                   </div>
-                  <div className="flex items-center gap-3 p-4 rounded-xl bg-slate-800/50 border border-slate-700/50">
-                    <Calendar className="w-5 h-5 text-slate-400" />
-                    <div><p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Section Block</p><p className="text-sm text-slate-200 font-medium">{sectionBlockFormatted}</p></div>
+                  <div className="flex items-center gap-3 p-4 rounded-xl bg-neutral-100 border border-neutral-200 shadow-sm">
+                    <Calendar className="w-5 h-5 text-neutral-500" />
+                    <div><p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Section Block</p><p className="text-sm text-neutral-900 font-medium">{sectionBlockFormatted}</p></div>
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-6 border-t border-slate-800">
+              <div className="flex items-center justify-between pt-6 border-t border-neutral-200">
                 <div className="flex items-center gap-3">
-                  <div className={`flex items-center justify-center w-12 h-12 rounded-xl border ${isRestricted ? 'bg-rose-900/30 border-rose-800/50' : 'bg-emerald-900/30 border-emerald-800/50'}`}>
-                    <Clock className={`w-6 h-6 ${isRestricted ? 'text-rose-400' : 'text-emerald-400'}`} />
+                  <div className={`flex items-center justify-center w-12 h-12 rounded-xl border ${isRestricted ? 'bg-destructive-semantic/10 border-destructive-semantic/20' : 'bg-success/10 border-success/20'} shadow-sm`}>
+                    <Clock className={`w-6 h-6 ${isRestricted ? 'text-destructive-semantic' : 'text-success'}`} />
                   </div>
                   <div>
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{isRestricted ? 'Attempted At' : `Time Recorded`}</p>
-                    <p className={`text-sm font-bold tabular-nums ${isRestricted ? 'text-rose-400' : 'text-slate-200'}`}>{timestamp.split(' — ')[1]}</p>
+                    <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">{isRestricted ? 'Attempted At' : `Time Recorded`}</p>
+                    <p className={`text-sm font-bold tabular-nums ${isRestricted ? 'text-destructive-semantic' : 'text-neutral-900'}`}>{timestamp.split(' — ')[1]}</p>
                   </div>
                 </div>
-                <div className={`flex items-center gap-2 px-4 py-2 rounded-full border ${isRestricted ? 'bg-rose-900/30 border-rose-800/50' : 'bg-green-900/30 border-green-800/50'}`}>
-                  <div className={`w-2 h-2 rounded-full ${isRestricted ? 'bg-rose-500' : 'bg-green-500'} animate-pulse`} />
-                  <span className={`text-xs font-black uppercase tracking-widest ${isRestricted ? 'text-rose-400' : 'text-green-400'}`}>
+                <div className={`flex items-center gap-2 px-4 py-2 rounded-full border ${isRestricted ? 'bg-destructive-semantic/10 border-destructive-semantic/20' : 'bg-success/10 border-success/20'} shadow-sm`}>
+                  <div className={`w-2 h-2 rounded-full ${isRestricted ? 'bg-destructive-semantic' : 'bg-success'} animate-pulse`} />
+                  <span className={`text-xs font-black uppercase tracking-widest ${isRestricted ? 'text-destructive-semantic' : 'text-success'}`}>
                     {isRestricted ? 'Denied' : attendanceType === "In" ? (isLaptopMode ? "Laptop In" : "Entering") : "Exiting"}
                   </span>
                 </div>
@@ -332,8 +331,8 @@ export default function Success() {
           </Card>
 
           <div className="text-center pt-4">
-            <p className="text-[10px] text-slate-600 uppercase tracking-[0.3em]">
-              Returning to scan mode in <span className="text-slate-400 font-black tabular-nums">{countdown} seconds</span>...
+            <p className="text-[10px] text-neutral-600 uppercase tracking-[0.3em]">
+              Returning to scan mode in <span className="text-neutral-700 font-black tabular-nums">{countdown} seconds</span>...
             </p>
           </div>
         </div>

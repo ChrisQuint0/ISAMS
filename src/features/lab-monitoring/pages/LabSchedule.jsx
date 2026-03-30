@@ -1,42 +1,43 @@
 import React, { useState, useMemo, useCallback } from "react";
-import { Calendar, Plus, Edit, Trash2, Clock, Table, LayoutGrid, User, Loader2 } from "lucide-react";
+import { Plus, Edit, Trash2, Clock, Table, LayoutGrid, User, Loader2 } from "lucide-react";
 import { AgGridReact } from 'ag-grid-react';
 import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-community';
 
+import { Button } from "@/components/ui/button";
 import { useLabSchedule } from "../hooks/useLabSchedule";
 import ScheduleModal from "../components/schedule/ScheduleModal"; 
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 const scheduleTheme = themeBalham.withParams({
-    accentColor: '#3b82f6',
-    backgroundColor: '#020617',
-    foregroundColor: '#e2e8f0',
-    borderColor: '#1e293b',
-    headerBackgroundColor: '#0f172a',
-    headerTextColor: '#94a3b8',
-    oddRowBackgroundColor: '#020617',
+    accentColor: '#008A45',
+    backgroundColor: '#ffffff',
+    foregroundColor: '#111827',
+    borderColor: '#e5e7eb',
+    headerBackgroundColor: '#f9fafb',
+    headerTextColor: '#374151',
+    oddRowBackgroundColor: '#ffffff',
     rowHeight: 48,
     headerHeight: 40,
 });
 
 const BLOCK_COLORS = [
-    { bg: "bg-sky-500/15",    border: "border-sky-500/30",    text: "text-sky-300",    sub: "text-sky-500",    dot: "bg-sky-400"    },
-    { bg: "bg-purple-500/15", border: "border-purple-500/30", text: "text-purple-300", sub: "text-purple-500", dot: "bg-purple-400" },
-    { bg: "bg-emerald-500/15",border: "border-emerald-500/30",text: "text-emerald-300",sub: "text-emerald-500",dot: "bg-emerald-400"},
-    { bg: "bg-amber-500/15",  border: "border-amber-500/30",  text: "text-amber-300",  sub: "text-amber-500",  dot: "bg-amber-400"  },
-    { bg: "bg-rose-500/15",   border: "border-rose-500/30",   text: "text-rose-300",   sub: "text-rose-500",   dot: "bg-rose-400"   },
-    { bg: "bg-cyan-500/15",   border: "border-cyan-500/30",   text: "text-cyan-300",   sub: "text-cyan-500",   dot: "bg-cyan-400"   },
-    { bg: "bg-indigo-500/15", border: "border-indigo-500/30", text: "text-indigo-300", sub: "text-indigo-500", dot: "bg-indigo-400" },
-    { bg: "bg-teal-500/15",   border: "border-teal-500/30",   text: "text-teal-300",   sub: "text-teal-500",   dot: "bg-teal-400"   },
-    { bg: "bg-orange-500/15", border: "border-orange-500/30", text: "text-orange-300", sub: "text-orange-500", dot: "bg-orange-400" },
-    { bg: "bg-fuchsia-500/15",border: "border-fuchsia-500/30",text: "text-fuchsia-300",sub: "text-fuchsia-500",dot: "bg-fuchsia-400"},
-    { bg: "bg-lime-500/15",   border: "border-lime-500/30",   text: "text-lime-300",   sub: "text-lime-500",   dot: "bg-lime-400"   },
-    { bg: "bg-pink-500/15",   border: "border-pink-500/30",   text: "text-pink-300",   sub: "text-pink-500",   dot: "bg-pink-400"   },
-    { bg: "bg-blue-500/15",   border: "border-blue-500/30",   text: "text-blue-300",   sub: "text-blue-500",   dot: "bg-blue-400"   },
-    { bg: "bg-yellow-500/15", border: "border-yellow-500/30", text: "text-yellow-300", sub: "text-yellow-500", dot: "bg-yellow-400" },
-    { bg: "bg-red-500/15",    border: "border-red-500/30",    text: "text-red-300",    sub: "text-red-500",    dot: "bg-red-400"    },
-    { bg: "bg-violet-500/15", border: "border-violet-500/30", text: "text-violet-300", sub: "text-violet-500", dot: "bg-violet-400" },
+    { bg: "bg-slate-200",     border: "border-slate-400",     text: "text-slate-900",    sub: "text-slate-700",     dot: "bg-slate-500", hex: "#008A45" },
+    { bg: "bg-rose-200",      border: "border-rose-400",      text: "text-rose-900",     sub: "text-rose-700",      dot: "bg-rose-500", hex: "#ef4444" },
+    { bg: "bg-blue-200",      border: "border-blue-400",      text: "text-blue-900",     sub: "text-blue-700",      dot: "bg-blue-500", hex: "#3b82f6" },
+    { bg: "bg-amber-200",     border: "border-amber-400",     text: "text-amber-900",    sub: "text-amber-700",     dot: "bg-amber-500", hex: "#f59e0b" },
+    { bg: "bg-purple-200",    border: "border-purple-400",    text: "text-purple-900",   sub: "text-purple-700",    dot: "bg-purple-500", hex: "#008A45" },
+    { bg: "bg-teal-200",      border: "border-teal-400",      text: "text-teal-900",     sub: "text-teal-700",      dot: "bg-teal-500", hex: "#FFCE00" },
+    { bg: "bg-indigo-200",    border: "border-indigo-400",    text: "text-indigo-900",   sub: "text-indigo-700",    dot: "bg-indigo-500", hex: "#006B35" },
+    { bg: "bg-emerald-200",   border: "border-emerald-400",   text: "text-emerald-900",  sub: "text-emerald-700",   dot: "bg-emerald-500", hex: "#ef4444" },
+    { bg: "bg-orange-200",    border: "border-orange-400",    text: "text-orange-900",   sub: "text-orange-700",    dot: "bg-orange-500", hex: "#FFCE00" },
+    { bg: "bg-cyan-200",      border: "border-cyan-400",      text: "text-cyan-900",     sub: "text-cyan-700",      dot: "bg-cyan-500", hex: "#004D26" },
+    { bg: "bg-stone-200",     border: "border-stone-400",     text: "text-stone-900",    sub: "text-stone-700",     dot: "bg-stone-500", hex: "#006B35" },
+    { bg: "bg-zinc-200",      border: "border-zinc-400",      text: "text-zinc-900",     sub: "text-zinc-700",      dot: "bg-zinc-500", hex: "#004D26" },
+    { bg: "bg-pink-200",      border: "border-pink-400",      text: "text-pink-900",     sub: "text-pink-700",      dot: "bg-pink-500", hex: "#f59e0b" },
+    { bg: "bg-lime-200",      border: "border-lime-400",      text: "text-lime-900",     sub: "text-lime-700",      dot: "bg-lime-500", hex: "#006B35" },
+    { bg: "bg-fuchsia-200",   border: "border-fuchsia-400",   text: "text-fuchsia-900",  sub: "text-fuchsia-700",   dot: "bg-fuchsia-500", hex: "#10b981" },
+    { bg: "bg-gray-200",      border: "border-gray-400",      text: "text-gray-900",     sub: "text-gray-700",      dot: "bg-gray-500", hex: "#008A45" },
 ];
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -148,7 +149,7 @@ export default function LabSchedule() {
 
     const columnDefs = useMemo(() => [
         { 
-            headerName: "Course Info", 
+            headerName: "COURSE INFO", 
             field: "subject", 
             flex: 2,
             cellRenderer: (params) => {
@@ -157,38 +158,38 @@ export default function LabSchedule() {
                     <div className="flex items-center gap-3 h-full">
                         <div className={`w-2 h-2 rounded-full ${c.dot} shrink-0`} />
                         <div className="flex flex-col justify-center leading-tight">
-                            <span className={`font-bold ${c.text}`}>{params.data.subject}</span>
-                            <span className="text-[10px] text-slate-500 font-mono uppercase truncate">{params.data.desc}</span>
+                            <span className={`font-bold text-[15px] text-neutral-900 uppercase tracking-wider mt-0.5`}>{params.data.subject}</span>
+                            <span className=" text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5">{params.data.desc}</span>
                         </div>
                     </div>
                 );
             }
         },
         { 
-            headerName: "Section", 
+            headerName: "SECTION", 
             field: "section", 
             width: 120,
             cellRenderer: (params) => {
                 const c = colorMap[params.data.subject] || BLOCK_COLORS[0];
                 return (
-                    <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest ${c.bg} ${c.text} border ${c.border}`}>
+                    <span className={`px-2 py-1 rounded text-xs font-black uppercase tracking-widest ${c.bg} ${c.text} border ${c.border}`}>
                         {params.value}
                     </span>
                 );
             }
         },
-        { field: "prof", headerName: "Professor", flex: 1, cellClass: "text-slate-300 text-sm" },
+        { field: "prof", headerName: "PROFESSOR", flex: 1, cellClass: "text-neutral-700 text-base" },
         { 
-            headerName: "Schedule", 
+            headerName: "SCHEDULE", 
             children: [
-                { field: "day", headerName: "Day", width: 120, cellClass: "font-medium text-slate-200" },
+                { field: "day", headerName: "DAY", width: 120, cellClass: "font-medium text-neutral-900" },
                 { 
-                    headerName: "Time", 
+                    headerName: "TIME", 
                     valueGetter: (params) => `${params.data.time_start} - ${params.data.time_end}`,
                     flex: 1,
                     cellRenderer: (params) => (
-                        <div className="flex items-center gap-2 text-slate-400 font-mono text-xs h-full">
-                            <Clock size={12} className="text-sky-500" />
+                        <div className="flex items-center gap-2 text-neutral-700 font-mono text-sm h-full">
+                            <Clock size={12} className="text-emerald-600" />
                             {params.value}
                         </div>
                     )
@@ -196,76 +197,83 @@ export default function LabSchedule() {
             ]
         },
         {
-            headerName: "Actions",
+            headerName: "ACTIONS",
             width: 120,
             sortable: false,
             filter: false,
             cellRenderer: (params) => (
                 <div className="flex items-center gap-2 h-full">
-                    <button onClick={() => handleOpenEdit(params.data)} className="p-1.5 rounded-md text-slate-400 hover:text-sky-400 hover:bg-slate-800 transition-colors">
+                    <Button 
+                        variant="ghost" 
+                        size="icon-xs"
+                        onClick={() => handleOpenEdit(params.data)}
+                        className="text-neutral-600 hover:text-emerald-600 hover:bg-emerald-50"
+                    >
                         <Edit size={16} />
-                    </button>
-                    <button onClick={() => handleDeleteClick(params.data.id)} className="p-1.5 rounded-md text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors">
+                    </Button>
+                    <Button 
+                        variant="ghost" 
+                        size="icon-xs"
+                        onClick={() => handleDeleteClick(params.data.id)}
+                        className="text-neutral-600 hover:text-red-600 hover:bg-red-50"
+                    >
                         <Trash2 size={16} />
-                    </button>
+                    </Button>
                 </div>
             )
         }
     ], [colorMap, handleOpenEdit, handleDeleteClick]);
 
     return (
-        <div className="p-8 space-y-6 bg-[#020617] min-h-screen flex flex-col">
+        <div className="p-6 space-y-6 bg-neutral-100 min-h-screen flex flex-col">
 
-            {/* Header & Controls Row */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    {/* APPLIED THE UI FORMATTER HERE */}
-                    <h1 className="text-2xl font-bold text-white tracking-tight">{displayTitle} — Schedule</h1>
-                    <p className="text-slate-400 text-sm italic">Defines parameters for the Kiosk Anti-Cutting Protocol</p>
+                    <h1 className="text-[30px] font-bold text-neutral-900 tracking-tight">{displayTitle} — Schedule</h1>
+                    <p className="text-neutral-500 text-sm italic">Defines parameters for the Kiosk Anti-Cutting Protocol</p>
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0">
-                    <div className="flex items-center bg-[#0f172a] border border-[#1e293b] rounded-lg p-0.5">
-                        <button
+                    <div className="flex items-center bg-neutral-100 border border-neutral-200 rounded-lg p-0.5 gap-0.5">
+                        <Button
+                            variant={view === "timetable" ? "default" : "ghost"}
+                            size="sm"
                             onClick={() => setView("timetable")}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-widest transition-all ${
-                                view === "timetable"
-                                    ? "bg-sky-500/15 text-sky-400 border border-sky-500/30"
-                                    : "text-slate-500 hover:text-slate-300 border border-transparent"
-                            }`}
+                            className={`text-sm text-[10px] font-semibold uppercase tracking-widest h-9 ${view === "timetable" ? "bg-primary-500 hover:bg-primary-600" : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200"}`}
                         >
-                            <LayoutGrid size={12} /> Timetable
-                        </button>
-                        <button
+                            <LayoutGrid size={11} /> Timetable
+                        </Button>
+                        <Button
+                            variant={view === "table" ? "default" : "ghost"}
+                            size="sm"
                             onClick={() => setView("table")}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-widest transition-all ${
-                                view === "table"
-                                    ? "bg-sky-500/15 text-sky-400 border border-sky-500/30"
-                                    : "text-slate-500 hover:text-slate-300 border border-transparent"
-                            }`}
+                            className={`text-sm text-[10px] font-semibold uppercase tracking-widest h-9 ${view === "table" ? "bg-primary-500 hover:bg-primary-600" : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200"}`}
                         >
-                            <Table size={12} /> Table
-                        </button>
+                            <Table size={11} /> Table
+                        </Button>
                     </div>
 
-                    <button onClick={handleOpenAdd} className="flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 hover:border-blue-500/40 text-blue-400 hover:text-blue-300 text-[11px] font-bold py-2.5 px-6 rounded-lg uppercase tracking-widest transition-all group/btn relative overflow-hidden">
-                        <div className="absolute inset-0 bg-gradient-to-br from-blue-400/0 via-blue-400/0 to-blue-400/0 group-hover/btn:from-blue-400/5 group-hover/btn:via-blue-400/0 group-hover/btn:to-blue-400/0 transition-all duration-500 pointer-events-none" />
-                        <div className="absolute inset-0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
-                        <Plus size={14} /> Add Schedule
-                    </button>
+                    <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={handleOpenAdd}
+                        className="text-sm text-[11px] font-semibold uppercase tracking-widest h-9 bg-primary-500 text-white hover:bg-primary-600 transition-all"
+                    >
+                        <Plus size={13} /> Add Schedule
+                    </Button>
                 </div>
             </div>
 
             {/* Scrollable Legend Row */}
             {uniqueSubjects.length > 0 && (
                 <div className="flex items-center gap-2 overflow-x-auto pb-2 -mt-2 custom-scrollbar">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mr-2 shrink-0">Color Legend:</span>
+                    <span className=" text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5 font-bold">Color Legend:</span>
                     {uniqueSubjects.map((subject, i) => {
                         const c = colorMap[subject] || BLOCK_COLORS[0];
                         return (
-                            <div key={i} className={`flex items-center gap-2 px-3 py-1.5 rounded-md border ${c.bg} ${c.border} shrink-0`}>
+                            <div key={i} className={`flex items-center gap-2 px-3 py-1.5 rounded-md border ${c.bg} ${c.border} shrink-0 shadow-sm`}>
                                 <div className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
-                                <span className={`text-[9px] font-bold uppercase tracking-wider ${c.text}`}>{subject}</span>
+                                <span className={` text-[10px] text-neutral-900 uppercase tracking-wider mt-0.5 font-bold`}>{subject}</span>
                             </div>
                         );
                     })}
@@ -275,23 +283,21 @@ export default function LabSchedule() {
             {/* Content Area */}
             {loading ? (
                 <div className="flex-1 flex flex-col items-center justify-center space-y-4 min-h-[400px]">
-                    <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-                    <p className="text-slate-500 font-mono text-xs uppercase tracking-widest">Syncing Lab Schedules...</p>
+                    <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
+                    <p className="text-neutral-500 font-mono text-xs uppercase tracking-widest">Syncing Lab Schedules...</p>
                 </div>
             ) : view === "timetable" ? (
-                <div className="h-[calc(100vh-240px)] w-full bg-[#0f172a] border border-[#1e293b] rounded-2xl shadow-2xl overflow-hidden group relative hover:border-slate-600 transition-colors">
-                    <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none z-10" />
-                    
+                <div className="h-full w-full bg-white border border-neutral-200 rounded-2xl shadow-lg overflow-hidden">
                     <div className="h-full overflow-auto custom-scrollbar">
-                        <table className="w-full border-collapse relative z-20" style={{ minWidth: 900 }}>
+                        <table className="w-full border-collapse relative z-20" style={{ minWidth: 900, tableLayout: 'fixed' }}>
                             <thead className="sticky top-0 z-30 shadow-sm">
                                 <tr>
-                                    <th className="w-20 bg-[#0f172a] border-b border-r border-[#1e293b] p-3 backdrop-blur-sm bg-opacity-95">
-                                        <Clock size={14} className="text-slate-600 mx-auto" />
+                                    <th className="w-20 bg-neutral-100 p-3 backdrop-blur-sm">
+                                        <Clock size={14} className="text-neutral-500 mx-auto" />
                                     </th>
                                     {DAYS.map(day => (
-                                        <th key={day} className="bg-[#0f172a] border-b border-r border-[#1e293b] last:border-r-0 p-3 text-center backdrop-blur-sm bg-opacity-95">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{day.slice(0, 3)}</span>
+                                        <th key={day} className="bg-neutral-100 p-3 text-center backdrop-blur-sm">
+                                            <span className="text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5">{day.slice(0, 3)}</span>
                                         </th>
                                     ))}
                                 </tr>
@@ -299,9 +305,9 @@ export default function LabSchedule() {
 
                             <tbody>
                                 {HOURS.map(hour => (
-                                    <tr key={hour} className="hover:bg-slate-800/20 transition-colors">
-                                        <td className="border-r border-b border-[#1e293b] p-2 text-right align-top">
-                                            <span className="text-[10px] font-mono text-slate-600 whitespace-nowrap">{formatHour(hour)}</span>
+                                    <tr key={hour} className="hover:bg-neutral-50 transition-colors">
+                                        <td className="p-3 text-right align-top">
+                                            <span className="text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5 whitespace-nowrap">{formatHour(hour)}</span>
                                         </td>
 
                                         {DAYS.map(day => {
@@ -317,31 +323,40 @@ export default function LabSchedule() {
                                                     <td 
                                                         key={cellKey} 
                                                         rowSpan={entry.span} 
-                                                        className="border-r border-b border-[#1e293b] last:border-r-0 p-1 align-top"
+                                                        className="p-1.5 align-top"
                                                     >
-                                                        <div className={`h-full rounded-xl ${c.bg} border ${c.border} p-3 cursor-pointer hover:scale-[1.02] transition-transform duration-200 group/block relative overflow-hidden flex flex-col justify-between`}>
-                                                            <div className="absolute inset-0 bg-gradient-to-br from-white/0 via-white/0 to-white/0 group-hover/block:from-white/5 group-hover/block:via-white/0 group-hover/block:to-white/0 transition-all duration-500 pointer-events-none" />
-                                                            <div className="space-y-1.5 relative z-10">
-                                                                <div className="flex items-start justify-between gap-2">
-                                                                    <span className={`text-sm font-bold ${c.text} leading-tight`}>{entry.subject}</span>
-                                                                    <span className={`text-[8px] font-black uppercase tracking-widest ${c.sub} shrink-0 bg-slate-950/30 px-1.5 py-0.5 rounded`}>{entry.section}</span>
+                                                        <div className={`h-full rounded-lg ${c.bg} border ${c.border} p-2 cursor-pointer hover:scale-[1.02] transition-transform duration-200 shadow-sm hover:shadow-md flex flex-col justify-between`}>
+                                                            <div className="space-y-1">
+                                                                <div className="flex items-start justify-between gap-1.5">
+                                                                    <span className={`text-lg font-bold text-neutral-900 uppercase tracking-wider`}>{entry.subject}</span>
+                                                                    <span className={`text-sm font-bold text-neutral-900 uppercase tracking-wider shrink-0 bg-neutral-100 px-2 py-1 rounded`}>{entry.section}</span>
                                                                 </div>
-                                                                <div className="flex items-center gap-1.5 pt-1">
-                                                                    <User size={10} className="text-slate-500" />
-                                                                    <span className="text-[10px] text-slate-400">{entry.prof}</span>
+                                                                <div className="flex items-center gap-1">
+                                                                    <User size={10} className="text-neutral-500" />
+                                                                    <span className="text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5">{entry.prof}</span>
                                                                 </div>
-                                                                <div className="flex items-center gap-1.5">
-                                                                    <Clock size={10} className="text-slate-500" />
-                                                                    <span className="text-[9px] font-mono text-slate-400">{entry.time_start} – {entry.time_end}</span>
+                                                                <div className="flex items-center gap-1">
+                                                                    <Clock size={10} className="text-neutral-500" />
+                                                                    <span className="text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5">{entry.time_start} – {entry.time_end}</span>
                                                                 </div>
                                                             </div>
-                                                            <div className="relative z-10 mt-3 pt-2 border-t border-white/5 flex items-center justify-end gap-2 opacity-0 group-hover/block:opacity-100 transition-opacity">
-                                                                <button onClick={() => handleOpenEdit(entry)} className="p-1 rounded-md text-slate-400 hover:text-sky-400 hover:bg-slate-950/50 transition-colors">
+                                                            <div className="mt-1.5 pt-1.5 border-t border-neutral-200 flex items-center justify-end gap-1 opacity-0 hover:opacity-100 transition-opacity">
+                                                                <Button 
+                                                                    variant="ghost" 
+                                                                    size="icon-xs"
+                                                                    onClick={() => handleOpenEdit(entry)}
+                                                                    className="text-neutral-600 hover:text-emerald-600 hover:bg-emerald-50"
+                                                                >
                                                                     <Edit size={13} />
-                                                                </button>
-                                                                <button onClick={() => handleDeleteClick(entry.id)} className="p-1 rounded-md text-slate-400 hover:text-rose-400 hover:bg-slate-950/50 transition-colors">
+                                                                </Button>
+                                                                <Button 
+                                                                    variant="ghost" 
+                                                                    size="icon-xs"
+                                                                    onClick={() => handleDeleteClick(entry.id)}
+                                                                    className="text-neutral-600 hover:text-red-600 hover:bg-red-50"
+                                                                >
                                                                     <Trash2 size={13} />
-                                                                </button>
+                                                                </Button>
                                                             </div>
                                                         </div>
                                                     </td>
@@ -349,8 +364,8 @@ export default function LabSchedule() {
                                             }
 
                                             return (
-                                                <td key={cellKey} className="border-r border-b border-[#1e293b] last:border-r-0 p-1 align-top h-20">
-                                                    <div className="h-full w-full rounded-lg border border-transparent hover:border-slate-800 hover:bg-slate-800/30 transition-all cursor-pointer" />
+                                                <td key={cellKey} className="p-1.5 align-top h-20">
+                                                    <div className="h-full w-full rounded-lg border border-transparent hover:border-neutral-300 hover:bg-neutral-50 transition-all cursor-pointer" />
                                                 </td>
                                             );
                                         })}
@@ -361,15 +376,14 @@ export default function LabSchedule() {
                     </div>
                 </div>
             ) : (
-                <div className="h-[calc(100vh-240px)] w-full rounded-xl overflow-hidden border border-[#1e293b] shadow-2xl group relative hover:border-slate-600 transition-colors">
-                    <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none z-10" />
+                <div className="h-[720px] w-full rounded-xl overflow-hidden border border-neutral-200 shadow-lg">
                     <AgGridReact
                         theme={scheduleTheme}
                         rowData={rowData}
                         columnDefs={columnDefs}
                         onGridReady={(params) => setGridApi(params.api)}
                         pagination={true}
-                        paginationPageSize={15}
+                        paginationPageSize={10}
                         defaultColDef={{
                             sortable: true,
                             filter: true,
