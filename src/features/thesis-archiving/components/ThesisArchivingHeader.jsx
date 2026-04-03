@@ -6,7 +6,7 @@ export function ThesisArchivingHeader({ title, showSettings = true, right, varia
     const isDark = variant === "dark";
 
     return (
-        <header className={`sticky top-0 z-[100] flex h-16 shrink-0 items-center gap-2 border-b backdrop-blur px-4 w-full shadow-sm transition-colors duration-200 ${isDark
+        <header className={`sticky top-0 z-40 flex h-16 shrink-0 items-center gap-2 border-b backdrop-blur px-4 w-full shadow-sm transition-colors duration-200 ${isDark
             ? "border-slate-800 bg-slate-950/80 supports-[backdrop-filter]:bg-slate-950/80"
             : "border-neutral-200 bg-white/80 supports-[backdrop-filter]:bg-white/80"
             }`}>

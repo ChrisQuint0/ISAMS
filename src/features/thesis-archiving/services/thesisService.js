@@ -537,6 +537,38 @@ export const thesisService = {
      */
     async getDashboardMetrics() {
         try {
+            // Fetch active academic year
+            const { data: activeYearData } = await supabase
+                .from("thesis_academic_years")
+                .select("name")
+                .eq("is_active", true)
+                .maybeSingle();
+
+            let completion_rate = 100;
+            if (activeYearData?.name) {
+                // Calculate completion rate based on active academic year
+                const [totalStudents, completedStudents] = await Promise.all([
+                    supabase.from("hte_ojt_students")
+                        .select("id", { count: "exact", head: true })
+                        .eq("is_active", true)
+                        .eq("academic_year", activeYearData.name),
+                    supabase.from("hte_ojt_students")
+                        .select("id", { count: "exact", head: true })
+                        .eq("is_active", true)
+                        .eq("academic_year", activeYearData.name)
+                        .eq("overall_status", "complete")
+                ]);
+
+                const total = totalStudents.count || 0;
+                const completed = completedStudents.count || 0;
+
+                if (total > 0) {
+                    completion_rate = Math.round((completed / total) * 100);
+                } else {
+                    completion_rate = 0;
+                }
+            }
+
             const { data, error } = await supabase
                 .from("vw_dashboard_metrics")
                 .select("*")
@@ -548,7 +580,8 @@ export const thesisService = {
                     ...data,
                     archived_this_year: data.archived_this_year || data.archived_this_term || 0,
                     total_trend: data.total_records_delta || 0,
-                    archive_trend: data.archived_delta || 0
+                    archive_trend: data.archived_delta || 0,
+                    completion_rate // Override any view output with true calculation
                 };
             }
 
@@ -564,7 +597,7 @@ export const thesisService = {
                 total_trend: 0,
                 archived_this_year: thisYear.count || 0,
                 archive_trend: 0,
-                completion_rate: 100
+                completion_rate
             };
         } catch (error) {
             console.error("Error in getDashboardMetrics:", error);
@@ -662,7 +695,7 @@ export const thesisService = {
             const { data, error } = await supabase
                 .from("vw_dashboard_recent_submissions")
                 .select("*")
-                .limit(10);
+                .limit(5);
 
             if (!error && data) return data;
 
@@ -677,7 +710,7 @@ export const thesisService = {
                 `)
                 .eq('is_deleted', false)
                 .order('created_at', { ascending: false })
-                .limit(10);
+                .limit(5);
 
             if (entError) throw entError;
             
