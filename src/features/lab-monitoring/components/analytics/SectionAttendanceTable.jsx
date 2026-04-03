@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 
 export default function SectionAttendanceTable({ rawLogs = [] }) {
-    
+
     const tableData = useMemo(() => {
         if (!rawLogs || rawLogs.length === 0) return [];
 
@@ -13,10 +13,10 @@ export default function SectionAttendanceTable({ rawLogs = [] }) {
 
             // STITCHING LOGIC: Combine Course, Year, and Block
             const student = log.students_lists_lm;
-            const section = student 
-                ? `${student.course || ''}${student.year_level || ''}${student.section_block || ''}` 
+            const section = student
+                ? `${student.course || ''}${student.year_level || ''}${student.section_block || ''}`
                 : "Unknown";
-                
+
             const dateKey = new Date(log.time_in).toISOString().split('T')[0];
 
             if (!sectionsData[section]) {
@@ -37,15 +37,15 @@ export default function SectionAttendanceTable({ rawLogs = [] }) {
             const data = sectionsData[section];
             const uniqueDays = data.days.size || 1;
             const avg = (data.total / uniqueDays).toFixed(1); // e.g. 34.6
-            
+
             // Clever Rate Calculation: 
             // Assume the day with the absolute highest attendance represents the 100% enrolled class size.
             const estimatedClassSize = Math.max(...Object.values(data.dailyCounts));
             const expectedTotal = estimatedClassSize * uniqueDays;
-            
-            const rateStr = expectedTotal > 0 
-                ? Math.round((data.total / expectedTotal) * 100) + "%" 
-                : "N/A";
+
+            const rateStr = expectedTotal > 0
+                ? Math.round((data.total / expectedTotal) * 100) + "%"
+                : "—";
 
             return {
                 section,
@@ -53,11 +53,11 @@ export default function SectionAttendanceTable({ rawLogs = [] }) {
                 avg,
                 rate: rateStr,
                 // Trend comparison would require historical data; using a visual dash for now
-                trend: "-" 
+                trend: "-"
             };
         })
-        .sort((a, b) => b.total - a.total) // Sort by highest total sessions
-        .slice(0, 5); // Perfectly fits your UI card
+            .sort((a, b) => b.total - a.total) // Sort by highest total sessions
+            .slice(0, 5); // Perfectly fits your UI card
 
     }, [rawLogs]);
 
