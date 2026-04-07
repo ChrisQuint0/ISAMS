@@ -64,7 +64,9 @@ export default function Success() {
 
         if (activeLog) {
           // OUT LOGIC
-          setAssignedPc(activeLog.pc_no ? `PC - ${activeLog.pc_no.replace('PC-', '')}` : "Laptop");
+          const cleanPcNo = activeLog.pc_no ? activeLog.pc_no.replace('PC-', '') : "";
+          const paddedPcNo = cleanPcNo ? cleanPcNo.padStart(2, '0') : "";
+          setAssignedPc(paddedPcNo ? `PC - ${paddedPcNo}` : "Laptop");
 
           const schedule = activeLog.lab_schedules_lm;
           const parseTime = (timeStr) => {
@@ -91,7 +93,7 @@ export default function Success() {
               actor: "System",
               category: "Student Logs",
               action: "Student Time-Out",
-              description: `${student.full_name} (${studentId}) timed out from ${activeLog.pc_no ? `PC-${activeLog.pc_no}` : "Laptop"}.`,
+              description: `${student.full_name} (${studentId}) timed out from ${paddedPcNo ? `PC-${paddedPcNo}` : "Laptop"}.`,
               severity: "Info"
             });
             setAttendanceType("Out");
@@ -136,11 +138,12 @@ export default function Success() {
           } else {
             if (autoAssignment) {
               const { data: sectionPeers } = await supabase
-                .from('students_lists_lm').select('student_no, full_name')
+                .from('students_lists_lm').select('student_no, full_name, is_laptop_user')
                 .eq('course', student.course).eq('year_level', student.year_level).eq('section_block', student.section_block)
                 .order('full_name', { ascending: true });
 
-              const rankIndex = sectionPeers ? sectionPeers.findIndex(p => p.student_no === studentId) : -1;
+              const pcPeers = sectionPeers ? sectionPeers.filter(p => !p.is_laptop_user) : [];
+              const rankIndex = pcPeers.findIndex(p => p.student_no === studentId);
               const studentRank = rankIndex !== -1 ? rankIndex + 1 : activeCount + 1;
 
               if (hardCapacity && studentRank > 40) {
@@ -153,10 +156,10 @@ export default function Success() {
 
               let pcNumber = studentRank;
               if (pcNumber > 40) pcNumber = 40;
-              finalPcNo = pcNumber.toString();
+              finalPcNo = pcNumber.toString().padStart(2, '0');
             } else {
               const occupiedArray = (activeSessions || [])
-                .map(s => parseInt(s.pc_no))
+                .map(s => parseInt(s.pc_no, 10))
                 .filter(n => !isNaN(n) && n >= 1 && n <= 40);
               const occupiedSet = new Set(occupiedArray);
 
@@ -168,13 +171,12 @@ export default function Success() {
                 }
               }
               if (found === 0) found = Math.min(activeCount + 1, 40);
-              finalPcNo = found.toString();
+              finalPcNo = found.toString().padStart(2, '0');
             }
-            setAssignedPc(`PC - ${finalPcNo}`);
           }
 
           // INSERT ATTENDANCE
-          const { error: insError } = await supabase
+          const { data: insData, error: insError } = await supabase
             .from('attendance_logs_lm')
             .insert([{
               student_no: studentId,
@@ -182,19 +184,24 @@ export default function Success() {
               time_in: now.toISOString(),
               pc_no: finalPcNo,
               log_type: isLaptop ? 'Laptop' : 'PC'
-            }]);
+            }])
+            .select()
+            .single();
 
           if (insError) {
             setAttendanceType("Restricted");
             setRestrictionMessage(insError.code === '23505' ? "Attendance already completed for this session." : insError.message);
             setCountdown(8);
           } else {
+            const actualPcNo = insData && insData.pc_no ? insData.pc_no.padStart(2, '0') : "";
+            setAssignedPc(actualPcNo ? `PC - ${actualPcNo}` : "Laptop");
+
             await logAuditEvent({
               labName: labName,
               actor: "System",
               category: "Student Logs",
               action: "Student Time-In",
-              description: `${student.full_name} (${studentId}) timed in at ${finalPcNo ? `PC-${finalPcNo.padStart(2, '0')}` : "Laptop"}.`,
+              description: `${student.full_name} (${studentId}) timed in at ${actualPcNo ? `PC-${actualPcNo}` : "Laptop"}.`,
               severity: "Info"
             });
             setAttendanceType("In");

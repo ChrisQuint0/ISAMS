@@ -188,7 +188,7 @@ export default function LabDashboard() {
                             trend={`${metrics.isTrendUp ? '+' : '-'}${metrics.occupancyTrend}%`}
                             trendUp={metrics.isTrendUp}
                         />
-                        <SystemOverviewCard label="Total Scans" value={metrics.totalScansToday} sub="Today's Activity" color="warning" icon={<ScanBarcode size={16} />} />
+                        <SystemOverviewCard label="Total Scans" value={metrics.totalScans} sub="Total Activity" color="warning" icon={<ScanBarcode size={16} />} />
                         <SystemOverviewCard label="Uptime" value={getUptime()} sub="Session Elapsed" color="success" icon={<Zap size={16} />} live={!!currentClass && !isDismissed} />
                         <SystemOverviewCard label="Maintenance" value={metrics.flaggedPCs} sub="PC Flags" color="destructive-semantic" icon={<Wrench size={16} />} />
                     </div>
@@ -218,7 +218,7 @@ export default function LabDashboard() {
                             <div className="flex flex-col flex-1 space-y-4">
                                 <div className="space-y-3">
                                     <div className="flex justify-between items-center"><span className="text-sm text-neutral-700">PCs</span><span className="font-mono font-bold text-primary-600">{metrics.pcUsers}</span></div>
-                                    <div className="flex justify-between items-center"><span className="text-sm text-neutral-700">Laptops</span><span className="font-mono font-bold" style={{color: 'var(--gold-500)'}}>{metrics.laptopUsers}</span></div>
+                                    <div className="flex justify-between items-center"><span className="text-sm text-neutral-700">Laptops</span><span className="font-mono font-bold" style={{ color: 'var(--gold-500)' }}>{metrics.laptopUsers}</span></div>
                                 </div>
                             </div>
                         </div>
@@ -242,8 +242,8 @@ export default function LabDashboard() {
                                 time={new Date(log.time_out ? log.time_out : log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 text={log.time_out ? "Timed Out" : "Timed In"}
                                 detail={`${log.students?.full_name || "Unknown Student"} (${log.log_type === 'Laptop'
-                                        ? 'Laptop'
-                                        : (log.pc_no ? `PC - ${log.pc_no}` : 'PC Station')
+                                    ? 'Laptop'
+                                    : (log.pc_no ? `PC - ${log.pc_no}` : 'PC Station')
                                     })`}
                             />
                         )) : (

@@ -192,20 +192,28 @@ export const handleEarlyDismissalPDF = (rawLogs, labName) => {
         return acc;
     }, {});
 
-    Object.keys(grouped).sort((a, b) => new Date(a) - new Date(b)).forEach((date, i) => {
-        if (i > 0) doc.addPage();
+    const keys = Object.keys(grouped).sort((a, b) => new Date(a) - new Date(b));
+
+    if (keys.length === 0) {
         drawPDFHeader(doc, labName, month, false, "Laboratory Management Module — Early Dismissal Audit Log");
-        doc.setFillColor(30, 41, 59).rect(10, 35, 190, 6, 'F');
-        doc.setTextColor(255, 255, 255).setFontSize(8).setFont("helvetica", "bold").text(`SESSION DATE: ${date}`, 14, 39);
-        doc.setTextColor(0, 0, 0);
-        const sorted = grouped[date].sort((a, b) => (a.students_lists_lm?.full_name || "").localeCompare(b.students_lists_lm?.full_name || ""));
-        autoTable(doc, {
-            startY: 41,
-            head: [["Student Name", "Section", "Actual Out", "Sched. End", "Early By (Mins)"]],
-            body: sorted.map(l => [l.students_lists_lm?.full_name, `${l.students_lists_lm?.course}${l.students_lists_lm?.year_level}${l.students_lists_lm?.section_block}`, new Date(l.time_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), formatAMPM(l.lab_schedules_lm?.time_end), getMinutesEarly(l)]),
-            theme: 'grid', headStyles: { fillColor: [51, 65, 85] }, tableWidth: 190, margin: { left: 10 }
+        doc.setFontSize(10).setFont("helvetica", "italic").text("No early dismissals recorded for this period.", 105, 50, { align: "center" });
+    } else {
+        keys.forEach((date, i) => {
+            if (i > 0) doc.addPage();
+            drawPDFHeader(doc, labName, month, false, "Laboratory Management Module — Early Dismissal Audit Log");
+            doc.setFillColor(30, 41, 59).rect(10, 35, 190, 6, 'F');
+            doc.setTextColor(255, 255, 255).setFontSize(8).setFont("helvetica", "bold").text(`SESSION DATE: ${date}`, 14, 39);
+            doc.setTextColor(0, 0, 0);
+            const sorted = grouped[date].sort((a, b) => (a.students_lists_lm?.full_name || "").localeCompare(b.students_lists_lm?.full_name || ""));
+            autoTable(doc, {
+                startY: 41,
+                head: [["Student Name", "Section", "Actual Out", "Sched. End", "Early By (Mins)"]],
+                body: sorted.map(l => [l.students_lists_lm?.full_name, `${l.students_lists_lm?.course}${l.students_lists_lm?.year_level}${l.students_lists_lm?.section_block}`, new Date(l.time_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), formatAMPM(l.lab_schedules_lm?.time_end), getMinutesEarly(l)]),
+                theme: 'grid', headStyles: { fillColor: [51, 65, 85] }, tableWidth: 190, margin: { left: 10 }
+            });
         });
-    });
+    }
+
     doc.save(`Early_Dismissal_${labName}.pdf`);
 };
 
@@ -438,23 +446,34 @@ export const exportEarlyDismissalExcel = async (rawLogs, labName) => {
         acc[d].push(log);
         return acc;
     }, {});
+    const keys = Object.keys(grouped).sort((a, b) => new Date(a) - new Date(b));
     let cur = 7;
-    Object.keys(grouped).sort((a, b) => new Date(a) - new Date(b)).forEach(date => {
+    
+    if (keys.length === 0) {
         sheet.mergeCells(cur, 1, cur, 5);
         const r = sheet.getCell(cur, 1);
-        r.value = `SESSION DATE: ${date}`;
-        r.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
-        r.font = { color: { argb: 'FFFFFFFF' }, bold: true };
-        cur++;
-        sheet.getRow(cur).values = ['STUDENT NAME', 'SECTION', 'ACTUAL OUT', 'SCHED. END', 'MINS EARLY'];
-        sheet.getRow(cur).font = { bold: true };
-        cur++;
-        grouped[date].sort((a, b) => (a.students_lists_lm?.full_name || "").localeCompare(b.students_lists_lm?.full_name || "")).forEach(l => {
-            sheet.addRow([l.students_lists_lm?.full_name, `${l.students_lists_lm?.course}${l.students_lists_lm?.year_level}`, new Date(l.time_out).toLocaleTimeString(), formatAMPM(l.lab_schedules_lm?.time_end), getMinutesEarly(l)]);
+        r.value = 'No early dismissals recorded for this period.';
+        r.font = { italic: true };
+        r.alignment = { horizontal: 'center' };
+    } else {
+        keys.forEach(date => {
+            sheet.mergeCells(cur, 1, cur, 5);
+            const r = sheet.getCell(cur, 1);
+            r.value = `SESSION DATE: ${date}`;
+            r.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
+            r.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+            cur++;
+            sheet.getRow(cur).values = ['STUDENT NAME', 'SECTION', 'ACTUAL OUT', 'SCHED. END', 'MINS EARLY'];
+            sheet.getRow(cur).font = { bold: true };
+            cur++;
+            grouped[date].sort((a, b) => (a.students_lists_lm?.full_name || "").localeCompare(b.students_lists_lm?.full_name || "")).forEach(l => {
+                sheet.addRow([l.students_lists_lm?.full_name, `${l.students_lists_lm?.course}${l.students_lists_lm?.year_level}`, new Date(l.time_out).toLocaleTimeString(), formatAMPM(l.lab_schedules_lm?.time_end), getMinutesEarly(l)]);
+                cur++;
+            });
             cur++;
         });
-        cur++;
-    });
+    }
+
     const buffer = await workbook.xlsx.writeBuffer();
     saveAs(new Blob([buffer]), `Early_Dismissal_${labName}.xlsx`);
 };

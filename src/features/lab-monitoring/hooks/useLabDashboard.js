@@ -12,7 +12,7 @@ export function useLabDashboard(labName) {
         laptopUsers: 0,
         occupancyTrend: "0",
         isTrendUp: true,
-        maxCapacity: 40 
+        maxCapacity: 40
     });
     const [activities, setActivities] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -42,7 +42,7 @@ export function useLabDashboard(labName) {
                 .lte('time_start', currentTime)
                 .gte('time_end', currentTime)
                 .maybeSingle();
-            
+
             setCurrentClass(schedule);
 
             // 3. Fetch Real-time Occupants filtered by device type
@@ -51,7 +51,7 @@ export function useLabDashboard(labName) {
                 .select('log_type, lab_schedules_lm!inner(room)')
                 .is('time_out', null)
                 .eq('lab_schedules_lm.room', labName);
-            
+
             const pcCount = activeLogs?.filter(l => l.log_type === 'PC').length || 0;
             const laptopCount = activeLogs?.filter(l => l.log_type === 'Laptop').length || 0;
             const currentTotal = pcCount + laptopCount;
@@ -74,22 +74,21 @@ export function useLabDashboard(labName) {
             const diff = currentTotal - (pastTotal || 0);
             const trendVal = pastTotal > 0 ? ((diff / pastTotal) * 100).toFixed(1) : (diff > 0 ? 100 : 0);
 
-            // 6. Daily Scan Count
+            // 6. Total Scan Count
             const { count: scanCount } = await supabase
                 .from('attendance_logs_lm')
                 .select('id, lab_schedules_lm!inner(room)', { count: 'exact', head: true })
-                .eq('lab_schedules_lm.room', labName)
-                .gte('created_at', new Date().toISOString().split('T')[0]);
+                .eq('lab_schedules_lm.room', labName);
 
             setMetrics({
                 activeOccupancy: currentTotal,
-                totalScansToday: scanCount || 0,
+                totalScans: scanCount || 0,
                 flaggedPCs: maintenanceCount || 0,
                 pcUsers: pcCount,
                 laptopUsers: laptopCount,
                 occupancyTrend: Math.abs(trendVal).toString(),
                 isTrendUp: diff >= 0,
-                maxCapacity: labSettings?.seat_count || 40 
+                maxCapacity: labSettings?.seat_count || 40
             });
 
             // 7. Audit Feed
@@ -99,9 +98,9 @@ export function useLabDashboard(labName) {
                 .eq('lab_schedules_lm.room', labName)
                 .order('created_at', { ascending: false })
                 .limit(10);
-            
+
             setActivities(latestLogs || []);
-        } catch (e) { console.error(e); } 
+        } catch (e) { console.error(e); }
         finally { setLoading(false); }
     };
 
