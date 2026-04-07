@@ -11,26 +11,29 @@ const getPHDateString = (inputDate = new Date()) => {
     const y = phTime.getFullYear();
     const m = String(phTime.getMonth() + 1).padStart(2, '0');
     const d = String(phTime.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`; 
+    return `${y}-${m}-${d}`;
 };
 
 export default function AccessLogs() {
     const labId = sessionStorage.getItem('active_lab_id') || "lab-1";
-    const labName = sessionStorage.getItem('active_lab_name') || "Lab 1"; 
+    const labName = sessionStorage.getItem('active_lab_name') || "Lab 1";
 
     // 0TITLE FORMATTER
     const displayTitle = labName.replace(/^(Computer\s*)?Lab\s/i, 'Computer Laboratory ');
 
     const [gridApi, setGridApi] = useState(null);
-    
+
     // Default to strict Philippine 'Today'
     const todayStr = getPHDateString();
-    const [dateFrom, setDateFrom] = useState(todayStr);
+
+    // Set 'dateFrom' to January 1st of the current year based on today's PH time
+    const startOfYearStr = `${todayStr.slice(0, 4)}-01-01`;
+    const [dateFrom, setDateFrom] = useState(startOfYearStr);
     const [dateTo, setDateTo] = useState(todayStr);
-    
+
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState(null);
-    
+
     const [rowData, setRowData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -70,11 +73,11 @@ export default function AccessLogs() {
                     subject: log.lab_schedules_lm?.subject_name || "Unknown Subject",
                     pc_number: log.pc_no ? `PC-${log.pc_no.toString().padStart(2, '0')}` : "OVERFLOW",
                     session_mode: log.log_type === 'Laptop' ? 'Laptop' : 'PC',
-                    date: getPHDateString(new Date(log.time_in)), 
-                    ui_date: formatPHDateUI(log.time_in),         
+                    date: getPHDateString(new Date(log.time_in)),
+                    ui_date: formatPHDateUI(log.time_in),
                     time_in: formatPHTimeOnly(log.time_in),
                     time_out: log.time_out ? formatPHTimeOnly(log.time_out) : "---",
-                    status: !log.time_out ? "Present" : "Completed" 
+                    status: !log.time_out ? "Present" : "Completed"
                 };
             });
 
@@ -91,7 +94,7 @@ export default function AccessLogs() {
 
     useEffect(() => {
         fetchLogs();
-        
+
         const sub = supabase.channel('logs-channel')
             .on('postgres_changes', { event: '*', table: 'attendance_logs_lm' }, fetchLogs)
             .subscribe();
@@ -124,7 +127,7 @@ export default function AccessLogs() {
     };
 
     const columnDefs = useMemo(() => [
-        { 
+        {
             headerName: "Student Info", field: "student_name", flex: 2,
             getQuickFilterText: (params) => {
                 return `${params.value} ${params.data.student_no}`;
@@ -137,13 +140,13 @@ export default function AccessLogs() {
             )
         },
         { headerName: "Section", field: "section", width: 110, cellClass: "text-xs text-neutral-700" },
-        { 
+        {
             headerName: "Station", field: "pc_number", flex: 1,
             cellRenderer: (params) => (
                 <span className={`font-bold ${params.value === "OVERFLOW" ? "text-destructive-semantic" : "text-primary-600"}`}>{params.value}</span>
             )
         },
-        { 
+        {
             headerName: "Mode", field: "session_mode", flex: 1,
             cellRenderer: (params) => (
                 <div className="flex items-center gap-2 text-neutral-700 h-full">
@@ -153,15 +156,15 @@ export default function AccessLogs() {
             )
         },
         { headerName: "Date", field: "date", width: 110, cellClass: "font-mono text-neutral-700 text-xs" },
-        { 
+        {
             headerName: "Log Times", headerClass: "font-normal", children: [
-                { 
+                {
                     headerName: "In", field: "time_in", width: 100, headerClass: "font-normal",
                     cellRenderer: (params) => (
                         <span className="font-bold text-neutral-900">{params.value}</span>
                     )
                 },
-                { 
+                {
                     headerName: "Out", field: "time_out", width: 100, headerClass: "font-normal",
                     cellRenderer: (params) => (
                         <span className="font-bold text-neutral-900">{params.value}</span>
@@ -169,15 +172,14 @@ export default function AccessLogs() {
                 },
             ]
         },
-        { 
+        {
             headerName: "Status", field: "status", width: 150, cellStyle: { display: 'flex', alignItems: 'center', padding: '6px' },
             cellRenderer: (params) => (
-                <span className={`inline-flex items-center justify-center w-full h-full rounded text-[10px] font-black uppercase tracking-tighter border text-center ${
-                    params.value === "Present" ? "bg-success/10 text-success border-success/20" : 
-                    params.value === "Completed" ? "bg-primary-600/10 text-primary-600 border-primary-600/20" :
-                    params.value === "Early Exit" ? "bg-warning/10 text-warning border-warning/20" : 
-                    "bg-neutral-200 text-neutral-700 border-neutral-300"
-                }`}>
+                <span className={`inline-flex items-center justify-center w-full h-full rounded text-[10px] font-black uppercase tracking-tighter border text-center ${params.value === "Present" ? "bg-success/10 text-success border-success/20" :
+                        params.value === "Completed" ? "bg-primary-600/10 text-primary-600 border-primary-600/20" :
+                            params.value === "Early Exit" ? "bg-warning/10 text-warning border-warning/20" :
+                                "bg-neutral-200 text-neutral-700 border-neutral-300"
+                    }`}>
                     {params.value}
                 </span>
             )
@@ -195,7 +197,7 @@ export default function AccessLogs() {
                 <div className="flex items-center gap-3 flex-wrap">
                     <div className="relative max-w-xs flex-1 group/search" style={{ minWidth: 200 }}>
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 z-10" size={12} />
-                        <input 
+                        <input
                             type="text" placeholder="Search logs or student ID..."
                             className="w-full bg-white border border-neutral-200 rounded-lg py-1.5 pl-9 pr-4 text-sm text-neutral-900 font-semibold focus:ring-1 focus:ring-primary-600 outline-none transition-all hover:border-neutral-300 placeholder:text-neutral-500 shadow-sm"
                             onChange={(e) => gridApi?.setGridOption("quickFilterText", e.target.value)}
@@ -204,17 +206,17 @@ export default function AccessLogs() {
 
                     <div className="flex items-center gap-2 bg-white border border-neutral-200 rounded-lg px-3 py-1.5 hover:border-neutral-300 transition-colors shadow-sm">
                         <CalendarDays size={12} className="text-neutral-500 shrink-0" />
-                        <input 
-                            type="date" 
-                            value={dateFrom} 
+                        <input
+                            type="date"
+                            value={dateFrom}
                             onChange={handleDateFromChange}
                             max={dateTo || todayStr}
                             className="bg-transparent text-sm text-neutral-900 font-semibold outline-none border-none [color-scheme:light] w-[120px]"
                         />
                         <span className="text-[9px] text-neutral-200 font-semibold uppercase">to</span>
-                        <input 
-                            type="date" 
-                            value={dateTo} 
+                        <input
+                            type="date"
+                            value={dateTo}
                             onChange={handleDateToChange}
                             min={dateFrom}
                             max={todayStr}
@@ -231,18 +233,18 @@ export default function AccessLogs() {
                 </div>
             ) : (
                 <div style={{
-                  '--ag-header-background-color': '#f9fafb',
-                  '--ag-header-foreground-color': '#374151',
-                  '--ag-background-color': '#ffffff',
+                    '--ag-header-background-color': '#f9fafb',
+                    '--ag-header-foreground-color': '#374151',
+                    '--ag-background-color': '#ffffff',
                 }}>
-                  <DataTable
-                      rowData={rowData}
-                      columnDefs={columnDefs}
-                      onGridReady={(params) => setGridApi(params.api)}
-                      onRowClicked={onRowClicked}
-                      paginationPageSize={15}
-                      className="h-[720px] rounded-lg bg-white"
-                  />
+                    <DataTable
+                        rowData={rowData}
+                        columnDefs={columnDefs}
+                        onGridReady={(params) => setGridApi(params.api)}
+                        onRowClicked={onRowClicked}
+                        paginationPageSize={15}
+                        className="h-[720px] rounded-lg bg-white"
+                    />
                 </div>
             )}
 
@@ -276,7 +278,7 @@ export default function AccessLogs() {
                                     <div>
                                         <p className="text-[9px] text-neutral-600 uppercase tracking-wider font-bold">Date Attended</p>
                                         <p className="text-xs font-mono text-neutral-700 mt-0.5 flex items-center gap-1.5">
-                                            <CalendarDays size={11}/> {selectedStudent.ui_date}
+                                            <CalendarDays size={11} /> {selectedStudent.ui_date}
                                         </p>
                                     </div>
                                     <div>

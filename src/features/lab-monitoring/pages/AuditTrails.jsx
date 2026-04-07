@@ -51,8 +51,8 @@ const getInitialManilaDates = () => {
 
     const lastDay = new Date(year, parseInt(month, 10), 0).getDate();
     return {
-        firstDay: `${year}-${month}-01`,
-        lastDay: `${year}-${month}-${String(lastDay).padStart(2, '0')}`
+        firstDay: `${year}-01-01`,  // Start of the year
+        lastDay: `${year}-${month}-${String(lastDay).padStart(2, '0')}` // End of the current month
     };
 };
 
@@ -131,6 +131,14 @@ export default function AuditTrails() {
 
             const dateStr = `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss} ${dayPeriod}`;
 
+            let normalizedSeverity = "Info";
+            if (row.severity) {
+                const s = row.severity.toLowerCase();
+                if (s === "critical" || s === "error") normalizedSeverity = "Critical";
+                else if (s === "warning") normalizedSeverity = "Warning";
+                else if (s === "success") normalizedSeverity = "Success";
+            }
+
             return {
                 id: row.id,
                 timestamp: dateStr,
@@ -138,7 +146,7 @@ export default function AuditTrails() {
                 category: row.category,
                 action: row.action,
                 description: row.description,
-                severity: row.severity,
+                severity: normalizedSeverity,
                 ip: row.ip_address || "—"
             };
         });
@@ -318,11 +326,10 @@ export default function AuditTrails() {
                         </div>
                         <button
                             onClick={handleExport}
-                            className={`flex items-center gap-2 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-r-lg border border-l-0 transition-all shadow-sm ${
-                                exportFormat === "excel"
+                            className={`flex items-center gap-2 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-r-lg border border-l-0 transition-all shadow-sm ${exportFormat === "excel"
                                     ? "bg-primary-500 border-primary-500 hover:bg-primary-600 text-white"
                                     : "bg-gold-500 border-gold-500 hover:bg-gold-600 text-neutral-900"
-                            }`}
+                                }`}
                         >
                             <Download size={13} className={exportFormat === "excel" ? "text-white" : "text-neutral-900"} /> Export .{exportFormat}
                         </button>
@@ -339,7 +346,7 @@ export default function AuditTrails() {
                 ].map((stat, i) => {
                     return (
                         <div key={i} className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
-                            <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl ${stat.accent}`}/>
+                            <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl ${stat.accent}`} />
                             <div className="flex justify-between items-start mb-2">
                                 <p className="text-neutral-500 text-[10px] font-semibold uppercase tracking-widest">{stat.label}</p>
                                 <span className="text-neutral-600">{stat.icon}</span>
