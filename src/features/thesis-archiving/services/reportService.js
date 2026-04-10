@@ -42,8 +42,8 @@ export async function fetchThesisReport({
       page,
       limit,
       fullDataset,
-      ...(dateFrom && { dateFrom }),
-      ...(dateTo && { dateTo }),
+      ...(dateFrom && dateFrom !== "All" && { dateFrom }),
+      ...(dateTo && dateTo !== "All" && { dateTo }),
       ...(year && year !== "All" && { year }),
       ...(department && department !== "All" && { department }),
       ...(category && category !== "All" && { category }),
@@ -98,8 +98,8 @@ export async function fetchSimilarityReport({
       page,
       limit,
       fullDataset,
-      ...(dateFrom && { dateFrom }),
-      ...(dateTo && { dateTo }),
+      ...(dateFrom && dateFrom !== "All" && { dateFrom }),
+      ...(dateTo && dateTo !== "All" && { dateTo }),
       ...(category && category !== "All" && { category }),
     });
 
