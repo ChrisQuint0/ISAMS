@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { FacultyDashboardService } from '../services/FacultyDashboardService';
 import { supabase } from '@/lib/supabaseClient';
+import { getFolderLink, ensureFolderStructure, listGDriveFiles, getGDriveFileMetadata } from '../services/gdriveSettings';
 
 export function useFacultyDashboard() {
     const [stats, setStats] = useState({
@@ -128,17 +129,18 @@ export function useFacultyDashboard() {
         try {
             const { data: authData } = await supabase.auth.getUser();
             const userId = authData.user?.id;
-            
-            // Get faculty id first
+
+            // 1. Resolve faculty_id
             const { data: facultyRaw } = await supabase
                 .from('faculty_fs')
-                .select('faculty_id')
+                .select('faculty_id, first_name, last_name')
                 .eq('user_id', userId)
                 .single();
-                
-            if (!facultyRaw) throw new Error("Could not find faculty profile");
 
-            const { data: dbSubmissions, error } = await supabase
+            if (!facultyRaw) throw new Error('Could not find faculty profile');
+
+            // 2. Fetch all DB submissions for this faculty / course / doc type
+            const { data: dbSubmissions, error: dbError } = await supabase
                 .from('submissions_fs')
                 .select(`*, documenttypes_fs!inner(type_name)`)
                 .eq('faculty_id', facultyRaw.faculty_id)
@@ -146,17 +148,129 @@ export function useFacultyDashboard() {
                 .eq('documenttypes_fs.type_name', doc.doc_type)
                 .order('submitted_at', { ascending: false });
 
-            if (error) throw error;
+            if (dbError) throw dbError;
 
-            // Sort files: newest first
-            const sortedFinal = (dbSubmissions || []).sort((a, b) => 
-                new Date(b.submitted_at) - new Date(a.submitted_at)
+            // 3. Fetch live GDrive files from the matching folder (mirrors admin logic)
+            let gdriveFiles = [];
+            try {
+                // Check if any submission has a folder link embedded
+                let customFolderId = null;
+                const dbFolderSub = dbSubmissions?.find(
+                    s => s.gdrive_link && s.gdrive_link.includes('/folders/')
+                );
+                if (dbFolderSub) {
+                    const match = dbFolderSub.gdrive_link.match(/folders\/([a-zA-Z0-9_-]+)/);
+                    if (match) customFolderId = match[1];
+                }
+
+                if (customFolderId) {
+                    gdriveFiles = await listGDriveFiles(customFolderId) || [];
+                } else {
+                    const rootFolderId = await getFolderLink();
+                    if (rootFolderId) {
+                        const { data: settings } = await supabase
+                            .from('systemsettings_fs')
+                            .select('setting_key, setting_value')
+                            .in('setting_key', ['current_semester', 'current_academic_year']);
+
+                        const semester = settings?.find(s => s.setting_key === 'current_semester')?.setting_value;
+                        const academicYear = settings?.find(s => s.setting_key === 'current_academic_year')?.setting_value;
+                        const facultyName = `${facultyRaw.first_name || ''} ${facultyRaw.last_name || ''}`.trim();
+
+                        // Resolve the GDrive folder name for this doc type
+                        const { data: docTypeInfo } = await supabase
+                            .from('documenttypes_fs')
+                            .select('gdrive_folder_name')
+                            .eq('type_name', doc.doc_type)
+                            .maybeSingle();
+
+                        const technicalFolder = docTypeInfo?.gdrive_folder_name || doc.doc_type;
+
+                        const folderId = await ensureFolderStructure(rootFolderId, {
+                            academicYear,
+                            semester,
+                            facultyName,
+                            courseCode: course.course_code,
+                            section: course.section,
+                            docTypeName: technicalFolder,
+                        });
+
+                        gdriveFiles = await listGDriveFiles(folderId) || [];
+                    }
+                }
+            } catch (gdErr) {
+                console.error('[FacultyViewer] GDrive fetch error:', gdErr);
+            }
+
+            // 4. Merge: GDrive as source of truth, enrich with DB metadata
+            const uniqueFilesMap = new Map();
+
+            if (gdriveFiles && gdriveFiles.length > 0) {
+                for (const gFile of gdriveFiles) {
+                    const dbMatch = dbSubmissions?.find(db => db.gdrive_file_id === gFile.id);
+                    if (dbMatch) {
+                        uniqueFilesMap.set(gFile.id, {
+                            ...dbMatch,
+                            gdrive_file_id: gFile.id,
+                            original_filename: gFile.name,
+                            standardized_filename: dbMatch.standardized_filename || gFile.name,
+                            gdrive_web_view_link: gFile.webViewLink,
+                            file_size_bytes: gFile.size || dbMatch.file_size_bytes,
+                            submitted_at: dbMatch.submitted_at || gFile.createdTime,
+                        });
+                    } else {
+                        // File exists in GDrive but has no DB record (manual upload)
+                        uniqueFilesMap.set(gFile.id, {
+                            submission_id: gFile.id,
+                            gdrive_file_id: gFile.id,
+                            original_filename: gFile.name,
+                            standardized_filename: gFile.name,
+                            gdrive_web_view_link: gFile.webViewLink,
+                            file_size_bytes: gFile.size || 0,
+                            submitted_at: gFile.createdTime || new Date().toISOString(),
+                        });
+                    }
+                }
+            }
+
+            // 5. Handle DB entries whose GDrive file wasn't in the folder listing
+            //    (e.g. file was moved/deleted, or is in a sub-folder)
+            const remaining = dbSubmissions?.filter(db => !uniqueFilesMap.has(db.gdrive_file_id)) || [];
+            for (const db of remaining) {
+                try {
+                    if (db.gdrive_file_id) {
+                        const meta = await getGDriveFileMetadata(db.gdrive_file_id);
+                        if (meta && !meta.trashed) {
+                            uniqueFilesMap.set(db.gdrive_file_id, {
+                                ...db,
+                                original_filename: meta.name,
+                                gdrive_web_view_link: meta.webViewLink,
+                                submitted_at: meta.createdTime || db.submitted_at,
+                            });
+                            continue;
+                        }
+                    }
+                } catch (e) {
+                    console.log(`[FacultyViewer] File ${db.gdrive_file_id} lookup failed:`, e.message);
+                }
+                // File is truly gone — still surface the DB record so the faculty knows it existed
+                uniqueFilesMap.set(db.gdrive_file_id || `db-${db.submission_id}`, { ...db });
+            }
+
+            // 6. Sort newest-first and expose to UI
+            const sortedFinal = Array.from(uniqueFilesMap.values()).sort(
+                (a, b) => new Date(b.submitted_at) - new Date(a.submitted_at)
             );
-            
+
             setViewerFiles(sortedFinal);
 
+            // Auto-select the newest file so the preview pane lights up immediately
+            if (sortedFinal.length > 0) {
+                setSelectedViewerFile(sortedFinal[0]);
+            }
+
         } catch (err) {
-            console.error("Failed to load document files:", err);
+            console.error('[FacultyViewer] Failed to load document files:', err);
         } finally {
             setIsViewerLoading(false);
         }

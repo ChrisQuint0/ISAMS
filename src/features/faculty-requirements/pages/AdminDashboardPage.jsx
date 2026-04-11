@@ -331,23 +331,16 @@ export default function AdminDashboardPage() {
           {/* Right Sidebar */}
           <div className="space-y-6">
 
-            {/* Upcoming Deadlines */}
+            {/* Active Deadlines */}
             <Card className="bg-white border-neutral-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
               <CardHeader className="bg-neutral-50/50 border-b border-neutral-200 py-3.5 px-4">
-                <CardTitle className="text-base font-bold text-neutral-900 flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <CalendarCheck className="h-4 w-4 text-warning" />
-                    Upcoming Deadlines
-                  </span>
-                  {(stats.upcoming_deadlines?.length > 0) && (
-                    <Badge variant="outline" className="text-[9px] font-black uppercase tracking-wider border-warning/20 bg-warning/5 text-warning">
-                      {stats.upcoming_deadlines.length} active
-                    </Badge>
-                  )}
+                <CardTitle className="text-base font-bold text-neutral-900 flex items-center gap-2">
+                  <CalendarCheck className="h-4 w-4 text-warning" />
+                  Active Deadlines
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-4 space-y-2.5">
-                {(stats.upcoming_deadlines || []).map((dl, idx) => {
+                {(stats.upcoming_deadlines || []).slice(0, 3).map((dl, idx) => {
                   const { label, urgent, overdue, grace } = getDaysLeft(dl.date, dl.grace_period_days || 0);
                   const isOverdue = overdue;
                   const isUrgent = urgent && !overdue && !grace;

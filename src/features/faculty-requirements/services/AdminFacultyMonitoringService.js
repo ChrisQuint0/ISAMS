@@ -87,7 +87,7 @@ export const facultyMonitorService = {
   sendReminder: async (facultyId) => {
     // 1. Trigger Email via Edge Function / Express Backend
     // The backend now checks the email_reminders_enabled flag.
-    const emailResult = await adminFacultyMonitoringService.sendEmail({
+    const emailResult = await facultyMonitorService.sendEmail({
       facultyId,
       template: 'deadline_reminder',
       subject: 'Urgent: Submission Reminder'
@@ -119,7 +119,7 @@ export const facultyMonitorService = {
     }
 
     // Process individually to respect per-faculty email preferences
-    const results = await adminFacultyMonitoringService.sendBulkEmails(filteredFacultyList, {
+    const results = await facultyMonitorService.sendBulkEmails(filteredFacultyList, {
       subject,
       message,
       template: 'deadline_reminder'
@@ -355,7 +355,7 @@ export const facultyMonitorService = {
 
     // Fire a real email — non-blocking (don't fail if email fails)
     try {
-      const emailResult = await adminFacultyMonitoringService.sendEmail({
+      const emailResult = await facultyMonitorService.sendEmail({
         facultyId,
         template: 'revision_request',
         message: reason,
@@ -413,7 +413,7 @@ export const facultyMonitorService = {
   sendBulkEmails: async (facultyList, { subject, message, template = 'deadline_reminder' } = {}) => {
     const results = await Promise.allSettled(
       facultyList.map(f =>
-        adminFacultyMonitoringService.sendEmail({
+        facultyMonitorService.sendEmail({
           facultyId: f.faculty_id || f.id,
           template,
           subject,
@@ -501,6 +501,3 @@ export const facultyMonitorService = {
     }
   }
 };
-
-// Self-reference so internal methods (requestRevision) can call sendEmail
-const adminFacultyMonitoringService = facultyMonitorService;

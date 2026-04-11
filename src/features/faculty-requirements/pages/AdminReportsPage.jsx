@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import {
   PieChart, FileText, Download, Eye, BarChart3, RefreshCw,
   CheckCircle, Clock, FileBadge, AlertTriangle, File, ArrowRight,
@@ -13,10 +15,15 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast/toaster";
+import { useLogo } from '../../settings/hooks/useLogo';
+import { useSettings } from '../../settings/hooks/useSettings';
+import plpLogo from '@/assets/images/plp_logo.png';
+import ccsLogo from '@/assets/images/ccs_logo.png';
 
 // Components
 import { DataTable } from "@/components/DataTable";
 import { useAdminReports } from '../hooks/AdminReportHook';
+import { reportService } from '../services/AdminReportService';
 
 const REPORT_COLUMNS_CONFIG = {
   'Submission Status Summary': ['include_faculty_names', 'include_course_info', 'include_submission_dates', 'include_status_indicators'],
@@ -26,8 +33,10 @@ const REPORT_COLUMNS_CONFIG = {
 };
 
 export default function AdminReportsPage() {
-  const { loading, error, reportData, settings, recentExports, options, generateReport, exportCSV, reExportReport } = useAdminReports();
+  const { loading, error, reportData, settings: reportSettings, recentExports, options, generateReport, exportCSV, reExportReport } = useAdminReports();
   const { toast, addToast } = useToast();
+  const { logoUrl } = useLogo();
+  const { settings } = useSettings();
 
   // Form State matching Rust 'ReportRequest' struct
   const [config, setConfig] = useState({
@@ -46,14 +55,14 @@ export default function AdminReportsPage() {
 
   // Update config defaults when settings load
   React.useEffect(() => {
-    if (settings && settings.semester && settings.academic_year) {
+    if (reportSettings && reportSettings.semester && reportSettings.academic_year) {
       setConfig(prev => ({
         ...prev,
-        semester: settings.semester,
-        academicYear: settings.academic_year
+        semester: reportSettings.semester,
+        academicYear: reportSettings.academic_year
       }));
     }
-  }, [settings]);
+  }, [reportSettings]);
 
   // Handle errors via Toast
   React.useEffect(() => {
@@ -255,16 +264,189 @@ export default function AdminReportsPage() {
     });
   }, [filteredData]);
 
-  const handleExport = () => {
-    if (filteredData) {
-      const exportPayload = {
-        ...reportData,
-        data_preview: filteredData
-      };
-      exportCSV(exportPayload, config);
-      if (addToast) {
-        addToast({ title: "Export Success", description: "Your report has been downloaded successfully.", variant: "success" });
+  const imageUrlToBase64 = async (url) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (error) {
+      console.error('Error converting image to base64:', error);
+      return null;
+    }
+  };
+
+  const handleExport = async () => {
+    if (!filteredData) return;
+
+    const doc = new jsPDF({ orientation: 'landscape' });
+    const title = config.reportType.toUpperCase();
+    const now = new Date().toLocaleString(undefined, {
+      month: 'short', day: 'numeric', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+
+    const [plpBase64, ccsBase64] = await Promise.all([
+      imageUrlToBase64(plpLogo),
+      imageUrlToBase64(logoUrl || ccsLogo)
+    ]);
+
+    const pageWidth  = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 14;
+    const footerHeight = 18;
+    const headerHeightFirstPage = 62;
+    const headerHeightSubPages = 16;
+
+    const C = {
+      primary:   [17, 58, 26],
+      accent:    [34, 130, 68],
+      white:     [255, 255, 255],
+      offWhite:  [245, 249, 246],
+      lightGray: [230, 232, 230],
+      midGray:   [150, 155, 152],
+      textDark:  [35, 40, 38],
+      textMuted: [110, 118, 114],
+    };
+
+    const drawFirstPageHeader = () => {
+      doc.setFillColor(...C.white);
+      doc.rect(0, 0, pageWidth, 38, 'F');
+      doc.setFillColor(...C.primary);
+      doc.rect(0, 38, pageWidth, 0.8, 'F');
+
+      doc.setDrawColor(...C.primary);
+      doc.setLineWidth(0.6);
+      doc.line(margin - 2, 5, margin - 2, 12);
+      doc.line(margin - 2, 5, margin + 5, 5);
+      doc.line(pageWidth - margin + 2, 5, pageWidth - margin + 2, 12);
+      doc.line(pageWidth - margin + 2, 5, pageWidth - margin - 5, 5);
+
+      if (plpBase64) doc.addImage(plpBase64, 'PNG', margin + 2, 9, 20, 20);
+      if (ccsBase64) doc.addImage(ccsBase64, 'PNG', pageWidth - 22 - margin, 9, 20, 20);
+
+      doc.setTextColor(...C.primary);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text('PAMANTASAN NG LUNGSOD NG PASIG', pageWidth / 2, 16, { align: 'center' });
+
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...C.textMuted);
+      doc.text((settings?.college_name || reportSettings?.college_name || 'COLLEGE OF COMPUTER STUDIES').toUpperCase(), pageWidth / 2, 22, { align: 'center' });
+
+      doc.setFontSize(7);
+      doc.setTextColor(...C.midGray);
+      doc.text('FACULTY REQUIREMENT MONITORING SYSTEM  //  ISAMS', pageWidth / 2, 27.5, { align: 'center' });
+
+      doc.setFontSize(6.5);
+      doc.setTextColor(...C.midGray);
+      doc.text(`GENERATED: ${now}`, margin + 2, 34.5);
+      doc.text(`${filteredData.length} RECORDS`, pageWidth - margin - 2, 34.5, { align: 'right' });
+
+      doc.setTextColor(...C.primary);
+      doc.setFontSize(15);
+      doc.setFont('helvetica', 'bold');
+      doc.text(title, margin, 48);
+
+      doc.setDrawColor(...C.accent);
+      doc.setLineWidth(0.4);
+      doc.line(margin, 51, margin + 80, 51);
+
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...C.textMuted);
+      doc.text(now, pageWidth - margin, 48, { align: 'right' });
+    };
+
+    const drawSubPageHeader = () => {
+      doc.setFillColor(...C.white);
+      doc.rect(0, 0, pageWidth, 11, 'F');
+      doc.setFillColor(...C.primary);
+      doc.rect(0, 11, pageWidth, 0.5, 'F');
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...C.primary);
+      doc.text(`ISAMS  //  ${title}`, margin, 7);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...C.textMuted);
+      doc.text(now, pageWidth - margin, 7, { align: 'right' });
+    };
+
+    const drawFooter = (pageNumber, totalPages) => {
+      const footerY = pageHeight - footerHeight;
+      doc.setFillColor(...C.accent);
+      doc.rect(margin, footerY, pageWidth - margin * 2, 0.3, 'F');
+      doc.setFontSize(5.5);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(...C.midGray);
+      doc.text('Electronically generated  ·  No signature required for internal circulation', margin, footerY + 5);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6);
+      doc.setTextColor(...C.primary);
+      doc.text('PLP-ISAMS  //  FACULTY REQUIREMENT MONITORING SYSTEM', pageWidth / 2, footerY + 5, { align: 'center' });
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...C.textMuted);
+      doc.setFontSize(7);
+      doc.text(`${String(pageNumber).padStart(2, '0')} / ${String(totalPages).padStart(2, '0')}`, pageWidth - margin, footerY + 5, { align: 'right' });
+      doc.setFillColor(...C.primary);
+      doc.rect(0, pageHeight - 2, pageWidth, 2, 'F');
+    };
+
+    drawFirstPageHeader();
+
+    const headers = Object.keys(filteredData[0] || {}).map(k => k.toUpperCase());
+    const fields = Object.keys(filteredData[0] || {});
+    const rows = filteredData.map(row => fields.map(f => {
+      const val = row[f];
+      if (val === null || val === undefined) return '';
+      if (typeof val === 'string' && val.includes('%')) return val;
+      return String(val);
+    }));
+
+    autoTable(doc, {
+      head: [headers],
+      body: rows,
+      startY: headerHeightFirstPage,
+      styles: {
+        fontSize: 7.5,
+        cellPadding: { top: 3, right: 4, bottom: 3, left: 4 },
+        font: 'helvetica',
+        textColor: C.textDark,
+        lineColor: C.lightGray,
+        lineWidth: 0.15,
+        overflow: 'linebreak'
+      },
+      headStyles: {
+        fillColor: C.primary, textColor: C.white, fontStyle: 'bold',
+        fontSize: 7, halign: 'center', valign: 'middle',
+        cellPadding: { top: 4, right: 4, bottom: 4, left: 4 }
+      },
+      alternateRowStyles: { fillColor: C.offWhite },
+      margin: { top: headerHeightSubPages, left: margin, right: margin, bottom: footerHeight + 4 },
+      didDrawPage: (data) => {
+        if (data.pageNumber > 1) drawSubPageHeader();
       }
+    });
+
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      drawFooter(i, totalPages);
+    }
+
+    const fileName = `${config.reportType.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`;
+    doc.save(fileName);
+
+    // Log the export (without triggering CSV download)
+    reportService.logExport(config.reportType, 'PDF', config.semester, config.academicYear);
+
+    if (addToast) {
+      addToast({ title: 'Export Success', description: 'Your PDF report has been downloaded successfully.', variant: 'success' });
     }
   };
 
@@ -347,7 +529,7 @@ export default function AdminReportsPage() {
                         <SelectItem key={year} value={year} className="text-xs font-medium">
                           <span className="flex items-center gap-2">
                             {year}
-                            {settings?.academic_year === year && (
+                            {reportSettings?.academic_year === year && (
                               <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/20">Active</span>
                             )}
                           </span>
@@ -416,7 +598,7 @@ export default function AdminReportsPage() {
                   disabled={!reportData || !filteredData || filteredData.length === 0 || loading}
                   className="h-9 px-4 bg-primary-600 hover:bg-primary-700 text-white shadow-sm text-xs font-bold transition-all active:scale-95"
                 >
-                  <Download className="mr-1.5 h-3.5 w-3.5" /> Export CSV
+                  <FileText className="mr-1.5 h-3.5 w-3.5" /> Export PDF
                 </Button>
               </div>
             </CardContent>

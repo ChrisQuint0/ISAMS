@@ -476,17 +476,24 @@ export default function FacultyAnalyticsPage() {
 
         {/* Pending Documents Card */}
         {(() => {
-          const pending = timeline
-            .filter(t => t.status === 'Pending')
-            .filter(item => !getDaysLeft(item.deadline_date, item.grace_period_days || 0).overdue);
+          // Include ALL non-fully-submitted document types — including overdue ones
+          const pending = timeline.filter(t => t.status === 'Pending');
+
+          // Total missing files = sum of (total_courses - submitted_courses) for each pending type
+          const totalMissingFiles = pending.reduce((acc, item) => {
+            const total = item.total_courses ?? 0;
+            const submitted = item.submitted_courses ?? 0;
+            return acc + Math.max(0, total - submitted);
+          }, 0);
+
           return (
             <Card className="bg-white border-neutral-200 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow">
               <CardHeader className="bg-neutral-50/50 border-b border-neutral-200 py-3.5 px-4 shrink-0">
                 <CardTitle className="text-base font-bold text-neutral-900 flex items-center gap-2">
                   <FileX className="h-4 w-4 text-destructive" /> Pending Documents
-                  {pending.length > 0 && (
+                  {totalMissingFiles > 0 && (
                     <span className="ml-auto text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-destructive/10 text-destructive border border-destructive/20">
-                      {pending.length} missing
+                      {totalMissingFiles} missing
                     </span>
                   )}
                 </CardTitle>
@@ -505,6 +512,7 @@ export default function FacultyAnalyticsPage() {
                     <div className="grid grid-cols-1 gap-2.5">
                       {pending.map((item, i) => {
                         const { label, urgent, overdue, grace } = getDaysLeft(item.deadline_date, item.grace_period_days || 0);
+                        const missingCount = Math.max(0, (item.total_courses ?? 0) - (item.submitted_courses ?? 0));
                         const deadlineFmt = item.deadline_date
                           ? (() => { const [y,m,d] = item.deadline_date.split('-').map(Number); return new Date(y, m-1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); })()
                           : null;
@@ -524,11 +532,16 @@ export default function FacultyAnalyticsPage() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-bold text-neutral-900 truncate">{item.label}</p>
-                              {deadlineFmt && (
-                                <p className="text-[10px] text-neutral-400 font-medium mt-0.5">
-                                  {grace ? 'Grace period — ' : ''}{deadlineFmt} deadline
-                                </p>
-                              )}
+                              <p className="text-[10px] font-medium mt-0.5">
+                                {deadlineFmt && (
+                                  <span className="text-neutral-400">
+                                    {grace ? 'Grace period — ' : ''}{deadlineFmt} deadline ·{' '}
+                                  </span>
+                                )}
+                                <span className={overdue ? 'text-destructive font-bold' : 'text-neutral-500'}>
+                                  {missingCount} course{missingCount !== 1 ? 's' : ''} pending
+                                </span>
+                              </p>
                             </div>
                             <span className={`text-[10px] font-extrabold uppercase tracking-wider shrink-0 ${
                               overdue ? 'text-destructive' : (grace || urgent) ? 'text-warning' : 'text-success'

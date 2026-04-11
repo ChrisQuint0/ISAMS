@@ -133,7 +133,7 @@ export default function FacultySettingsPage() {
                 <div>
                   <p className="text-[10px] font-bold text-warning uppercase tracking-wider mb-0.5">Notice</p>
                   <p className="text-xs font-medium text-neutral-600 leading-relaxed">
-                    Changing this email affects notifications but not your Google login credentials.
+                    Changing this email affects notifications but not your login credentials.
                   </p>
                 </div>
               </div>
