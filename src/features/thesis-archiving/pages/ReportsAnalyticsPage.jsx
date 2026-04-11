@@ -24,6 +24,8 @@ import {
   generateFilename,
   getFilterSummary,
 } from "../utils/reportExportUtils";
+import { useLogo } from "../../settings/hooks/useLogo";
+import { useSettings } from "../../settings/hooks/useSettings";
 
 import { fetchThesisReport, fetchSimilarityReport, fetchOJTReport, fetchCoordinators } from "../services/reportService";
 import { thesisService } from "../services/thesisService";
@@ -246,7 +248,7 @@ function defaultFilters() {
   return { dateFrom: "", dateTo: "", year: "All", academicYear: "All", program: "All", section: "All", department: "All", category: "All", coordinator: "All", completionStatus: "All" };
 }
 
-function ReportsFilters({ onFilterChange, showOJTFilters = false, reportType = "thesis", categories = [], coordinators = [], academicYears = [], sections = [] }) {
+function ReportsFilters({ onFilterChange, showOJTFilters = false, reportType = "thesis", categories = [], coordinators = [], academicYears = [], sections = [], thesisYears = [], dateBounds = { min: "", max: "" } }) {
   const [filters, setFilters] = useState(defaultFilters);
 
   useEffect(() => {
@@ -287,9 +289,15 @@ function ReportsFilters({ onFilterChange, showOJTFilters = false, reportType = "
               <SelectTrigger className={triggerCls}><SelectValue placeholder="All Years" /></SelectTrigger>
               <SelectContent className={dropdownCls}>
                 <SelectItem value="All">All Years</SelectItem>
-                {Array.from({ length: new Date().getFullYear() - 2000 + 1 }, (_, i) => String(new Date().getFullYear() - i)).map((y) => (
-                  <SelectItem key={y} value={y}>{y}</SelectItem>
-                ))}
+                {thesisYears.length > 0 ? (
+                  thesisYears.map((y) => (
+                    <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                  ))
+                ) : (
+                  Array.from({ length: new Date().getFullYear() - 2000 + 1 }, (_, i) => String(new Date().getFullYear() - i)).map((y) => (
+                    <SelectItem key={y} value={y}>{y}</SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -310,11 +318,11 @@ function ReportsFilters({ onFilterChange, showOJTFilters = false, reportType = "
           <>
             <div>
               <Label className={labelCls}>From Date</Label>
-              <Input type="date" value={filters.dateFrom} onChange={setEv("dateFrom")} className={inputCls} />
+              <Input type="date" value={filters.dateFrom} onChange={setEv("dateFrom")} className={inputCls} min={dateBounds.min || undefined} max={dateBounds.max || undefined} />
             </div>
             <div>
               <Label className={labelCls}>To Date</Label>
-              <Input type="date" value={filters.dateTo} onChange={setEv("dateTo")} className={inputCls} />
+              <Input type="date" value={filters.dateTo} onChange={setEv("dateTo")} className={inputCls} min={dateBounds.min || undefined} max={dateBounds.max || undefined} />
             </div>
           </>
         )}
@@ -393,6 +401,8 @@ function ReportsFilters({ onFilterChange, showOJTFilters = false, reportType = "
 // ─────────────────────────────────────────────────────────────
 function ReportsThesis({ filters }) {
   const { addToast } = useToast();
+  const { logoUrl } = useLogo();
+  const { settings } = useSettings();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(null);
@@ -423,11 +433,13 @@ function ReportsThesis({ filters }) {
   const archiveInventory = useMemo(() => data?.archiveInventory ?? [], [data]);
   const totalPages = data?.totalPages ?? 1;
 
+  const brandOpts = { logoUrl, collegeName: settings.college_name };
+
   const withExport = async (key, label, fn) => {
     setExporting(key);
     try {
       const result = await fetchThesisReport({ ...filters, page: 1, limit: 1000, fullDataset: true });
-      const exportRes = fn(result);
+      const exportRes = await fn(result);
       if (exportRes?.success) addToast({ title: "Exported", description: `Thesis report saved as ${label}` });
       else addToast({ title: "Export failed", description: "Could not export", variant: "destructive" });
     } catch (err) {
@@ -509,9 +521,9 @@ function ReportsThesis({ filters }) {
           </div>
           <ExportToolbar
             exporting={exporting}
-            onExcel={() => withExport("excel", "Excel", (fullData) => exportToExcel(csvExportData(fullData), `${generateFilename("Thesis")}.xlsx`, "Thesis Reports"))}
-            onCSV={() => withExport("csv", "CSV", (fullData) => exportToCSV(csvExportData(fullData), `${generateFilename("Thesis")}.csv`))}
-            onPDF={() => withExport("pdf", "PDF", (fullData) => exportToPDF({ title: "Thesis Report", subtitle: "Archive Inventory", filters, timestamp: new Date().toLocaleString(), columns: ["Title", "Authors", "Category", "Year", "Date Added"], data: (fullData?.archiveInventory ?? []).map((i) => [i.title, i.authors, i.category, i.year, i.dateAdded]) }, `${generateFilename("Thesis")}.pdf`))}
+            onExcel={() => withExport("excel", "Excel", (fullData) => exportToExcel(csvExportData(fullData), `${generateFilename("Thesis")}.xlsx`, "Thesis Reports", brandOpts))}
+            onCSV={() => withExport("csv", "CSV", (fullData) => Promise.resolve(exportToCSV(csvExportData(fullData), `${generateFilename("Thesis")}.csv`, brandOpts)))}
+            onPDF={() => withExport("pdf", "PDF", (fullData) => exportToPDF({ title: "Thesis Report", subtitle: "Archive Inventory", filters, timestamp: new Date().toLocaleString(), columns: ["Title", "Authors", "Category", "Year", "Date Added"], data: (fullData?.archiveInventory ?? []).map((i) => [i.title, i.authors, i.category, i.year, i.dateAdded]) }, `${generateFilename("Thesis")}.pdf`, brandOpts))}
           />
         </div>
         <div className="w-full h-[400px]">
@@ -534,6 +546,8 @@ function ReportsThesis({ filters }) {
 // ─────────────────────────────────────────────────────────────
 function ReportsSimilarity({ filters, categories = [] }) {
   const { addToast } = useToast();
+  const { logoUrl } = useLogo();
+  const { settings } = useSettings();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(null);
@@ -564,11 +578,13 @@ function ReportsSimilarity({ filters, categories = [] }) {
   const paginated = useMemo(() => data?.flaggedSubmissions ?? [], [data]);
   const totalPages = data ? Math.ceil(data.totalCount / PER_PAGE) : 1;
 
+  const brandOpts = { logoUrl, collegeName: settings.college_name };
+
   const withExport = async (key, label, fn) => {
     setExporting(key);
     try {
       const result = await fetchSimilarityReport({ ...filters, page: 1, limit: 1000, fullDataset: true });
-      const exportRes = fn(result);
+      const exportRes = await fn(result);
       if (exportRes?.success) addToast({ title: "Exported", description: `Similarity report saved as ${label}` });
       else addToast({ title: "Export failed", description: "Could not export", variant: "destructive" });
     } catch (err) {
@@ -625,9 +641,9 @@ function ReportsSimilarity({ filters, categories = [] }) {
           </div>
           <ExportToolbar
             exporting={exporting}
-            onExcel={() => withExport("excel", "Excel", (fullData) => exportToExcel(exportData(fullData), `${generateFilename("Similarity")}.xlsx`, "Similarity Reports"))}
-            onCSV={() => withExport("csv", "CSV", (fullData) => exportToCSV(exportData(fullData), `${generateFilename("Similarity")}.csv`))}
-            onPDF={() => withExport("pdf", "PDF", (fullData) => exportToPDF({ title: "Similarity Check Reports", subtitle: "Submission checks", filters, timestamp: new Date().toLocaleString(), columns: ["Paper Title", "Submission Date", "Similarity Score", "Status"], data: (fullData?.flaggedSubmissions ?? []).map((i) => [i.title, i.submissionDate, `${(i.similarityScore || 0).toFixed(2)}%`, i.reviewStatus]) }, `${generateFilename("Similarity")}.pdf`))}
+            onExcel={() => withExport("excel", "Excel", (fullData) => exportToExcel(exportData(fullData), `${generateFilename("Similarity")}.xlsx`, "Similarity Reports", brandOpts))}
+            onCSV={() => withExport("csv", "CSV", (fullData) => Promise.resolve(exportToCSV(exportData(fullData), `${generateFilename("Similarity")}.csv`, brandOpts)))}
+            onPDF={() => withExport("pdf", "PDF", (fullData) => exportToPDF({ title: "Similarity Check Reports", subtitle: "Submission checks", filters, timestamp: new Date().toLocaleString(), columns: ["Paper Title", "Submission Date", "Similarity Score", "Status"], data: (fullData?.flaggedSubmissions ?? []).map((i) => [i.title, i.submissionDate, `${(i.similarityScore || 0).toFixed(2)}%`, i.reviewStatus]) }, `${generateFilename("Similarity")}.pdf`, brandOpts))}
           />
         </div>
         <div className="w-full h-[400px]">
@@ -676,6 +692,8 @@ function ReportsSimilarity({ filters, categories = [] }) {
 // ─────────────────────────────────────────────────────────────
 function ReportsOJT({ filters }) {
   const { addToast } = useToast();
+  const { logoUrl } = useLogo();
+  const { settings } = useSettings();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(null);
@@ -738,11 +756,13 @@ function ReportsOJT({ filters }) {
     };
   }, [docFields]);
 
+  const brandOpts = { logoUrl, collegeName: settings.college_name };
+
   const withExport = async (key, label, fn) => {
     setExporting(key);
     try {
       const result = await fetchOJTReport({ ...filters, page: 1, limit: 1000, fullDataset: true });
-      const exportRes = fn(result);
+      const exportRes = await fn(result);
       if (exportRes?.success) addToast({ title: "Exported", description: `OJT report saved as ${label}` });
       else addToast({ title: "Export failed", description: "Could not export", variant: "destructive" });
     } catch (err) {
@@ -899,9 +919,42 @@ export default function ReportsAnalyticsPage() {
   const [dbCoordinators, setDbCoordinators] = useState([]);
   const [dbAcademicYears, setDbAcademicYears] = useState([]);
   const [dbSections, setDbSections] = useState([]);
+  const [dbThesisYears, setDbThesisYears] = useState([]);
+  const [dateBounds, setDateBounds] = useState({ min: "", max: "" });
 
   useEffect(() => {
     let active = true;
+
+    async function loadDateBounds() {
+      try {
+        const { data } = await supabase
+          .from("similarity_scan_queue")
+          .select("submitted_at")
+          .not("submitted_at", "is", null)
+          .order("submitted_at", { ascending: true })
+          .limit(1);
+
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const maxDate = `${year}-${month}-${day}`;
+
+        let minDate = maxDate;
+        if (active && data && data.length > 0) {
+          const earliestYear = new Date(data[0].submitted_at).getFullYear();
+          minDate = `${earliestYear}-01-01`;
+        }
+        
+        if (active) {
+          setDateBounds({ min: minDate, max: maxDate });
+        }
+      } catch (err) {
+        console.error("Failed to load date bounds:", err);
+      }
+    }
+    loadDateBounds();
+
     thesisService.getCategories().then(data => {
       if (active && data) setDbCategories(data.map(c => c.name));
     }).catch(err => console.error("Failed to fetch DB categories:", err));
@@ -920,6 +973,10 @@ export default function ReportsAnalyticsPage() {
         setDbSections(uniqueSections);
       }
     }).catch(err => console.error("Failed to fetch sections:", err));
+
+    thesisService.getPublicationYears().then(data => {
+      if (active && data) setDbThesisYears(data);
+    }).catch(err => console.error("Failed to fetch publication years:", err));
 
     return () => { active = false; };
   }, []);
@@ -1031,6 +1088,8 @@ export default function ReportsAnalyticsPage() {
                 coordinators={dbCoordinators}
                 academicYears={dbAcademicYears}
                 sections={dbSections}
+                thesisYears={dbThesisYears}
+                dateBounds={dateBounds}
               />
 
               {/* ── REPORT CONTENT ── */}

@@ -1,242 +1,204 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 
+// Assets
+import plpLogo from "@/assets/images/plp_logo.png";
+import ccsLogo from "@/assets/images/ccs_logo.png";
+
 // ─────────────────────────────────────────────────────────────
-// BRAND CONSTANTS
+// HELPER: Convert image URL/asset to Base64
 // ─────────────────────────────────────────────────────────────
-const BRAND = {
-  green:      [0,   138,  69],
-  greenDark:  [0,   100,  48],
-  greenLight: [230, 247,  237],
-  greenMid:   [0,   160,  80],
-  white:      [255, 255, 255],
-  gray50:     [248, 250, 249],
-  gray100:    [236, 240, 238],
-  gray300:    [200, 210, 205],
-  gray500:    [120, 135, 128],
-  gray700:    [65,  80,  72],
-  gray900:    [25,  35,  30],
-  amber:      [245, 158,  11],
-  rose:       [244,  63,  94],
-  emerald:    [ 16, 185, 129],
-  violet:     [124,  58, 237],
+const imageUrlToBase64 = async (url) => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error("Error converting image to base64:", error);
+    return null;
+  }
 };
 
 // ─────────────────────────────────────────────────────────────
-// EXCEL EXPORT  –  multi-sheet workbook with summary + data
+// BRAND COLORS (matching student-violations PDF palette)
 // ─────────────────────────────────────────────────────────────
-export function exportToExcel(data, filename, sheetName = "Data") {
+const C = {
+  primary:      [17,  58,  26],   // Ivy green – banner, headers
+  primaryLight: [22, 101,  52],   // Lighter green for accents
+  accent:       [34, 130,  68],   // Medium green for lines
+  white:        [255, 255, 255],
+  offWhite:     [245, 249, 246],
+  lightGreen:   [232, 245, 235],
+  lightGray:    [230, 232, 230],
+  midGray:      [150, 155, 152],
+  textDark:     [35,  40,  38],
+  textMuted:    [110, 118, 114],
+};
+
+// ─────────────────────────────────────────────────────────────
+// EXCEL (XLSX) EXPORT  –  ExcelJS, branded with logos
+// ─────────────────────────────────────────────────────────────
+export async function exportToExcel(
+  data,
+  filename,
+  sheetName = "Data",
+  { logoUrl = null, collegeName = "College of Computing and Information Sciences" } = {}
+) {
   try {
-    const wb = XLSX.utils.book_new();
+    if (!data || data.length === 0) throw new Error("No data to export");
 
-    // ── 1.  SUMMARY sheet ────────────────────────────────────
-    const now      = new Date();
-    const dateStr  = now.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-    const timeStr  = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    const headers = Object.keys(data[0]);
 
-    const summaryRows = [
-      ["REPORT SUMMARY"],
-      [],
-      ["Report Type",    sheetName],
-      ["Generated On",   dateStr],
-      ["Generated At",   timeStr],
-      ["Total Records",  data.length],
-      ["Columns",        Object.keys(data[0] || {}).length],
-      [],
-      ["COLUMN INDEX"],
-      ...Object.keys(data[0] || {}).map((col, i) => [i + 1, col]),
-    ];
+    // Load logos
+    const [plpBase64, ccsBase64] = await Promise.all([
+      imageUrlToBase64(plpLogo),
+      imageUrlToBase64(logoUrl || ccsLogo),
+    ]);
 
-    const ws_summary = XLSX.utils.aoa_to_sheet(summaryRows);
+    const wb = new ExcelJS.Workbook();
+    wb.creator = "ISAMS";
+    wb.created = new Date();
 
-    // Style the title cell
-    ws_summary["A1"].s = {
-      fill: { fgColor: { rgb: "00008A45" } },
-      font: { bold: true, color: { rgb: "FFFFFFFF" }, sz: 14, name: "Arial" },
-      alignment: { horizontal: "left", vertical: "center", wrapText: false },
-      border: {
-        bottom: { style: "double", color: { rgb: "00006B35" } },
-      },
-    };
+    const ws = wb.addWorksheet(sheetName);
 
-    // Style section headers
-    ["A9"].forEach((cell) => {
-      if (ws_summary[cell]) {
-        ws_summary[cell].s = {
-          fill: { fgColor: { rgb: "00F5FAF7" } },
-          font: { bold: true, color: { rgb: "00006B35" }, sz: 10, name: "Arial" },
-          alignment: { horizontal: "left", vertical: "center" },
-          border: {
-            top: { style: "medium", color: { rgb: "008A45" } },
-            bottom: { style: "medium", color: { rgb: "008A45" } },
-          },
-        };
-      }
+    const numCols = headers.length;
+
+    // ── Row 1: School Name ───────────────────────────────────
+    ws.mergeCells(1, 1, 1, numCols);
+    const schoolCell = ws.getCell(1, 1);
+    schoolCell.value = "Pamantasan ng Lungsod ng Pasig";
+    schoolCell.font = { bold: true, size: 16 };
+    schoolCell.alignment = { horizontal: "center", vertical: "middle" };
+    ws.getRow(1).height = 24;
+
+    // ── Row 2: College Name ──────────────────────────────────
+    ws.mergeCells(2, 1, 2, numCols);
+    const collegeCell = ws.getCell(2, 1);
+    collegeCell.value = collegeName;
+    collegeCell.font = { size: 12 };
+    collegeCell.alignment = { horizontal: "center", vertical: "middle" };
+    ws.getRow(2).height = 18;
+
+    // ── Row 3: System Name ───────────────────────────────────
+    ws.mergeCells(3, 1, 3, numCols);
+    const systemCell = ws.getCell(3, 1);
+    systemCell.value = "Thesis Archiving Module  //  ISAMS";
+    systemCell.font = { size: 10, italic: true, color: { argb: "FF666666" } };
+    systemCell.alignment = { horizontal: "center", vertical: "middle" };
+    ws.getRow(3).height = 16;
+
+    // ── Row 4: spacer ────────────────────────────────────────
+    ws.getRow(4).height = 6;
+
+    // ── Row 5: Report Title ──────────────────────────────────
+    ws.mergeCells(5, 1, 5, numCols);
+    const titleCell = ws.getCell(5, 1);
+    titleCell.value = sheetName.toUpperCase();
+    titleCell.font = { bold: true, size: 14 };
+    titleCell.alignment = { horizontal: "center", vertical: "middle" };
+    ws.getRow(5).height = 22;
+
+    // ── Row 6: Generation info ───────────────────────────────
+    ws.mergeCells(6, 1, 6, numCols);
+    const genCell = ws.getCell(6, 1);
+    genCell.value = `Date Generated: ${new Date().toLocaleString()}  ·  Total Records: ${data.length}`;
+    genCell.font = { size: 9, color: { argb: "FF666666" } };
+    genCell.alignment = { horizontal: "center", vertical: "middle" };
+    ws.getRow(6).height = 14;
+
+    // ── Row 7: spacer ────────────────────────────────────────
+    ws.getRow(7).height = 6;
+
+    // ── Logos ────────────────────────────────────────────────
+    if (plpBase64) {
+      const plpImg = wb.addImage({
+        base64: plpBase64.split(",")[1],
+        extension: "png",
+      });
+      ws.addImage(plpImg, {
+        tl: { col: 0, row: 0 },
+        ext: { width: 80, height: 80 },
+        editAs: "oneCell",
+      });
+    }
+
+    if (ccsBase64) {
+      const ccsImg = wb.addImage({
+        base64: ccsBase64.split(",")[1],
+        extension: "png",
+      });
+      ws.addImage(ccsImg, {
+        tl: { col: numCols - 1, row: 0 },
+        ext: { width: 80, height: 80 },
+        editAs: "oneCell",
+      });
+    }
+
+    // ── Row 8: Column Headers ────────────────────────────────
+    const headerRow = ws.getRow(8);
+    headerRow.values = headers;
+    headerRow.height = 20;
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FF113A1A" }, // C.primary
+      };
+      cell.alignment = { vertical: "middle", horizontal: "center", wrapText: false };
+      cell.border = {
+        top:    { style: "thin", color: { argb: "FF000000" } },
+        bottom: { style: "thin", color: { argb: "FF000000" } },
+        left:   { style: "thin", color: { argb: "FF000000" } },
+        right:  { style: "thin", color: { argb: "FF000000" } },
+      };
     });
 
-    // Style label cells (left column)
-    for (let i = 2; i <= 7; i++) {
-      const cell = `A${i}`;
-      if (ws_summary[cell]) {
-        ws_summary[cell].s = {
-          font: { bold: true, color: { rgb: "00333333" }, sz: 9, name: "Arial" },
-          alignment: { horizontal: "left", vertical: "center" },
-          fill: { fgColor: { rgb: "00F8F9F9" } },
+    // ── Data Rows ────────────────────────────────────────────
+    data.forEach((row, idx) => {
+      const dataRow = ws.addRow(headers.map((h) => row[h] ?? ""));
+      const isEven = idx % 2 === 0;
+      dataRow.height = 17;
+      dataRow.eachCell((cell) => {
+        cell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: isEven ? "FFF5F9F6" : "FFFFFFFF" },
         };
-      }
-      const valCell = `B${i}`;
-      if (ws_summary[valCell]) {
-        ws_summary[valCell].s = {
-          font: { color: { rgb: "00333333" }, sz: 9, name: "Arial" },
-          alignment: { horizontal: "left", vertical: "center" },
-          fill: { fgColor: { rgb: "00FFFFFF" } },
+        cell.font = { size: 10, color: { argb: "FF232826" } };
+        cell.alignment = { vertical: "middle", horizontal: "left" };
+        cell.border = {
+          top:    { style: "thin", color: { argb: "FFE6E8E6" } },
+          bottom: { style: "thin", color: { argb: "FFE6E8E6" } },
+          left:   { style: "thin", color: { argb: "FFE6E8E6" } },
+          right:  { style: "thin", color: { argb: "FFE6E8E6" } },
         };
-      }
-    }
-
-    // Style column index rows
-    for (let i = 9; i < summaryRows.length; i++) {
-      const cell = `A${i}`;
-      if (ws_summary[cell]) {
-        ws_summary[cell].s = {
-          font: { bold: true, color: { rgb: "00006B35" }, sz: 8, name: "Arial" },
-          alignment: { horizontal: "center", vertical: "center" },
-          fill: { fgColor: { rgb: "00F5FAF7" } },
-          border: { right: { style: "thin", color: { rgb: "00E0E0E0" } } },
-        };
-      }
-      const colCell = `B${i}`;
-      if (ws_summary[colCell]) {
-        ws_summary[colCell].s = {
-          font: { color: { rgb: "00333333" }, sz: 8, name: "Arial" },
-          alignment: { horizontal: "left", vertical: "center" },
-          fill: { fgColor: { rgb: "00FFFFFF" } },
-        };
-      }
-    }
-
-    // Column widths and row heights
-    ws_summary["!cols"] = [{ wch: 18 }, { wch: 38 }];
-    ws_summary["!rows"] = [
-      { hpt: 28 },  // Title
-      { hpt: 3 },   // Spacer
-      { hpt: 18 },  // Report Type
-      { hpt: 18 },  // Generated On
-      { hpt: 18 },  // Generated At
-      { hpt: 18 },  // Total Records
-      { hpt: 18 },  // Columns
-      { hpt: 3 },   // Spacer
-      { hpt: 20 },  // Column Index header
-    ];
-
-    XLSX.utils.book_append_sheet(wb, ws_summary, "Summary");
-
-    // ── 2.  DATA sheet ───────────────────────────────────────
-    const ws = XLSX.utils.json_to_sheet(data);
-    const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
-    const keys  = Object.keys(data[0] || {});
-
-    // Column widths: content-aware, capped
-    ws["!cols"] = keys.map((key) => ({
-      wch: Math.min(
-        Math.max(key.length + 4, ...(data || []).map((r) => String(r[key] ?? "").length + 2)),
-        52
-      ),
-    }));
-
-    // Row heights
-    ws["!rows"] = [{ hpt: 26 }]; // header
-    for (let r = 1; r <= range.e.r; r++) ws["!rows"][r] = { hpt: 19 };
-
-    // Freeze pane
-    ws["!freeze"] = { xSplit: 0, ySplit: 1 };
-
-    // ── Header row styles ────────────────────────────────────
-    for (let c = range.s.c; c <= range.e.c; c++) {
-      const addr = XLSX.utils.encode_cell({ r: 0, c });
-      if (!ws[addr]) continue;
-      ws[addr].s = {
-        fill: { fgColor: { rgb: "00008A45" } },
-        font: { bold: true, color: { rgb: "FFFFFFFF" }, sz: 10, name: "Arial" },
-        alignment: { horizontal: "center", vertical: "center", wrapText: false },
-        border: {
-          top:    { style: "medium", color: { rgb: "00006B35" } },
-          bottom: { style: "medium", color: { rgb: "00006B35" } },
-          left:   { style: "thin",   color: { rgb: "00006B35" } },
-          right:  { style: "thin",   color: { rgb: "00006B35" } },
-        },
-      };
-    }
-
-    // ── Data row styles ──────────────────────────────────────
-    for (let r = 1; r <= range.e.r; r++) {
-      const even = r % 2 === 0;
-      for (let c = range.s.c; c <= range.e.c; c++) {
-        const addr = XLSX.utils.encode_cell({ r, c });
-        if (!ws[addr]) continue;
-
-        // Right-align numeric / percentage cells
-        const val  = ws[addr].v;
-        const isNum = typeof val === "number" ||
-          (typeof val === "string" && /^\d+(\.\d+)?%?$/.test(val.trim()));
-
-        ws[addr].s = {
-          fill:      { fgColor: { rgb: even ? "00F5FAF7" : "00FFFFFF" } },
-          font:      { color: { rgb: "00333333" }, sz: 9.5, name: "Arial" },
-          alignment: { horizontal: isNum ? "right" : "left", vertical: "center" },
-          border: {
-            top:    { style: "thin", color: { rgb: "00EEEEEE" } },
-            bottom: { style: "thin", color: { rgb: "00EEEEEE" } },
-            left:   { style: "thin", color: { rgb: "00EEEEEE" } },
-            right:  { style: "thin", color: { rgb: "00EEEEEE" } },
-          },
-        };
-      }
-    }
-
-    // ── Totals row (if numeric columns exist) ────────────────
-    const numericKeys = keys.filter((k) =>
-      data.every((row) => row[k] === undefined || row[k] === null ||
-        typeof row[k] === "number" || /^\d+(\.\d+)?$/.test(String(row[k])))
-      && data.some((row) => typeof row[k] === "number")
-    );
-
-    if (numericKeys.length > 0) {
-      const totalsRow = {};
-      keys.forEach((k, i) => {
-        if (i === 0) { totalsRow[k] = "TOTAL"; return; }
-        if (numericKeys.includes(k)) {
-          totalsRow[k] = data.reduce((s, row) => s + (Number(row[k]) || 0), 0);
-        } else {
-          totalsRow[k] = "";
-        }
       });
-      XLSX.utils.sheet_add_json(ws, [totalsRow], { skipHeader: true, origin: -1 });
+    });
 
-      const totalsR = range.e.r + 1;
-      for (let c = range.s.c; c <= range.e.c; c++) {
-        const addr = XLSX.utils.encode_cell({ r: totalsR, c });
-        if (!ws[addr]) continue;
-        
-        const showBorder = true;
-        ws[addr].s = {
-          fill: { fgColor: { rgb: "00008A45" } },
-          font: { bold: true, color: { rgb: "FFFFFFFF" }, sz: 10, name: "Arial" },
-          alignment: { horizontal: c === 0 ? "left" : "right", vertical: "center" },
-          border: showBorder ? {
-            top:    { style: "double", color: { rgb: "00006B35" } },
-            bottom: { style: "double", color: { rgb: "00006B35" } },
-            left:   { style: "thin",   color: { rgb: "00006B35" } },
-            right:  { style: "thin",   color: { rgb: "00006B35" } },
-          } : {},
-        };
-      }
-    }
+    // ── Auto-width columns ───────────────────────────────────
+    ws.columns.forEach((col, i) => {
+      let maxLen = (headers[i] || "").length + 4;
+      data.forEach((row) => {
+        const val = String(row[headers[i]] ?? "");
+        if (val.length + 2 > maxLen) maxLen = val.length + 2;
+      });
+      col.width = Math.min(maxLen, 52);
+    });
 
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
-    XLSX.writeFile(wb, filename);
+    // ── Write file ───────────────────────────────────────────
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    saveAs(blob, filename);
     return { success: true };
   } catch (error) {
     console.error("Excel export error:", error);
@@ -245,33 +207,40 @@ export function exportToExcel(data, filename, sheetName = "Data") {
 }
 
 // ─────────────────────────────────────────────────────────────
-// CSV EXPORT  –  BOM + metadata header + clean quoting
+// CSV EXPORT  –  BOM, branded metadata header, clean quoting
 // ─────────────────────────────────────────────────────────────
-export function exportToCSV(data, filename, meta = {}) {
+export function exportToCSV(data, filename, { collegeName = "College of Computing and Information Sciences" } = {}) {
   try {
     if (!data || data.length === 0) throw new Error("No data to export");
 
-    const now      = new Date();
-    const dateStr  = now.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-    const timeStr  = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-    const headers  = Object.keys(data[0]);
+    const now     = new Date();
+    const dateStr = now.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+    const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    const headers = Object.keys(data[0]);
 
     const quote = (v) => {
       if (v === null || v === undefined) return '""';
       const s = String(v).replace(/"/g, '""');
-      return /[,"\n\r]/.test(s) ? `"${s}"` : `"${s}"`;
+      return `"${s}"`;
     };
 
+    const commas = headers.length > 1 ? ",".repeat(headers.length - 1) : "";
+
     const lines = [
-      // ── Minimal header info ──
-      `# Thesis Report | Generated: ${dateStr} ${timeStr} | Records: ${data.length}`,
+      `"Pamantasan ng Lungsod ng Pasig"${commas}`,
+      `"${collegeName}"${commas}`,
+      `"Thesis Archiving Module  //  ISAMS"${commas}`,
+      `""${commas}`,
+      `"${filename.replace(/\.csv$/i, "").replace(/_/g, " ").toUpperCase()}"${commas}`,
+      `"Date Generated: ${dateStr} ${timeStr}  ·  Total Records: ${data.length}"${commas}`,
+      `""${commas}`,
       // ── Column headers ──
       headers.map(quote).join(","),
       // ── Data rows ──
       ...data.map((row) => headers.map((h) => quote(row[h])).join(",")),
     ];
 
-    // UTF-8 BOM for Excel auto-detection
+    // UTF-8 BOM so Excel auto-detects encoding
     const blob = new Blob(["\uFEFF" + lines.join("\r\n")], {
       type: "text/csv;charset=utf-8;",
     });
@@ -284,143 +253,205 @@ export function exportToCSV(data, filename, meta = {}) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// PDF EXPORT  –  professional branded A4 layout
+// PDF EXPORT  –  branded A4 layout matching student-violations
 // ─────────────────────────────────────────────────────────────
-export function exportToPDF({ title, subtitle, filters, timestamp, data, columns }, filename) {
+export async function exportToPDF(
+  { title, subtitle, filters, timestamp, data, columns },
+  filename,
+  { logoUrl = null, collegeName = "College of Computing and Information Sciences" } = {}
+) {
   try {
-    const doc       = new jsPDF("p", "mm", "a4");
-    const PW        = doc.internal.pageSize.getWidth();   // 210
-    const PH        = doc.internal.pageSize.getHeight();  // 297
-    const ML        = 15;   // margin left
-    const MR        = 15;   // margin right
-    const CW        = PW - ML - MR;
-    let   Y         = 0;
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
-    // ── Helpers ──────────────────────────────────────────────
-    const rgb  = (arr) => ({ r: arr[0], g: arr[1], b: arr[2] });
-    const setFill   = (c) => doc.setFillColor(...c);
-    const setStroke = (c) => doc.setDrawColor(...c);
-    const setColor  = (c) => doc.setTextColor(...c);
-    const setFont   = (style, size) => { doc.setFont("helvetica", style); doc.setFontSize(size); };
+    const pageWidth  = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin     = 14;
+    const footerH    = 18;
+    const headerH1   = 62;   // first page header height
+    const headerHn   = 16;   // subsequent page compact header
 
-    // ─────────────────────────────────────────────────────────
-    // HEADER  –  minimal, clean
-    // ─────────────────────────────────────────────────────────
-
-    // Thin green top border — only decoration
-    setFill(BRAND.green);
-    doc.rect(0, 0, PW, 2, "F");
-
-    // Title — dark, large, left-aligned
-    setFont("bold", 20);
-    setColor(BRAND.gray900);
-    doc.text(title, ML, 18);
-
-    // Subtitle — muted green, smaller
-    if (subtitle) {
-      setFont("normal", 9);
-      setColor(BRAND.green);
-      doc.text(subtitle, ML, 26);
-    }
-
-    // Hairline divider
-    setStroke(BRAND.gray100);
-    doc.setLineWidth(0.4);
-    doc.line(ML, subtitle ? 31 : 23, PW - MR, subtitle ? 31 : 23);
-
-    Y = subtitle ? 38 : 30;
-
-    // ─────────────────────────────────────────────────────────
-    // META ROW  (Generated · Records · Status)
-    // ─────────────────────────────────────────────────────────
-    const META_H = 12;
-    setFill(BRAND.gray50);
-    setStroke(BRAND.gray100);
-    doc.setLineWidth(0.3);
-    doc.rect(ML, Y, CW, META_H, "FD");
-
-    const metaItems = [
-      { label: "Generated",     value: timestamp },
-      { label: "Total Records", value: String(data?.length ?? 0) },
-    ];
-    const colW = CW / metaItems.length;
-    metaItems.forEach(({ label, value, highlight }, i) => {
-      const x = ML + i * colW + 4;
-      setFont("bold", 6.5);
-      setColor(BRAND.gray500);
-      doc.text(label.toUpperCase(), x, Y + 4);
-      setFont("bold", 8);
-      setColor(highlight ? BRAND.green : BRAND.gray900);
-      doc.text(value, x, Y + 9.5);
+    const now = timestamp || new Date().toLocaleString(undefined, {
+      month: "short", day: "numeric", year: "numeric",
+      hour: "2-digit", minute: "2-digit",
     });
 
-    Y += META_H + 6;
+    // Load logos
+    const [plpBase64, ccsBase64] = await Promise.all([
+      imageUrlToBase64(plpLogo),
+      imageUrlToBase64(logoUrl || ccsLogo),
+    ]);
 
-    // ─────────────────────────────────────────────────────────
-    // FILTERS  (only if active)
-    // ─────────────────────────────────────────────────────────
-    const activeFilters = filters && Object.entries(filters)
-      .filter(([, v]) => v && v !== "All" && v !== "");
+    // ── HELPER: First-page header ────────────────────────────
+    const drawFirstPageHeader = () => {
+      // Green banner background
+      doc.setFillColor(...C.primary);
+      doc.rect(0, 0, pageWidth, 38, "F");
 
-    if (activeFilters && activeFilters.length > 0) {
-      // Section label
-      setFont("bold", 8);
-      setColor(BRAND.greenDark);
-      doc.text("APPLIED FILTERS", ML, Y);
-      Y += 5;
+      // White accent line at bottom of banner
+      doc.setFillColor(...C.white);
+      doc.rect(0, 38, pageWidth, 0.6, "F");
 
-      // Display filters as clean, simple list
-      setFont("normal", 7.5);
-      setColor(BRAND.gray700);
+      // Corner markers
+      doc.setDrawColor(...C.white);
+      doc.setLineWidth(0.6);
+      doc.line(margin - 2, 5, margin - 2, 12);
+      doc.line(margin - 2, 5, margin + 5, 5);
+      doc.line(pageWidth - margin + 2, 5, pageWidth - margin + 2, 12);
+      doc.line(pageWidth - margin + 2, 5, pageWidth - margin - 5, 5);
 
-      let filterY = Y;
+      // Logos
+      if (plpBase64) doc.addImage(plpBase64, "PNG", margin + 2, 9, 20, 20);
+      if (ccsBase64) doc.addImage(ccsBase64, "PNG", pageWidth - 22 - margin, 9, 20, 20);
+
+      // School name (white on green)
+      doc.setTextColor(...C.white);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("PAMANTASAN NG LUNGSOD NG PASIG", pageWidth / 2, 16, { align: "center" });
+
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(220, 235, 225);
+      doc.text(collegeName.toUpperCase(), pageWidth / 2, 22, { align: "center" });
+
+      doc.setFontSize(7);
+      doc.setTextColor(180, 220, 190);
+      doc.text("THESIS ARCHIVING MODULE  //  ISAMS", pageWidth / 2, 27.5, { align: "center" });
+
+      // Data strip
+      doc.setFontSize(6.5);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(170, 210, 180);
+      doc.text(`GENERATED: ${now}`, margin + 2, 34.5);
+      doc.text(`${data?.length ?? 0} RECORDS`, pageWidth - margin - 2, 34.5, { align: "right" });
+
+      // Report title (below banner)
+      doc.setTextColor(...C.primary);
+      doc.setFontSize(15);
+      doc.setFont("helvetica", "bold");
+      doc.text(title.toUpperCase(), margin, 48);
+
+      // Green accent under title
+      doc.setDrawColor(...C.accent);
+      doc.setLineWidth(0.4);
+      doc.line(margin, 51, margin + 50, 51);
+
+      // Subtitle on right
+      if (subtitle) {
+        doc.setFontSize(7.5);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...C.textMuted);
+        doc.text(subtitle, pageWidth - margin, 48, { align: "right" });
+      }
+    };
+
+    // ── HELPER: Compact header (pages 2+) ────────────────────
+    const drawSubPageHeader = () => {
+      doc.setFillColor(...C.primary);
+      doc.rect(0, 0, pageWidth, 11, "F");
+
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...C.white);
+      doc.text(`ISAMS  //  ${title.toUpperCase()}`, margin, 7);
+
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(180, 220, 190);
+      doc.text(`${now}`, pageWidth - margin, 7, { align: "right" });
+    };
+
+    // ── HELPER: Footer ───────────────────────────────────────
+    const drawFooter = (pageNumber, totalPages) => {
+      const fy = pageHeight - footerH;
+
+      doc.setFillColor(...C.accent);
+      doc.rect(margin, fy, pageWidth - margin * 2, 0.3, "F");
+
+      doc.setFontSize(5.5);
+      doc.setFont("helvetica", "italic");
+      doc.setTextColor(...C.midGray);
+      doc.text(
+        "Electronically generated  ·  No signature required for internal circulation",
+        margin, fy + 5
+      );
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6);
+      doc.setTextColor(...C.primary);
+      doc.text(
+        "PLP-ISAMS  //  THESIS ARCHIVING MODULE",
+        pageWidth / 2, fy + 5, { align: "center" }
+      );
+
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...C.textMuted);
+      doc.setFontSize(7);
+      doc.text(
+        `${String(pageNumber).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`,
+        pageWidth - margin, fy + 5, { align: "right" }
+      );
+
+      // Bottom bar
+      doc.setFillColor(...C.primary);
+      doc.rect(0, pageHeight - 2, pageWidth, 2, "F");
+    };
+
+    // ── Draw first page header ───────────────────────────────
+    drawFirstPageHeader();
+
+    // ── Optional active filters strip ───────────────────────
+    let startY = headerH1;
+
+    const activeFilters = filters
+      ? Object.entries(filters).filter(([, v]) => v && v !== "All" && v !== "")
+      : [];
+
+    if (activeFilters.length > 0) {
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...C.primaryLight);
+      doc.text("APPLIED FILTERS", margin, startY);
+      startY += 5;
+
       let filterCol = 0;
-      const colWidth = (CW - 10) / 2; // Two-column layout
+      const colW = (pageWidth - margin * 2 - 10) / 2;
+      let filterY = startY;
 
       activeFilters.forEach(([key, value]) => {
         const displayKey = key
           .replace(/([A-Z])/g, " $1")
           .replace(/^./, (s) => s.toUpperCase())
           .trim();
-
-        const displayValue = value.length > 25 ? value.substring(0, 22) + "…" : value;
+        const displayValue = String(value).length > 25 ? String(value).slice(0, 22) + "…" : String(value);
         const filterText = `${displayKey}: `;
+        const xPos = margin + filterCol * colW;
 
-        const xPos = ML + (filterCol * colWidth);
-
-        // Key in bold green
-        setColor(BRAND.greenDark);
-        setFont("bold", 7.5);
+        doc.setFontSize(7.5);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...C.primaryLight);
         doc.text(filterText, xPos, filterY);
 
-        // Value in regular gray
-        const keyWidth = doc.getTextWidth(filterText);
-        setColor(BRAND.gray700);
-        setFont("normal", 7.5);
-        doc.text(displayValue, xPos + keyWidth, filterY);
+        const kw = doc.getTextWidth(filterText);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...C.textMuted);
+        doc.text(displayValue, xPos + kw, filterY);
 
         filterCol++;
-        if (filterCol >= 2) {
-          filterCol = 0;
-          filterY += 4.5;
-        }
+        if (filterCol >= 2) { filterCol = 0; filterY += 4.5; }
       });
 
       if (filterCol !== 0) filterY += 4.5;
-      Y = filterY + 1;
+      startY = filterY + 2;
     }
 
     // Divider above table
-    setStroke(BRAND.gray300);
+    doc.setDrawColor(...C.lightGray);
     doc.setLineWidth(0.3);
-    doc.line(ML, Y, PW - MR, Y);
-    Y += 4;
+    doc.line(margin, startY, pageWidth - margin, startY);
+    startY += 3;
 
-    // ─────────────────────────────────────────────────────────
-    // DATA TABLE
-    // ─────────────────────────────────────────────────────────
+    // ── Data Table ───────────────────────────────────────────
     if (data && data.length > 0) {
-      // Truncate long cell values
       const tableData = data.map((row) =>
         columns.map((col, i) => {
           const v = Array.isArray(row) ? row[i] : row[col];
@@ -431,109 +462,61 @@ export function exportToPDF({ title, subtitle, filters, timestamp, data, columns
         })
       );
 
-      // Detect numeric columns for right-alignment
-      const numericCols = columns.reduce((acc, col, i) => {
-        const isNum = tableData.every((r) => r[i] === "" || /^[\d,.\-%]+$/.test(r[i]));
-        if (isNum) acc.push(i);
-        return acc;
-      }, []);
-
-      const colStyles = {};
-      numericCols.forEach((i) => {
-        colStyles[i] = { halign: "right", fontStyle: "bold" };
-      });
-
       autoTable(doc, {
-        startY: Y,
-        head: [columns],
+        head: [columns.map((c) => c.toUpperCase())],
         body: tableData,
-        margin: { top: 5, right: MR, bottom: 22, left: ML },
-
-        // ── Overall styles ───────────────────────────────────
+        startY: startY,
         styles: {
-          font:           "helvetica",
-          fontSize:       8,
-          cellPadding:    { top: 3.5, right: 4, bottom: 3.5, left: 4 },
-          overflow:       "linebreak",
-          halign:         "left",
-          valign:         "middle",
-          textColor:      BRAND.gray700,
-          lineColor:      BRAND.gray100,
-          lineWidth:      0.15,
-          minCellHeight:  7,
+          font: "helvetica",
+          fontSize: 7.5,
+          cellPadding: { top: 3, right: 4, bottom: 3, left: 4 },
+          textColor: C.textDark,
+          lineColor: C.lightGray,
+          lineWidth: 0.15,
+          overflow: "linebreak",
         },
-
-        // ── Header row ───────────────────────────────────────
         headStyles: {
-          fillColor:      BRAND.green,
-          textColor:      BRAND.white,
-          fontStyle:      "bold",
-          fontSize:       8.5,
-          halign:         "left",
-          valign:         "middle",
-          cellPadding:    { top: 4, right: 4, bottom: 4, left: 4 },
-          minCellHeight:  9,
-          lineColor:      BRAND.greenDark,
-          lineWidth:      0.3,
+          fillColor: C.primary,
+          textColor: C.white,
+          fontStyle: "bold",
+          fontSize: 7,
+          halign: "center",
+          valign: "middle",
+          cellPadding: { top: 4, right: 4, bottom: 4, left: 4 },
         },
-
-        // ── Alternating rows ─────────────────────────────────
         alternateRowStyles: {
-          fillColor: BRAND.gray50,
+          fillColor: C.offWhite,
         },
         bodyStyles: {
-          textColor:  BRAND.gray700,
-          lineColor:  BRAND.gray100,
-          lineWidth:  0.15,
+          textColor: C.textDark,
+          lineColor: C.lightGray,
+          lineWidth: 0.15,
         },
-
-        // ── Per-column styles ─────────────────────────────────
-        columnStyles: colStyles,
-
-        rowPageBreak: "avoid",
-
-
-        // ── Page header & footer ──────────────────────────────
+        margin: {
+          top: headerHn,
+          left: margin,
+          right: margin,
+          bottom: footerH + 4,
+        },
         didDrawPage: ({ pageNumber }) => {
-          const total = doc.getNumberOfPages();
-
-          // Minimal top border on continuation pages
-          if (pageNumber > 1) {
-            setFill(BRAND.green);
-            doc.rect(0, 0, PW, 2, "F");
-          }
-
-          // Footer
-          setFill(BRAND.gray50);
-          doc.rect(0, PH - 14, PW, 14, "F");
-          setStroke(BRAND.gray300);
-          doc.setLineWidth(0.25);
-          doc.line(ML, PH - 14, PW - MR, PH - 14);
-
-          setFont("normal", 7);
-          setColor(BRAND.gray500);
-          doc.text("College of Computing and Information Sciences", ML, PH - 7.5);
-
-          setFont("bold", 7);
-          setColor(BRAND.gray700);
-          doc.text(
-            `Page ${pageNumber} of ${total}`,
-            PW / 2,
-            PH - 7.5,
-            { align: "center" }
-          );
-
-          setFont("normal", 7);
-          setColor(BRAND.gray500);
-          const genText = `Generated ${timestamp}`;
-          doc.text(genText, PW - MR - doc.getTextWidth(genText), PH - 7.5);
+          if (pageNumber > 1) drawSubPageHeader();
         },
       });
     } else {
-      // Empty-state message
-      setFont("normal", 10);
-      setColor(BRAND.gray500);
-      doc.text("No records match the current filters.", PW / 2, Y + 20, { align: "center" });
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...C.midGray);
+      doc.text(
+        "No records match the current filters.",
+        pageWidth / 2, startY + 20, { align: "center" }
+      );
+    }
+
+    // ── Footers on all pages ─────────────────────────────────
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      drawFooter(i, totalPages);
     }
 
     doc.save(filename);
@@ -550,20 +533,23 @@ export function exportToPDF({ title, subtitle, filters, timestamp, data, columns
 export function generateFilename(reportType) {
   const date = new Date();
   const d    = date.toISOString().split("T")[0];
-  const t    = date.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" })
-                   .replace(/:/g, "-");
+  const t    = date
+    .toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" })
+    .replace(/:/g, "-");
   return `${reportType}_Report_${d}_${t}`;
 }
 
 export function formatDate(date) {
   if (!date) return "";
-  return new Date(date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+  return new Date(date).toLocaleDateString("en-US", {
+    year: "numeric", month: "short", day: "numeric",
+  });
 }
 
 export function getFilterSummary(filters) {
   const map = {
     dateFrom:         (v, f) => f.dateTo ? `${v} → ${f.dateTo}` : `From ${v}`,
-    dateTo:           (v, f) => f.dateFrom ? null : `Until ${v}`,   // handled above
+    dateTo:           (v, f) => f.dateFrom ? null : `Until ${v}`,
     year:             (v) => `Year: ${v}`,
     academicYear:     (v) => `SY: ${v}`,
     program:          (v) => `Program: ${v}`,
