@@ -33,7 +33,7 @@ const REPORT_COLUMNS_CONFIG = {
 };
 
 export default function AdminReportsPage() {
-  const { loading, error, reportData, settings: reportSettings, recentExports, options, generateReport, exportCSV, reExportReport } = useAdminReports();
+  const { loading, error, reportData, settings: reportSettings, recentExports, options, generateReport, exportCSV, reExportReport, loadExports, downloadingItemId } = useAdminReports();
   const { toast, addToast } = useToast();
   const { logoUrl } = useLogo();
   const { settings } = useSettings();
@@ -280,11 +280,14 @@ export default function AdminReportsPage() {
     }
   };
 
-  const handleExport = async () => {
-    if (!filteredData) return;
+  const handleExport = async (overrideData = null, overrideConfig = null) => {
+    const dataToUse = overrideData || filteredData;
+    const configToUse = overrideConfig || config;
+
+    if (!dataToUse || dataToUse.length === 0) return;
 
     const doc = new jsPDF({ orientation: 'landscape' });
-    const title = config.reportType.toUpperCase();
+    const title = configToUse.reportType.toUpperCase();
     const now = new Date().toLocaleString(undefined, {
       month: 'short', day: 'numeric', year: 'numeric',
       hour: '2-digit', minute: '2-digit'
@@ -346,7 +349,7 @@ export default function AdminReportsPage() {
       doc.setFontSize(6.5);
       doc.setTextColor(...C.midGray);
       doc.text(`GENERATED: ${now}`, margin + 2, 34.5);
-      doc.text(`${filteredData.length} RECORDS`, pageWidth - margin - 2, 34.5, { align: 'right' });
+      doc.text(`${dataToUse.length} RECORDS`, pageWidth - margin - 2, 34.5, { align: 'right' });
 
       doc.setTextColor(...C.primary);
       doc.setFontSize(15);
@@ -399,9 +402,9 @@ export default function AdminReportsPage() {
 
     drawFirstPageHeader();
 
-    const headers = Object.keys(filteredData[0] || {}).map(k => k.toUpperCase());
-    const fields = Object.keys(filteredData[0] || {});
-    const rows = filteredData.map(row => fields.map(f => {
+    const headers = Object.keys(dataToUse[0] || {}).map(k => k.toUpperCase());
+    const fields = Object.keys(dataToUse[0] || {});
+    const rows = dataToUse.map(row => fields.map(f => {
       const val = row[f];
       if (val === null || val === undefined) return '';
       if (typeof val === 'string' && val.includes('%')) return val;
@@ -439,14 +442,74 @@ export default function AdminReportsPage() {
       drawFooter(i, totalPages);
     }
 
-    const fileName = `${config.reportType.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`;
+    const fileName = `${configToUse.reportType.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`;
     doc.save(fileName);
 
-    // Log the export (without triggering CSV download)
-    reportService.logExport(config.reportType, 'PDF', config.semester, config.academicYear);
+    // Only log the export if it's a new generation (not a history download)
+    if (!overrideData) {
+      await reportService.logExport(configToUse.reportType, 'PDF', configToUse.semester, configToUse.academicYear);
+      // Refresh recent exports list now that the log entry is committed
+      loadExports();
+    }
 
-    if (addToast) {
+    if (addToast && !overrideData) {
       addToast({ title: 'Export Success', description: 'Your PDF report has been downloaded successfully.', variant: 'success' });
+    }
+  };
+
+  const handleHistoryDownload = async (exp) => {
+    const isPDF = exp.report_type === 'PDF';
+    const data = await reExportReport(exp);
+    if (!data || !data.data_preview) return;
+
+    if (isPDF) {
+      const targetConfig = exp.export_config || {
+        include_faculty_names: true, include_course_info: true, include_submission_dates: true,
+        include_validation_details: true, include_status_indicators: true, include_performance_stats: true,
+        reportType: exp.report_name, semester: exp.semester, academicYear: exp.academic_year
+      };
+
+      const historyFilteredData = data.data_preview.map(row => {
+        const newRow = {};
+        if (targetConfig.include_faculty_names && row.faculty_name) newRow['Faculty Name'] = row.faculty_name;
+        if (targetConfig.include_course_info) {
+          if (row.original_filename) newRow['Filename'] = row.original_filename;
+          const docType = row.document_type || row.type_name;
+          if (docType) newRow['Document Type'] = docType;
+        }
+        if (targetConfig.include_submission_dates) {
+          if (row.submitted_at) newRow['Submitted Date'] = new Date(row.submitted_at).toLocaleDateString('en-US');
+          if (row.deadline_date) newRow['Deadline'] = new Date(row.deadline_date).toLocaleDateString('en-US');
+        }
+        if (targetConfig.include_validation_details) {
+          if (row.validation_issues && row.validation_issues.length > 0) newRow['Validation Issues'] = row.validation_issues.join(', ');
+          if (row.bot_issues) newRow['AI Analysis'] = row.bot_issues;
+        }
+        if (targetConfig.include_status_indicators) {
+          if (row.submission_status) {
+            const isCompleted = ['SUBMITTED', 'RESUBMITTED', 'APPROVED', 'VALIDATED'].includes(row.submission_status.toUpperCase());
+            newRow['Status'] = (row.is_submitted_late && isCompleted) ? 'LATE' : row.submission_status;
+          }
+          if (row.status) newRow['Clearance'] = row.status;
+        }
+        if (targetConfig.include_performance_stats) {
+          if (row.items_submitted !== undefined) newRow['Items Submitted'] = row.items_submitted;
+          if (row.completion) newRow['Progress'] = row.completion;
+          if (row.progress_percentage) newRow['Progress'] = row.progress_percentage;
+        }
+        return newRow;
+      });
+
+      await handleExport(historyFilteredData, targetConfig);
+      
+      if (addToast) {
+        addToast({ title: 'Export Success', description: `Re-exported ${exp.report_name} as PDF.`, variant: 'success' });
+      }
+    } else {
+      exportCSV(data);
+      if (addToast) {
+        addToast({ title: 'Export Success', description: `Re-exported ${exp.report_name} as CSV.`, variant: 'success' });
+      }
     }
   };
 
@@ -459,13 +522,13 @@ export default function AdminReportsPage() {
         <p className="text-neutral-500 text-sm font-medium">Generate and analyze faculty submission data</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0 items-start">
 
         {/* LEFT COLUMN: Generator & Preview (Span 2) */}
         <div className="lg:col-span-2 flex flex-col gap-6 min-h-0">
 
           {/* 1. Generate Report Configuration */}
-          <Card className="bg-white border-neutral-200 shadow-sm overflow-hidden h-full flex flex-col">
+          <Card className="bg-white border-neutral-200 shadow-sm overflow-hidden">
             <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-3.5 px-4">
               <CardTitle className="text-base font-bold text-neutral-900 flex items-center gap-2">
                 <Settings className="h-4 w-4 text-primary-600" />
@@ -594,7 +657,7 @@ export default function AdminReportsPage() {
                   {loading ? 'Generating...' : 'Preview Report'}
                 </Button>
                 <Button
-                  onClick={handleExport}
+                  onClick={() => handleExport()}
                   disabled={!reportData || !filteredData || filteredData.length === 0 || loading}
                   className="h-9 px-4 bg-primary-600 hover:bg-primary-700 text-white shadow-sm text-xs font-bold transition-all active:scale-95"
                 >
@@ -610,23 +673,23 @@ export default function AdminReportsPage() {
         <div className="flex flex-col gap-6">
 
           {/* Recent Exports Widget */}
-          <Card className="bg-white border-neutral-200 shadow-sm overflow-hidden h-full flex flex-col">
-            <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-3.5 px-4">
+          <Card className="bg-white border-neutral-200 shadow-sm max-h-[330px] overflow-hidden flex flex-col">
+            <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-3.5 px-4 shrink-0">
               <CardTitle className="text-base font-bold text-neutral-900 flex items-center gap-2">
                 <History className="h-4 w-4 text-primary-600" /> Recent Exports
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-0 bg-white flex-1 flex flex-col min-h-0">
-              <div className="flex-1 overflow-y-auto min-h-0 divide-y divide-neutral-100 gsds-scrollbar">
+            <CardContent className="p-0 bg-white">
+              <div className="divide-y divide-neutral-100">
                 {recentExports && recentExports.length > 0 ? (
-                  recentExports.map((exp, idx) => (
+                  recentExports.slice(0, 4).map((exp, idx) => (
                     <RecentExportItem
                       key={idx}
                       name={exp.report_name}
                       date={new Date(exp.generated_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                       type={exp.report_type}
-                      onDownload={() => reExportReport(exp)}
-                      loading={loading}
+                      onDownload={() => handleHistoryDownload(exp)}
+                      loading={downloadingItemId === exp.history_id}
                     />
                   ))
                 ) : (
@@ -711,7 +774,7 @@ const CheckboxItem = ({ label, checked, onChange }) => (
 );
 
 const RecentExportItem = ({ name, date, type, onDownload, loading }) => (
-  <div className="flex items-center justify-between p-4 hover:bg-neutral-50 transition-colors group cursor-pointer" onClick={onDownload}>
+  <div className="flex items-center justify-between p-4 hover:bg-neutral-50 transition-colors group cursor-pointer" onClick={!loading ? onDownload : undefined}>
     <div className="flex items-center gap-3">
       <div className={`p-2 rounded-md bg-white border border-neutral-200 shadow-sm ${type === 'PDF' ? 'text-rose-500' : 'text-emerald-500'}`}>
         <File className="h-4 w-4" />
@@ -725,13 +788,19 @@ const RecentExportItem = ({ name, date, type, onDownload, loading }) => (
       variant="ghost"
       size="icon"
       disabled={loading}
-      className="h-7 w-7 text-neutral-400 hover:text-primary-600 hover:bg-primary-50 opacity-0 group-hover:opacity-100 transition-all shrink-0"
+      className={`h-7 w-7 transition-all shrink-0 ${
+        loading
+          ? 'text-primary-600 bg-primary-50 opacity-100'
+          : 'text-neutral-400 hover:text-primary-600 hover:bg-primary-50 opacity-0 group-hover:opacity-100'
+      }`}
       onClick={(e) => {
         e.stopPropagation();
-        onDownload();
+        if (!loading) onDownload();
       }}
     >
-      <Download className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+      {loading
+        ? <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+        : <Download className="h-3.5 w-3.5" />}
     </Button>
   </div>
 );
