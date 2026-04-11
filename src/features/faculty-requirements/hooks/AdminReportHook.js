@@ -6,6 +6,7 @@ export function useAdminReports() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [reportData, setReportData] = useState(null);
+  const [downloadingItemId, setDownloadingItemId] = useState(null);
 
   const [recentExports, setRecentExports] = useState([]);
   const [options, setOptions] = useState({ semesters: [], academic_years: [] });
@@ -87,6 +88,7 @@ export function useAdminReports() {
 
   const reExportReport = async (exportRecord) => {
     setLoading(true);
+    setDownloadingItemId(exportRecord.history_id);
     try {
       const config = {
         reportType: exportRecord.report_name, // Based on logExport call in exportCSV
@@ -95,10 +97,7 @@ export function useAdminReports() {
       };
       const data = await reportService.generateReport(config);
       if (data) {
-        reportService.exportCSV(data);
-        if (addToast) {
-          addToast({ title: "Download Success", description: `Re-exported ${exportRecord.report_name}`, variant: "success" });
-        }
+        return data;
       }
     } catch (err) {
       console.error('Re-export failed:', err);
@@ -107,6 +106,7 @@ export function useAdminReports() {
       }
     } finally {
       setLoading(false);
+      setDownloadingItemId(null);
     }
   };
 
@@ -140,6 +140,8 @@ export function useAdminReports() {
     options,
     generateReport,
     exportCSV,
-    reExportReport
+    reExportReport,
+    loadExports,
+    downloadingItemId
   };
 }

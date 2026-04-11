@@ -441,7 +441,8 @@ export function useAdminSettings() {
       setDocRequirements(docs.map(d => ({
         id: d.doc_type_id,
         name: d.type_name,
-        folder: d.description || 'General',
+        folder: d.gdrive_folder_name || 'General',
+        description: d.description || '',
         is_active: d.is_active,
         required: d.required_by_default
       })));

@@ -2,6 +2,10 @@ import React, { useState, useMemo, useEffect } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useNavigate } from 'react-router-dom';
+import { useLogo } from '../../settings/hooks/useLogo';
+import { useSettings } from '../../settings/hooks/useSettings';
+import plpLogo from '@/assets/images/plp_logo.png';
+import ccsLogo from '@/assets/images/ccs_logo.png';
 import {
   Eye, Mail, Bell, FileSpreadsheet, Search,
   RefreshCw, AlertCircle, CheckCircle, GraduationCap, X,
@@ -38,9 +42,27 @@ const MonitorToastHandler = ({ success, error }) => {
   return null;
 };
 
+const imageUrlToBase64 = async (url) => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error('Error converting image to base64:', error);
+    return null;
+  }
+};
+
 export default function AdminFacultyMonitorPage() {
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const { logoUrl } = useLogo();
+  const { settings } = useSettings();
   const {
     loading, error, success,
     facultyList, options, filters, setFilters,
@@ -167,8 +189,6 @@ export default function AdminFacultyMonitorPage() {
     {
       headerName: "Faculty",
       field: "last_name",
-      sort: 'asc',
-      sortIndex: 1,
       flex: 2,
       minWidth: 240,
       cellRenderer: (p) => {
@@ -222,8 +242,6 @@ export default function AdminFacultyMonitorPage() {
     {
       headerName: "Progress",
       field: "overall_progress",
-      sort: 'desc',
-      sortIndex: 0,
       flex: 1.8,  // Slightly wider to fit all info
       minWidth: 190,
       cellRenderer: (p) => {
@@ -301,15 +319,138 @@ export default function AdminFacultyMonitorPage() {
   ], [navigate]);
 
   // Export PDF
-  const handleExportPDF = () => {
-    const doc = new jsPDF();
-    doc.setFontSize(22);
-    doc.setTextColor(0, 138, 69);
-    doc.text('Faculty Monitoring Report', 14, 25);
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text('Institutional Submission & Monitoring System (ISAMS)', 14, 32);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 37);
+  const handleExportPDF = async () => {
+    const doc = new jsPDF({ orientation: 'landscape' });
+    const title = 'FACULTY MONITORING REPORT';
+    const now = new Date().toLocaleString(undefined, {
+      month: 'short', day: 'numeric', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+
+    const [plpBase64, ccsBase64] = await Promise.all([
+      imageUrlToBase64(plpLogo),
+      imageUrlToBase64(logoUrl || ccsLogo)
+    ]);
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 14;
+    const footerHeight = 18;
+    const headerHeightFirstPage = 62;
+    const headerHeightSubPages = 16;
+
+    const C = {
+      primary:     [17, 58, 26],
+      accent:      [34, 130, 68],
+      white:       [255, 255, 255],
+      offWhite:    [245, 249, 246],
+      lightGray:   [230, 232, 230],
+      midGray:     [150, 155, 152],
+      textDark:    [35, 40, 38],
+      textMuted:   [110, 118, 114],
+    };
+
+    const drawFirstPageHeader = () => {
+      // White background banner
+      doc.setFillColor(...C.white);
+      doc.rect(0, 0, pageWidth, 38, 'F');
+
+      // Bottom border line instead of solid green banner
+      doc.setFillColor(...C.primary);
+      doc.rect(0, 38, pageWidth, 0.8, 'F');
+
+      // Corner markers (dark on white)
+      doc.setDrawColor(...C.primary);
+      doc.setLineWidth(0.6);
+      doc.line(margin - 2, 5, margin - 2, 12);
+      doc.line(margin - 2, 5, margin + 5, 5);
+      doc.line(pageWidth - margin + 2, 5, pageWidth - margin + 2, 12);
+      doc.line(pageWidth - margin + 2, 5, pageWidth - margin - 5, 5);
+
+      // Logos
+      if (plpBase64) doc.addImage(plpBase64, 'PNG', margin + 2, 9, 20, 20);
+      if (ccsBase64) doc.addImage(ccsBase64, 'PNG', pageWidth - 22 - margin, 9, 20, 20);
+
+      // Institution text (dark on white)
+      doc.setTextColor(...C.primary);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text('PAMANTASAN NG LUNGSOD NG PASIG', pageWidth / 2, 16, { align: 'center' });
+
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...C.textMuted);
+      doc.text((settings?.college_name || 'COLLEGE OF COMPUTER STUDIES').toUpperCase(), pageWidth / 2, 22, { align: 'center' });
+
+      doc.setFontSize(7);
+      doc.setTextColor(...C.midGray);
+      doc.text('FACULTY REQUIREMENT MONITORING SYSTEM  //  ISAMS', pageWidth / 2, 27.5, { align: 'center' });
+
+      doc.setFontSize(6.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...C.midGray);
+      doc.text(`GENERATED: ${now}`, margin + 2, 34.5);
+      doc.text(`${facultyList.length} RECORDS`, pageWidth - margin - 2, 34.5, { align: 'right' });
+
+      // Report title area
+      doc.setTextColor(...C.primary);
+      doc.setFontSize(15);
+      doc.setFont('helvetica', 'bold');
+      doc.text(title, margin, 48);
+
+      doc.setDrawColor(...C.accent);
+      doc.setLineWidth(0.4);
+      doc.line(margin, 51, margin + 60, 51);
+
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...C.textMuted);
+      doc.text(now, pageWidth - margin, 48, { align: 'right' });
+    };
+
+    const drawSubPageHeader = () => {
+      doc.setFillColor(...C.white);
+      doc.rect(0, 0, pageWidth, 11, 'F');
+      doc.setFillColor(...C.primary);
+      doc.rect(0, 11, pageWidth, 0.5, 'F');
+
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...C.primary);
+      doc.text(`ISAMS  //  ${title}`, margin, 7);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...C.textMuted);
+      doc.text(now, pageWidth - margin, 7, { align: 'right' });
+    };
+
+    const drawFooter = (pageNumber, totalPages) => {
+      const footerY = pageHeight - footerHeight;
+
+      doc.setFillColor(...C.accent);
+      doc.rect(margin, footerY, pageWidth - margin * 2, 0.3, 'F');
+
+      doc.setFontSize(5.5);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(...C.midGray);
+      doc.text('Electronically generated  ·  No signature required for internal circulation', margin, footerY + 5);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6);
+      doc.setTextColor(...C.primary);
+      doc.text('PLP-ISAMS  //  FACULTY REQUIREMENT MONITORING SYSTEM', pageWidth / 2, footerY + 5, { align: 'center' });
+
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...C.textMuted);
+      doc.setFontSize(7);
+      doc.text(`${String(pageNumber).padStart(2, '0')} / ${String(totalPages).padStart(2, '0')}`, pageWidth - margin, footerY + 5, { align: 'right' });
+
+      doc.setFillColor(...C.primary);
+      doc.rect(0, pageHeight - 2, pageWidth, 2, 'F');
+    };
+
+    drawFirstPageHeader();
+
     const tableData = facultyList.map(f => [
       `${f.first_name} ${f.last_name}`,
       f.status,
@@ -319,15 +460,42 @@ export default function AdminFacultyMonitorPage() {
       f.late_submissions,
       f.courses?.map(c => c.course_code).join(', ') || 'N/A'
     ]);
+
     autoTable(doc, {
-      head: [['Faculty Name', 'Status', 'Progress', 'Submitted', 'Pending', 'Late', 'Courses']],
+      head: [['FACULTY NAME', 'STATUS', 'PROGRESS', 'SUBMITTED', 'PENDING', 'LATE', 'COURSES']],
       body: tableData,
-      startY: 45,
-      theme: 'grid',
-      styles: { fontSize: 8, cellPadding: 3 },
-      headStyles: { fillColor: [0, 138, 69], textColor: [255, 255, 255], fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [245, 248, 245] }
+      startY: headerHeightFirstPage,
+      styles: {
+        fontSize: 7.5,
+        cellPadding: { top: 3, right: 4, bottom: 3, left: 4 },
+        font: 'helvetica',
+        textColor: C.textDark,
+        lineColor: C.lightGray,
+        lineWidth: 0.15,
+        overflow: 'linebreak'
+      },
+      headStyles: {
+        fillColor: C.primary,
+        textColor: C.white,
+        fontStyle: 'bold',
+        fontSize: 7,
+        halign: 'center',
+        valign: 'middle',
+        cellPadding: { top: 4, right: 4, bottom: 4, left: 4 }
+      },
+      alternateRowStyles: { fillColor: C.offWhite },
+      margin: { top: headerHeightSubPages, left: margin, right: margin, bottom: footerHeight + 4 },
+      didDrawPage: (data) => {
+        if (data.pageNumber > 1) drawSubPageHeader();
+      }
     });
+
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      drawFooter(i, totalPages);
+    }
+
     doc.save(`Faculty_Monitoring_${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
@@ -485,12 +653,8 @@ export default function AdminFacultyMonitorPage() {
             <CardTitle className="text-base font-bold text-neutral-900 flex items-center gap-2">
               <GraduationCap className="h-4 w-4 text-primary-600" />
               Faculty Roster
-              <Badge className="bg-primary-50 text-primary-600 border-primary-100 text-[10px] font-black px-2 py-0 ml-1">{facultyList.length}</Badge>
             </CardTitle>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={exportCSV} className="h-8 bg-white text-xs font-bold px-3 border-neutral-200 text-neutral-600 shadow-sm hover:bg-neutral-50">
-                <FileSpreadsheet className="h-3.5 w-3.5 mr-1.5 text-success" /> Excel
-              </Button>
               <Button variant="outline" size="sm" onClick={handleExportPDF} className="h-8 bg-white text-xs font-bold px-3 border-neutral-200 text-neutral-600 shadow-sm hover:bg-neutral-50">
                 <FileText className="h-3.5 w-3.5 mr-1.5 text-destructive" /> PDF
               </Button>

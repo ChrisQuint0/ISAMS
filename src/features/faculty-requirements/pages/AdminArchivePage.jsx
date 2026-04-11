@@ -98,6 +98,16 @@ export default function AdminArchivePage() {
   }, [options, filters.academic_year]);
 
   const [downloading, setDownloading] = useState(false);
+  const [downloadingItemId, setDownloadingItemId] = useState(null);
+
+  const handleReExport = async (item) => {
+    setDownloadingItemId(item.history_id);
+    try {
+      await reExportArchive(item);
+    } finally {
+      setDownloadingItemId(null);
+    }
+  };
 
   const handleBulkExport = async () => {
     setDownloading(true);
@@ -233,10 +243,10 @@ export default function AdminArchivePage() {
           variant="outline"
           size="sm"
           onClick={refresh}
-          disabled={loading}
+          disabled={loading && !downloadingItemId}
           className="bg-primary-500 border-primary-500 text-neutral-50 hover:bg-primary-600 hover:text-neutral-50 shadow-sm"
         >
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-4 w-4 mr-2 ${loading && !downloadingItemId ? 'animate-spin' : ''}`} />
           Refresh Archive
         </Button>
       </div>
@@ -371,7 +381,7 @@ export default function AdminArchivePage() {
                   columnDefs={colDefs}
                   pagination={true}
                   paginationPageSize={20}
-                  loading={loading}
+                  loading={loading && !downloadingItemId}
                   suppressCellFocus={true}
                   overlayNoRowsTemplate='<div class="text-[10px] font-black uppercase tracking-widest text-neutral-400 p-8 text-center">No documents found.</div>'
                 />
@@ -538,7 +548,7 @@ export default function AdminArchivePage() {
           </Card>
 
           {/* 5. Recent Downloads List */}
-          <Card className="bg-white border-neutral-200 shadow-sm flex-1 overflow-hidden">
+          <Card className="bg-white border-neutral-200 shadow-sm overflow-hidden">
             <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-3.5 px-4">
               <CardTitle className="text-base text-neutral-900 font-bold tracking-tight flex items-center gap-2">
                 <History className="h-4 w-4 text-primary-600" />
@@ -548,14 +558,14 @@ export default function AdminArchivePage() {
             <CardContent className="p-0 bg-white">
               <div className="divide-y divide-neutral-100">
                 {recentDownloads && recentDownloads.length > 0 ? (
-                  recentDownloads.map((item) => (
+                  recentDownloads.slice(0, 5).map((item) => (
                     <RecentExportItem
                       key={item.history_id}
                       name={item.report_name}
                       date={new Date(item.generated_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                       type={item.report_type}
-                      onDownload={() => reExportArchive(item)}
-                      loading={downloading}
+                      onDownload={() => handleReExport(item)}
+                      loading={downloadingItemId === item.history_id}
                     />
                   ))
                 ) : (
@@ -596,7 +606,7 @@ const CheckboxItem = ({ label, checked, onChange }) => (
 );
 
 const RecentExportItem = ({ name, date, type, onDownload, loading }) => (
-  <div className="flex items-center justify-between p-4 hover:bg-neutral-50 transition-colors group cursor-pointer" onClick={onDownload}>
+  <div className="flex items-center justify-between p-4 hover:bg-neutral-50 transition-colors group cursor-pointer" onClick={!loading ? onDownload : undefined}>
     <div className="flex items-center gap-3">
       <div className={`p-2 rounded-md bg-white border border-neutral-200 shadow-sm ${type === 'PDF' ? 'text-rose-500' : 'text-emerald-500'}`}>
         <FileArchive className="h-4 w-4" />
@@ -610,13 +620,19 @@ const RecentExportItem = ({ name, date, type, onDownload, loading }) => (
       variant="ghost"
       size="icon"
       disabled={loading}
-      className="h-7 w-7 text-neutral-400 hover:text-primary-600 hover:bg-primary-50 opacity-0 group-hover:opacity-100 transition-all shrink-0"
+      className={`h-7 w-7 transition-all shrink-0 ${
+        loading
+          ? 'text-primary-600 bg-primary-50 opacity-100'
+          : 'text-neutral-400 hover:text-primary-600 hover:bg-primary-50 opacity-0 group-hover:opacity-100'
+      }`}
       onClick={(e) => {
         e.stopPropagation();
-        onDownload();
+        if (!loading) onDownload();
       }}
     >
-      <Download className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+      {loading
+        ? <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+        : <Download className="h-3.5 w-3.5" />}
     </Button>
   </div>
 );

@@ -2,6 +2,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useLogo } from '../../settings/hooks/useLogo';
+import { useSettings } from '../../settings/hooks/useSettings';
+import plpLogo from '@/assets/images/plp_logo.png';
+import ccsLogo from '@/assets/images/ccs_logo.png';
 import {
     ChevronLeft, Mail, Bell, RefreshCw, CheckCircle, AlertCircle,
     FileText, Download, User as UserIcon, BookOpen, Clock, AlertTriangle,
@@ -45,6 +49,8 @@ export default function AdminFacultyDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
     const { addToast } = useToast();
+    const { logoUrl } = useLogo();
+    const { settings } = useSettings();
 
     const [loading, setLoading] = useState(true);
     const [faculty, setFaculty] = useState(null);
@@ -190,28 +196,138 @@ export default function AdminFacultyDetailPage() {
 
     const isFullyCleared = stats.progress === 100;
 
-    const handleExportExecutiveReport = () => {
-        const doc = new jsPDF();
-        doc.setFontSize(22);
-        doc.setTextColor(0, 138, 69);
-        doc.text('Faculty Executive Summary', 14, 25);
-
-        doc.setFontSize(10);
-        doc.setTextColor(100);
-        doc.text(`Institutional Submission & Monitoring System (ISAMS)`, 14, 32);
-        doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 37);
-
-        doc.setFontSize(12);
-        doc.setTextColor(0);
-        doc.setFont(undefined, 'bold');
-        doc.text(`Faculty: ${faculty?.first_name} ${faculty?.last_name}`, 14, 48);
-        doc.setFont(undefined, 'normal');
-        doc.setFontSize(10);
-        if (faculty?.emp_id) {
-            doc.text(`ID: ${faculty.emp_id}`, 14, 54);
+    const imageUrlToBase64 = async (url) => {
+        try {
+            const response = await fetch(url);
+            const blob = await response.blob();
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        } catch (error) {
+            console.error('Error converting image to base64:', error);
+            return null;
         }
-        doc.text(`Status: ${isFullyCleared ? 'CLEARED' : 'PENDING'}`, 14, 59);
-        doc.text(`Overall Progress: ${stats.progress}%`, 14, 64);
+    };
+
+    const buildBrandedPDF = async (orientation = 'portrait') => {
+        const doc = new jsPDF({ orientation });
+        const now = new Date().toLocaleString(undefined, {
+            month: 'short', day: 'numeric', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+        });
+        const [plpBase64, ccsBase64] = await Promise.all([
+            imageUrlToBase64(plpLogo),
+            imageUrlToBase64(logoUrl || ccsLogo)
+        ]);
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 14;
+        const footerHeight = 18;
+
+        const C = {
+            primary: [17, 58, 26],
+            accent: [34, 130, 68],
+            white: [255, 255, 255],
+            offWhite: [245, 249, 246],
+            lightGray: [230, 232, 230],
+            midGray: [150, 155, 152],
+            textDark: [35, 40, 38],
+            textMuted: [110, 118, 114],
+        };
+
+        const drawFirstPageHeader = (title, recordCount) => {
+            doc.setFillColor(...C.white);
+            doc.rect(0, 0, pageWidth, 38, 'F');
+            doc.setFillColor(...C.primary);
+            doc.rect(0, 38, pageWidth, 0.8, 'F');
+
+            doc.setDrawColor(...C.primary);
+            doc.setLineWidth(0.6);
+            doc.line(margin - 2, 5, margin - 2, 12);
+            doc.line(margin - 2, 5, margin + 5, 5);
+            doc.line(pageWidth - margin + 2, 5, pageWidth - margin + 2, 12);
+            doc.line(pageWidth - margin + 2, 5, pageWidth - margin - 5, 5);
+
+            if (plpBase64) doc.addImage(plpBase64, 'PNG', margin + 2, 9, 20, 20);
+            if (ccsBase64) doc.addImage(ccsBase64, 'PNG', pageWidth - 22 - margin, 9, 20, 20);
+
+            doc.setTextColor(...C.primary);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(12);
+            doc.text('PAMANTASAN NG LUNGSOD NG PASIG', pageWidth / 2, 16, { align: 'center' });
+
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(...C.textMuted);
+            doc.text((settings?.college_name || 'COLLEGE OF COMPUTER STUDIES').toUpperCase(), pageWidth / 2, 22, { align: 'center' });
+
+            doc.setFontSize(7);
+            doc.setTextColor(...C.midGray);
+            doc.text('FACULTY REQUIREMENT MONITORING SYSTEM  //  ISAMS', pageWidth / 2, 27.5, { align: 'center' });
+
+            doc.setFontSize(6.5);
+            doc.setTextColor(...C.midGray);
+            doc.text(`GENERATED: ${now}`, margin + 2, 34.5);
+            if (recordCount != null) doc.text(`${recordCount} RECORDS`, pageWidth - margin - 2, 34.5, { align: 'right' });
+
+            doc.setTextColor(...C.primary);
+            doc.setFontSize(15);
+            doc.setFont('helvetica', 'bold');
+            doc.text(title.toUpperCase(), margin, 48);
+
+            doc.setDrawColor(...C.accent);
+            doc.setLineWidth(0.4);
+            doc.line(margin, 51, margin + 60, 51);
+
+            doc.setFontSize(7.5);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(...C.textMuted);
+            doc.text(now, pageWidth - margin, 48, { align: 'right' });
+        };
+
+        const drawSubPageHeader = (title) => {
+            doc.setFillColor(...C.white);
+            doc.rect(0, 0, pageWidth, 11, 'F');
+            doc.setFillColor(...C.primary);
+            doc.rect(0, 11, pageWidth, 0.5, 'F');
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...C.primary);
+            doc.text(`ISAMS  //  ${title.toUpperCase()}`, margin, 7);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(...C.textMuted);
+            doc.text(now, pageWidth - margin, 7, { align: 'right' });
+        };
+
+        const drawFooter = (pageNumber, totalPages, label) => {
+            const footerY = pageHeight - footerHeight;
+            doc.setFillColor(...C.accent);
+            doc.rect(margin, footerY, pageWidth - margin * 2, 0.3, 'F');
+            doc.setFontSize(5.5);
+            doc.setFont('helvetica', 'italic');
+            doc.setTextColor(...C.midGray);
+            doc.text('Electronically generated  ·  No signature required for internal circulation', margin, footerY + 5);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(6);
+            doc.setTextColor(...C.primary);
+            doc.text(`PLP-ISAMS  //  ${label}`, pageWidth / 2, footerY + 5, { align: 'center' });
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...C.textMuted);
+            doc.setFontSize(7);
+            doc.text(`${String(pageNumber).padStart(2, '0')} / ${String(totalPages).padStart(2, '0')}`, pageWidth - margin, footerY + 5, { align: 'right' });
+            doc.setFillColor(...C.primary);
+            doc.rect(0, pageHeight - 2, pageWidth, 2, 'F');
+        };
+
+        return { doc, now, pageWidth, pageHeight, margin, footerHeight, C, drawFirstPageHeader, drawSubPageHeader, drawFooter };
+    };
+
+    const handleExportExecutiveReport = async () => {
+        const reportTitle = 'Faculty Executive Summary';
+        const { doc, margin, footerHeight, C, drawFirstPageHeader, drawSubPageHeader, drawFooter } = await buildBrandedPDF('landscape');
 
         const tableData = courses.map(c => [
             c.course_code,
@@ -221,65 +337,119 @@ export default function AdminFacultyDetailPage() {
             c.submitted_count === c.total_required ? 'Complete' : 'Pending'
         ]);
 
-        autoTable(doc, {
-            head: [['Code', 'Sec', 'Course Name', 'Submissions', 'Status']],
+        drawFirstPageHeader(reportTitle, tableData.length);
+
+        // Faculty info block
+        const doc2 = doc;
+        doc2.setFontSize(10);
+        doc2.setFont('helvetica', 'bold');
+        doc2.setTextColor(...C.textDark);
+        doc2.text(`Faculty: ${faculty?.first_name} ${faculty?.last_name}`, margin, 56);
+        doc2.setFont('helvetica', 'normal');
+        doc2.setFontSize(8);
+        doc2.setTextColor(...C.textMuted);
+        if (faculty?.emp_id) doc2.text(`ID: ${faculty.emp_id}  |  Status: ${isFullyCleared ? 'CLEARED' : 'PENDING'}  |  Progress: ${stats.progress}%`, margin, 60);
+
+        autoTable(doc2, {
+            head: [['CODE', 'SEC', 'COURSE NAME', 'SUBMISSIONS', 'STATUS']],
             body: tableData,
-            startY: 72,
-            theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 3 },
-            headStyles: { fillColor: [0, 138, 69], textColor: [255, 255, 255], fontStyle: 'bold' },
-            alternateRowStyles: { fillColor: [245, 248, 245] }
+            startY: 65,
+            styles: {
+                fontSize: 7.5,
+                cellPadding: { top: 3, right: 4, bottom: 3, left: 4 },
+                font: 'helvetica',
+                textColor: C.textDark,
+                lineColor: C.lightGray,
+                lineWidth: 0.15,
+                overflow: 'linebreak'
+            },
+            headStyles: {
+                fillColor: C.primary, textColor: C.white, fontStyle: 'bold',
+                fontSize: 7, halign: 'center', valign: 'middle',
+                cellPadding: { top: 4, right: 4, bottom: 4, left: 4 }
+            },
+            alternateRowStyles: { fillColor: C.offWhite },
+            margin: { top: 16, left: margin, right: margin, bottom: footerHeight + 4 },
+            didDrawPage: (data) => {
+                if (data.pageNumber > 1) drawSubPageHeader(reportTitle);
+            }
         });
+
+        const totalPages = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+            doc.setPage(i);
+            drawFooter(i, totalPages, 'FACULTY EXECUTIVE SUMMARY');
+        }
 
         const fileName = `Executive_Report_${faculty?.last_name}_${new Date().toISOString().slice(0, 10)}.pdf`;
         doc.save(fileName);
-        addToast({ title: "Success", description: "Executive Report generated successfully!", variant: "success" });
+        addToast({ title: 'Success', description: 'Executive Report generated successfully!', variant: 'success' });
     };
 
-    const handleExportPDRReport = () => {
-        const doc = new jsPDF();
-        doc.setFontSize(22);
-        doc.setTextColor(218, 165, 32);
-        doc.text('Professional Development Report (PDR)', 14, 25);
-
-        doc.setFontSize(10);
-        doc.setTextColor(100);
-        doc.text(`Institutional Submission & Monitoring System (ISAMS)`, 14, 32);
-        doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 37);
-
-        doc.setFontSize(12);
-        doc.setTextColor(0);
-        doc.text(`Faculty Performance Review: ${faculty?.first_name} ${faculty?.last_name}`, 14, 48);
-        if (faculty?.emp_id) {
-            doc.text(`ID: ${faculty.emp_id}`, 14, 53);
-        }
+    const handleExportPDRReport = async () => {
+        const reportTitle = 'Professional Development Report';
+        const { doc, margin, footerHeight, C, drawFirstPageHeader, drawSubPageHeader, drawFooter } = await buildBrandedPDF('landscape');
 
         const tableData = [];
         courses.forEach(course => {
-            course.documents?.forEach(doc => {
+            course.documents?.forEach(docItem => {
                 tableData.push([
                     course.course_code,
-                    doc.doc_type,
-                    doc.status,
-                    doc.submitted_at ? new Date(doc.submitted_at).toLocaleDateString() : 'N/A',
-                    (doc.status === 'APPROVED' || doc.status === 'VALIDATED') ? 'Validated' :
-                        doc.status === 'REVISION_REQUESTED' ? 'Requires Attention' : ''
+                    docItem.doc_type,
+                    docItem.status,
+                    docItem.submitted_at ? new Date(docItem.submitted_at).toLocaleDateString() : 'N/A',
+                    (docItem.status === 'APPROVED' || docItem.status === 'VALIDATED') ? 'Validated' :
+                        docItem.status === 'REVISION_REQUESTED' ? 'Requires Attention' : ''
                 ]);
             });
         });
 
-        autoTable(doc, {
-            head: [['Course', 'Requirement', 'Status', 'Submission Date', 'Review Result']],
+        drawFirstPageHeader(reportTitle, tableData.length);
+
+        const doc2 = doc;
+        doc2.setFontSize(10);
+        doc2.setFont('helvetica', 'bold');
+        doc2.setTextColor(...C.textDark);
+        doc2.text(`Faculty Performance Review: ${faculty?.first_name} ${faculty?.last_name}`, margin, 56);
+        doc2.setFont('helvetica', 'normal');
+        doc2.setFontSize(8);
+        doc2.setTextColor(...C.textMuted);
+        if (faculty?.emp_id) doc2.text(`Employee ID: ${faculty.emp_id}`, margin, 60);
+
+        autoTable(doc2, {
+            head: [['COURSE', 'REQUIREMENT', 'STATUS', 'SUBMISSION DATE', 'REVIEW RESULT']],
             body: tableData,
-            startY: 55,
-            theme: 'striped',
-            styles: { fontSize: 8 },
-            headStyles: { fillColor: [218, 165, 32], textColor: [255, 255, 255] }
+            startY: 65,
+            styles: {
+                fontSize: 7.5,
+                cellPadding: { top: 3, right: 4, bottom: 3, left: 4 },
+                font: 'helvetica',
+                textColor: C.textDark,
+                lineColor: C.lightGray,
+                lineWidth: 0.15,
+                overflow: 'linebreak'
+            },
+            headStyles: {
+                fillColor: C.primary, textColor: C.white, fontStyle: 'bold',
+                fontSize: 7, halign: 'center', valign: 'middle',
+                cellPadding: { top: 4, right: 4, bottom: 4, left: 4 }
+            },
+            alternateRowStyles: { fillColor: C.offWhite },
+            margin: { top: 16, left: margin, right: margin, bottom: footerHeight + 4 },
+            didDrawPage: (data) => {
+                if (data.pageNumber > 1) drawSubPageHeader(reportTitle);
+            }
         });
+
+        const totalPages = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+            doc.setPage(i);
+            drawFooter(i, totalPages, 'PROFESSIONAL DEVELOPMENT REPORT (PDR)');
+        }
 
         const fileName = `PDR_Report_${faculty?.last_name}_${new Date().toISOString().slice(0, 10)}.pdf`;
         doc.save(fileName);
-        addToast({ title: "Success", description: "PDR Report generated successfully!", variant: "success" });
+        addToast({ title: 'Success', description: 'PDR Report generated successfully!', variant: 'success' });
     };
 
     const handleForceSubmission = async () => {
@@ -797,17 +967,17 @@ export default function AdminFacultyDetailPage() {
                         <CardContent className="p-5 flex flex-col h-full">
                             <div className="flex justify-between items-start mb-4">
                                 <div>
-                                    <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1">Completion Rate</p>
-                                    <p className="text-3xl font-black text-neutral-900 tracking-tight">{stats.progress}%</p>
-                                    <p className="text-[10px] text-neutral-400 mt-1 font-bold uppercase tracking-wider">{stats.pending} pending of {stats.total}</p>
+                                    <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-1">Completion Rate</p>
+                                    <p className="text-2xl font-bold text-neutral-900 tracking-tight">{stats.progress}%</p>
+                                    <p className="text-[10px] text-neutral-400 mt-2 font-bold uppercase tracking-wider">{stats.pending} pending of {stats.total}</p>
                                 </div>
                                 <div className="p-2.5 rounded-lg bg-neutral-50 border border-neutral-100">
                                     <CheckCircle className="h-5 w-5 text-success" />
                                 </div>
                             </div>
                             <div className="mt-auto pt-2">
-                                <Progress value={stats.progress} className="h-1.5 bg-neutral-100 border border-neutral-200/50" indicatorClassName={isFullyCleared ? 'bg-success' : 'bg-primary-500'} />
-                                <p className={`text-[10px] font-bold mt-3 text-center uppercase tracking-widest ${isFullyCleared ? 'text-success' : 'text-warning'}`}>
+                                <Progress value={stats.progress} className="h-1.5 bg-neutral-100 border border-neutral-200/50" indicatorClassName={isFullyCleared ? 'bg-primary-500' : 'bg-gold-500'} />
+                                <p className={`text-[10px] font-bold mt-3 text-center uppercase tracking-widest ${isFullyCleared ? 'text-primary-500' : 'text-gold-500'}`}>
                                     {isFullyCleared ? 'CLEARED FOR SEMESTER' : 'SUBMISSIONS PENDING'}
                                 </p>
                             </div>
@@ -820,7 +990,7 @@ export default function AdminFacultyDetailPage() {
                             <div className="flex justify-between items-start mb-3">
                                 <div className="flex-1 mr-4">
                                     <div className="flex items-center gap-2 mb-1">
-                                        <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Drive Connectivity</p>
+                                        <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Drive Connectivity</p>
                                         {faculty?.gdrive_folder_id && (
                                             <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse"></span>
                                         )}
@@ -844,10 +1014,13 @@ export default function AdminFacultyDetailPage() {
                                             </Button>
                                         </div>
                                     ) : (
-                                        <p className="text-sm font-mono font-bold text-neutral-900 tracking-tight truncate mt-1">
-                                            {faculty?.gdrive_folder_id ? faculty.gdrive_folder_id : 'NOT CONNECTED'}
+                                        <p className="text-sm font-bold text-neutral-900 tracking-tight truncate mt-1 font-mono">
+                                            {faculty?.gdrive_folder_id ? faculty.gdrive_folder_id : <span className="text-neutral-400">NOT CONNECTED</span>}
                                         </p>
                                     )}
+                                    <p className="text-[10px] text-neutral-400 mt-2 font-bold uppercase tracking-wider">
+                                        {faculty?.gdrive_folder_id ? 'Folder linked' : 'No folder linked'}
+                                    </p>
                                 </div>
                                 <div className="p-2.5 rounded-lg bg-neutral-50 border border-neutral-100 shrink-0">
                                     <HardDrive className="h-5 w-5 text-info" />
@@ -885,8 +1058,9 @@ export default function AdminFacultyDetailPage() {
                         <CardContent className="p-5 flex flex-col h-full">
                             <div className="flex justify-between items-start mb-4">
                                 <div>
-                                    <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1">Documentation</p>
-                                    <p className="text-lg font-bold text-neutral-900 tracking-tight leading-tight">Generate Official<br />Faculty Reports</p>
+                                    <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-1">Documentation</p>
+                                    <p className="text-2xl font-bold text-neutral-900 tracking-tight">Reports</p>
+                                    <p className="text-[10px] text-neutral-400 mt-2 font-bold uppercase tracking-wider">Generate official faculty docs</p>
                                 </div>
                                 <div className="p-2.5 rounded-lg bg-neutral-50 border border-neutral-100">
                                     <FileSpreadsheet className="h-5 w-5 text-primary-600" />
@@ -897,7 +1071,7 @@ export default function AdminFacultyDetailPage() {
                                     onClick={handleExportExecutiveReport}
                                     variant="outline"
                                     size="sm"
-                                    className="flex-1 h-8 border-success/30 bg-success/5 text-success hover:bg-success/10 font-bold text-[10px] uppercase tracking-widest shadow-none"
+                                    className="flex-1 h-8 border-success/30 bg-success/5 text-success hover:bg-success/10 hover:text-success font-bold text-[10px] uppercase tracking-widest shadow-none"
                                 >
                                     <FileText className="h-3 w-3 mr-1.5" /> Executive
                                 </Button>
@@ -905,7 +1079,7 @@ export default function AdminFacultyDetailPage() {
                                     onClick={handleExportPDRReport}
                                     variant="outline"
                                     size="sm"
-                                    className="flex-1 h-8 border-warning/30 bg-warning/5 text-warning hover:bg-warning/10 font-bold text-[10px] uppercase tracking-widest shadow-none"
+                                    className="flex-1 h-8 border-warning/30 bg-warning/5 text-warning hover:bg-warning/10 hover:text-warning font-bold text-[10px] uppercase tracking-widest shadow-none"
                                 >
                                     <Bell className="h-3 w-3 mr-1.5" /> PDR
                                 </Button>

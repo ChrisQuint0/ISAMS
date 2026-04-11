@@ -27,7 +27,6 @@ export const settingsService = {
       general_default_deadline: parseInt(settingsMap.general_default_deadline || '14'),
       general_grace_period: parseInt(settingsMap.general_grace_period || '3'),
       general_auto_reminders: settingsMap.general_auto_reminders || '3days',
-      general_archive_retention: settingsMap.general_archive_retention || '5years',
 
       // Validation Defaults
       val_vision_mission: settingsMap.val_vision_mission === 'true',
@@ -475,12 +474,4 @@ export const settingsService = {
     return data;
   },
 
-  // DANGER ZONE: Purge Old Archives
-  purgeArchives: async (yearsToKeep = 5) => {
-    const { data, error } = await supabase.rpc('purge_old_archives_fs', {
-      p_retention_years: yearsToKeep
-    });
-    if (error) throw error;
-    return data;
-  }
-};
+};

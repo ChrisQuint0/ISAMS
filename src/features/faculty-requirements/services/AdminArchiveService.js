@@ -191,7 +191,7 @@ export const archiveService = {
       saveAs(content, filename);
 
       // Log to database asynchronously (don't block the user return)
-      archiveService.logExport(filename, config.semester, config.academic_year);
+      archiveService.logExport(filename, config.semester, config.academic_year, 'ZIP_ARCHIVE_EXPORT', config);
 
       return { success: true, message: `Successfully exported archive.` };
 
@@ -218,13 +218,14 @@ export const archiveService = {
   /**
    * Log a new Export Action
    */
-  logExport: async (reportName, semester, year, type = 'ZIP_ARCHIVE_EXPORT') => {
+  logExport: async (reportName, semester, year, type = 'ZIP_ARCHIVE_EXPORT', config = null) => {
     try {
       const { error } = await supabase.rpc('log_report_export_fs', {
         p_report_name: reportName,
         p_report_type: type,
         p_semester: semester || 'All',
-        p_academic_year: year || 'All'
+        p_academic_year: year || 'All',
+        p_export_config: config ? config : null
       });
       if (error) console.error('Failed to log export:', error);
     } catch (err) {

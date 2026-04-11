@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    Save, Database, Terminal, Trash2, RefreshCw, Eye, Settings,
+    Save, Database, Terminal, Trash2, RefreshCw, Eye, Settings, Pencil,
     Cpu, CheckCircle, AlertCircle, Play, Shield, FileText,
     Clock, Archive, HardDrive, Server, Activity,
     Wifi, WifiOff, Globe, Lock, Unlock, AlertTriangle,
-    ChevronUp, ChevronDown, Plus, Folder, File as FileIcon, LayoutTemplate, Users, BookOpen, X, Settings2, ArchiveRestore, Info, Search, ExternalLink
+    ChevronUp, ChevronDown, Plus, Folder, File as FileIcon, LayoutTemplate, Users, BookOpen, X, Settings2, ArchiveRestore, Info, Search, ExternalLink,
+    Download, UploadCloud
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -36,6 +37,7 @@ import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-communi
 import { useAdminSettings } from '../hooks/AdminSettingHook';
 import { useAdminSemesterManagement } from '../hooks/AdminSemesterManagementHook';
 import { settingsService } from '../services/AdminSettingService';
+import { renameGDriveFolders, getFolderLink } from '../services/gdriveSettings';
 import NameCalibratorModal from '../components/NameCalibratorModal';
 
 import JSZip from 'jszip';
@@ -178,7 +180,11 @@ const SystemStatusCard = ({ systemHealth }) => {
                     </div>
                     <div className="flex justify-between items-center py-1.5 border-b border-neutral-50 last:border-0 hover:bg-neutral-50/50 transition-colors px-1 rounded-md">
                         <span className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Last Backup</span>
-                        <span className="text-xs font-bold text-neutral-900">{systemHealth?.last_backup ? new Date(systemHealth.last_backup).toLocaleString() : "Never"}</span>
+                        <span className="text-xs font-bold text-neutral-900">
+                            {systemHealth?.last_backup
+                                ? new Date(systemHealth.last_backup).toLocaleString()
+                                : (localStorage.getItem('isams_last_backup') || 'Never')}
+                        </span>
                     </div>
                     <div className="flex justify-between items-center py-1.5 border-b border-neutral-50 last:border-0 hover:bg-neutral-50/50 transition-colors px-1 rounded-md">
                         <span className="text-xs font-bold text-neutral-500 uppercase tracking-widest">DB Size</span>
@@ -261,10 +267,152 @@ export default function AdminSettingsPage() {
         holidayOccupiedDates.length === 0;
     const [pendingDeleteId, setPendingDeleteId] = useState(null);
 
+    // Edit Doc Type Modal State
+    const [editDocTypeOpen, setEditDocTypeOpen] = useState(false);
+    const [editDocTypeData, setEditDocTypeData] = useState({ id: null, name: '', folder: '', description: '' });
+    const [isSavingDocType, setIsSavingDocType] = useState(false);
+
+    const openEditDocType = (req) => {
+        setEditDocTypeData({ id: req.id, name: req.name, folder: req.folder, description: req.description || '' });
+        setEditDocTypeOpen(true);
+    };
+
+    const handleSaveDocType = async () => {
+        if (!editDocTypeData.name.trim() || !editDocTypeData.folder.trim()) return;
+        setIsSavingDocType(true);
+
+        // Capture old folder name BEFORE updating state
+        const originalReq = docRequirements.find(r => r.id === editDocTypeData.id);
+        const oldFolderName = originalReq?.folder || '';
+        const newFolderName = editDocTypeData.folder.trim();
+        const folderNameChanged = oldFolderName && oldFolderName !== newFolderName;
+
+        try {
+            // 1. Update the database
+            await updateDocRequirement(editDocTypeData.id, {
+                name: editDocTypeData.name.trim(),
+                folder: newFolderName,
+                description: editDocTypeData.description.trim(),
+            });
+
+            // 2. If GDrive folder name changed, rename all matching folders in Drive
+            if (folderNameChanged) {
+                try {
+                    const rootFolderId = await getFolderLink();
+                    const result = await renameGDriveFolders(rootFolderId, oldFolderName, newFolderName);
+                    console.log('[DocType Edit] GDrive rename result:', result.message);
+                    setSuccess(`Document type saved & ${result.renamed} GDrive folder${result.renamed !== 1 ? 's' : ''} renamed successfully.`);
+                    setTimeout(() => setSuccess(null), 4000);
+                } catch (gdriveErr) {
+                    // Non-fatal — DB is already updated, warn but don't block
+                    console.warn('[DocType Edit] GDrive folder rename failed (non-fatal):', gdriveErr.message);
+                    setError(`Document type saved, but GDrive folder rename failed: ${gdriveErr.message}`);
+                    setTimeout(() => setError(null), 5000);
+                }
+            } else {
+                setSuccess('Document type updated successfully.');
+                setTimeout(() => setSuccess(null), 3000);
+            }
+
+            setEditDocTypeOpen(false);
+        } finally {
+            setIsSavingDocType(false);
+        }
+    };
+
     // Danger Modal State
     const [isDangerModalOpen, setIsDangerModalOpen] = useState(false);
     const [dangerModalConfig, setDangerModalConfig] = useState({ actionType: '', title: '', description: '', confirmationText: '' });
     const [dangerModalInput, setDangerModalInput] = useState('');
+
+    // ── Backup & Restore State ──────────────────────────────────────────────
+    const BACKEND_URL = 'http://localhost:3002';
+    const [isBackingUp, setIsBackingUp] = useState(false);
+    const [lastBackupTime, setLastBackupTime] = useState(
+        () => localStorage.getItem('isams_last_backup') || null
+    );
+    const [restoreFile, setRestoreFile] = useState(null);          // parsed backup JSON
+    const [restoreFileName, setRestoreFileName] = useState('');    // display name
+    const [isRestoreModalOpen, setIsRestoreModalOpen] = useState(false);
+    const [isRestoring, setIsRestoring] = useState(false);
+    const restoreInputRef = React.useRef(null);
+
+    const handleDownloadBackup = async () => {
+        setIsBackingUp(true);
+        try {
+            const res = await fetch(`${BACKEND_URL}/api/backup/export`);
+            if (!res.ok) throw new Error(await res.text());
+            const blob = await res.blob();
+            const today = new Date().toISOString().slice(0, 10);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `isams-backup-${today}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            const now = new Date().toLocaleString();
+            localStorage.setItem('isams_last_backup', now);
+            setLastBackupTime(now);
+            setSuccess('Backup downloaded successfully.');
+            setTimeout(() => setSuccess(null), 3000);
+        } catch (err) {
+            setError('Backup failed: ' + err.message);
+            setTimeout(() => setError(null), 4000);
+        } finally {
+            setIsBackingUp(false);
+        }
+    };
+
+    const handleRestoreFileChange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            try {
+                const parsed = JSON.parse(ev.target.result);
+                if (parsed.source !== 'ISAMS' || !parsed.version || !parsed.tables) {
+                    setError('Invalid backup file. Only ISAMS-generated .json backups are accepted.');
+                    setTimeout(() => setError(null), 4000);
+                    return;
+                }
+                setRestoreFile(parsed);
+                setRestoreFileName(file.name);
+                setIsRestoreModalOpen(true);
+            } catch {
+                setError('Could not read the file. Make sure it is a valid ISAMS backup JSON.');
+                setTimeout(() => setError(null), 4000);
+            }
+        };
+        reader.readAsText(file);
+        // Reset input so same file can be re-selected
+        e.target.value = '';
+    };
+
+    const handleConfirmRestore = async () => {
+        if (!restoreFile) return;
+        setIsRestoring(true);
+        try {
+            const res = await fetch(`${BACKEND_URL}/api/backup/restore`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ backup: restoreFile }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Restore failed');
+            setSuccess(`Restore complete — ${data.totalUpserted} records restored. Reloading...`);
+            setIsRestoreModalOpen(false);
+            setRestoreFile(null);
+            setRestoreFileName('');
+            // Force full reload so all cached state is cleared and fresh DB data is shown
+            setTimeout(() => window.location.reload(), 1500);
+        } catch (err) {
+            setError('Restore failed: ' + err.message);
+            setTimeout(() => setError(null), 5000);
+        } finally {
+            setIsRestoring(false);
+        }
+    };
+    // ───────────────────────────────────────────────────────────────────────
 
     const isDuplicateRequirement = useMemo(() =>
         newReq.name.trim() && docRequirements.some(req =>
@@ -711,7 +859,6 @@ export default function AdminSettingsPage() {
     const [graceDays, setGraceDays] = useState('');
     const [mainGdriveLink, setMainGdriveLink] = useState('');
     const [autoReminders, setAutoReminders] = useState('3days');
-    const [archiveRetention, setArchiveRetention] = useState('5years');
     const [isGdriveUnlocked, setIsGdriveUnlocked] = useState(false);
 
     // Validation Rules State
@@ -777,7 +924,6 @@ export default function AdminSettingsPage() {
             setDeadlineDays(settings.general_default_deadline || '');
             setGraceDays(settings.general_grace_period || '');
             setAutoReminders(settings.general_auto_reminders || '3days');
-            setArchiveRetention(settings.general_archive_retention || '5years');
 
             const mainId = settings.gdrive_root_folder_id || '';
             const isRawMainId = mainId && !mainId.includes('/');
@@ -791,16 +937,6 @@ export default function AdminSettingsPage() {
         const config = { actionType, payload };
 
         switch (actionType) {
-            case 'RESET_SEMESTER':
-                config.title = 'Reset Semester Data';
-                config.description = `WARNING: Are you sure you want to RESET the ${currentSettings.semester} of ${currentSettings.academic_year}? This will delete all faculty submissions, but keep the faculty and course lists intact.`;
-                config.confirmationText = 'RESET';
-                break;
-            case 'PURGE_ARCHIVES':
-                config.title = 'Purge Old Archives';
-                config.description = `CRITICAL WARNING: This will permanently data older than ${settings.general_archive_retention}. This action CANNOT BE UNDONE.`;
-                config.confirmationText = 'PURGE';
-                break;
             default:
                 return;
         }
@@ -815,13 +951,8 @@ export default function AdminSettingsPage() {
         const { actionType, payload } = dangerModalConfig;
         let func = null;
 
-        if (actionType === 'RESET_SEMESTER') {
-            func = () => settingsService.resetSemester(currentSettings.semester, currentSettings.academic_year);
-        } else if (actionType === 'PURGE_ARCHIVES') {
-            func = () => settingsService.purgeArchives(parseInt(settings.general_archive_retention) || 5);
-        } else {
-            return;
-        }
+        // No active danger actions
+        return;
 
         setIsDangerModalOpen(false);
 
@@ -931,19 +1062,7 @@ export default function AdminSettingsPage() {
                                                         </SelectContent>
                                                     </Select>
                                                 </div>
-                                                <div className="space-y-2">
-                                                    <Label className="text-xs font-semibold text-neutral-500 uppercase">Archive Retention</Label>
-                                                    <Select value={archiveRetention} onValueChange={setArchiveRetention}>
-                                                        <SelectTrigger className="bg-white border-neutral-200 text-neutral-900 shadow-sm focus:ring-primary/20">
-                                                            <SelectValue />
-                                                        </SelectTrigger>
-                                                        <SelectContent className="bg-white border-neutral-200 text-neutral-900">
-                                                            <SelectItem value="3years">3 Years</SelectItem>
-                                                            <SelectItem value="5years">5 Years</SelectItem>
-                                                            <SelectItem value="permanent">Permanent</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
+
                                             </div>
 
                                             <div className="pt-4 border-t border-neutral-100 flex justify-end">
@@ -954,7 +1073,6 @@ export default function AdminSettingsPage() {
                                                         general_default_deadline: deadlineDays,
                                                         general_grace_period: graceDays,
                                                         general_auto_reminders: autoReminders,
-                                                        general_archive_retention: archiveRetention,
                                                     })}
                                                 >
                                                     <Save className="mr-2 h-4 w-4" /> Save Changes
@@ -1726,35 +1844,15 @@ export default function AdminSettingsPage() {
                                                             </div>
 
                                                             <div className="h-8 flex items-center justify-end min-w-[32px] transition-all duration-200">
-                                                                {pendingDeleteId === req.id ? (
-                                                                    <div className="flex items-center gap-1 animate-in fade-in slide-in-from-right-2 duration-200">
-                                                                        <Button
-                                                                            size="xs"
-                                                                            variant="destructive"
-                                                                            onClick={() => { setPendingDeleteId(null); deleteDocRequirement(req.id); }}
-                                                                        >
-                                                                            Confirm
-                                                                        </Button>
-                                                                        <Button
-                                                                            size="xs"
-                                                                            variant="ghost"
-                                                                            className="text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100"
-                                                                            onClick={() => setPendingDeleteId(null)}
-                                                                        >
-                                                                            Cancel
-                                                                        </Button>
-                                                                    </div>
-                                                                ) : (
-                                                                    <Button
-                                                                        size="icon-xs"
-                                                                        variant="ghost"
-                                                                        onClick={() => setPendingDeleteId(req.id)}
-                                                                        className="text-neutral-400 hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all"
-                                                                        title="Delete document type"
-                                                                    >
-                                                                        <Trash2 className="h-3.5 w-3.5" />
-                                                                    </Button>
-                                                                )}
+                                                                <Button
+                                                                    size="icon-xs"
+                                                                    variant="ghost"
+                                                                    onClick={() => openEditDocType(req)}
+                                                                    className="text-neutral-400 hover:text-primary-600 hover:bg-primary-50 opacity-0 group-hover:opacity-100 transition-all"
+                                                                    title="Edit document type"
+                                                                >
+                                                                    <Pencil className="h-3.5 w-3.5" />
+                                                                </Button>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -2448,36 +2546,151 @@ export default function AdminSettingsPage() {
                         </TabsContent>
 
                         {/* TAB: MAINTENANCE / DANGER ZONE */}
-                        <TabsContent value="maintenance" className="mt-0">
-                            <Card className="bg-destructive/5 border-destructive/20 shadow-none">
-                                <CardHeader className="border-b border-destructive/20 py-4 bg-white/50">
-                                    <CardTitle className="text-lg font-bold text-destructive flex items-center gap-2">
-                                        <AlertCircle className="h-5 w-5" /> Danger Zone
+                        <TabsContent value="maintenance" className="mt-0 space-y-6">
+
+                            {/* ── Backup & Restore Card ─────────────────────── */}
+                            <Card className="bg-white border-neutral-200 shadow-sm">
+                                <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-4">
+                                    <CardTitle className="text-lg font-bold text-neutral-900 flex items-center gap-2">
+                                        <HardDrive className="h-4 w-4 text-primary-600" /> Backup & Restore
                                     </CardTitle>
-                                    <CardDescription className="text-destructive/70 font-medium">
-                                        Irreversible actions. These will affect live data.
+                                    <CardDescription className="text-neutral-500">
+                                        Export all ISAMS data to a local file, or restore from a previous backup.
                                     </CardDescription>
                                 </CardHeader>
-                                <CardContent className="pt-6 space-y-4">
-                                    <DangerRow
-                                        title="Reset Semester Data"
-                                        desc="Clear all submissions for the current semester. Does not delete archives."
-                                        btnText="Reset Semester"
-                                        onClick={() => handleDangerAction('RESET_SEMESTER')}
-                                    />
-                                    <DangerRow
-                                        title="Purge Old Archives"
-                                        desc="Permanently remove files older than the retention period."
-                                        btnText="Purge Archives"
-                                        onClick={() => handleDangerAction('PURGE_ARCHIVES')}
-                                    />
+                                <CardContent className="pt-6 space-y-5">
+
+                                    {/* Backup */}
+                                    <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-neutral-200 bg-neutral-50/30">
+                                        <div>
+                                            <p className="text-sm font-bold text-neutral-900">Download Backup</p>
+                                            <p className="text-xs text-neutral-500 mt-0.5">
+                                                Exports faculty, courses, submissions, settings, and more into a single <span className="font-mono bg-neutral-100 px-1 rounded">.json</span> file.
+                                            </p>
+                                            {lastBackupTime && (
+                                                <p className="text-[10px] text-neutral-400 mt-1.5 flex items-center gap-1">
+                                                    <CheckCircle className="h-3 w-3 text-success" />
+                                                    Last backup: <strong>{lastBackupTime}</strong>
+                                                </p>
+                                            )}
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={handleDownloadBackup}
+                                            disabled={isBackingUp}
+                                            className="shrink-0 border-primary-200 text-primary-700 hover:bg-primary-50 shadow-sm"
+                                        >
+                                            {isBackingUp
+                                                ? <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                                                : <Download className="h-3.5 w-3.5 mr-1.5" />
+                                            }
+                                            {isBackingUp ? 'Exporting...' : 'Download Backup'}
+                                        </Button>
+                                    </div>
+
+                                    {/* Restore */}
+                                    <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-warning/20 bg-warning/5">
+                                        <div>
+                                            <p className="text-sm font-bold text-neutral-900">Restore from Backup</p>
+                                            <p className="text-xs text-neutral-500 mt-0.5">
+                                                Upload a previously exported <span className="font-mono bg-neutral-100 px-1 rounded">.json</span> backup. Existing records will be overwritten.
+                                            </p>
+                                        </div>
+                                        <div className="shrink-0">
+                                            <input
+                                                ref={restoreInputRef}
+                                                type="file"
+                                                accept=".json"
+                                                className="hidden"
+                                                onChange={handleRestoreFileChange}
+                                            />
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => restoreInputRef.current?.click()}
+                                                className="border-warning/30 text-warning hover:bg-warning/10 shadow-sm"
+                                            >
+                                                <UploadCloud className="h-3.5 w-3.5 mr-1.5" />
+                                                Choose Backup File
+                                            </Button>
+                                        </div>
+                                    </div>
+
                                 </CardContent>
                             </Card>
+
                         </TabsContent>
+
                     </div >
                 </Tabs >
 
+                {/* ── Restore Confirmation Modal ─────────────────────── */}
+                <Dialog open={isRestoreModalOpen} onOpenChange={(o) => { if (!isRestoring) setIsRestoreModalOpen(o); }}>
+                    <DialogContent className="max-w-md">
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2 text-base font-bold text-neutral-900">
+                                <ArchiveRestore className="h-4 w-4 text-warning" />
+                                Confirm Restore
+                            </DialogTitle>
+                            <DialogDescription className="text-xs text-neutral-500">
+                                Review the backup details before proceeding.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        {restoreFile && (
+                            <div className="space-y-3 py-2">
+                                <div className="p-3 rounded-lg bg-warning/10 border border-warning/20 space-y-1">
+                                    <div className="flex items-center gap-1.5">
+                                        <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
+                                        <p className="text-xs font-bold text-warning uppercase tracking-wider">Warning</p>
+                                    </div>
+                                    <p className="text-xs text-neutral-700">
+                                        This will <strong>overwrite existing records</strong> in the database with data from this backup. Any changes made after the backup was taken may be lost for matching records.
+                                    </p>
+                                </div>
+                                <div className="space-y-1.5 text-xs">
+                                    <div className="flex justify-between py-1 border-b border-neutral-100">
+                                        <span className="text-neutral-500 font-medium">File</span>
+                                        <span className="font-mono text-neutral-900">{restoreFileName}</span>
+                                    </div>
+                                    <div className="flex justify-between py-1 border-b border-neutral-100">
+                                        <span className="text-neutral-500 font-medium">Backup Date</span>
+                                        <span className="font-bold text-neutral-900">{new Date(restoreFile.exported_at).toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between py-1 border-b border-neutral-100">
+                                        <span className="text-neutral-500 font-medium">Tables</span>
+                                        <span className="font-bold text-neutral-900">{Object.keys(restoreFile.tables).length}</span>
+                                    </div>
+                                    <div className="flex justify-between py-1">
+                                        <span className="text-neutral-500 font-medium">Total Records</span>
+                                        <span className="font-bold text-neutral-900">
+                                            {Object.values(restoreFile.tables).reduce((s, t) => s + (Array.isArray(t) ? t.length : 0), 0)}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <DialogFooter className="gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setIsRestoreModalOpen(false)} disabled={isRestoring}>
+                                Cancel
+                            </Button>
+                            <Button
+                                size="sm"
+                                onClick={handleConfirmRestore}
+                                disabled={isRestoring}
+                                className="bg-warning hover:bg-warning/90 text-white"
+                            >
+                                {isRestoring ? <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <ArchiveRestore className="h-3.5 w-3.5 mr-1.5" />}
+                                {isRestoring ? 'Restoring...' : 'Yes, Restore'}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
                 {/* Upload Template Modal */}
+
                 <Dialog open={isTemplateModalOpen} onOpenChange={setTemplateModalOpen}>
                     <DialogContent className="bg-white border-neutral-200 text-neutral-900 max-w-lg shadow-xl">
                         <DialogHeader>
@@ -2683,7 +2896,87 @@ export default function AdminSettingsPage() {
                     </DialogContent>
                 </Dialog>
             </div >
+
+            {/* Edit Document Type Modal */}
+            <Dialog open={editDocTypeOpen} onOpenChange={setEditDocTypeOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-base font-bold text-neutral-900">
+                            <Pencil className="h-4 w-4 text-primary-600" />
+                            Edit Document Type
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-neutral-500">
+                            Changes to the requirement name will be reflected in the Faculty Submission module and the Google Drive folder structure.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-2">
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-bold text-neutral-700 uppercase tracking-wider">
+                                Requirement Name <span className="text-destructive">*</span>
+                            </Label>
+                            <Input
+                                value={editDocTypeData.name}
+                                onChange={e => setEditDocTypeData(prev => ({ ...prev, name: e.target.value }))}
+                                placeholder="e.g. Quarterly Report"
+                                className="text-sm focus-visible:ring-primary-500 focus-visible:border-primary-500 transition-all"
+                            />
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-bold text-neutral-700 uppercase tracking-wider">
+                                GDrive Folder Name <span className="text-destructive">*</span>
+                            </Label>
+                            <Input
+                                value={editDocTypeData.folder}
+                                onChange={e => setEditDocTypeData(prev => ({ ...prev, folder: e.target.value }))}
+                                placeholder="e.g. Reports_Q1"
+                                className="text-sm font-mono focus-visible:ring-primary-500 focus-visible:border-primary-500 transition-all"
+                            />
+                            <p className="text-[10px] text-neutral-400">This is the folder name created under each faculty name in Google Drive.</p>
+                            {editDocTypeData.folder.trim() !== (docRequirements.find(r => r.id === editDocTypeData.id)?.folder || '') && editDocTypeData.folder.trim() !== '' && (
+                                <div className="flex items-start gap-1.5 mt-1 p-2 rounded-lg bg-warning/10 border border-warning/20">
+                                    <AlertTriangle className="h-3 w-3 text-warning mt-0.5 shrink-0" />
+                                    <p className="text-[10px] text-warning font-medium leading-tight">
+                                        All existing Google Drive folders named <strong>"{docRequirements.find(r => r.id === editDocTypeData.id)?.folder}"</strong> will be renamed to <strong>"{editDocTypeData.folder.trim()}"</strong> automatically on save.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-bold text-neutral-700 uppercase tracking-wider">
+                                Faculty Guidelines
+                            </Label>
+                            <Input
+                                value={editDocTypeData.description}
+                                onChange={e => setEditDocTypeData(prev => ({ ...prev, description: e.target.value }))}
+                                placeholder="e.g. Please upload the latest signed copy..."
+                                className="text-sm focus-visible:ring-primary-500 focus-visible:border-primary-500 transition-all"
+                            />
+                            <p className="text-[10px] text-neutral-400">Shown as a hint to faculty when they are uploading this document.</p>
+                        </div>
+                    </div>
+
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setEditDocTypeOpen(false)} disabled={isSavingDocType}>
+                            Cancel
+                        </Button>
+                        <Button
+                            size="sm"
+                            onClick={handleSaveDocType}
+                            disabled={isSavingDocType || !editDocTypeData.name.trim() || !editDocTypeData.folder.trim()}
+                            className="bg-primary-600 hover:bg-primary-700 text-white"
+                        >
+                            {isSavingDocType ? <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1.5" />}
+                            Save Changes
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
         </ToastProvider>
+
     );
 }
 
