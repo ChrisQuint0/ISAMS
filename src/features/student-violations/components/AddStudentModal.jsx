@@ -17,6 +17,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabaseClient";
 import Papa from "papaparse";
+import ExcelJS from "exceljs";
+import { saveAs } from "file-saver";
 import { UploadCloud, CheckCircle2, AlertCircle, Loader2, Download } from "lucide-react";
 
 export function AddStudentModal({ isOpen, onClose, onSuccess }) {
@@ -34,7 +36,20 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
         course_year_section: "",
         guardian_name: "",
         guardian_contact: "",
+        status: "",
     });
+
+    // Validation Helpers
+    const validateStudentNumber = (val) => /^\d{2}-\d{5}$/.test(val);
+    const validateName = (val) => /^[a-zA-Z\s\-\.\u00C0-\u017F]+$/.test(val);
+    const validateContact = (val) => /^09\d{9}$/.test(val);
+    const validateEmail = (val) => /^[^\s@]+@plpasig\.edu\.ph$/.test(val);
+    
+    const standardizeStatus = (val) => {
+        if (!val) return null;
+        const allowed = ["Enrolled", "LOA", "Graduated", "Dropped", "Expelled"];
+        return allowed.find(a => a.toLowerCase() === val.trim().toLowerCase()) || null;
+    };
 
     // Bulk Upload State
     const [file, setFile] = useState(null);
@@ -49,6 +64,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
             course_year_section: "",
             guardian_name: "",
             guardian_contact: "",
+            status: "",
         });
         setFile(null);
         setParsedData(null);
@@ -70,10 +86,42 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
     };
 
     const validateSingleForm = () => {
-        if (!formData.student_number || !formData.first_name || !formData.last_name || !formData.course_year_section) {
-            setErrorMsg("Please fill in all required fields (Student Number, First Name, Last Name, Course/Year/Section).");
+        const { student_number, first_name, last_name, email, course_year_section, guardian_name, guardian_contact, status } = formData;
+        
+        if (!student_number || !first_name || !last_name || !email || !course_year_section || !guardian_name || !guardian_contact || !status) {
+            setErrorMsg("Please fill in all required fields.");
             return false;
         }
+
+        if (!validateStudentNumber(student_number)) {
+            setErrorMsg("Student Number must be exactly in 'xx-xxxxx' format (numbers only).");
+            return false;
+        }
+        if (!validateEmail(email)) {
+            setErrorMsg("Email Address must be a valid institutional account ending with '@plpasig.edu.ph'.");
+            return false;
+        }
+        if (!validateName(first_name)) {
+            setErrorMsg("First Name must only contain letters, spaces, hyphens, and diacritics.");
+            return false;
+        }
+        if (!validateName(last_name)) {
+            setErrorMsg("Last Name must only contain letters, spaces, hyphens, and diacritics.");
+            return false;
+        }
+        if (!validateName(guardian_name)) {
+            setErrorMsg("Guardian Name must only contain letters, spaces, hyphens, and diacritics.");
+            return false;
+        }
+        if (!validateContact(guardian_contact)) {
+            setErrorMsg("Guardian Contact must start with '09' and be exactly 11 digits.");
+            return false;
+        }
+        if (!standardizeStatus(status)) {
+            setErrorMsg("Status must be Enrolled, LOA, Graduated, Dropped, or Expelled.");
+            return false;
+        }
+
         setErrorMsg(null);
         return true;
     };
@@ -90,14 +138,14 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
             if (authError || !user) throw new Error("Authentication error. Please log in again.");
 
             const insertPayload = {
-                student_number: formData.student_number,
-                first_name: formData.first_name,
-                last_name: formData.last_name,
-                email: formData.email || null,
-                course_year_section: formData.course_year_section,
-                guardian_name: formData.guardian_name || null,
-                guardian_contact: formData.guardian_contact || null,
-                status: 'Enrolled', // Default status
+                student_number: formData.student_number.trim(),
+                first_name: formData.first_name.trim(),
+                last_name: formData.last_name.trim(),
+                email: formData.email.trim(),
+                course_year_section: formData.course_year_section.trim(),
+                guardian_name: formData.guardian_name.trim(),
+                guardian_contact: formData.guardian_contact.trim(),
+                status: standardizeStatus(formData.status),
                 created_by: user.id
             };
 
@@ -118,47 +166,139 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
         }
     };
 
-    const handleFileUpload = (e) => {
+    const handleFileUpload = async (e) => {
         const selectedFile = e.target.files[0];
         setErrorMsg(null);
         setSuccessMsg(null);
         setParsedData(null);
 
         if (selectedFile) {
-            if (selectedFile.type !== "text/csv" && !selectedFile.name.endsWith('.csv')) {
-                setErrorMsg("Please upload a valid CSV file.");
+            const fileName = selectedFile.name.toLowerCase();
+            const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+            const isCSV = fileName.endsWith('.csv');
+
+            if (!isExcel && !isCSV) {
+                setErrorMsg("Please upload a valid Excel or CSV file.");
                 setFile(null);
                 return;
             }
             setFile(selectedFile);
 
-            Papa.parse(selectedFile, {
-                header: true,
-                skipEmptyLines: true,
-                complete: (results) => {
-                    const data = results.data;
-                    if (data.length === 0) {
-                        setErrorMsg("The CSV file is empty.");
-                        return;
+            if (isCSV) {
+                Papa.parse(selectedFile, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: (results) => {
+                        const data = results.data;
+                        validateAndSetData(data);
+                    },
+                    error: (error) => {
+                        setErrorMsg(`Error parsing CSV: ${error.message}`);
                     }
+                });
+            } else {
+                try {
+                    const workbook = new ExcelJS.Workbook();
+                    const arrayBuffer = await selectedFile.arrayBuffer();
+                    await workbook.xlsx.load(arrayBuffer);
+                    const worksheet = workbook.getWorksheet(1);
+                    const data = [];
+                    const headers = [];
 
-                    // Validate headers
-                    const requiredHeaders = ['student_number', 'first_name', 'last_name', 'course_year_section'];
-                    const headers = Object.keys(data[0]);
-                    const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+                    worksheet.getRow(1).eachCell((cell) => {
+                        headers.push(cell.value);
+                    });
 
-                    if (missingHeaders.length > 0) {
-                        setErrorMsg(`Missing required headers: ${missingHeaders.join(', ')}`);
-                        return;
-                    }
+                    worksheet.eachRow((row, rowNumber) => {
+                        if (rowNumber === 1) return;
+                        const rowData = {};
+                        row.eachCell((cell, colNumber) => {
+                            rowData[headers[colNumber - 1]] = cell.value;
+                        });
+                        data.push(rowData);
+                    });
 
-                    setParsedData(data);
-                },
-                error: (error) => {
-                    setErrorMsg(`Error parsing CSV: ${error.message}`);
+                    validateAndSetData(data);
+                } catch (error) {
+                    console.error("Excel parse error:", error);
+                    setErrorMsg("Error parsing Excel file. Please ensure it's a valid .xlsx file.");
                 }
-            });
+            }
         }
+    };
+
+    const validateAndSetData = (data) => {
+        if (data.length === 0) {
+            setErrorMsg("The file is empty.");
+            return;
+        }
+
+        const errors = [];
+
+        // Validate headers
+        const requiredHeaders = ['Student Number', 'First Name', 'Last Name', 'Course/Year/Section', 'Email', 'Guardian Name', 'Guardian Contact', 'Status'];
+        const headers = Object.keys(data[0]);
+        const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+
+        if (missingHeaders.length > 0) {
+            setErrorMsg(`Missing required headers: ${missingHeaders.join(', ')}`);
+            return;
+        }
+
+        // Validate rows
+        for (let i = 0; i < data.length; i++) {
+            const row = data[i];
+            const rowNum = i + 1;
+            
+            for (const h of requiredHeaders) {
+                if (!row[h] || String(row[h]).trim() === '') {
+                    errors.push(`Row ${rowNum}: Missing value for '${h}'.`);
+                }
+            }
+
+            const studentNum = String(row['Student Number'] || '').trim();
+            if (studentNum && !validateStudentNumber(studentNum)) {
+                errors.push(`Row ${rowNum}: Student Number must be exactly in 'xx-xxxxx' format (numbers only).`);
+            }
+
+            const email = String(row['Email'] || '').trim();
+            if (email && !validateEmail(email)) {
+                errors.push(`Row ${rowNum}: Email Address must be a valid institutional account ending with '@plpasig.edu.ph'.`);
+            }
+
+            const firstName = String(row['First Name'] || '').trim();
+            if (firstName && !validateName(firstName)) {
+                errors.push(`Row ${rowNum}: First Name must only contain letters, spaces, hyphens, and diacritics.`);
+            }
+
+            const lastName = String(row['Last Name'] || '').trim();
+            if (lastName && !validateName(lastName)) {
+                errors.push(`Row ${rowNum}: Last Name must only contain letters, spaces, hyphens, and diacritics.`);
+            }
+
+            const guardianName = String(row['Guardian Name'] || '').trim();
+            if (guardianName && !validateName(guardianName)) {
+                errors.push(`Row ${rowNum}: Guardian Name must only contain letters, spaces, hyphens, and diacritics.`);
+            }
+
+            const guardianContact = String(row['Guardian Contact'] || '').trim();
+            if (guardianContact && !validateContact(guardianContact)) {
+                errors.push(`Row ${rowNum}: Guardian Contact must start with '09' and be exactly 11 digits.`);
+            }
+
+            const status = String(row['Status'] || '').trim();
+            if (status && !standardizeStatus(status)) {
+                errors.push(`Row ${rowNum}: Status must be Enrolled, LOA, Graduated, Dropped, or Expelled.`);
+            }
+        }
+
+        if (errors.length > 0) {
+            setErrorMsg(errors);
+            setParsedData(null);
+            return;
+        }
+
+        setParsedData(data);
     };
 
     const submitBulk = async () => {
@@ -173,16 +313,16 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
             if (authError || !user) throw new Error("Authentication error. Please log in again.");
 
             const insertData = parsedData.map(row => ({
-                student_number: row.student_number?.trim(),
-                first_name: row.first_name?.trim(),
-                last_name: row.last_name?.trim(),
-                email: row.email?.trim() || null,
-                course_year_section: row.course_year_section?.trim(),
-                guardian_name: row.guardian_name?.trim() || null,
-                guardian_contact: row.guardian_contact?.trim() || null,
-                status: row.status?.trim() || 'Enrolled',
+                student_number: String(row['Student Number']).trim(),
+                first_name: String(row['First Name']).trim(),
+                last_name: String(row['Last Name']).trim(),
+                email: String(row['Email']).trim(),
+                course_year_section: String(row['Course/Year/Section']).trim(),
+                guardian_name: String(row['Guardian Name']).trim(),
+                guardian_contact: String(row['Guardian Contact']).trim(),
+                status: standardizeStatus(String(row['Status'])),
                 created_by: user.id
-            })).filter(row => row.student_number && row.first_name && row.last_name && row.course_year_section);
+            }));
 
             if (insertData.length === 0) {
                 throw new Error("No valid rows found to insert. Ensure required fields are not empty.");
@@ -207,72 +347,97 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
 
     const downloadTemplate = async () => {
         const templateHeaders = [
-            "student_number",
-            "first_name",
-            "last_name",
-            "course_year_section",
-            "email",
-            "guardian_name",
-            "guardian_contact",
-            "status"
+            "Student Number",
+            "First Name",
+            "Last Name",
+            "Course/Year/Section",
+            "Email",
+            "Guardian Name",
+            "Guardian Contact",
+            "Status"
         ];
 
-        const mockData = [
-            ["23-00201", "Juan", "dela Cruz", "BSIT-3A", "juan@example.edu.ph", "Maria dela Cruz", "09123456789", "Enrolled"]
-        ];
+        const mockData = ["23-00201", "Juan", "dela Cruz", "BSIT-3A", "juan@plpasig.edu.ph", "Maria dela Cruz", "09123456789", "Enrolled"];
 
-        const csvContent = Papa.unparse({
-            fields: templateHeaders,
-            data: mockData
-        });
+        try {
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet("Student Template");
 
-        if (window.__TAURI_INTERNALS__) {
-            try {
+            // Add headers with styling
+            const headerRow = worksheet.addRow(templateHeaders);
+            headerRow.eachCell((cell) => {
+                cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+                cell.fill = {
+                    type: "pattern",
+                    pattern: "solid",
+                    fgColor: { argb: "FF4F46E5" } // Indigo-600 to match theme
+                };
+                cell.alignment = { horizontal: "center" };
+            });
+
+            // Add mock data row
+            worksheet.addRow(mockData);
+
+            // Auto-width columns
+            worksheet.columns.forEach((column, i) => {
+                let maxLen = templateHeaders[i].length + 5;
+                column.width = maxLen;
+            });
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            const defaultFilename = "student_import_template.xlsx";
+
+            if (window.__TAURI_INTERNALS__) {
                 const { save } = await import("@tauri-apps/plugin-dialog");
                 const { invoke } = await import("@tauri-apps/api/core");
 
                 const filePath = await save({
-                    defaultPath: "student_import_template.csv",
-                    filters: [{ name: "CSV Excel", extensions: ["csv"] }]
+                    defaultPath: defaultFilename,
+                    filters: [{ name: "Excel Spreadsheet", extensions: ["xlsx"] }]
                 });
 
                 if (filePath) {
-                    await invoke("save_csv_template", { path: filePath, content: csvContent });
+                    const uint8Array = new Uint8Array(buffer);
+                    await invoke("save_file_binary", { path: filePath, content: Array.from(uint8Array) });
                     setSuccessMsg("Template downloaded successfully.");
                 }
-            } catch (err) {
-                console.error("Failed to save file in Tauri context:", err);
-                setErrorMsg("Failed to save template file.");
+            } else {
+                const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+                saveAs(blob, defaultFilename);
             }
-        } else {
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-
-            const link = document.createElement("a");
-            link.href = url;
-            link.setAttribute("download", "student_import_template.csv");
-            document.body.appendChild(link);
-            link.click();
-
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error("Failed to download template:", err);
+            setErrorMsg("Failed to generate template file.");
         }
     };
 
     return (
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-            <DialogContent className="sm:max-w-[550px] bg-white border-neutral-200 text-neutral-900 shadow-lg rounded-xl">
+            <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto bg-white border-neutral-200 text-neutral-900 shadow-lg rounded-xl scrollbar-hide">
                 <DialogHeader>
                     <DialogTitle className="text-xl font-bold text-neutral-900 tracking-tight">Add new student</DialogTitle>
                     <DialogDescription className="text-neutral-500 font-medium">
-                        Add a student to the registry manually or upload a CSV file for multiple entries.
+                        Add a student to the registry manually or upload an Excel/CSV file for multiple entries.
                     </DialogDescription> 
                 </DialogHeader>
 
                 {errorMsg && (
                     <div className="bg-red-50 border border-red-200 text-destructive-semantic p-3 rounded-md flex items-start gap-3 mt-4 text-sm font-medium">
-                        <AlertCircle className="w-5 h-5 shrink-0" />
-                        <p>{errorMsg}</p>
+                        <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                            {Array.isArray(errorMsg) ? (
+                                <div className="space-y-1">
+                                    <p className="font-bold underline mb-1">Upload Errors Found ({errorMsg.length}):</p>
+                                    <ul className="list-disc list-inside space-y-0.5 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar">
+                                        {errorMsg.map((msg, idx) => (
+                                            <li key={idx} className="text-[12px]">{msg}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ) : (
+                                <p>{errorMsg}</p>
+                            )}
+                        </div>
                     </div>
                 )}
 
@@ -312,18 +477,30 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="email" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Email Address</Label>
+                                <Label htmlFor="email" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Email Address <span className="text-destructive-semantic">*</span></Label>
                                 <Input id="email" name="email" type="email" value={formData.email} onChange={handleInputChange} className="bg-white border-neutral-200 focus-visible:ring-primary-500 h-9 text-sm text-neutral-900 placeholder:text-neutral-400" placeholder="juan@student.edu.ph" />
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="guardian_name" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Guardian Name</Label>
+                                <Label htmlFor="guardian_name" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Guardian Name <span className="text-destructive-semantic">*</span></Label>
                                 <Input id="guardian_name" name="guardian_name" value={formData.guardian_name} onChange={handleInputChange} className="bg-white border-neutral-200 focus-visible:ring-primary-500 h-9 text-sm text-neutral-900 placeholder:text-neutral-400" placeholder="Maria dela Cruz" />
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="guardian_contact" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Guardian Contact</Label>
+                                <Label htmlFor="guardian_contact" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Guardian Contact <span className="text-destructive-semantic">*</span></Label>
                                 <Input id="guardian_contact" name="guardian_contact" value={formData.guardian_contact} onChange={handleInputChange} className="bg-white border-neutral-200 focus-visible:ring-primary-500 h-9 text-sm text-neutral-900 placeholder:text-neutral-400" placeholder="09123456789" />
+                            </div>
+
+                            <div className="col-span-2 space-y-2">
+                                <Label htmlFor="status" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Status <span className="text-destructive-semantic">*</span></Label>
+                                <select id="status" name="status" value={formData.status} onChange={handleInputChange} className="w-full flex h-9 rounded-md border border-neutral-200 bg-white px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-500">
+                                    <option value="" disabled>Select Status</option>
+                                    <option value="Enrolled">Enrolled</option>
+                                    <option value="LOA">LOA</option>
+                                    <option value="Graduated">Graduated</option>
+                                    <option value="Dropped">Dropped</option>
+                                    <option value="Expelled">Expelled</option>
+                                </select>
                             </div>
 
                             <div className="col-span-2 flex justify-end gap-3 mt-4 pt-4 border-t border-neutral-100">
@@ -340,9 +517,9 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
                         <div className="space-y-4">
                             <div className="border-2 border-dashed border-neutral-300 rounded-lg p-8 flex flex-col items-center justify-center bg-neutral-50 hover:bg-neutral-100 transition-colors">
                                 <UploadCloud className="w-10 h-10 text-neutral-400 mb-4" />
-                                <Label htmlFor="csv_upload" className="cursor-pointer text-primary-600 hover:text-primary-700 hover:underline text-center font-bold">
-                                    Click to browse CSV file
-                                    <Input id="csv_upload" type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
+                                <Label htmlFor="file_upload" className="cursor-pointer text-primary-600 hover:text-primary-700 hover:underline text-center font-bold">
+                                    Click to browse Excel or CSV file
+                                    <Input id="file_upload" type="file" accept=".csv, .xlsx, .xls" className="hidden" onChange={handleFileUpload} />
                                 </Label>
                                 <p className="text-xs font-medium text-neutral-500 mt-2">Maximum file size 5MB</p>
 
@@ -364,13 +541,47 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
                                 Download Template
                             </Button>
 
-                            <div className="bg-neutral-50 p-4 rounded border border-neutral-200">
-                                <div>
-                                    <h4 className="text-sm font-bold text-neutral-900 mb-2">CSV Format Requirements:</h4>
-                                    <ul className="text-xs font-medium text-neutral-600 space-y-1 list-disc list-inside">
-                                        <li>Must include headers: <code className="text-primary-600 bg-white px-1 py-0.5 rounded border border-neutral-200">student_number</code>, <code className="text-primary-600 bg-white px-1 py-0.5 rounded border border-neutral-200">first_name</code>, <code className="text-primary-600 bg-white px-1 py-0.5 rounded border border-neutral-200">last_name</code>, <code className="text-primary-600 bg-white px-1 py-0.5 rounded border border-neutral-200">course_year_section</code></li>
-                                        <li>Optional headers: <code className="text-neutral-500 bg-white px-1 py-0.5 rounded border border-neutral-200">email</code>, <code className="text-neutral-500 bg-white px-1 py-0.5 rounded border border-neutral-200">guardian_name</code>, <code className="text-neutral-500 bg-white px-1 py-0.5 rounded border border-neutral-200">guardian_contact</code>, <code className="text-neutral-500 bg-white px-1 py-0.5 rounded border border-neutral-200">status</code></li>
-                                    </ul>
+                            <div className="bg-neutral-50 p-5 rounded-xl border border-neutral-200">
+                                <h4 className="text-sm font-bold text-neutral-900 mb-4 flex items-center gap-2">
+                                    <div className="w-1.5 h-4 bg-primary-600 rounded-full" />
+                                    Data Formatting Guide
+                                </h4>
+                                <div className="space-y-3">
+                                    {/* <div className="flex flex-col gap-1">
+                                        <span className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider">Required Headers</span>
+                                        <p className="text-[11px] text-neutral-600 leading-relaxed">
+                                            <code className="bg-white border px-1.5 py-0.5 rounded text-primary-700">Student Number</code>, 
+                                            <code className="bg-white border px-1.5 py-0.5 rounded text-primary-700">First Name</code>, 
+                                            <code className="bg-white border px-1.5 py-0.5 rounded text-primary-700">Last Name</code>, 
+                                            <code className="bg-white border px-1.5 py-0.5 rounded text-primary-700">Course/Year/Section</code>, 
+                                            <code className="bg-white border px-1.5 py-0.5 rounded text-primary-700">Email</code>, 
+                                            <code className="bg-white border px-1.5 py-0.5 rounded text-primary-700">Guardian Name</code>, 
+                                            <code className="bg-white border px-1.5 py-0.5 rounded text-primary-700">Guardian Contact</code>, 
+                                            <code className="bg-white border px-1.5 py-0.5 rounded text-primary-700">Status</code>
+                                        </p>
+                                    </div> */}
+                                    <div className="grid grid-cols-2 gap-4 pt-1">
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Student Number</span>
+                                            <p className="text-[11px] font-medium text-neutral-600 italic">Format: 23-00001 (Digits only)</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Email</span>
+                                            <p className="text-[11px] font-medium text-neutral-600 italic">Must end with @plpasig.edu.ph</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Names & Guardians</span>
+                                            <p className="text-[11px] font-medium text-neutral-600 italic">Letters, spaces, & hyphens only</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Guardian Contact</span>
+                                            <p className="text-[11px] font-medium text-neutral-600 italic">Format: 09XXXXXXXXX (11 digits)</p>
+                                        </div>
+                                        <div className="col-span-2 space-y-1">
+                                            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Acceptable Statuses</span>
+                                            <p className="text-[11px] font-medium text-neutral-600 italic">Enrolled, LOA, Graduated, Dropped, Expelled</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
