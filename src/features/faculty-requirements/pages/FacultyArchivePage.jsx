@@ -423,14 +423,15 @@ export default function FacultyArchivePage() {
                                           <Button
                                             variant="ghost"
                                             size="sm"
-                                            className={`h-7 px-2.5 text-[10px] font-bold uppercase tracking-widest transition-all ${expandedSubmission === ver.submission_id ? 'bg-primary-100 text-primary-700' : 'text-neutral-500 hover:text-primary-600 hover:bg-primary-50'}`}
+                                            className={`h-7 px-2.5 text-[10px] font-bold uppercase tracking-widest transition-all ${expandedSubmission === `${ver.submission_id}-${ver.original_filename}` ? 'bg-primary-100 text-primary-700' : 'text-neutral-500 hover:text-primary-600 hover:bg-primary-50'}`}
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              if (expandedSubmission === ver.submission_id) {
+                                              const subKey = `${ver.submission_id}-${ver.original_filename}`;
+                                              if (expandedSubmission === subKey) {
                                                 setExpandedSubmission(null);
                                               } else {
-                                                setExpandedSubmission(ver.submission_id);
-                                                loadSubmissionVersions(ver.submission_id);
+                                                setExpandedSubmission(subKey);
+                                                loadSubmissionVersions(ver.submission_id, ver.original_filename);
                                               }
                                             }}
                                           >
@@ -451,7 +452,7 @@ export default function FacultyArchivePage() {
                                     </tr>
 
                                     {/* Expanded Version History Timeline */}
-                                    {expandedSubmission === ver.submission_id && (
+                                    {expandedSubmission === `${ver.submission_id}-${ver.original_filename}` && (
                                       <tr>
                                         <td colSpan={4} className="bg-neutral-50/80 p-0 border-b border-neutral-200 shadow-inner">
                                           <div className="p-4 pl-6 ml-2 border-l-2 border-primary-200 bg-neutral-50/50">

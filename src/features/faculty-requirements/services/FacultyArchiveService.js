@@ -101,13 +101,11 @@ export const FacultyArchiveService = {
     }
   },
 
-  /**
-   * Fetch version history for a specific submission file
-   */
-  getSubmissionVersions: async (submissionId) => {
+  getSubmissionVersions: async (submissionId, filename = null) => {
     try {
       const { data, error } = await supabase.rpc('get_document_versions_fs', {
-        p_submission_id: parseInt(submissionId)
+        p_submission_id: parseInt(submissionId),
+        p_filename: filename
       });
 
       if (error) throw error;
