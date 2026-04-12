@@ -205,7 +205,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
         }
     };
 
-    const downloadTemplate = () => {
+    const downloadTemplate = async () => {
         const templateHeaders = [
             "student_number",
             "first_name",
@@ -226,17 +226,37 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
             data: mockData
         });
 
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
+        if (window.__TAURI_INTERNALS__) {
+            try {
+                const { save } = await import("@tauri-apps/plugin-dialog");
+                const { invoke } = await import("@tauri-apps/api/core");
 
-        const link = document.createElement("a");
-        link.href = url;
-        link.setAttribute("download", "student_import_template.csv");
-        document.body.appendChild(link);
-        link.click();
+                const filePath = await save({
+                    defaultPath: "student_import_template.csv",
+                    filters: [{ name: "CSV Excel", extensions: ["csv"] }]
+                });
 
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+                if (filePath) {
+                    await invoke("save_csv_template", { path: filePath, content: csvContent });
+                    setSuccessMsg("Template downloaded successfully.");
+                }
+            } catch (err) {
+                console.error("Failed to save file in Tauri context:", err);
+                setErrorMsg("Failed to save template file.");
+            }
+        } else {
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute("download", "student_import_template.csv");
+            document.body.appendChild(link);
+            link.click();
+
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
     };
 
     return (

@@ -540,7 +540,29 @@ const GenerateReport = () => {
         drawFooter(i, totalPages);
       }
 
-      doc.save(`${selectedType}_report_${new Date().toISOString().slice(0, 10)}.pdf`);
+      const defaultFilename = `${selectedType}_report_${new Date().toISOString().slice(0, 10)}.pdf`;
+      
+      if (window.__TAURI_INTERNALS__) {
+        try {
+          const { save } = await import("@tauri-apps/plugin-dialog");
+          const { invoke } = await import("@tauri-apps/api/core");
+
+          const filePath = await save({
+            defaultPath: defaultFilename,
+            filters: [{ name: "PDF Document", extensions: ["pdf"] }]
+          });
+
+          if (filePath) {
+            const pdfOutput = doc.output('arraybuffer');
+            const uint8Array = new Uint8Array(pdfOutput);
+            await invoke("save_file_binary", { path: filePath, content: Array.from(uint8Array) });
+          }
+        } catch (err) {
+          console.error("Failed to save PDF in Tauri context:", err);
+        }
+      } else {
+        doc.save(defaultFilename);
+      }
     } catch (err) {
       console.error("PDF export error:", err);
     } finally {
@@ -656,9 +678,30 @@ const GenerateReport = () => {
         col.width = Math.min(maxLen + 4, 50);
       });
 
+      const defaultFilename = `${selectedType}_report_${new Date().toISOString().slice(0, 10)}.xlsx`;
       const buffer = await wb.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-      saveAs(blob, `${selectedType}_report_${new Date().toISOString().slice(0, 10)}.xlsx`);
+
+      if (window.__TAURI_INTERNALS__) {
+        try {
+          const { save } = await import("@tauri-apps/plugin-dialog");
+          const { invoke } = await import("@tauri-apps/api/core");
+
+          const filePath = await save({
+            defaultPath: defaultFilename,
+            filters: [{ name: "Excel Spreadsheet", extensions: ["xlsx"] }]
+          });
+
+          if (filePath) {
+            const uint8Array = new Uint8Array(buffer);
+            await invoke("save_file_binary", { path: filePath, content: Array.from(uint8Array) });
+          }
+        } catch (err) {
+          console.error("Failed to save Excel in Tauri context:", err);
+        }
+      } else {
+        const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        saveAs(blob, defaultFilename);
+      }
     } catch (err) {
       console.error("Excel export error:", err);
     } finally {
