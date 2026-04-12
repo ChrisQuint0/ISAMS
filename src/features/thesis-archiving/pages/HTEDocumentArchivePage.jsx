@@ -22,6 +22,8 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { GoogleAuthModal } from "@/features/settings/components/GoogleAuthModal";
+import { useGoogleAuthStatus } from "@/features/settings/hooks/useGoogleAuthStatus";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -290,6 +292,13 @@ export default function HTEDocumentArchivePage() {
     var role = ctx.role;
     var studentId = ctx.studentId;
     const { user } = useAuth();
+
+    // Google auth check — only for coordinators/admins
+    const { isExpiredOrMissing: googleExpired } = useGoogleAuthStatus(
+        role === "admin" ? user?.id : null
+    );
+    const [authModalDismissed, setAuthModalDismissed] = React.useState(false);
+    const showGoogleAuthModal = role === "admin" && googleExpired && !authModalDismissed;
 
     const actorInfo = React.useMemo(() => ({
         actorUserId: user?.id,
@@ -789,6 +798,12 @@ export default function HTEDocumentArchivePage() {
 
     return (
         <div className="flex flex-col min-h-screen w-full bg-neutral-100 text-neutral-900">
+
+            {/* Google Auth Modal */}
+            <GoogleAuthModal
+                open={showGoogleAuthModal}
+                onClose={() => setAuthModalDismissed(true)}
+            />
 
             <HTEArchivingHeader
                 role={role}

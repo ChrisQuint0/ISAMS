@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import {
@@ -12,6 +13,8 @@ import thesisIcon from "@/assets/icons/thesis_icon.svg";
 import facReqIcon from "@/assets/icons/fac_req_icon.svg";
 import classlistIcon from "@/assets/icons/classlist_icon.svg";
 import labIcon from "@/assets/icons/lab_icon.svg";
+import { GoogleAuthModal } from "@/features/settings/components/GoogleAuthModal";
+import { useGoogleAuthStatus } from "@/features/settings/hooks/useGoogleAuthStatus";
 
 const isAdmin = (rbac) => {
   if (!rbac) return false;
@@ -37,6 +40,14 @@ const isStudent = (rbac) => {
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { user, rbac, signOut } = useAuth();
+
+  // Google auth banner — only relevant for admin users
+  const adminUser = isAdmin(rbac);
+  const { isExpiredOrMissing: googleExpired } = useGoogleAuthStatus(
+    adminUser ? user?.id : null
+  );
+  const [authModalDismissed, setAuthModalDismissed] = useState(false);
+  const showGoogleAuthModal = adminUser && googleExpired && !authModalDismissed;
 
   const handleSignOut = async () => {
     try {
@@ -115,6 +126,11 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col relative overflow-x-hidden">
+      {/* ── Google Auth Modal ── */}
+      <GoogleAuthModal
+        open={showGoogleAuthModal}
+        onClose={() => setAuthModalDismissed(true)}
+      />
       {/* ── Decorative background blobs ── */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute -top-32 -left-32 w-[480px] h-[480px] rounded-full"

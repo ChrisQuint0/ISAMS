@@ -34,6 +34,7 @@ export function SystemSettings() {
   // Google Auth State
   const [googleStatus, setGoogleStatus] = useState({
     authenticated: false,
+    hasDriveScope: false,
     email: "",
     isLoading: true,
     authUrl: ""
@@ -87,11 +88,13 @@ export function SystemSettings() {
     try {
       const status = await settingsService.getGoogleAuthStatus(user.id);
       let url = "";
-      if (!status.authenticated) {
+      // Fetch auth URL if not authenticated OR if authenticated but missing Drive scope
+      if (!status.authenticated || !status.hasDriveScope) {
         url = await settingsService.getGoogleAuthUrl(user.id);
       }
       setGoogleStatus({
         authenticated: status.authenticated,
+        hasDriveScope: status.hasDriveScope ?? false,
         email: status.email || "",
         isLoading: false,
         authUrl: url || ""
@@ -237,7 +240,8 @@ export function SystemSettings() {
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Checking connection status...
               </div>
-            ) : googleStatus.authenticated ? (
+            ) : googleStatus.authenticated && googleStatus.hasDriveScope ? (
+              // Connected with full Drive access
               <div className="bg-primary-500/5 border border-primary-500/20 rounded-lg p-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-primary-500/10 flex items-center justify-center">
@@ -257,7 +261,30 @@ export function SystemSettings() {
                   Change Account
                 </Button>
               </div>
+            ) : googleStatus.authenticated && !googleStatus.hasDriveScope ? (
+              // Connected but missing Drive scope — needs re-auth
+              <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-4 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center">
+                    <AlertCircle className="h-6 w-6 text-amber-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Connected as {googleStatus.email} — Drive Access Missing</p>
+                    <p className="text-xs text-muted-foreground text-pretty">
+                      Your account is linked but only has login-level access. Re-authenticate to grant Google Drive upload permissions.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={handleGoogleAuth}
+                  className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+                >
+                  <img src="https://www.google.com/favicon.ico" className="w-4 h-4 mr-2" alt="Google" />
+                  Re-authenticate with Drive Access
+                </Button>
+              </div>
             ) : (
+              // Not connected at all
               <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-4 space-y-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center">

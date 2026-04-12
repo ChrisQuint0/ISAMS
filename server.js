@@ -64,16 +64,23 @@ async function loadToken(userId) {
       .select("*")
       .eq("user_id", userId)
       .maybeSingle();
-    data = userData;
-  } else {
+
+    if (userData && userData.scope && userData.scope.match(/googleapis\.com\/auth\/drive(\s|$)/)) {
+      data = userData;
+    }
+  } 
+  
+  if (!data) {
     // Fallback logic: Search for a token that has the full 'drive' scope needed for uploads
     const { data: scopedTokens, error: scopeError } = await supabase
       .from("google_auth_tokens")
       .select("*")
-      .ilike("scope", "%auth/drive %"); // Notice the space to avoid matching drive.file
+      .ilike("scope", "%googleapis.com/auth/drive%")
+      .order("created_at", { ascending: false });
 
     if (scopedTokens && scopedTokens.length > 0) {
-      data = scopedTokens[0];
+      const fullDriveToken = scopedTokens.find(t => t.scope && t.scope.match(/googleapis\.com\/auth\/drive(\s|$)/));
+      data = fullDriveToken || scopedTokens[0];
     } else {
       // Final fallback to id=1
       const { data: legacyData } = await supabase
@@ -632,9 +639,8 @@ app.post("/api/hte/upload", upload.single("file"), async (req, res) => {
   }
 
   try {
-    const isStudent = uploadedByRole === 'student';
-    // Use system token (id=1) for students, or user token if available
-    const auth = await loadToken(isStudent ? null : (req.body.userId || req.body.actorUserId || null));
+    // Always use system token for HTE uploads (centralized directory)
+    const auth = await loadToken(null);
     if (!auth) return res.status(401).json({ error: "Google Drive not authenticated" });
     const drive = google.drive({ version: "v3", auth });
 
@@ -759,11 +765,8 @@ app.post("/api/hte/delete", async (req, res) => {
   }
 
   try {
-    // Determine if we should use system token (for students) or user token
-    const { data: studentCheck } = await supabaseAdmin.from("hte_ojt_students").select("user_id").eq("id", studentId).single();
-    const isStudentOp = studentCheck && (req.body.userId === studentCheck.user_id || req.body.actorUserId === studentCheck.user_id);
-    
-    const auth = await loadToken(isStudentOp ? null : (req.body.userId || req.body.actorUserId || null));
+    // Always use system token for HTE deletes (centralized directory)
+    const auth = await loadToken(null);
     if (!auth) return res.status(401).json({ error: "Google Drive not authenticated" });
     const drive = google.drive({ version: "v3", auth });
 
@@ -1822,16 +1825,35 @@ app.get("/api/auth/google/status/:userId", async (req, res) => {
   }
 
   try {
-    const auth = await loadToken(userId);
-    if (!auth) {
+    // Check the user's token directly — do NOT use loadToken() which falls back to the system token
+    const { data: tokenRow } = await supabase
+      .from("google_auth_tokens")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (!tokenRow) {
       return res.json({ authenticated: false });
     }
 
-    const oauth2 = google.oauth2({ version: "v2", auth });
+    // Check if token has full Drive scope
+    const hasDriveScope = !!(tokenRow.scope && tokenRow.scope.match(/googleapis\.com\/auth\/drive(\s|$)/));
+
+    // Set credentials for userinfo call
+    oauth2Client.setCredentials({
+      access_token: tokenRow.access_token,
+      refresh_token: tokenRow.refresh_token,
+      scope: tokenRow.scope,
+      token_type: tokenRow.token_type,
+      expiry_date: tokenRow.expiry_date,
+    });
+
+    const oauth2 = google.oauth2({ version: "v2", auth: oauth2Client });
     const { data: userInfo } = await oauth2.userinfo.get();
 
     res.json({ 
       authenticated: true,
+      hasDriveScope,
       email: userInfo.email,
       name: userInfo.name,
       picture: userInfo.picture
