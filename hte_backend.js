@@ -14,7 +14,8 @@ const port = 3003; // Dedicated port for HTE/OJT Notifications
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
-const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || "noreply@isams.edu.ph";
+const SENDGRID_FROM_EMAIL =
+  process.env.SENDGRID_FROM_EMAIL || "noreply@isams.edu.ph";
 const SENDGRID_FROM_NAME = process.env.SENDGRID_FROM_NAME || "ISAMS System";
 
 if (SENDGRID_API_KEY) {
@@ -27,23 +28,26 @@ app.use(express.json());
 
 // Request Logger
 app.use((req, res, next) => {
-    console.log(`[HTE Backend] ${new Date().toISOString()} ${req.method} ${req.url}`);
-    next();
+  console.log(
+    `[HTE Backend] ${new Date().toISOString()} ${req.method} ${req.url}`,
+  );
+  next();
 });
 
 // Supabase Admin Client
-const supabaseAdmin = (SUPABASE_URL && SUPABASE_SERVICE_KEY)
-  ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  })
-  : null;
+const supabaseAdmin =
+  SUPABASE_URL && SUPABASE_SERVICE_KEY
+    ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      })
+    : null;
 
 // ---------- Email HTML template builder ----------
 function buildHTEEmailHtml({ studentName, missingDocs }) {
   const primaryColor = "#006B35"; // CSR Green
   const baseStyle = `font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f7f6; padding: 40px 20px; margin: 0;`;
   const cardStyle = `background: #ffffff; border-radius: 16px; padding: 40px; max-width: 600px; margin: 0 auto; border: 1px solid #e1e8e5; box-shadow: 0 4px 6px rgba(0,0,0,0.05);`;
-  
+
   const headerStr = `
     <div style="border-bottom: 3px solid ${primaryColor}; padding-bottom: 24px; margin-bottom: 30px; text-align: center;">
       <h1 style="margin: 0; font-size: 28px; font-weight: 800; color: ${primaryColor}; letter-spacing: -0.5px;">ISAMS</h1>
@@ -55,14 +59,15 @@ function buildHTEEmailHtml({ studentName, missingDocs }) {
       <p style="margin: 0; font-size: 12px; color: #8a9991; line-height: 1.5;">This is an automated notification from the ISAMS Thesis Archiving Module.<br/>Pamantasan ng Lungsod ng Pasig — College of Computer Studies</p>
     </div>`;
 
-  const docsList = missingDocs && missingDocs.length > 0
-    ? `<div style="background: #fff5f5; border: 1px solid #feb2b2; border-radius: 8px; padding: 20px; margin: 24px 0;">
+  const docsList =
+    missingDocs && missingDocs.length > 0
+      ? `<div style="background: #fff5f5; border: 1px solid #feb2b2; border-radius: 8px; padding: 20px; margin: 24px 0;">
         <p style="margin: 0 0 12px; font-size: 14px; font-weight: 700; color: #c53030;">Missing Requirements:</p>
         <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #742a2a; line-height: 1.6;">
-          ${missingDocs.map(doc => `<li style="margin-bottom: 4px;">${doc}</li>`).join('')}
+          ${missingDocs.map((doc) => `<li style="margin-bottom: 4px;">${doc}</li>`).join("")}
         </ul>
       </div>`
-    : '';
+      : "";
 
   return `
     <div style="${baseStyle}">
@@ -97,11 +102,17 @@ function buildHTEEmailHtml({ studentName, missingDocs }) {
 
 app.post("/api/hte/notifications/send-batch", async (req, res) => {
   if (!SENDGRID_API_KEY || !supabaseAdmin) {
-    return res.status(500).json({ error: "Email configuration or database connection missing" });
+    return res
+      .status(500)
+      .json({ error: "Email configuration or database connection missing" });
   }
 
   const { batchData, actorInfo } = req.body;
-  if (!batchData || !Array.isArray(batchData.students) || batchData.students.length === 0) {
+  if (
+    !batchData ||
+    !Array.isArray(batchData.students) ||
+    batchData.students.length === 0
+  ) {
     return res.status(400).json({ error: "Invalid batch data" });
   }
 
@@ -109,13 +120,15 @@ app.post("/api/hte/notifications/send-batch", async (req, res) => {
     // 1. Create Batch Record
     const { data: batch, error: batchError } = await supabaseAdmin
       .from("hte_notification_batches")
-      .insert([{
-        initiated_by_user_id: actorInfo?.actorUserId || null,
-        initiated_by_name: actorInfo?.actorName || "System",
-        student_count: batchData.students.length,
-        academic_year: batchData.academicYear || null,
-        semester: batchData.semester || null
-      }])
+      .insert([
+        {
+          initiated_by_user_id: actorInfo?.actorUserId || null,
+          initiated_by_name: actorInfo?.actorName || "System",
+          student_count: batchData.students.length,
+          academic_year: batchData.academicYear || null,
+          semester: batchData.semester || null,
+        },
+      ])
       .select()
       .single();
 
@@ -125,7 +138,7 @@ app.post("/api/hte/notifications/send-batch", async (req, res) => {
       total: batchData.students.length,
       success: 0,
       failed: 0,
-      errors: []
+      errors: [],
     };
 
     // 2. Send Emails to each student
@@ -135,17 +148,17 @@ app.post("/api/hte/notifications/send-batch", async (req, res) => {
       try {
         const html = buildHTEEmailHtml({
           studentName: student.name,
-          missingDocs: student.missingDocs
+          missingDocs: student.missingDocs,
         });
 
         await sgMail.send({
           to: student.email,
           from: {
             email: SENDGRID_FROM_EMAIL,
-            name: SENDGRID_FROM_NAME
+            name: SENDGRID_FROM_NAME,
           },
           subject: "[ISAMS] HTE/OJT Document Submission Notice",
-          html: html
+          html: html,
         });
 
         recipientsToInsert.push({
@@ -153,7 +166,7 @@ app.post("/api/hte/notifications/send-batch", async (req, res) => {
           student_id: student.id,
           student_name: student.name,
           student_email: student.email,
-          missing_docs: student.missingDocs
+          missing_docs: student.missingDocs,
         });
 
         // 3. Update/Insert Cooldown
@@ -162,13 +175,11 @@ app.post("/api/hte/notifications/send-batch", async (req, res) => {
         const expiresAt = new Date();
         expiresAt.setHours(expiresAt.getHours() + 24);
 
-        await supabaseAdmin
-          .from("hte_notification_cooldowns")
-          .upsert({
-            student_id: student.id,
-            last_notified_at: new Date().toISOString(),
-            cooldown_expires_at: expiresAt.toISOString()
-          });
+        await supabaseAdmin.from("hte_notification_cooldowns").upsert({
+          student_id: student.id,
+          last_notified_at: new Date().toISOString(),
+          cooldown_expires_at: expiresAt.toISOString(),
+        });
 
         results.success++;
       } catch (err) {
@@ -177,18 +188,19 @@ app.post("/api/hte/notifications/send-batch", async (req, res) => {
         results.errors.push({
           studentId: student.id,
           name: student.name,
-          error: err.message
+          error: err.message,
         });
       }
     }
 
     // 4. Batch insert recipients if any
     if (recipientsToInsert.length > 0) {
-      await supabaseAdmin.from("hte_notification_recipients").insert(recipientsToInsert);
+      await supabaseAdmin
+        .from("hte_notification_recipients")
+        .insert(recipientsToInsert);
     }
 
     res.json({ success: true, batchId: batch.id, results });
-
   } catch (error) {
     console.error("Batch notification error:", error);
     res.status(500).json({ error: error.message });
