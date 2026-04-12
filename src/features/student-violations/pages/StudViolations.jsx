@@ -98,12 +98,12 @@ const StudViolations = () => {
       const { data: userData, error: userError } = await supabase
         .from('users_with_roles')
         .select('id, first_name, last_name');
-        
+
       const userMap = {};
       if (userData) {
-          userData.forEach(u => {
-              userMap[u.id] = `${u.first_name} ${u.last_name}`;
-          });
+        userData.forEach(u => {
+          userMap[u.id] = `${u.first_name} ${u.last_name}`;
+        });
       }
 
       // 1. Fetch Violations
@@ -123,19 +123,19 @@ const StudViolations = () => {
           // Format date and time for better readability
           let incidentDisplay = "N/A";
           if (v.incident_date) {
-              const dateObj = new Date(v.incident_date);
-              const dateStr = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-              
-              let timeStr = "";
-              if (v.incident_time) {
-                 // Convert 'HH:MM:SS' to something like '3:00 PM'
-                 const [hours, minutes] = v.incident_time.split(':');
-                 const h = parseInt(hours, 10);
-                 const ampm = h >= 12 ? 'PM' : 'AM';
-                 const h12 = h % 12 || 12;
-                 timeStr = ` at ${h12}:${minutes} ${ampm}`;
-              }
-              incidentDisplay = `${dateStr}${timeStr}`;
+            const dateObj = new Date(v.incident_date);
+            const dateStr = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+
+            let timeStr = "";
+            if (v.incident_time) {
+              // Convert 'HH:MM:SS' to something like '3:00 PM'
+              const [hours, minutes] = v.incident_time.split(':');
+              const h = parseInt(hours, 10);
+              const ampm = h >= 12 ? 'PM' : 'AM';
+              const h12 = h % 12 || 12;
+              timeStr = ` at ${h12}:${minutes} ${ampm}`;
+            }
+            incidentDisplay = `${dateStr}${timeStr}`;
           }
 
           return {
@@ -184,6 +184,7 @@ const StudViolations = () => {
       } else if (sData) {
         const formattedSanctions = sData.map(s => ({
           sanction_id: s.sanction_id,
+          student_number: s.violations_sv?.student_number || 'Unknown',
           student_name: s.violations_sv?.students_sv
             ? `${s.violations_sv.students_sv.first_name} ${s.violations_sv.students_sv.last_name}`
             : 'Unknown',
@@ -209,6 +210,14 @@ const StudViolations = () => {
   }, []);
 
   const columnDefs = useMemo(() => [
+    {
+      headerName: "Student No.",
+      field: "student_number",
+      width: 110,
+      filter: true,
+      tooltipField: "student_number",
+      cellStyle: { color: 'var(--neutral-500)', fontWeight: '600' }
+    },
     {
       headerName: "Student Name",
       field: "name",
@@ -237,7 +246,7 @@ const StudViolations = () => {
       headerName: "Incident Date",
       field: "incident_display",
       flex: 1,
-      filter: true, 
+      filter: true,
       tooltipField: "incident_display",
       cellStyle: { color: 'var(--neutral-500)', fontWeight: '500' }
     },
@@ -282,7 +291,7 @@ const StudViolations = () => {
   ], []);
 
   const sanctionColumnDefs = useMemo(() => [
-    { headerName: "ID", field: "sanction_id", width: 110, tooltipField: "sanction_id", cellStyle: { color: 'var(--neutral-500)' } },
+    { headerName: "Student No.", field: "student_number", width: 120, filter: true, tooltipField: "student_number", cellStyle: { color: 'var(--neutral-500)', fontWeight: '600' } },
     { headerName: "Student Name", field: "student_name", flex: 1.5, tooltipField: "student_name", filter: true, cellStyle: { color: 'var(--neutral-900)', fontWeight: '600' } },
     { headerName: "Sanction", field: "sanction_name", flex: 1.5, tooltipField: "sanction_name", filter: true, cellStyle: { color: 'var(--neutral-500)', fontWeight: '500' } },
     {
@@ -355,29 +364,29 @@ const StudViolations = () => {
 
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatCard 
-          title="Total Violations" 
-          value={violations.length} 
-          icon={ShieldAlert} 
-          isLoading={isLoading} 
-          borderTopClass="bg-neutral-400" 
-          iconClass="text-neutral-500 bg-neutral-100 border-neutral-200" 
+        <StatCard
+          title="Total Violations"
+          value={violations.length}
+          icon={ShieldAlert}
+          isLoading={isLoading}
+          borderTopClass="bg-neutral-400"
+          iconClass="text-neutral-500 bg-neutral-100 border-neutral-200"
         />
-        <StatCard 
-          title="Active Investigations" 
-          value={violations.filter(v => v.status === 'Pending' || v.status === 'Under Investigation').length} 
-          icon={AlertTriangle} 
-          isLoading={isLoading} 
-          borderTopClass="bg-warning" 
-          iconClass="text-warning bg-warning/10 border-warning/20" 
+        <StatCard
+          title="Active Investigations"
+          value={violations.filter(v => v.status === 'Pending' || v.status === 'Under Investigation').length}
+          icon={AlertTriangle}
+          isLoading={isLoading}
+          borderTopClass="bg-warning"
+          iconClass="text-warning bg-warning/10 border-warning/20"
         />
-        <StatCard 
-          title="Resolved Records" 
-          value={violations.filter(v => v.status === 'Resolved' || v.status === 'Dismissed').length} 
-          icon={CheckCircle2} 
-          isLoading={isLoading} 
-          borderTopClass="bg-success" 
-          iconClass="text-success bg-success/10 border-success/20" 
+        <StatCard
+          title="Resolved Records"
+          value={violations.filter(v => v.status === 'Resolved' || v.status === 'Dismissed').length}
+          icon={CheckCircle2}
+          isLoading={isLoading}
+          borderTopClass="bg-success"
+          iconClass="text-success bg-success/10 border-success/20"
         />
       </div>
 
