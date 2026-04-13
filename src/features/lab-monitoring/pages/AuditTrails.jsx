@@ -281,7 +281,9 @@ export default function AuditTrails() {
 
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-[30px] font-bold text-neutral-900 tracking-tight">{labName} — Audit Trails</h1>
+                    <h1 className="text-[30px] font-bold text-neutral-900 tracking-tight">
+                        {labName?.replace(/^Lab /i, "Computer Laboratory ")} — Audit Trails
+                    </h1>
                     <p className="text-neutral-500 text-sm italic">Complete activity log of all system events, admin actions & overrides</p>
                 </div>
 
@@ -327,8 +329,8 @@ export default function AuditTrails() {
                         <button
                             onClick={handleExport}
                             className={`flex items-center gap-2 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-r-lg border border-l-0 transition-all shadow-sm ${exportFormat === "excel"
-                                    ? "bg-primary-500 border-primary-500 hover:bg-primary-600 text-white"
-                                    : "bg-gold-500 border-gold-500 hover:bg-gold-600 text-neutral-900"
+                                ? "bg-primary-500 border-primary-500 hover:bg-primary-600 text-white"
+                                : "bg-gold-500 border-gold-500 hover:bg-gold-600 text-neutral-900"
                                 }`}
                         >
                             <Download size={13} className={exportFormat === "excel" ? "text-white" : "text-neutral-900"} /> Export .{exportFormat}

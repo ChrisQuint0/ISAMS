@@ -237,6 +237,49 @@ export default function Success() {
     return () => clearInterval(intervalId);
   }, [loading, countdown, navigate, labId, labName]);
 
+  useEffect(() => {
+    if (attendanceType === "In" && studentData?.full_name) {
+      const synth = window.speechSynthesis;
+
+      const speakGreeting = () => {
+        synth.cancel(); // Stop any pending speech
+        const utterance = new SpeechSynthesisUtterance(
+          `Check in successful. Welcome to ${labName}, ${studentData.full_name}.`
+        );
+
+        const voices = synth.getVoices();
+        const preferredVoice = voices.find(
+          (voice) =>
+            voice.name.includes("Zira") ||
+            voice.name.includes("Female") ||
+            voice.name.includes("Google US")
+        );
+
+        if (preferredVoice) {
+          utterance.voice = preferredVoice;
+        }
+
+        utterance.rate = 0.9;
+        utterance.pitch = 1.1;
+
+        synth.speak(utterance);
+      };
+
+      if (synth.getVoices().length > 0) {
+        speakGreeting();
+      } else {
+        synth.onvoiceschanged = () => {
+          speakGreeting();
+          synth.onvoiceschanged = null; // Clean up the listener once voices are loaded
+        };
+      }
+
+      return () => {
+        window.speechSynthesis.cancel();
+      };
+    }
+  }, [attendanceType, studentData, labName]);
+
   if (loading) return (
     <div className="min-h-screen bg-neutral-100 flex flex-col items-center justify-center space-y-4">
       <Loader2 className="w-10 h-10 text-primary-500 animate-spin" />
