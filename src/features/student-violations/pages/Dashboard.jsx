@@ -275,11 +275,14 @@ export default function StudViolationDashboard() {
       if (uniqueUuids.length > 0) {
         const { data: users } = await supabase
           .from('users_with_roles')
-          .select('id, first_name, last_name')
+          .select('id, first_name, last_name, email')
           .in('id', uniqueUuids);
         if (users) {
           users.forEach(u => {
-            userMap[u.id] = `${u.first_name} ${u.last_name}`;
+            const hasName = u.first_name || u.last_name;
+            userMap[u.id] = hasName 
+              ? `${u.first_name || ''} ${u.last_name || ''}`.trim()
+              : (u.email ? u.email.split('@')[0] : 'Unknown User');
           });
         }
       }
@@ -644,4 +647,3 @@ export default function StudViolationDashboard() {
     </div>
   );
 }
-
