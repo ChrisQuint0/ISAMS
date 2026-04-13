@@ -248,7 +248,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
         // Validate rows
         for (let i = 0; i < data.length; i++) {
             const row = data[i];
-            const rowNum = i + 1;
+            const rowNum = i + 2; // Data starts at Row 2 (Row 1 is Header)
             
             for (const h of requiredHeaders) {
                 if (!row[h] || String(row[h]).trim() === '') {
