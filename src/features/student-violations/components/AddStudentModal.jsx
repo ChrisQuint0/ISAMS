@@ -137,6 +137,29 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
             const { data: { user }, error: authError } = await supabase.auth.getUser();
             if (authError || !user) throw new Error("Authentication error. Please log in again.");
 
+            // ── Duplicate Check ──────────────────────────────────────────────
+            const studentNumTrimmed = formData.student_number.trim();
+            const emailTrimmed = formData.email.trim();
+
+            const { data: existing, error: dupError } = await supabase
+                .from('students_sv')
+                .select('student_number, email')
+                .or(`student_number.eq.${studentNumTrimmed},email.eq.${emailTrimmed}`);
+
+            if (dupError) throw dupError;
+
+            if (existing && existing.length > 0) {
+                const dupNum = existing.find(r => r.student_number === studentNumTrimmed);
+                const dupEmail = existing.find(r => r.email === emailTrimmed);
+                if (dupNum) {
+                    setErrorMsg(`Student Number '${studentNumTrimmed}' is already registered in the system.`);
+                } else if (dupEmail) {
+                    setErrorMsg(`Email '${emailTrimmed}' is already registered to another student.`);
+                }
+                return;
+            }
+            // ─────────────────────────────────────────────────────────────────
+
             const insertPayload = {
                 student_number: formData.student_number.trim(),
                 first_name: formData.first_name.trim(),
@@ -213,7 +236,12 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
                         if (rowNumber === 1) return;
                         const rowData = {};
                         row.eachCell((cell, colNumber) => {
-                            rowData[headers[colNumber - 1]] = cell.value;
+                            let val = cell.value;
+                            // Extract actual text if cell contains a Hyperlink or Rich Text object
+                            if (val && typeof val === 'object') {
+                                val = val.text || (val.richText ? val.richText.map(rt => rt.text).join('') : val);
+                            }
+                            rowData[headers[colNumber - 1]] = val;
                         });
                         data.push(rowData);
                     });
@@ -227,7 +255,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
         }
     };
 
-    const validateAndSetData = (data) => {
+    const validateAndSetData = async (data) => {
         if (data.length === 0) {
             setErrorMsg("The file is empty.");
             return;
@@ -292,11 +320,53 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
             }
         }
 
+        // If format errors exist, show them and stop early
         if (errors.length > 0) {
             setErrorMsg(errors);
             setParsedData(null);
             return;
         }
+
+        // ── Duplicate check against database ─────────────────────────────
+        try {
+            const studentNumbers = data.map(row => String(row['Student Number']).trim());
+            const emails = data.map(row => String(row['Email']).trim());
+
+            const [{ data: existingNums, error: numErr }, { data: existingEmails, error: emailErr }] = await Promise.all([
+                supabase.from('students_sv').select('student_number').in('student_number', studentNumbers),
+                supabase.from('students_sv').select('email').in('email', emails),
+            ]);
+
+            if (numErr) throw numErr;
+            if (emailErr) throw emailErr;
+
+            const dupNumSet = new Set((existingNums || []).map(r => r.student_number));
+            const dupEmailSet = new Set((existingEmails || []).map(r => r.email));
+
+            data.forEach((row, i) => {
+                const rowNum = i + 2;
+                const sNum = String(row['Student Number']).trim();
+                const email = String(row['Email']).trim();
+                if (dupNumSet.has(sNum)) {
+                    errors.push(`Row ${rowNum}: Student Number '${sNum}' is already registered in the system.`);
+                }
+                if (dupEmailSet.has(email)) {
+                    errors.push(`Row ${rowNum}: Email '${email}' is already registered to another student.`);
+                }
+            });
+
+            if (errors.length > 0) {
+                setErrorMsg(errors);
+                setParsedData(null);
+                return;
+            }
+        } catch (err) {
+            console.error("Duplicate check failed:", err);
+            setErrorMsg("Failed to verify duplicates. Please try again.");
+            setParsedData(null);
+            return;
+        }
+        // ─────────────────────────────────────────────────────────────────
 
         setParsedData(data);
     };
@@ -311,6 +381,8 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
         try {
             const { data: { user }, error: authError } = await supabase.auth.getUser();
             if (authError || !user) throw new Error("Authentication error. Please log in again.");
+
+
 
             const insertData = parsedData.map(row => ({
                 student_number: String(row['Student Number']).trim(),
