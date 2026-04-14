@@ -113,7 +113,9 @@ export default function ReportsAnalytics() {
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-[30px] font-bold text-neutral-900 tracking-tight">{labName} — Reports & Analytics</h1>
+                    <h1 className="text-[30px] font-bold text-neutral-900 tracking-tight">
+                        {labName?.replace(/^Lab /i, "Computer Laboratory ")} — Reports & Analytics
+                    </h1>
                     <p className="text-neutral-600 text-sm italic">Analytics, Forecasting, Predictions & Overall Reports</p>
                 </div>
 
