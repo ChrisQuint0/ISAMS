@@ -378,10 +378,15 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
             // Add mock data row
             worksheet.addRow(mockData);
 
-            // Auto-width columns
+            // Auto-width and format columns
             worksheet.columns.forEach((column, i) => {
                 let maxLen = templateHeaders[i].length + 5;
                 column.width = maxLen;
+                
+                // Format specific columns as Text to prevent Excel from removing leading zeros
+                if (templateHeaders[i] === "Student Number" || templateHeaders[i] === "Guardian Contact") {
+                    column.numFmt = '@';
+                }
             });
 
             const buffer = await workbook.xlsx.writeBuffer();
