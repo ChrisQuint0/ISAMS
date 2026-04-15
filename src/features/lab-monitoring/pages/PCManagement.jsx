@@ -9,7 +9,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { usePCManagement } from "../hooks/usePCManagement";
 import { useAuth } from "../../auth/hooks/useAuth";
 
-// GSDS Color Tokens
 const GSDS_COLORS = {
     primary500: '#008A45',
     gold400: '#FFD700'
@@ -89,7 +88,7 @@ export default function PCManagement() {
     }
 
     return (
-        <div className="p-6 space-y-6 bg-neutral-100 min-h-screen text-neutral-900">
+        <div className="p-6 space-y-6 bg-neutral-50 min-h-screen text-neutral-900">
             <div className="flex justify-between items-end">
                 <div>
                     <h1 className="text-[30px] font-bold text-neutral-900 tracking-tight" style={{ color: '#111827' }}>{displayTitle} — Station Map</h1>

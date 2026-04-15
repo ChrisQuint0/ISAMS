@@ -102,7 +102,7 @@ export default function ReportsAnalytics() {
     };
 
     return (
-        <div className="p-6 space-y-8 bg-neutral-100 min-h-screen text-neutral-900 font-sans">
+        <div className="p-6 space-y-8 bg-neutral-50 min-h-screen text-neutral-900 font-sans">
             <ExportMonthModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
@@ -110,7 +110,6 @@ export default function ReportsAnalytics() {
                 reportTitle={activeReport.title}
             />
 
-            {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h1 className="text-[30px] font-bold text-neutral-900 tracking-tight">
@@ -139,8 +138,7 @@ export default function ReportsAnalytics() {
                 </div>
             </div>
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="text-sm grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 <SummaryCard title="Peak Hour" value={loading ? "..." : metrics.peakHour} icon={<Clock size={22} />} trend="Based on logins" trendUp={true} />
                 <SummaryCard title="Peak Day" value={loading ? "..." : metrics.peakDay} icon={<Sun size={22} />} trend="Highest traffic" trendUp={true} />
                 <SummaryCard title="Avg. Session Duration" value={loading ? "..." : metrics.avgDurationStr} icon={<Activity size={22} />} trend="From Check-out" trendUp={true} />
@@ -149,7 +147,6 @@ export default function ReportsAnalytics() {
                 <SummaryCard title="Predicted Laptop Users" value={loading ? "..." : `~${Math.round(metrics.totalSessions * ((metrics.laptopPercentage || 0) / 100))}`} icon={<Laptop size={22} />} trend={`${metrics.laptopPercentage || 0}% of traffic`} trendUp={true} />
             </div>
 
-            {/* Charts Row 1 */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2">
                     <ChartBox title="Session Duration Statistics" subtitle="Distribution of session lengths this month">
@@ -181,7 +178,6 @@ export default function ReportsAnalytics() {
                 </div>
             </div>
 
-            {/* Section Usage & Attendance */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2">
                     <ChartBox title="Usage by Section" subtitle="Session counts per section">
@@ -197,7 +193,6 @@ export default function ReportsAnalytics() {
                 </div>
             </div>
 
-            {/* Peak Usage & Traffic Days */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <ChartBox title="Peak Laboratory Usage" subtitle="Daily student logins trend (this week)">
                     <UsageChart rawLogs={rawLogs} />
@@ -209,7 +204,6 @@ export default function ReportsAnalytics() {
                 </div>
             </div>
 
-            {/* History & Forecasting Charts */}
             <ChartBox title="Forecasted Attendance Levels" subtitle="Actual vs predicted weekly attendance">
                 <ForecastChart rawLogs={rawLogs} />
             </ChartBox>
