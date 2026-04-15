@@ -65,9 +65,9 @@ export function useFacultyArchive() {
     }
   };
 
-  const loadSubmissionVersions = async (submissionId) => {
+  const loadSubmissionVersions = async (submissionId, filename = null) => {
     try {
-      const data = await FacultyArchiveService.getSubmissionVersions(submissionId);
+      const data = await FacultyArchiveService.getSubmissionVersions(submissionId, filename);
       setSubmissionVersions(data || []);
     } catch (err) {
       console.error("Error loading submission versions", err);

@@ -59,8 +59,9 @@ export default function UsageChart({ rawLogs = [] }) {
     }
 
     return (
-        <ChartContainer config={chartConfig} className="w-full h-[250px] mt-4">
-            <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 10 }}>
+        <div className="w-full">
+            <ChartContainer config={chartConfig} className="w-full h-[250px] mt-4">
+                <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--neutral-200)" vertical={false} />
                 
                 <XAxis 
@@ -105,6 +106,7 @@ export default function UsageChart({ rawLogs = [] }) {
                     activeDot={{ r: 6, fill: "var(--color-total_users)", stroke: "#ffffff", strokeWidth: 2 }}
                 />
             </LineChart>
-        </ChartContainer>
+            </ChartContainer>
+        </div>
     );
 }

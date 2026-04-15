@@ -35,10 +35,10 @@ const categoryConfig = {
 };
 
 const severityConfig = {
-    "Info": { bg: "bg-info", text: "text-white", border: "border-info", dot: "bg-info" },
-    "Warning": { bg: "bg-warning", text: "text-white", border: "border-warning", dot: "bg-warning" },
-    "Critical": { bg: "bg-destructive-semantic", text: "text-white", border: "border-destructive-semantic", dot: "bg-destructive-semantic" },
-    "Success": { bg: "bg-success", text: "text-white", border: "border-success", dot: "bg-success" },
+    "Info": { bg: "bg-info", text: "text-white text-neutral-500 uppercase tracking-wider mt-0.5", border: "border-info", dot: "bg-info" },
+    "Warning": { bg: "bg-warning", text: "text-white text-neutral-500 uppercase tracking-wider mt-0.5", border: "border-warning", dot: "bg-warning" },
+    "Critical": { bg: "bg-destructive-semantic", text: "text-white text-neutral-500 uppercase tracking-wider mt-0.5", border: "border-destructive-semantic", dot: "bg-destructive-semantic" },
+    "Success": { bg: "bg-success", text: "text-white text-neutral-500 uppercase tracking-wider mt-0.5", border: "border-success", dot: "bg-success" },
 };
 
 const getInitialManilaDates = () => {
@@ -190,24 +190,20 @@ export default function AuditTrails() {
             cellRenderer: (params) => (
                 <div className="flex items-center gap-2 h-full">
                     <Clock size={12} className="text-neutral-500 shrink-0" />
-                    <span className="text-xs text-neutral-700 font-mono">{params.value}</span>
+                    <span className="text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5">{params.value}</span>
                 </div>
             ),
         },
         {
             headerName: "CATEGORY",
             field: "category",
-            width: 160,
+            width: 130,
             cellRenderer: (params) => {
                 const cfg = categoryConfig[params.value];
                 if (!cfg) return <span className="text-xs text-neutral-600">{params.value}</span>;
-                const Icon = cfg.icon;
                 return (
-                    <div className="flex items-center gap-2 h-full">
-                        <div className={`p-1 rounded-md ${cfg.bg} border ${cfg.border}`}>
-                            <Icon size={12} className={cfg.text} />
-                        </div>
-                        <span className={`text-xs font-semibold ${cfg.text}`}>{params.value}</span>
+                    <div className="flex items-center h-full">
+                        <span className="text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5">{params.value}</span>
                     </div>
                 );
             },
@@ -215,17 +211,17 @@ export default function AuditTrails() {
         {
             headerName: "ACTION",
             field: "action",
-            width: 220,
+            width: 200,
             cellRenderer: (params) => (
                 <div className="flex items-center h-full">
-                    <span className="text-xs font-semibold text-neutral-900">{params.value}</span>
+                    <span className="text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5">{params.value}</span>
                 </div>
             ),
         },
         {
             headerName: "PERFORMED BY",
             field: "user",
-            width: 200,
+            width: 150,
             cellRenderer: (params) => {
                 const isSystem = params.value === "System";
                 return (
@@ -242,10 +238,10 @@ export default function AuditTrails() {
             headerName: "DESCRIPTION",
             field: "description",
             flex: 1,
-            minWidth: 300,
+            minWidth: 350,
             cellRenderer: (params) => (
                 <div className="flex items-center h-full">
-                    <span className="text-xs text-neutral-600 truncate">{params.value}</span>
+                    <span className="text-[10px] text-neutral-500 uppercase tracking-wider mt-0.5">{params.value}</span>
                 </div>
             ),
         },
@@ -277,11 +273,13 @@ export default function AuditTrails() {
     }, [formattedData, labName, dateFrom, dateTo, exportFormat]);
 
     return (
-        <div className="p-6 space-y-6 bg-neutral-100 min-h-screen text-neutral-900">
+        <div className="p-6 space-y-6 bg-neutral-50 min-h-screen text-neutral-900">
 
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-[30px] font-bold text-neutral-900 tracking-tight">{labName} — Audit Trails</h1>
+                    <h1 className="text-[30px] font-bold text-neutral-900 tracking-tight">
+                        {labName?.replace(/^Lab /i, "Computer Laboratory ")} — Audit Trails
+                    </h1>
                     <p className="text-neutral-500 text-sm italic">Complete activity log of all system events, admin actions & overrides</p>
                 </div>
 
@@ -327,8 +325,8 @@ export default function AuditTrails() {
                         <button
                             onClick={handleExport}
                             className={`flex items-center gap-2 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-r-lg border border-l-0 transition-all shadow-sm ${exportFormat === "excel"
-                                    ? "bg-primary-500 border-primary-500 hover:bg-primary-600 text-white"
-                                    : "bg-gold-500 border-gold-500 hover:bg-gold-600 text-neutral-900"
+                                ? "bg-primary-500 border-primary-500 hover:bg-primary-600 text-white"
+                                : "bg-gold-500 border-gold-500 hover:bg-gold-600 text-neutral-900"
                                 }`}
                         >
                             <Download size={13} className={exportFormat === "excel" ? "text-white" : "text-neutral-900"} /> Export .{exportFormat}
@@ -431,18 +429,13 @@ export default function AuditTrails() {
                 />
             </div>
 
-            <div className={`fixed inset-y-0 right-0 w-[420px] bg-white border-l border-neutral-200 shadow-lg z-50 transform transition-transform duration-300 ease-in-out ${drawerOpen ? "translate-x-0" : "translate-x-full"}`}>
+            <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[500px] max-h-[90vh] bg-white border border-neutral-200 rounded-2xl shadow-2xl z-50 transform transition-all duration-300 ease-in-out ${drawerOpen ? "scale-100 opacity-100" : "scale-95 opacity-0 pointer-events-none"}`}>
                 {selectedEvent && (
                     <div className="flex flex-col h-full">
-                        {/* Drawer Header */}
                         <div className="flex items-center justify-between p-6 border-b border-neutral-200">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-neutral-100 rounded-xl flex items-center justify-center">
-                                    <Eye size={18} className="text-neutral-600" />
-                                </div>
                                 <div>
-                                    <h3 className="text-sm font-semibold text-neutral-900">Event Details</h3>
-                                    <p className="text-[10px] text-neutral-500 font-mono">{selectedEvent.id}</p>
+                                    <h3 className="text-[20px] font-bold text-neutral-900 tracking-tight">Event Details</h3>
                                 </div>
                             </div>
                             <button
@@ -457,7 +450,7 @@ export default function AuditTrails() {
                             {(() => {
                                 const cfg = severityConfig[selectedEvent.severity] || severityConfig["Info"];
                                 return (
-                                    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${cfg.bg} ${cfg.text} border ${cfg.border}`}>
+                                    <div className={`flex items-center justify-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider w-full ${cfg.bg} ${cfg.text} border ${cfg.border}`}>
                                         <div className={`w-2 h-2 rounded-full ${cfg.dot}`} />
                                         {selectedEvent.severity}
                                     </div>
@@ -476,7 +469,6 @@ export default function AuditTrails() {
                                     },
                                     { label: "Action", value: selectedEvent.action, icon: <PenLine size={13} className="text-neutral-500" /> },
                                     { label: "Performed By", value: selectedEvent.user, icon: <User size={13} className="text-neutral-500" /> },
-                                    { label: "IP Address", value: selectedEvent.ip, icon: <KeyRound size={13} className="text-neutral-500" /> },
                                 ].map((item, i) => (
                                     <div key={i} className="flex items-start gap-3 p-3 bg-neutral-50 border border-neutral-200 rounded-xl shadow-sm">
                                         <div className="mt-0.5 shrink-0">{item.icon}</div>
@@ -497,9 +489,7 @@ export default function AuditTrails() {
                 )}
             </div>
 
-            {drawerOpen && (
-                <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setDrawerOpen(false)} />
-            )}
+            <div className={`fixed inset-0 bg-black/40 backdrop-blur-sm z-40 transition-opacity duration-300 ease-in-out ${drawerOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`} onClick={() => setDrawerOpen(false)} />
         </div>
     );
 }

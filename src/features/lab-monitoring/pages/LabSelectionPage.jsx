@@ -290,7 +290,7 @@ export default function LabSelectionPage() {
               
               return (
                 <div key={lab.id} onClick={() => handleLabClick(lab)} className="cursor-pointer h-full flex flex-col">
-                  <Card className={`group relative overflow-hidden flex-1 bg-neutral-50 hover:bg-neutral-100 border-neutral-200 hover:border-neutral-300 hover:shadow-xl transition-all duration-300`}>
+                  <Card className={`group relative overflow-hidden flex-1 bg-white hover:bg-neutral-50 border-neutral-200 hover:border-neutral-300 hover:shadow-xl transition-all duration-300`}>
                     <CardHeader className="relative pb-0.5">
                       <div className="flex items-start gap-4">
                         <div className={`flex-shrink-0 w-14 h-14 rounded-xl ${palette.iconBg} border ${palette.iconBorder} flex items-center justify-center group-hover:border-neutral-300 transition-all duration-300`}>

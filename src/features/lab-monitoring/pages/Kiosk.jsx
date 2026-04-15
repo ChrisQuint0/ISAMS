@@ -321,7 +321,7 @@ export default function Kiosk() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-100 flex flex-col">
+    <div className="min-h-screen bg-neutral-50 flex flex-col">
       <header className="border-b border-neutral-200 bg-neutral-50 sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -364,7 +364,7 @@ export default function Kiosk() {
           </CardHeader>
 
           <CardContent className="space-y-8">
-            <div className="relative w-full h-[520px] rounded-xl border border-neutral-200 bg-neutral-900 shadow-md overflow-hidden flex flex-col items-center justify-center">
+            <div className="relative w-full h-[450px] rounded-xl border border-neutral-200 bg-neutral-900 shadow-md overflow-hidden flex flex-col items-center justify-center">
 
               {cameraStatus === 'loading' && (
                 <div className="absolute flex flex-col items-center justify-center inset-0 gap-3 text-primary-500 z-10 bg-neutral-900">

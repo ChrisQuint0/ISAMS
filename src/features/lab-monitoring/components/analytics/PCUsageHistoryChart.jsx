@@ -55,7 +55,7 @@ export default function PCUsageHistoryChart({ rawLogs = [] }) {
     }
 
     return (
-        <div className="space-y-4 mt-2">
+        <div className="space-y-4 mt-2 w-full">
             <ChartContainer config={chartConfig} className="w-full h-[250px]">
                 <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 10 }}>

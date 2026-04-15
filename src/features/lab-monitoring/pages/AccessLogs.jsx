@@ -187,7 +187,7 @@ export default function AccessLogs() {
     ], []);
 
     return (
-        <div className="p-6 space-y-5 bg-neutral-100 min-h-screen relative">
+        <div className="p-6 space-y-5 bg-neutral-50 min-h-screen relative">
             <div>
                 <h1 className="text-[30px] font-bold text-neutral-900 tracking-tight">{displayTitle} — Access Logs</h1>
                 <p className="text-neutral-600 text-sm italic">Audit Trail & Peripheral Accountability</p>
