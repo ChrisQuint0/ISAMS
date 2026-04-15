@@ -114,7 +114,7 @@ export default function LabDashboard() {
     );
 
     return (
-        <div className="p-6 bg-neutral-100 min-h-screen text-neutral-900 font-sans transition-colors duration-500">
+        <div className="p-6 bg-neutral-50 min-h-screen text-neutral-900 font-sans transition-colors duration-500">
 
             <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8">
                 <div className="space-y-0.5">
@@ -276,7 +276,7 @@ export default function LabDashboard() {
                             onClick={confirmDismiss}
                             variant={isDismissed ? "default" : "destructive"}
                         >
-                            {isDismissed ? "Confirm Lock" : "Confirm Dismissal"}
+                            {isDismissed ? "Confirm Re-lock" : "Confirm Dismissal"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

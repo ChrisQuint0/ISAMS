@@ -70,7 +70,7 @@ export function LabSidebar() {
                     isActive={isActive(item.url)}
                     onClick={() => navTo(item.url)}
                     tooltip={item.title}
-                    className="text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 active:bg-primary-600 focus:bg-primary-600 data-[active=true]:bg-primary-600 data-[active=true]:text-white focus-visible:ring-0"
+                    className="text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 active:bg-primary-600 active:text-white focus:bg-primary-600 focus:text-white data-[active=true]:bg-primary-600 data-[active=true]:text-white focus-visible:ring-0 transition-colors duration-200"
                   >
                     <item.icon className="h-4 w-4" />
                     <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
@@ -87,7 +87,7 @@ export function LabSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   onClick={() => navigate("/kiosk-mode", { state: { labId: activeLabId, labName: activeLabName } })}
-                  className="text-neutral-600 hover:text-primary-600 hover:bg-neutral-100 group-data-[collapsible=icon]:justify-center"
+                  className="text-neutral-600 hover:text-primary-600 hover:bg-neutral-100 active:text-primary-600 focus:text-primary-600 group-data-[collapsible=icon]:justify-center transition-colors duration-200"
                   tooltip="Switch to Kiosk Mode"
                 >
                   <Tablet className="h-4 w-4 text-primary-600" />
@@ -105,7 +105,7 @@ export function LabSidebar() {
                 <SidebarMenuButton 
                   isActive={isActive("/lab-settings")}
                   onClick={() => navTo("/lab-settings")}
-                  className="text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 active:bg-primary-600 data-[active=true]:bg-primary-600 data-[active=true]:text-white group-data-[collapsible=icon]:justify-center focus-visible:ring-0"
+                  className="text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 active:bg-primary-600 active:text-white focus:bg-primary-600 focus:text-white data-[active=true]:bg-primary-600 data-[active=true]:text-white group-data-[collapsible=icon]:justify-center focus-visible:ring-0 transition-colors duration-200"
                   tooltip="Settings"
                 >
                   <Settings className="h-4 w-4" />
@@ -122,7 +122,7 @@ export function LabSidebar() {
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <SidebarMenuButton size="lg" className="w-full justify-start gap-3 hover:bg-neutral-100 text-neutral-900 group-data-[collapsible=icon]:justify-center">
+                <SidebarMenuButton size="lg" className="w-full justify-start gap-3 hover:bg-neutral-100 text-neutral-900 group-data-[collapsible=icon]:justify-center transition-colors duration-200">
                   <div className="flex aspect-square size-8 items-center justify-center rounded-full bg-neutral-200 shrink-0">
                      <User className="size-4 text-neutral-700" />
                   </div>
@@ -136,7 +136,7 @@ export function LabSidebar() {
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="top" className="w-56 bg-neutral-50 border-neutral-200 text-neutral-900">
-                <DropdownMenuItem onClick={() => navigate("/lab-monitoring")} className="text-destructive-semantic hover:bg-red-50">
+                <DropdownMenuItem onClick={() => navigate("/lab-monitoring")} className="text-destructive-semantic hover:bg-red-50 transition-colors duration-200">
                   <LogOut className="mr-2 h-4 w-4" /> Back to Lab Selection
                 </DropdownMenuItem>
               </DropdownMenuContent>

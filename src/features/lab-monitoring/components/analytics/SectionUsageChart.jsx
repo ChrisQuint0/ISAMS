@@ -44,14 +44,8 @@ export default function SectionUsageChart({ rawLogs = [] }) {
     }
 
     return (
-        <div className="space-y-4 mt-2">
-            {/* Added a subtle dynamic subtitle to explain the data */}
-            <div className="flex items-center gap-2 px-1">
-                <div className="w-2 h-2 rounded-full bg-primary-500 animate-pulse" />
-                <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">
-                    Top {chartData.length} Active Sections
-                </span>
-            </div>
+        <div className="space-y-4 mt-2 w-full">
+
 
             <ChartContainer config={chartConfig} className="w-full h-[250px]">
                 <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 10 }}>

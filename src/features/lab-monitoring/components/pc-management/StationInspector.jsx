@@ -3,7 +3,6 @@ import { Monitor, Laptop, User, Wrench, RotateCcw, ShieldCheck, AlertTriangle, C
 import { Button } from "@/components/ui/button";
 import StationMaintenanceModal from "./StationMaintenanceModal";
 
-// GSDS Color Tokens
 const GSDS_COLORS = {
     primary500: '#008A45',
     gold400: '#FFD700'
@@ -24,7 +23,6 @@ export default function StationInspector({ selectedPC, onFlagMaintenance, onClea
     const isMaintenance = selectedPC.status === "Maintenance";
     const isLaptop = selectedPC.status === "Laptop";
     
-    // Formatting the numeric hours for a clean display
     const displayHours = Number(selectedPC.hours || 0).toFixed(1);
     const healthPercentage = Math.min((selectedPC.hours / 500) * 100, 100);
 
@@ -35,7 +33,6 @@ export default function StationInspector({ selectedPC, onFlagMaintenance, onClea
 
     return (
         <div className="space-y-5 flex-1 flex flex-col h-full">
-            {/* Header: Station ID & Mode */}
             <div className="flex items-center gap-4 border-b pb-4" style={{ borderColor: '#e5e7eb' }}>
                 <div className="p-3 rounded-xl transition-colors duration-500" style={{
                     backgroundColor: isMaintenance ? 'rgba(245, 158, 11, 0.2)' : isLaptop ? 'rgba(255, 215, 0, 0.2)' : 'rgba(0, 138, 69, 0.2)',
@@ -45,7 +42,7 @@ export default function StationInspector({ selectedPC, onFlagMaintenance, onClea
                 </div>
                 <div>
                     <h2 className="text-sm font-bold text-neutral-900 uppercase tracking-wider flex items-center gap-2" style={{ color: '#111827' }}>
-                        {isLaptop ? <Laptop size={16} /> : <Monitor size={16} />}
+
                         {selectedPC.id}
                     </h2>
                     <span className="text-[10px] font-black uppercase tracking-widest" style={{
@@ -56,7 +53,6 @@ export default function StationInspector({ selectedPC, onFlagMaintenance, onClea
                 </div>
             </div>
 
-            {/* User Details Section */}
             <div>
                 <span className="text-[10px] uppercase tracking-widest font-black" style={{ color: '#6b7280' }}>Current Occupant</span>
                 {selectedPC.user ? (
@@ -97,13 +93,12 @@ export default function StationInspector({ selectedPC, onFlagMaintenance, onClea
                 )}
             </div>
 
-            {/* Hardware Pulse: The Health Bar */}
             <div>
                 <span className="text-[10px] uppercase tracking-widest font-black" style={{ color: '#6b7280' }}>Hardware Pulse</span>
                 <div className="p-3 rounded-lg mt-1 space-y-2 shadow-sm border" style={{ backgroundColor: '#ffffff', borderColor: '#e5e7eb' }}>
                     <div className="flex justify-between text-[10px] font-mono tracking-tighter">
                         <span className="font-bold" style={{
-                            color: selectedPC.hours >= 500 ? '#ef4444' : '#3b82f6',
+                            color: GSDS_COLORS.primary500,
                             animation: selectedPC.hours >= 500 ? 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'none'
                         }}>
                             {displayHours} HRS
@@ -115,15 +110,14 @@ export default function StationInspector({ selectedPC, onFlagMaintenance, onClea
                             className="h-full transition-all duration-1000 ease-out" 
                             style={{ 
                                 width: `${healthPercentage}%`,
-                                backgroundColor: selectedPC.hours >= 500 ? '#ef4444' : selectedPC.hours >= 400 ? '#f59e0b' : '#3b82f6',
-                                boxShadow: selectedPC.hours >= 500 ? '0_0_10px_rgba(239,68,68,0.5)' : 'none'
+                                backgroundColor: GSDS_COLORS.primary500,
+                                boxShadow: selectedPC.hours >= 500 ? `0_0_10px_rgba(0, 138, 69, 0.5)` : 'none'
                             }}
                         ></div>
                     </div>
                 </div>
             </div>
 
-            {/* Maintenance Description (Conditional) */}
             {isMaintenance && selectedPC.maintenanceNote && (
                 <div className="animate-in fade-in slide-in-from-top-2 duration-300">
                     <span className="text-[10px] uppercase tracking-widest font-black flex items-center gap-1.5" style={{ color: '#f59e0b' }}>
@@ -139,7 +133,6 @@ export default function StationInspector({ selectedPC, onFlagMaintenance, onClea
                 </div>
             )}
 
-            {/* Action Buttons */}
             <div className="mt-auto pt-4 space-y-2">
                 {isMaintenance ? (
                     <Button 
@@ -156,7 +149,7 @@ export default function StationInspector({ selectedPC, onFlagMaintenance, onClea
                 ) : (
                     <Button 
                         onClick={() => setIsModalOpen(true)}
-                        variant="outline"
+                        variant="destructive"
                         className="w-full flex items-center justify-center gap-2 text-[11px] font-bold h-auto py-3 uppercase tracking-widest"
                     >
                         <Wrench size={14} /> Flag Maintenance
@@ -166,12 +159,8 @@ export default function StationInspector({ selectedPC, onFlagMaintenance, onClea
                 <Button 
                     onClick={() => onResetTimer(selectedPC.id)}
                     disabled={selectedPC.hours === 0}
+                    variant="secondary"
                     className="w-full flex items-center justify-center gap-2 text-[11px] font-bold h-auto py-3 uppercase tracking-widest"
-                    style={{
-                        backgroundColor: selectedPC.hours > 0 ? '#f59e0b' : '#d1d5db',
-                        color: selectedPC.hours > 0 ? '#1a1a1a' : '#9ca3af',
-                        opacity: selectedPC.hours > 0 ? 1 : 0.6
-                    }}
                 >
                     <RotateCcw size={14} /> Reset Usage Hours
                 </Button>

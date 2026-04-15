@@ -225,7 +225,7 @@ export default function LabSchedule() {
     ], [colorMap, handleOpenEdit, handleDeleteClick]);
 
     return (
-        <div className="p-6 space-y-6 bg-neutral-100 min-h-screen flex flex-col">
+        <div className="p-6 space-y-6 bg-neutral-50 min-h-screen flex flex-col">
 
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
@@ -257,7 +257,7 @@ export default function LabSchedule() {
                         variant="ghost" 
                         size="sm"
                         onClick={handleOpenAdd}
-                        className="text-sm text-[11px] font-semibold uppercase tracking-widest h-9 bg-primary-500 text-white hover:bg-primary-600 transition-all"
+                        className="text-sm text-[11px] font-semibold uppercase tracking-widest h-9 bg-primary-500 text-white hover:bg-primary-600 hover:text-white transition-all"
                     >
                         <Plus size={13} /> Add Schedule
                     </Button>
@@ -329,7 +329,7 @@ export default function LabSchedule() {
                                                             <div className="space-y-1">
                                                                 <div className="flex items-start justify-between gap-1.5">
                                                                     <span className={`text-lg font-bold text-neutral-900 uppercase tracking-wider`}>{entry.subject}</span>
-                                                                    <span className={`text-sm font-bold text-neutral-900 uppercase tracking-wider shrink-0 bg-neutral-100 px-2 py-1 rounded`}>{entry.section}</span>
+                                                                    <span className={`text-xs font-bold text-neutral-900 uppercase tracking-wider shrink-0 bg-neutral-100 px-2 py-0.5 rounded`}>{entry.section}</span>
                                                                 </div>
                                                                 <div className="flex items-center gap-1">
                                                                     <User size={10} className="text-neutral-500" />

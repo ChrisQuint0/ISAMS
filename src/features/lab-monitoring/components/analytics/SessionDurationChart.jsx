@@ -69,8 +69,8 @@ export default function SessionDurationChart({ rawLogs = [] }) {
     const maxCount = Math.max(...chartData.map(d => d.count));
 
     return (
-        <div className="space-y-4 mt-2">
-            <ChartContainer config={chartConfig} className="w-full h-[250px]">
+        <div className="space-y-4 mt-2 w-full">
+            <ChartContainer config={chartConfig} className="w-full h-[250px]">  
                 <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--neutral-200)" vertical={false} />
                     <XAxis 
