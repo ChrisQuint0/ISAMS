@@ -375,16 +375,17 @@ const GenerateReport = () => {
       // HELPER: Draw page 1 header
       // ============================================
       const drawFirstPageHeader = () => {
-        // Green banner background
-        doc.setFillColor(...C.primary);
+        // White banner background
+        doc.setFillColor(...C.white);
         doc.rect(0, 0, pageWidth, 38, 'F');
 
-        // White accent line at bottom of banner
-        doc.setFillColor(...C.white);
-        doc.rect(0, 38, pageWidth, 0.6, 'F');
+        // Light accent line at bottom of banner
+        doc.setDrawColor(...C.lightGray);
+        doc.setLineWidth(0.3);
+        doc.line(0, 38, pageWidth, 38);
 
-        // Geometric corner markers (white on green)
-        doc.setDrawColor(...C.white);
+        // Geometric corner markers (green on white)
+        doc.setDrawColor(...C.primary);
         doc.setLineWidth(0.6);
         doc.line(margin - 2, 5, margin - 2, 12);
         doc.line(margin - 2, 5, margin + 5, 5);
@@ -395,25 +396,25 @@ const GenerateReport = () => {
         if (plpBase64) doc.addImage(plpBase64, "PNG", margin + 2, 9, 20, 20);
         if (ccsBase64) doc.addImage(ccsBase64, "PNG", pageWidth - 22 - margin, 9, 20, 20);
 
-        // Institution text (white on green)
-        doc.setTextColor(...C.white);
+        // Institution text (green on white)
+        doc.setTextColor(...C.primary);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(12);
         doc.text("PAMANTASAN NG LUNGSOD NG PASIG", pageWidth / 2, 16, { align: "center" });
 
         doc.setFontSize(9);
         doc.setFont("helvetica", "normal");
-        doc.setTextColor(220, 235, 225);
+        doc.setTextColor(...C.textDark);
         doc.text((settings.college_name || "COLLEGE OF COMPUTER STUDIES").toUpperCase(), pageWidth / 2, 22, { align: "center" });
 
         doc.setFontSize(7);
-        doc.setTextColor(180, 220, 190);
+        doc.setTextColor(...C.textMuted);
         doc.text("STUDENT VIOLATION MANAGEMENT SYSTEM  //  ISAMS", pageWidth / 2, 27.5, { align: "center" });
 
         // Data strip at bottom of banner
         doc.setFontSize(6.5);
         doc.setFont("helvetica", "normal");
-        doc.setTextColor(170, 210, 180);
+        doc.setTextColor(...C.textMuted);
         doc.text(`GENERATED: ${now}`, margin + 2, 34.5);
         doc.text(`${previewData.length} RECORDS`, pageWidth - margin - 2, 34.5, { align: "right" });
 
@@ -439,16 +440,20 @@ const GenerateReport = () => {
       // HELPER: Compact header (pages 2+)
       // ============================================
       const drawSubPageHeader = () => {
-        doc.setFillColor(...C.primary);
+        doc.setFillColor(...C.white);
         doc.rect(0, 0, pageWidth, 11, 'F');
+
+        doc.setDrawColor(...C.lightGray);
+        doc.setLineWidth(0.2);
+        doc.line(0, 11, pageWidth, 11);
 
         doc.setFontSize(7);
         doc.setFont("helvetica", "bold");
-        doc.setTextColor(...C.white);
+        doc.setTextColor(...C.primary);
         doc.text(`ISAMS  //  ${title.toUpperCase()}`, margin, 7);
 
         doc.setFont("helvetica", "normal");
-        doc.setTextColor(180, 220, 190);
+        doc.setTextColor(...C.textMuted);
         doc.text(`${now}`, pageWidth - margin, 7, { align: "right" });
       };
 
@@ -507,13 +512,15 @@ const GenerateReport = () => {
           overflow: 'linebreak'
         },
         headStyles: { 
-          fillColor: C.primary, 
-          textColor: C.white, 
+          fillColor: C.white, 
+          textColor: C.textDark, 
           fontStyle: "bold",
           fontSize: 7,
           halign: "center",
           valign: "middle",
-          cellPadding: { top: 4, right: 4, bottom: 4, left: 4 }
+          cellPadding: { top: 4, right: 4, bottom: 4, left: 4 },
+          lineWidth: 0.15,
+          lineColor: C.lightGray
         },
         alternateRowStyles: { 
           fillColor: C.offWhite
