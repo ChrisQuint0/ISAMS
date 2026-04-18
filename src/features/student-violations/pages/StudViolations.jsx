@@ -256,12 +256,26 @@ const StudViolations = () => {
       width: 140,
       filter: true, // Enabled filtering for status
       cellRenderer: (params) => {
-        const isResolved = params.value === 'Resolved' || params.value === 'Dismissed';
+        const val = params.value;
+        let colorClass = 'text-warning';
+        let dotClass = 'bg-warning animate-pulse';
+
+        if (val === 'Resolved' || val === 'Dismissed') {
+            colorClass = 'text-success';
+            dotClass = 'bg-success';
+        } else if (val === 'Pending') {
+            colorClass = 'text-info';
+            dotClass = 'bg-info';
+        } else if (val === 'Sanctioned') {
+            colorClass = 'text-destructive-semantic';
+            dotClass = 'bg-destructive-semantic';
+        }
+
         return (
           <div className="flex items-center h-full">
-            <span className={`flex items-center text-[12px] font-bold ${isResolved ? 'text-success' : 'text-warning'}`}>
-              <span className={`mr-2 h-1.5 w-1.5 rounded-full ${isResolved ? 'bg-success' : 'bg-warning animate-pulse'}`} />
-              {params.value}
+            <span className={`flex items-center text-[12px] font-bold ${colorClass}`}>
+              <span className={`mr-2 h-1.5 w-1.5 rounded-full ${dotClass}`} />
+              {val}
             </span>
           </div>
         );

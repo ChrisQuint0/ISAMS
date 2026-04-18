@@ -505,7 +505,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
                             {Array.isArray(errorMsg) ? (
                                 <div className="space-y-1">
                                     <p className="font-bold underline mb-1">Upload Errors Found ({errorMsg.length}):</p>
-                                    <ul className="list-disc list-inside space-y-0.5 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar">
+                                    <ul className="list-disc list-inside space-y-0.5 max-h-[150px] overflow-y-auto pr-2 scrollbar-hide">
                                         {errorMsg.map((msg, idx) => (
                                             <li key={idx} className="text-[12px]">{msg}</li>
                                         ))}
@@ -612,7 +612,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
                                 variant="outline"
                                 size="sm"
                                 onClick={downloadTemplate}
-                                className="w-full bg-white border-neutral-200 text-neutral-600 hover:text-primary-700 hover:bg-primary-50 font-bold"
+                                className="w-full bg-white border-neutral-200 text-neutral-600 hover:text-primary-700 hover:bg-primary-50 hover:border-primary-500 hover:shadow-sm transition-all duration-200 font-bold cursor-pointer active:scale-[0.98]"
                             >
                                 <Download className="w-4 h-4 mr-2" />
                                 Download Template
