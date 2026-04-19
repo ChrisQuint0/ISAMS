@@ -377,7 +377,15 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
                                     </div>
                                     <div>
                                         <p className="text-neutral-500 text-xs uppercase tracking-wider font-bold mb-1">Status</p>
-                                        <p className="text-neutral-700 font-medium">{existingSanction.status}</p>
+                                        <div className="flex items-center gap-2">
+                                            <span className={`h-1.5 w-1.5 rounded-full ${
+                                                existingSanction.status === 'Completed' ? 'bg-success' : 
+                                                existingSanction.status === 'Overdue' ? 'bg-destructive-semantic' : 
+                                                existingSanction.status === 'In Progress' ? 'bg-info' : 
+                                                'bg-neutral-400'
+                                            }`} />
+                                            <p className="text-neutral-700 font-medium">{existingSanction.status}</p>
+                                        </div>
                                     </div>
                                     <div className="col-span-2">
                                         <p className="text-neutral-500 text-xs uppercase tracking-wider font-bold mb-1">Duration / Deadline</p>

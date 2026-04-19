@@ -257,18 +257,21 @@ const StudViolations = () => {
       filter: true, // Enabled filtering for status
       cellRenderer: (params) => {
         const val = params.value;
-        let colorClass = 'text-warning';
-        let dotClass = 'bg-warning animate-pulse';
+        let colorClass = 'text-info';
+        let dotClass = 'bg-info animate-pulse';
 
-        if (val === 'Resolved' || val === 'Dismissed') {
+        if (val === 'Resolved') {
             colorClass = 'text-success';
             dotClass = 'bg-success';
+        } else if (val === 'Dismissed') {
+            colorClass = 'text-neutral-500';
+            dotClass = 'bg-neutral-500';
         } else if (val === 'Pending') {
-            colorClass = 'text-info';
-            dotClass = 'bg-info';
+            colorClass = 'text-warning';
+            dotClass = 'bg-warning animate-pulse';
         } else if (val === 'Sanctioned') {
-            colorClass = 'text-destructive-semantic';
-            dotClass = 'bg-destructive-semantic';
+            colorClass = 'text-sanctioned';
+            dotClass = 'bg-sanctioned';
         }
 
         return (
@@ -315,7 +318,7 @@ const StudViolations = () => {
         const isOverdue = params.value === 'Overdue';
         const isInProgress = params.value === 'In Progress';
 
-        let colorClass = 'text-neutral-500 bg-neutral-500';
+        let colorClass = 'text-neutral-400 bg-neutral-400';
         if (isCompleted) colorClass = 'text-success bg-success';
         else if (isOverdue) colorClass = 'text-destructive-semantic bg-destructive-semantic';
         else if (isInProgress) colorClass = 'text-info bg-info';
@@ -383,8 +386,8 @@ const StudViolations = () => {
           value={violations.length}
           icon={ShieldAlert}
           isLoading={isLoading}
-          borderTopClass="bg-neutral-400"
-          iconClass="text-neutral-500 bg-neutral-100 border-neutral-200"
+          borderTopClass="bg-destructive-semantic"
+          iconClass="text-destructive-semantic bg-destructive-semantic/10 border-destructive-semantic/20"
         />
         <StatCard
           title="Active Investigations"

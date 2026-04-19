@@ -601,9 +601,9 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
                                 <p className="text-xs font-medium text-neutral-500 mt-2">Maximum file size 5MB</p>
 
                                 {file && (
-                                    <div className="mt-4 p-2 bg-primary-50 border border-primary-200 rounded text-primary-700 font-medium text-sm flex items-center justify-between w-full max-w-xs">
-                                        <span className="truncate pr-4">{file.name}</span>
-                                        {parsedData && <span className="shrink-0 text-xs bg-primary-100 px-2 py-0.5 rounded font-bold">{parsedData.length} valid rows</span>}
+                                    <div className="mt-4 p-2 px-3 bg-primary-50 border border-primary-200 rounded text-primary-700 font-medium text-sm flex flex-col items-center justify-center w-full max-w-xs gap-1.5 text-center transition-all animate-in fade-in zoom-in-95 duration-300">
+                                        <span className="truncate w-full font-bold">{file.name}</span>
+                                        {parsedData && <span className="shrink-0 text-[10px] bg-primary-100 px-2 py-0.5 rounded font-black uppercase tracking-widest">{parsedData.length} valid rows</span>}
                                     </div>
                                 )}
                             </div>

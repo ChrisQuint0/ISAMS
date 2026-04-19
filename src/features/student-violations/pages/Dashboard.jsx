@@ -692,7 +692,7 @@ export default function StudViolationDashboard() {
                       #{i + 1}
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-sm font-bold text-neutral-900 leading-tight">{violator.student_number}</span>
+                      <span className="text-sm font-bold text-neutral-900 tracking-tight leading-tight">{violator.student_number}</span>
                       <span className="text-[11px] font-medium text-neutral-500">{violator.name}</span>
                     </div>
                   </div>
@@ -720,10 +720,10 @@ export default function StudViolationDashboard() {
       {selectedViolator && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <Card className="w-full max-w-lg bg-white shadow-2xl rounded-xl border-0 overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-4 bg-neutral-50/50">
+            <div className="flex items-center justify-between border-b border-neutral-100 px-5 pt-4 pb-3 bg-neutral-50/50">
               <div>
                 <h3 className="text-lg font-black text-neutral-900 tracking-tight leading-none mb-1">Violation Records</h3>
-                <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest">{selectedViolator.name} ({selectedViolator.student_number})</p>
+                <p className="text-[13px] font-bold text-neutral-500 tracking-tight">{selectedViolator.name} • {selectedViolator.student_number}</p>
               </div>
               <button 
                 onClick={() => setSelectedViolator(null)} 
@@ -732,15 +732,17 @@ export default function StudViolationDashboard() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="p-5 max-h-[60vh] overflow-y-auto space-y-3 bg-neutral-50/30 hide-ag-scrollbars">
+            <div className="px-5 pt-3 pb-5 max-h-[60vh] overflow-y-auto space-y-3 bg-neutral-50/30 hide-ag-scrollbars">
               {selectedViolator.violations.map((v, idx) => (
                 <div key={v.violation_id || idx} className="p-4 border border-neutral-200 rounded-lg bg-white shadow-sm flex flex-col gap-2">
                   <div className="flex justify-between items-start">
                     <span className="font-bold text-neutral-900 text-sm leading-tight max-w-[70%]">{v.offense_name}</span>
                     <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full border ${
-                      v.status === 'Resolved' || v.status === 'Dismissed' 
-                        ? 'bg-success/10 text-success border-success/20' 
-                        : 'bg-warning/10 text-warning border-warning/20'
+                      v.status === 'Resolved' ? 'bg-success/10 text-success border-success/20' : 
+                      v.status === 'Dismissed' ? 'bg-neutral-500/10 text-neutral-500 border-neutral-500/20' :
+                      v.status === 'Pending' ? 'bg-warning/10 text-warning border-warning/20' :
+                      v.status === 'Sanctioned' ? 'bg-sanctioned/10 text-sanctioned border-sanctioned/20' :
+                      'bg-info/10 text-info border-info/20'
                     }`}>
                       {v.status}
                     </span>
