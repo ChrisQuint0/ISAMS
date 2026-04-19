@@ -612,7 +612,7 @@ export default function StudViolationDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
         {/* RECENT ACTIVITY LOG - COMPACTED HEADER */}
-        <Card className="lg:col-span-7 bg-white border-neutral-200 flex flex-col rounded-lg overflow-hidden shadow-sm p-0 z-10">
+        <Card className="lg:col-span-7 bg-white border-neutral-200 flex flex-col rounded-lg overflow-hidden shadow-sm p-0 z-10 h-[400px]">
           <div className="px-5 pt-5 pb-2 flex items-center justify-between bg-white relative z-20">
             <div className="flex items-center gap-2">
               <History className="h-[15px] w-[15px] text-neutral-600" />
@@ -632,20 +632,7 @@ export default function StudViolationDashboard() {
             </div>
           </div>
 
-          <div className="w-full flex-1 hide-ag-scrollbars [&_.ag-root-wrapper]:border-none [&_.ag-header]:border-t-0 -mt-[15px]" style={{ height: "400px" }}>
-            <style>{`
-              .hide-ag-scrollbars::-webkit-scrollbar,
-              .hide-ag-scrollbars *::-webkit-scrollbar {
-                display: none !important;
-                width: 0 !important;
-                height: 0 !important;
-              }
-              .hide-ag-scrollbars,
-              .hide-ag-scrollbars * {
-                -ms-overflow-style: none !important;
-                scrollbar-width: none !important;
-              }
-            `}</style>
+          <div className="w-full flex-1 [&_.ag-root-wrapper]:border-none [&_.ag-header]:border-t-0 -mt-[15px]" style={{ height: "236px" }}>
             <AgGridReact
               theme={customTheme}
               rowData={rowData}
@@ -656,15 +643,14 @@ export default function StudViolationDashboard() {
               animateRows={true}
               rowHeight={48}
               headerHeight={44}
-              pagination={true}
-              paginationPageSize={10}
+              pagination={false}
               suppressCellFocus={true}
             />
           </div>
         </Card>
 
         {/* TOP VIOLATORS SIDEBAR */}
-        <Card className="lg:col-span-3 bg-white border-neutral-200 p-4 flex flex-col gap-3 h-full shadow-sm">
+        <Card className="lg:col-span-3 bg-white border-neutral-200 p-4 flex flex-col gap-3 h-[400px] shadow-sm">
           <div className="flex items-center justify-between pb-2 border-b border-neutral-100 mb-2 mt-1">
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-[16px] w-[16px] text-destructive-semantic" />

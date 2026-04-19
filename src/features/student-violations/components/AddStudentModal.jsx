@@ -490,42 +490,43 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
 
     return (
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-            <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto bg-white border-neutral-200 text-neutral-900 shadow-lg rounded-xl scrollbar-hide">
-                <DialogHeader>
+            <DialogContent className="sm:max-w-[550px] max-h-[90vh] flex flex-col bg-white border-neutral-200 text-neutral-900 shadow-lg rounded-xl p-0 overflow-hidden">
+                <DialogHeader className="p-6 pb-2 shrink-0 border-b border-neutral-100">
                     <DialogTitle className="text-xl font-bold text-neutral-900 tracking-tight">Add new student</DialogTitle>
                     <DialogDescription className="text-neutral-500 font-medium">
                         Add a student to the registry manually or upload an Excel/CSV file for multiple entries.
                     </DialogDescription> 
                 </DialogHeader>
 
-                {errorMsg && (
-                    <div className="bg-red-50 border border-red-200 text-destructive-semantic p-3 rounded-md flex items-start gap-3 mt-4 text-sm font-medium">
-                        <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                            {Array.isArray(errorMsg) ? (
-                                <div className="space-y-1">
-                                    <p className="font-bold underline mb-1">Upload Errors Found ({errorMsg.length}):</p>
-                                    <ul className="list-disc list-inside space-y-0.5 max-h-[150px] overflow-y-auto pr-2 scrollbar-hide">
-                                        {errorMsg.map((msg, idx) => (
-                                            <li key={idx} className="text-[12px]">{msg}</li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            ) : (
-                                <p>{errorMsg}</p>
-                            )}
+                <div className="flex-1 overflow-y-auto p-6 pt-2 scrollbar-hide">
+                    {errorMsg && (
+                        <div className="bg-red-50 border border-red-200 text-destructive-semantic p-3 rounded-md flex items-start gap-3 mt-4 text-sm font-medium">
+                            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                            <div className="flex-1">
+                                {Array.isArray(errorMsg) ? (
+                                    <div className="space-y-1">
+                                        <p className="font-bold underline mb-1">Upload Errors Found ({errorMsg.length}):</p>
+                                        <ul className="list-disc list-inside space-y-0.5 max-h-[150px] overflow-y-auto pr-2 scrollbar-hide">
+                                            {errorMsg.map((msg, idx) => (
+                                                <li key={idx} className="text-[12px]">{msg}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                ) : (
+                                    <p>{errorMsg}</p>
+                                )}
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {successMsg && (
-                    <div className="bg-emerald-50 border border-emerald-200 justify-center text-success p-3 rounded-md flex items-center gap-3 mt-4 text-sm font-medium">
-                        <CheckCircle2 className="w-5 h-5" />
-                        <p>{successMsg}</p>
-                    </div>
-                )}
+                    {successMsg && (
+                        <div className="bg-emerald-50 border border-emerald-200 justify-center text-success p-3 rounded-md flex items-center gap-3 mt-4 text-sm font-medium">
+                            <CheckCircle2 className="w-5 h-5" />
+                            <p>{successMsg}</p>
+                        </div>
+                    )}
 
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
                     <TabsList className="grid w-full grid-cols-2 bg-neutral-100 border border-neutral-200 h-11 p-1 rounded-lg">
                         <TabsTrigger value="single" className="data-[state=active]:bg-white data-[state=active]:text-primary-600 data-[state=active]:shadow-sm text-neutral-500 hover:text-neutral-900 rounded-md transition-all font-bold">Single Entry</TabsTrigger>
                         <TabsTrigger value="bulk" className="data-[state=active]:bg-white data-[state=active]:text-primary-600 data-[state=active]:shadow-sm text-neutral-500 hover:text-neutral-900 rounded-md transition-all font-bold">Bulk Upload</TabsTrigger>
@@ -580,7 +581,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
                                 </select>
                             </div>
 
-                            <div className="col-span-2 flex justify-end gap-3 mt-4 pt-4 border-t border-neutral-100">
+                            <div className="col-span-2 flex justify-end gap-3 mt-1 pt-3 border-t border-neutral-100">
                                 <Button type="button" variant="ghost" className="text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 font-bold" onClick={() => handleOpenChange(false)}>Cancel</Button>
                                 <Button type="submit" className="bg-primary-600 hover:bg-primary-700 text-white font-bold shadow-md" disabled={isSubmitting}>
                                     {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
@@ -672,7 +673,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
                         </div>
                     </TabsContent>
                 </Tabs>
-
+                </div>
             </DialogContent>
         </Dialog>
     );
