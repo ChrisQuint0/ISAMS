@@ -16,6 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabaseClient";
+import { ViolationHistoryModal } from "../components/ViolationHistoryModal";
 
 // Custom theme using AG Grid v33+ Theming API with Quartz theme for a clean institutional look
 const customTheme = themeQuartz.withParams({
@@ -717,59 +718,20 @@ export default function StudViolationDashboard() {
       </div>
 
       {/* MODAL FOR STUDENT VIOLATIONS */}
-      {selectedViolator && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <Card className="w-full max-w-lg bg-white shadow-2xl rounded-xl border-0 overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-neutral-100 px-5 pt-4 pb-3 bg-neutral-50/50">
-              <div>
-                <h3 className="text-lg font-black text-neutral-900 tracking-tight leading-none mb-1">Violation Records</h3>
-                <p className="text-[13px] font-bold text-neutral-500 tracking-tight">{selectedViolator.name} • {selectedViolator.student_number}</p>
-              </div>
-              <button 
-                onClick={() => setSelectedViolator(null)} 
-                className="p-1.5 hover:bg-neutral-200/50 text-neutral-500 hover:text-neutral-900 rounded-md transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="px-5 pt-3 pb-5 max-h-[60vh] overflow-y-auto space-y-3 bg-neutral-50/30 hide-ag-scrollbars">
-              {selectedViolator.violations.map((v, idx) => (
-                <div key={v.violation_id || idx} className="p-4 border border-neutral-200 rounded-lg bg-white shadow-sm flex flex-col gap-2">
-                  <div className="flex justify-between items-start">
-                    <span className="font-bold text-neutral-900 text-sm leading-tight max-w-[70%]">{v.offense_name}</span>
-                    <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full border ${
-                      v.status === 'Resolved' ? 'bg-success/10 text-success border-success/20' : 
-                      v.status === 'Dismissed' ? 'bg-neutral-500/10 text-neutral-500 border-neutral-500/20' :
-                      v.status === 'Pending' ? 'bg-warning/10 text-warning border-warning/20' :
-                      v.status === 'Sanctioned' ? 'bg-sanctioned/10 text-sanctioned border-sanctioned/20' :
-                      'bg-info/10 text-info border-info/20'
-                    }`}>
-                      {v.status}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-end mt-1">
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider">Severity</span>
-                      <span className={`text-xs font-bold ${
-                        v.severity === 'Major' ? 'text-destructive-semantic' : 
-                        v.severity === 'Minor' ? 'text-info' : 'text-neutral-700'
-                      }`}>
-                        {v.severity}
-                      </span>
-                    </div>
-                    <div className="flex flex-col gap-0.5 items-end">
-                      <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider">Date</span>
-                      <span className="text-xs font-semibold text-neutral-700">
-                        {v.incident_date ? new Date(v.incident_date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
-      )}
+      <ViolationHistoryModal
+        isOpen={!!selectedViolator}
+        onClose={() => setSelectedViolator(null)}
+        studentName={selectedViolator ? `${selectedViolator.name} (${selectedViolator.student_number})` : ''}
+        violations={selectedViolator ? selectedViolator.violations.map(v => ({
+          violation_id: v.violation_id,
+          incident_date: v.incident_date,
+          status: v.status,
+          offense_types_sv: {
+            name: v.offense_name,
+            severity: v.severity
+          }
+        })) : []}
+      />
     </div>
   );
 }
