@@ -12,8 +12,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/lib/supabaseClient";
-import { CheckCircle2, AlertCircle, Loader2, FileText, X } from "lucide-react";
+import { CheckCircle2, AlertCircle, Loader2, FileText, X, ShieldAlert, History } from "lucide-react";
 import { uploadEvidenceToGDrive } from "../services/gdriveEvidenceUpload";
+import { ViolationHistoryModal } from "./ViolationHistoryModal";
+import { sendViolationNotification } from "../services/emailNotificationService";
 
 export function AddViolationModal({ isOpen, onClose, onSuccess }) {
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -28,6 +30,7 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
 
     const [studentValidationStatus, setStudentValidationStatus] = useState('idle');
     const [studentName, setStudentName] = useState("");
+    const [studentStatus, setStudentStatus] = useState("");
 
     const [formData, setFormData] = useState({
         student_number: "",
@@ -40,6 +43,9 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
     });
 
     const [evidenceFiles, setEvidenceFiles] = useState([]);
+    const [violationHistory, setViolationHistory] = useState([]);
+    const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+    const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
@@ -59,20 +65,27 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
             try {
                 const { data, error } = await supabase
                     .from('students_sv')
-                    .select('first_name, last_name, course_year_section')
+                    .select('first_name, last_name, course_year_section, status')
                     .eq('student_number', formData.student_number)
                     .single();
 
                 if (error || !data) {
                     setStudentValidationStatus('invalid');
                     setStudentName("");
+                    setStudentStatus("");
+                } else if (data.status !== 'Enrolled') {
+                    setStudentValidationStatus('not-enrolled');
+                    setStudentName(`${data.first_name} ${data.last_name} (${data.course_year_section})`);
+                    setStudentStatus(data.status);
                 } else {
                     setStudentValidationStatus('valid');
                     setStudentName(`${data.first_name} ${data.last_name} (${data.course_year_section})`);
+                    setStudentStatus(data.status);
                 }
             } catch (err) {
                 setStudentValidationStatus('invalid');
                 setStudentName("");
+                setStudentStatus("");
             }
         };
 
@@ -82,6 +95,44 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
 
         return () => clearTimeout(timerId);
     }, [formData.student_number]);
+
+    // Fetch student's past violation records when student is validated
+    const fetchViolationHistory = async (studentNumber) => {
+        setIsLoadingHistory(true);
+        try {
+            const { data, error } = await supabase
+                .from('violations_sv')
+                .select(`
+                    violation_id,
+                    incident_date,
+                    status,
+                    offense_types_sv (name, severity)
+                `)
+                .eq('student_number', studentNumber)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            setViolationHistory(data || []);
+        } catch (error) {
+            console.error("Error fetching violation history:", error);
+            setViolationHistory([]);
+        } finally {
+            setIsLoadingHistory(false);
+        }
+    };
+
+    useEffect(() => {
+        if ((studentValidationStatus === 'valid' || studentValidationStatus === 'not-enrolled') && formData.student_number) {
+            fetchViolationHistory(formData.student_number);
+        } else {
+            setViolationHistory([]);
+        }
+    }, [studentValidationStatus]);
+
+    // Computed violation counts by severity
+    const majorCount = violationHistory.filter(v => v.offense_types_sv?.severity === 'Major').length;
+    const minorCount = violationHistory.filter(v => v.offense_types_sv?.severity === 'Minor').length;
+    const complianceCount = violationHistory.filter(v => v.offense_types_sv?.severity === 'Compliance').length;
 
     const fetchDropdownData = async () => {
         setIsLoadingData(true);
@@ -105,6 +156,7 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
         setSelectedSeverity("");
         setStudentValidationStatus('idle');
         setStudentName("");
+        setStudentStatus("");
         setFormData({
             student_number: "",
             offense_type_id: "",
@@ -115,6 +167,8 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
             status: "Pending",
         });
         setEvidenceFiles([]);
+        setViolationHistory([]);
+        setIsHistoryModalOpen(false);
     };
 
     const handleOpenChange = (open) => {
@@ -235,6 +289,21 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
             }
 
             setSuccessMsg("Violation reported successfully!");
+
+            // Fire-and-forget email notification
+            const selectedOffense = offenseTypes.find(o => o.offense_type_id === parseInt(formData.offense_type_id));
+            sendViolationNotification({
+                student_number: formData.student_number,
+                event_type: 'new_violation',
+                details: {
+                    offense_name: selectedOffense?.name || 'Unknown Offense',
+                    severity: selectedOffense?.severity || 'Unknown',
+                    incident_date: formData.incident_date,
+                    location: formData.location || 'N/A',
+                    description: formData.description || 'N/A'
+                }
+            });
+
             setTimeout(() => {
                 handleOpenChange(false);
                 if (onSuccess) onSuccess();
@@ -295,12 +364,82 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
                                     <CheckCircle2 className="w-3.5 h-3.5" /> Student found: {studentName}
                                 </p>
                             )}
+                            {studentValidationStatus === 'not-enrolled' && (
+                                <p className="text-xs text-amber-600 mt-1 flex items-center gap-1.5 font-bold">
+                                    <AlertCircle className="w-3.5 h-3.5" /> {studentName}
+                                </p>
+                            )}
                             {studentValidationStatus === 'invalid' && (
                                 <p className="text-xs text-destructive-semantic mt-1 flex items-center gap-1.5 font-bold">
                                     <AlertCircle className="w-3.5 h-3.5" /> Student ID not found in records.
                                 </p>
                             )}
                         </div>
+
+                        {/* Non-enrolled student block */}
+                        {studentValidationStatus === 'not-enrolled' && (
+                            <div className="col-span-2 flex items-start gap-3 p-3 rounded-lg border border-amber-200 bg-amber-50">
+                                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="text-sm font-bold text-amber-800">Cannot report violation</p>
+                                    <p className="text-xs text-amber-700 font-medium mt-0.5">
+                                        This student's enrollment status is <span className="font-black">{studentStatus}</span>. Only <span className="font-black">Enrolled</span> students can have violations filed against them.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Student Violation Record Summary */}
+                        {studentValidationStatus === 'valid' && (
+                            <div className="col-span-2">
+                                {isLoadingHistory ? (
+                                    <div className="flex items-center gap-2 p-3 rounded-lg border border-neutral-200 bg-neutral-50 text-neutral-500 text-sm font-medium">
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        Checking violation records...
+                                    </div>
+                                ) : violationHistory.length === 0 ? (
+                                    <div className="flex items-center gap-2 p-3 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-medium">
+                                        <CheckCircle2 className="w-4 h-4 shrink-0" />
+                                        This student has a clean record — no prior violations found.
+                                    </div>
+                                ) : (
+                                    <div className="p-3 rounded-lg border border-amber-200 bg-amber-50 space-y-2.5">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+                                                <span className="text-sm font-bold text-amber-800">Prior Violation Records</span>
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                className="h-7 px-3 text-xs font-bold text-amber-700 hover:bg-amber-100 hover:text-amber-900"
+                                                onClick={() => setIsHistoryModalOpen(true)}
+                                            >
+                                                <History className="w-3.5 h-3.5 mr-1.5" />
+                                                View History
+                                            </Button>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            {majorCount > 0 && (
+                                                <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-red-100 text-red-700 border border-red-200">
+                                                    {majorCount} Major
+                                                </span>
+                                            )}
+                                            {minorCount > 0 && (
+                                                <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+                                                    {minorCount} Minor
+                                                </span>
+                                            )}
+                                            {complianceCount > 0 && (
+                                                <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
+                                                    {complianceCount} Compliance
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         <div className="col-span-2 grid grid-cols-2 gap-4">
                             <div className="space-y-2">
@@ -462,6 +601,13 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
                 </div>
 
             </DialogContent>
+
+            <ViolationHistoryModal
+                isOpen={isHistoryModalOpen}
+                onClose={() => setIsHistoryModalOpen(false)}
+                studentName={studentName}
+                violations={violationHistory}
+            />
         </Dialog>
     );
 }

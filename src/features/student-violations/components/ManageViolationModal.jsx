@@ -14,6 +14,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { CheckCircle2, AlertCircle, Loader2, FileText, ExternalLink, ShieldCheck, X, Trash2 } from "lucide-react";
 import { ImposeSanctionModal } from "./ImposeSanctionModal";
 import { uploadEvidenceToGDrive, deleteEvidenceFromGDrive } from "../services/gdriveEvidenceUpload";
+import { sendViolationNotification } from "../services/emailNotificationService";
 
 const getFileIdFromUrl = (url) => {
     if (!url) return null;
@@ -222,6 +223,19 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
             if (error) throw error;
 
             setSuccessMsg("Violation status updated successfully!");
+
+            // Fire-and-forget email notification
+            const offenseName = violationData.offense_types_sv?.name || violationData.violation?.split(':')[0] || 'Unknown Offense';
+            sendViolationNotification({
+                student_number: violationData.student_number,
+                event_type: 'violation_updated',
+                details: {
+                    offense_name: offenseName,
+                    new_status: status,
+                    old_status: violationData.status || ''
+                }
+            });
+
             setTimeout(() => {
                 handleOpenChange(false);
                 if (onSuccess) onSuccess();

@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/lib/supabaseClient";
 import { CheckCircle2, AlertCircle, Loader2, UploadCloud, X, FileText, ExternalLink, Trash2 } from "lucide-react";
 import { uploadEvidenceToGDrive, deleteEvidenceFromGDrive } from "../services/gdriveEvidenceUpload";
+import { sendViolationNotification } from "../services/emailNotificationService";
 
 const getFileIdFromUrl = (url) => {
     if (!url) return null;
@@ -198,6 +199,16 @@ export function ManageSanctionModal({ isOpen, onClose, onSuccess, sanctionData }
             return;
         }
 
+        if (completionDate && sanctionData?.original_data?.start_date) {
+            const startDateStr = new Date(sanctionData.original_data.start_date).toISOString().split('T')[0];
+            const compDateStr = new Date(completionDate).toISOString().split('T')[0];
+            
+            if (compDateStr < startDateStr) {
+                setErrorMsg(`Completion date cannot be earlier than the start date (${startDateStr}).`);
+                return;
+            }
+        }
+
         setIsSubmitting(true);
         setSuccessMsg(null);
         setErrorMsg(null);
@@ -262,6 +273,18 @@ export function ManageSanctionModal({ isOpen, onClose, onSuccess, sanctionData }
             }
 
             setSuccessMsg("Sanction updated successfully!");
+
+            // Fire-and-forget email notification
+            sendViolationNotification({
+                student_number: sanctionData.student_number,
+                event_type: 'sanction_updated',
+                details: {
+                    penalty_name: sanctionData.sanction_name || 'Unknown Sanction',
+                    new_status: status,
+                    completion_date: completionDate || ''
+                }
+            });
+
             setTimeout(() => {
                 handleOpenChange(false);
                 if (onSuccess) onSuccess();

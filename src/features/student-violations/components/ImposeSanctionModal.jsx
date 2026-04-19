@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/lib/supabaseClient";
 import { CheckCircle2, AlertCircle, Loader2, Sparkles, TrendingUp, BookOpen } from "lucide-react";
+import { sendViolationNotification } from "../services/emailNotificationService";
 
 export function ImposeSanctionModal({ isOpen, onClose, onSuccess, violationData }) {
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -195,6 +196,21 @@ export function ImposeSanctionModal({ isOpen, onClose, onSuccess, violationData 
             }
 
             setSuccessMsg("Sanction imposed successfully!");
+
+            // Fire-and-forget email notification
+            const offenseName = violationData.offense_types_sv?.name || violationData.violation?.split(':')[0] || 'Unknown Offense';
+            sendViolationNotification({
+                student_number: violationData.student_number,
+                event_type: 'violation_sanctioned',
+                details: {
+                    offense_name: offenseName,
+                    penalty_name: sanctionName,
+                    description: description || '',
+                    start_date: startDate || '',
+                    deadline_date: deadlineDate || ''
+                }
+            });
+
             setTimeout(() => {
                 handleOpenChange(false);
                 if (onSuccess) onSuccess();
