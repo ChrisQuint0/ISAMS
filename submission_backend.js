@@ -711,15 +711,15 @@ app.get("/api/status", async (req, res) => {
 // Tables to include in the ISAMS backup (in dependency order for restore)
 const BACKUP_TABLES = [
   { name: 'faculty_fs', pk: 'faculty_id' },
-  { name: 'master_courses_fs', pk: 'course_id' },
+  { name: 'master_courses_fs', pk: 'id' },
   { name: 'courses_fs', pk: 'course_id' },
   { name: 'documenttypes_fs', pk: 'doc_type_id' },
   { name: 'deadlines_fs', pk: 'deadline_id' },
-  { name: 'semester_history_fs', pk: 'semester_id' },
+  { name: 'semester_history_fs', pk: 'id' },
   { name: 'submissions_fs', pk: 'submission_id' },
   { name: 'documentversions_fs', pk: 'version_id' },
   { name: 'systemsettings_fs', pk: 'setting_key' },
-  { name: 'holidays_fs', pk: 'id' },
+  { name: 'holidays_fs', pk: 'holiday_id' },
 ];
 
 // GET /api/backup/export — export all ISAMS tables into a downloadable JSON file

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { openUrl } from "@/lib/openUrl";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -163,7 +164,7 @@ export default function FacultyTemplateHubPage() {
                         variant="outline"
                         className="w-full bg-white border-neutral-200 text-neutral-700 hover:text-primary-700 hover:bg-primary-50 shadow-sm font-bold active:scale-95 transition-all"
                         onClick={() => {
-                          if (t.file_url) window.open(t.file_url, '_blank');
+                          if (t.file_url) openUrl(t.file_url);
                         }}
                         disabled={!t.file_url}
                       >
