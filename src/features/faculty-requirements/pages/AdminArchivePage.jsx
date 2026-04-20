@@ -22,6 +22,7 @@ import { ToastProvider, useToast } from "@/components/ui/toast/toaster";
 // Import our new Hook
 import { useAdminArchive } from '../hooks/AdminArchiveHook';
 import { archiveService } from '../services/AdminArchiveService';
+import { openUrl } from '@/lib/openUrl';
 
 // Custom theme using AG Grid v33+ Theming API with Quartz theme for a modern institutional look
 const customTheme = themeQuartz.withParams({
@@ -104,6 +105,17 @@ export default function AdminArchivePage() {
     setDownloadingItemId(item.history_id);
     try {
       await reExportArchive(item);
+      addToast({
+        title: 'Re-Export Successful',
+        description: `Re-exported "${item.report_name || item.original_filename}" successfully.`,
+        variant: 'success',
+      });
+    } catch (err) {
+      addToast({
+        title: 'Re-Export Failed',
+        description: err?.message || 'An error occurred during re-export.',
+        variant: 'destructive',
+      });
     } finally {
       setDownloadingItemId(null);
     }
@@ -199,7 +211,7 @@ export default function AdminArchivePage() {
               variant="ghost"
               size="icon"
               className="h-7 w-7 text-neutral-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
-              onClick={() => window.open(params.data.gdrive_web_view_link, '_blank')}
+              onClick={() => openUrl(params.data.gdrive_web_view_link)}
               title="View in Drive"
             >
               <ExternalLink className="h-3.5 w-3.5" />

@@ -6,6 +6,7 @@ import { useLogo } from '../../settings/hooks/useLogo';
 import { useSettings } from '../../settings/hooks/useSettings';
 import plpLogo from '@/assets/images/plp_logo.png';
 import ccsLogo from '@/assets/images/ccs_logo.png';
+import { openUrl } from '@/lib/openUrl';
 import {
     ChevronLeft, Mail, Bell, RefreshCw, CheckCircle, AlertCircle,
     FileText, Download, User as UserIcon, BookOpen, Clock, AlertTriangle,
@@ -949,7 +950,7 @@ export default function AdminFacultyDetailPage() {
                             <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => window.open(`https://drive.google.com/drive/folders/${faculty.gdrive_folder_id}`, '_blank')}
+                                onClick={() => openUrl(`https://drive.google.com/drive/folders/${faculty.gdrive_folder_id}`)}
                                 className="h-8 px-3 bg-white border-neutral-200 text-neutral-700 hover:text-primary-600 shadow-sm font-bold text-xs transition-all"
                             >
                                 <Folder className="h-4 w-4 mr-2 text-primary-500" />

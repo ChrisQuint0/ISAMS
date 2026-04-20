@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, Fragment } from "react";
+import { openUrl } from '@/lib/openUrl';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -142,9 +143,9 @@ export default function FacultyArchivePage() {
 
   const downloadFile = (sub) => {
     if (sub.gdrive_web_view_link) {
-      window.open(sub.gdrive_web_view_link, '_blank');
+      openUrl(sub.gdrive_web_view_link);
     } else if (sub.gdrive_download_link) {
-      window.open(sub.gdrive_download_link, '_blank');
+      openUrl(sub.gdrive_download_link);
     } else {
       triggerLocalError(`${sub.original_filename} could not be downloaded. No valid link found.`);
     }

@@ -136,9 +136,10 @@ export default function AdminFacultyMonitorPage() {
           variant: "warning"
         });
       } else {
+        const sentTo = result.email_sent_to || result.sent_to || `${selectedFaculty.first_name} ${selectedFaculty.last_name}`;
         addToast({
           title: "Email Sent",
-          description: `Reminder sent to ${result.email_sent_to}`,
+          description: `Reminder sent to ${sentTo}`,
           variant: "success"
         });
       }
@@ -497,6 +498,11 @@ export default function AdminFacultyMonitorPage() {
     }
 
     doc.save(`Faculty_Monitoring_${new Date().toISOString().slice(0, 10)}.pdf`);
+    addToast({
+      title: 'PDF Exported',
+      description: `Faculty Monitoring Report has been downloaded successfully.`,
+      variant: 'success',
+    });
   };
 
   const hasActiveFilters = filters.status !== "All Status" ||
