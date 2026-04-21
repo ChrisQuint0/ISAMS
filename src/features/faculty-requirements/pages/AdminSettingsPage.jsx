@@ -2166,7 +2166,7 @@ export default function AdminSettingsPage() {
                                                                     </div>
                                                                     <div className="flex items-start gap-2 bg-warning/5 border border-warning/20 p-2.5 rounded-md">
                                                                         <p className="text-[11px] text-warning font-medium leading-relaxed">
-                                                                            <strong className="font-bold">Recommendation:</strong> Choose broad/generic words for batch submissions (like Research). As long as one slide in the batch contains the word, the whole batch is rejected.
+                                                                            <strong className="font-bold">Recommendation:</strong> Choose broad/generic words for batch submissions (like Research). The rejection is per file.
                                                                         </p>
                                                                     </div>
                                                                 </div>
