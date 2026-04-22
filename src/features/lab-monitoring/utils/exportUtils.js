@@ -157,30 +157,30 @@ const drawPDFHeader = (doc, labName, month, isOverflow = false, subtitle = null,
     const centerX = 105;
 
     // --- Banner background ---
-    doc.setFillColor(17, 58, 26);
+    doc.setFillColor(255, 255, 255);
     doc.rect(0, 0, 210, 28, 'F');
 
-    // White accent line at bottom of banner
-    doc.setFillColor(255, 255, 255);
+    // Accent line at bottom of banner
+    doc.setFillColor(200, 200, 200);
     doc.rect(0, 28, 210, 0.5, 'F');
 
     // --- Logos inside banner ---
     if (plpBase64) doc.addImage(plpBase64, "PNG", 12, 4, 18, 18);
     if (logoBase64) doc.addImage(logoBase64, "PNG", 180, 4, 18, 18);
 
-    // --- Institution text (white on green) ---
-    doc.setTextColor(255, 255, 255);
+    // --- Institution text (black on white) ---
+    doc.setTextColor(0, 0, 0);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.text("PAMANTASAN NG LUNGSOD NG PASIG", centerX, 11, { align: "center" });
 
     doc.setFontSize(8.5);
     doc.setFont("helvetica", "normal");
-    doc.setTextColor(220, 235, 225);
+    doc.setTextColor(50, 50, 50);
     doc.text(departmentName.toUpperCase(), centerX, 17, { align: "center" });
 
     doc.setFontSize(7);
-    doc.setTextColor(180, 220, 190);
+    doc.setTextColor(100, 100, 100);
     doc.text("LABORATORY MANAGEMENT MODULE  //  ISAMS", centerX, 23, { align: "center" });
 
     if (!isOverflow) {
@@ -293,7 +293,7 @@ export const handleAttendancePDF = async (rawLogs, labName) => {
     Object.keys(grouped).sort((a, b) => new Date(a) - new Date(b)).forEach((date, i) => {
         if (i > 0) doc.addPage();
         drawPDFHeader(doc, labName, month, false, null, branding);
-        doc.setFillColor(30, 41, 59).rect(10, 53, 190, 6, 'F');
+        doc.setFillColor(17, 58, 26).rect(10, 53, 190, 6, 'F');
         doc.setTextColor(255, 255, 255).setFontSize(8).setFont("helvetica", "bold").text(`DATE: ${date}`, 14, 57);
         doc.setTextColor(0, 0, 0);
         const sorted = grouped[date].sort((a, b) => (a.students_lists_lm?.full_name || "").localeCompare(b.students_lists_lm?.full_name || ""));
@@ -353,7 +353,7 @@ export const handleEarlyDismissalPDF = async (rawLogs, labName) => {
         keys.forEach((date, i) => {
             if (i > 0) doc.addPage();
             drawPDFHeader(doc, labName, month, false, "Laboratory Management Module — Early Dismissal Audit Log", branding);
-            doc.setFillColor(30, 41, 59).rect(10, 53, 190, 6, 'F');
+            doc.setFillColor(17, 58, 26).rect(10, 53, 190, 6, 'F');
             doc.setTextColor(255, 255, 255).setFontSize(8).setFont("helvetica", "bold").text(`SESSION DATE: ${date}`, 14, 57);
             doc.setTextColor(0, 0, 0);
             const sorted = grouped[date].sort((a, b) => (a.students_lists_lm?.full_name || "").localeCompare(b.students_lists_lm?.full_name || ""));
@@ -385,7 +385,7 @@ export const handleSectionSummaryPDF = async (rawLogs, labName) => {
     const sortedData = Object.entries(sections).sort(([a], [b]) => a.localeCompare(b)).map(([name, d]) => [name, d.sessions, d.students.size, d.sessions > 50 ? "HIGH" : "MODERATE"]);
 
     drawPDFHeader(doc, labName, month, false, "Laboratory Management Module — Section Attendance Summary", branding);
-    doc.setFillColor(30, 41, 59).rect(10, 53, 190, 6, 'F');
+    doc.setFillColor(17, 58, 26).rect(10, 53, 190, 6, 'F');
     doc.setTextColor(255, 255, 255).setFontSize(8).setFont("helvetica", "bold").text("OVERALL SECTION ACTIVITY ANALYSIS", 14, 57);
     doc.setTextColor(0, 0, 0);
 
@@ -404,7 +404,7 @@ export const handleForecastingPDF = async (rawLogs, labName) => {
     const month = getReportMonth(rawLogs);
     const data = calculateForecastingMetrics(rawLogs);
     drawPDFHeader(doc, labName, month, false, "Laboratory Management Module — Usage Forecasting & Predictive Analytics", branding);
-    doc.setFillColor(30, 41, 59).rect(10, 53, 190, 20, 'F');
+    doc.setFillColor(17, 58, 26).rect(10, 53, 190, 20, 'F');
     doc.setTextColor(255, 255, 255).setFontSize(7).setFont("helvetica", "bold");
     doc.text("CORE PREDICTIVE INSIGHTS", 14, 58);
     doc.setFontSize(10);
@@ -431,7 +431,7 @@ export const handlePCLifecyclePDF = async (rawLogs, labName, monthLabel, thresho
     const month = monthLabel || getReportMonth(rawLogs);
     const data = calculateLifecycleData(rawLogs, threshold).map(p => [p.no, p.hrs, p.health, p.runway, p.status]);
     drawPDFHeader(doc, labName, month, false, "Laboratory Management Module — PC Lifecycle History Audit", branding);
-    doc.setFillColor(30, 41, 59).rect(10, 53, 190, 6, 'F');
+    doc.setFillColor(17, 58, 26).rect(10, 53, 190, 6, 'F');
     doc.setTextColor(255, 255, 255).setFontSize(8).setFont("helvetica", "bold").text("HARDWARE LONGEVITY & DEGRADATION TRACKING", 14, 57);
     doc.setTextColor(0, 0, 0);
     autoTable(doc, {
@@ -459,27 +459,27 @@ export const handleAuditTrailPDF = async (formattedData, labName, dateFrom, date
     const centerX = pageWidth / 2;
 
     // --- Banner background ---
-    doc.setFillColor(17, 58, 26);
+    doc.setFillColor(255, 255, 255);
     doc.rect(0, 0, pageWidth, 28, 'F');
 
-    doc.setFillColor(255, 255, 255);
+    doc.setFillColor(200, 200, 200);
     doc.rect(0, 28, pageWidth, 0.5, 'F');
 
     // Logos inside banner
     if (plpBase64) doc.addImage(plpBase64, "PNG", 12, 4, 18, 18);
     if (logoBase64) doc.addImage(logoBase64, "PNG", pageWidth - 30, 4, 18, 18);
 
-    // Institution text (white on green)
-    doc.setTextColor(255, 255, 255);
+    // Institution text (black on white)
+    doc.setTextColor(0, 0, 0);
     doc.setFont("helvetica", "bold").setFontSize(11);
     doc.text("PAMANTASAN NG LUNGSOD NG PASIG", centerX, 11, { align: "center" });
 
     doc.setFontSize(8.5).setFont("helvetica", "normal");
-    doc.setTextColor(220, 235, 225);
+    doc.setTextColor(50, 50, 50);
     doc.text(departmentName.toUpperCase(), centerX, 17, { align: "center" });
 
     doc.setFontSize(7);
-    doc.setTextColor(180, 220, 190);
+    doc.setTextColor(100, 100, 100);
     doc.text("LABORATORY MANAGEMENT MODULE  //  ISAMS", centerX, 23, { align: "center" });
 
     // Sub-header rows
@@ -495,7 +495,7 @@ export const handleAuditTrailPDF = async (formattedData, labName, dateFrom, date
     doc.setFontSize(8).setFont("helvetica", "normal").text(`LABORATORY: ${labName}`, 10, 47);
     doc.text(`GENERATED: ${new Date().toLocaleString("en-US", { timeZone: "Asia/Manila" })}`, pageWidth - 10, 47, { align: "right" });
 
-    doc.setFillColor(30, 41, 59).rect(10, 51, pageWidth - 20, 6, 'F');
+    doc.setFillColor(17, 58, 26).rect(10, 51, pageWidth - 20, 6, 'F');
     doc.setTextColor(255, 255, 255).setFontSize(8).setFont("helvetica", "bold").text("SYSTEM AUDIT EVENTS", 14, 55);
     doc.setTextColor(0, 0, 0);
 
@@ -558,7 +558,7 @@ export const exportAttendanceExcel = async (rawLogs, labName) => {
         sheet.mergeCells(cur, 1, cur, 6);
         const r = sheet.getCell(cur, 1);
         r.value = `DATE: ${date}`;
-        r.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
+        r.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF113A1A' } };
         r.font = { color: { argb: 'FFFFFFFF' }, bold: true };
         cur++;
         sheet.getRow(cur).values = ['STUDENT ID', 'FULL NAME', 'SECTION', 'PC NO', 'TIME IN', 'TIME OUT'];
@@ -592,7 +592,7 @@ export const exportHardwareHealthExcel = async (rawLogs, labName, monthLabel) =>
         cell.fill = {
             type: 'pattern',
             pattern: 'solid',
-            fgColor: { argb: 'FF334155' }
+            fgColor: { argb: 'FF113A1A' }
         };
         cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
     }
@@ -648,7 +648,7 @@ export const exportEarlyDismissalExcel = async (rawLogs, labName) => {
             sheet.mergeCells(cur, 1, cur, 5);
             const r = sheet.getCell(cur, 1);
             r.value = `SESSION DATE: ${date}`;
-            r.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
+            r.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF113A1A' } };
             r.font = { color: { argb: 'FFFFFFFF' }, bold: true };
             cur++;
             sheet.getRow(cur).values = ['STUDENT NAME', 'SECTION', 'ACTUAL OUT', 'SCHED. END', 'MINS EARLY'];
@@ -685,7 +685,7 @@ export const exportSectionSummaryExcel = async (rawLogs, labName) => {
     sheet.mergeCells(7, 1, 7, 4);
     const b = sheet.getCell(7, 1);
     b.value = "OVERALL SECTION ACTIVITY ANALYSIS";
-    b.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
+    b.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF113A1A' } };
     b.font = { color: { argb: 'FFFFFFFF' }, bold: true };
     sheet.getRow(8).values = ['SECTION NAME', 'TOTAL SESSIONS', 'UNIQUE STUDENTS', 'STATUS'];
     sheet.getRow(8).font = { bold: true };
@@ -710,7 +710,7 @@ export const exportForecastingExcel = async (rawLogs, labName) => {
     sheet.mergeCells(7, 1, 7, 5);
     const sb = sheet.getCell(7, 1);
     sb.value = "DASHBOARD SUMMARY INSIGHTS";
-    sb.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+    sb.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF113A1A' } };
     sb.font = { color: { argb: 'FFFFFFFF' }, bold: true };
 
     sheet.getRow(8).values = [`PEAK DAY: ${data.summary.peakDay}`, `PEAK HOUR: ${data.summary.peakHour}`, `EST. LAPTOPS: ${data.summary.laptopProjection}`, "", `TOTAL: ${data.summary.totalSessions}`];
@@ -718,7 +718,7 @@ export const exportForecastingExcel = async (rawLogs, labName) => {
 
     sheet.getRow(10).values = ['PERIOD', 'ACTUAL TRAFFIC', 'PREDICTION', 'UTILIZATION', 'STATUS'];
     sheet.getRow(10).font = { bold: true };
-    sheet.getRow(10).eachCell(c => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }; c.font = { color: { argb: 'FFFFFFFF' } }; });
+    sheet.getRow(10).eachCell(c => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF113A1A' } }; c.font = { color: { argb: 'FFFFFFFF' } }; });
 
     data.table.forEach(row => {
         const r = sheet.addRow(row);
@@ -738,7 +738,7 @@ export const exportPCLifecycleExcel = async (rawLogs, labName, monthLabel, thres
     sheet.columns = [{ width: 15 }, { width: 20 }, { width: 15 }, { width: 25 }, { width: 20 }];
     drawExcelHeader(sheet, workbook, "Laboratory Management Module — PC Lifecycle History Audit", 5, month, labName, branding);
     sheet.getRow(7).values = ['PC UNIT', 'CUMULATIVE HRS', 'HEALTH %', 'AVAILABLE RUNWAY (HRS)', 'RELIABILITY'];
-    sheet.getRow(7).eachCell(c => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }; c.font = { color: { argb: 'FFFFFFFF' }, bold: true }; });
+    sheet.getRow(7).eachCell(c => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF113A1A' } }; c.font = { color: { argb: 'FFFFFFFF' }, bold: true }; });
     data.forEach(p => {
         const r = sheet.addRow([p.no, p.hrs, p.health, p.runway, p.status]);
         if (p.status === "CRITICAL") r.getCell(5).font = { color: { argb: 'FFB91C1C' }, bold: true };
@@ -811,7 +811,7 @@ export const handleAuditTrailExcel = async (formattedData, labName, dateFrom, da
     const headerRow = sheet.getRow(7);
     headerRow.values = ['TIMESTAMP', 'ACTOR', 'CATEGORY', 'ACTION', 'SEVERITY', 'DESCRIPTION'];
     headerRow.eachCell(c => {
-        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF113A1A' } };
         c.font = { color: { argb: 'FFFFFFFF' }, bold: true };
     });
 
