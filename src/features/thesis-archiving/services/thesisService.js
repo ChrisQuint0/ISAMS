@@ -21,12 +21,26 @@ export const thesisService = {
    */
   async getAdvisers() {
     const { data, error } = await supabase
-      .from("vw_adviser_display")
-      .select("*")
-      .order("display_name", { ascending: true });
+      .from("thesis_advisers")
+      .select("id, first_name, last_name, title, credentials")
+      .eq("is_active", true)
+      .order("last_name", { ascending: true });
 
     if (error) throw error;
-    return data;
+
+    // Compute display_name so existing callers that use adv.display_name keep working
+    return data.map((a) => ({
+      ...a,
+      display_name: [
+        a.title,
+        a.first_name,
+        a.last_name,
+        a.credentials ? `, ${a.credentials}` : "",
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .trim(),
+    }));
   },
 
   /**
@@ -41,6 +55,30 @@ export const thesisService = {
 
     if (error) throw error;
     return data;
+  },
+
+  /**
+   * Update an existing adviser
+   */
+  async updateAdviser(id, updates) {
+    const { error } = await supabase
+      .from("thesis_advisers")
+      .update(updates)
+      .eq("id", id);
+
+    if (error) throw error;
+  },
+
+  /**
+   * Delete an adviser
+   */
+  async deleteAdviser(id) {
+    const { error } = await supabase
+      .from("thesis_advisers")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
   },
 
   /**

@@ -205,7 +205,13 @@ export function ThesisSettingsModal({ variant = "dark" }) {
           thesisService.getSettings(),
         ]);
       setAdvisers(
-        advData.map((a) => ({ id: a.id, name: a.display_name || a.name })),
+        advData.map((a) => ({
+          id: a.id,
+          first_name: a.first_name || "",
+          last_name: a.last_name || "",
+          title: a.title || "",
+          credentials: a.credentials || "",
+        })),
       );
       setCategories(catData);
       setSections(secData);
@@ -251,7 +257,13 @@ export function ThesisSettingsModal({ variant = "dark" }) {
 
       const advData = await thesisService.getAdvisers();
       setAdvisers(
-        advData.map((a) => ({ id: a.id, name: a.display_name || a.name })),
+        advData.map((a) => ({
+          id: a.id,
+          first_name: a.first_name || "",
+          last_name: a.last_name || "",
+          title: a.title || "",
+          credentials: a.credentials || "",
+        })),
       );
 
       setNewAdviserFirstName("");
@@ -332,6 +344,7 @@ export function ThesisSettingsModal({ variant = "dark" }) {
     if (itemToDelete) {
       try {
         if (view === "advisers") {
+          await thesisService.deleteAdviser(itemToDelete.id);
           setAdvisers(advisers.filter((a) => a.id !== itemToDelete.id));
         } else if (view === "categories") {
           setCategories(categories.filter((c) => c.id !== itemToDelete.id));
@@ -354,13 +367,23 @@ export function ThesisSettingsModal({ variant = "dark" }) {
 
   const handleCellValueChanged = async (event) => {
     if (view === "advisers") {
-      setAdvisers((prevAdvisers) =>
-        prevAdvisers.map((adviser) =>
-          adviser.id === event.data.id
-            ? { ...adviser, name: event.data.name }
-            : adviser,
-        ),
-      );
+      try {
+        await thesisService.updateAdviser(event.data.id, {
+          first_name: event.data.first_name,
+          last_name: event.data.last_name,
+          title: event.data.title || null,
+          credentials: event.data.credentials || null,
+        });
+        setAdvisers((prevAdvisers) =>
+          prevAdvisers.map((adviser) =>
+            adviser.id === event.data.id
+              ? { ...adviser, ...event.data }
+              : adviser,
+          ),
+        );
+      } catch (error) {
+        console.error("Update adviser failed:", error);
+      }
     } else if (view === "categories") {
       setCategories((prevCategories) =>
         prevCategories.map((category) =>
@@ -424,14 +447,52 @@ export function ThesisSettingsModal({ variant = "dark" }) {
   };
 
   const columnDefs = useMemo(() => {
+    if (view === "advisers") {
+      return [
+        {
+          field: "first_name",
+          headerName: "First Name",
+          flex: 1,
+          editable: true,
+          singleClickEdit: false,
+        },
+        {
+          field: "last_name",
+          headerName: "Last Name",
+          flex: 1,
+          editable: true,
+          singleClickEdit: false,
+        },
+        {
+          field: "title",
+          headerName: "Title",
+          width: 120,
+          editable: true,
+          singleClickEdit: false,
+        },
+        {
+          field: "credentials",
+          headerName: "Credentials",
+          width: 150,
+          editable: true,
+          singleClickEdit: false,
+        },
+        {
+          field: "actions",
+          headerName: "Action",
+          width: 80,
+          cellRenderer: ActionCellRenderer,
+          editable: false,
+        },
+      ];
+    }
+
     const headerName =
-      view === "advisers"
-        ? "Name"
-        : view === "categories"
-          ? "Category Name"
-          : view === "sections"
-            ? "Section Name"
-            : "Academic Year";
+      view === "categories"
+        ? "Category Name"
+        : view === "sections"
+          ? "Section Name"
+          : "Academic Year";
 
     const cols = [
       {
