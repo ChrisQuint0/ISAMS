@@ -16,6 +16,35 @@ export const thesisService = {
     return data;
   },
 
+  async addCategory(name) {
+    const { data, error } = await supabase
+      .from("thesis_categories")
+      .insert([{ name, slug: name.toLowerCase().replace(/\s+/g, "-") }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async updateCategory(id, updates) {
+    const { error } = await supabase
+      .from("thesis_categories")
+      .update(updates)
+      .eq("id", id);
+
+    if (error) throw error;
+  },
+
+  async deleteCategory(id) {
+    const { error } = await supabase
+      .from("thesis_categories")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
+  },
+
   /**
    * Fetch all active research advisers via helper view
    */

@@ -275,11 +275,15 @@ export function ThesisSettingsModal({ variant = "dark" }) {
     }
   };
 
-  const handleAddCategory = () => {
+  const handleAddCategory = async () => {
     if (!newCategoryName.trim()) return;
-    const newId = Date.now();
-    setCategories([...categories, { id: newId, name: newCategoryName }]);
-    setNewCategoryName("");
+    try {
+      const data = await thesisService.addCategory(newCategoryName.trim());
+      setCategories([...categories, data]);
+      setNewCategoryName("");
+    } catch (error) {
+      console.error("Failed to add category:", error);
+    }
   };
 
   const handleAddSection = async () => {
@@ -347,6 +351,7 @@ export function ThesisSettingsModal({ variant = "dark" }) {
           await thesisService.deleteAdviser(itemToDelete.id);
           setAdvisers(advisers.filter((a) => a.id !== itemToDelete.id));
         } else if (view === "categories") {
+          await thesisService.deleteCategory(itemToDelete.id);
           setCategories(categories.filter((c) => c.id !== itemToDelete.id));
         } else if (view === "sections") {
           await thesisService.deleteSection(itemToDelete.id);
@@ -385,13 +390,34 @@ export function ThesisSettingsModal({ variant = "dark" }) {
         console.error("Update adviser failed:", error);
       }
     } else if (view === "categories") {
-      setCategories((prevCategories) =>
-        prevCategories.map((category) =>
-          category.id === event.data.id
-            ? { ...category, name: event.data.name }
-            : category,
-        ),
-      );
+      try {
+        await thesisService.updateCategory(event.data.id, {
+          name: event.data.name,
+        });
+        setCategories((prevCategories) =>
+          prevCategories.map((category) =>
+            category.id === event.data.id
+              ? { ...category, name: event.data.name }
+              : category,
+          ),
+        );
+      } catch (error) {
+        console.error("Update category failed:", error);
+      }
+    } else if (view === "sections") {
+      try {
+        await thesisService.updateSection(event.data.id, {
+          name: event.data.name,
+          program: event.data.program,
+        });
+        setSections((prev) =>
+          prev.map((s) =>
+            s.id === event.data.id ? { ...s, ...event.data } : s,
+          ),
+        );
+      } catch (error) {
+        console.error("Update section failed:", error);
+      }
     } else if (view === "years") {
       try {
         await thesisService.updateAcademicYear(event.data.id, {
@@ -737,7 +763,7 @@ export function ThesisSettingsModal({ variant = "dark" }) {
             <div className="flex justify-end">
               <Button
                 variant="outline"
-                className="bg-primary-500 text-white hover:bg-primary-600 border-none font-medium shrink-0"
+                className="bg-primary-500 text-white hover:bg-primary-600 hover:text-white border-none font-medium shrink-0"
                 onClick={handleAddAdviser}
               >
                 Add
@@ -801,7 +827,7 @@ export function ThesisSettingsModal({ variant = "dark" }) {
               />
               <Button
                 variant="outline"
-                className="bg-primary-500 text-white hover:bg-primary-600 border-none font-medium shrink-0"
+                className="bg-primary-500 text-white hover:bg-primary-600 hover:text-white border-none font-medium shrink-0"
                 onClick={handleAddYear}
               >
                 Add
@@ -864,7 +890,7 @@ export function ThesisSettingsModal({ variant = "dark" }) {
               />
               <Button
                 variant="outline"
-                className="bg-primary-500 text-white hover:bg-primary-600 border-none font-medium shrink-0"
+                className="bg-primary-500 text-white hover:bg-primary-600 hover:text-white border-none font-medium shrink-0"
                 onClick={handleAddCategory}
               >
                 Add
@@ -943,7 +969,7 @@ export function ThesisSettingsModal({ variant = "dark" }) {
               </Select>
               <Button
                 variant="outline"
-                className="bg-primary-500 text-white hover:bg-primary-600 border-none font-medium shrink-0"
+                className="bg-primary-500 text-white hover:bg-primary-600 hover:text-white border-none font-medium shrink-0"
                 onClick={handleAddSection}
               >
                 Add
