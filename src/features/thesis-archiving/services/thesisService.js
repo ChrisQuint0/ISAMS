@@ -335,6 +335,98 @@ export const thesisService = {
   },
 
   /**
+   * Create a new HTE document field
+   */
+  async createHTEDocumentField({
+    name,
+    category,
+    display_order,
+    uploader_role = "student",
+    is_required_for_completion = true,
+    is_active = true,
+  }) {
+    const { data, error } = await supabase
+      .from("hte_document_fields")
+      .insert([
+        {
+          name,
+          category,
+          display_order,
+          uploader_role,
+          is_required_for_completion,
+          is_active,
+        },
+      ])
+      .select("*")
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Update one HTE document field
+   */
+  async updateHTEDocumentField(fieldId, updates) {
+    const { data, error } = await supabase
+      .from("hte_document_fields")
+      .update(updates)
+      .eq("id", fieldId)
+      .select("*")
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Persist display order updates for multiple HTE fields
+   */
+  async bulkUpdateHTEDocumentFieldOrders(orderUpdates) {
+    await Promise.all(
+      orderUpdates.map((item) =>
+        supabase
+          .from("hte_document_fields")
+          .update({ display_order: item.display_order })
+          .eq("id", item.id),
+      ),
+    ).then((results) => {
+      results.forEach(({ error }) => {
+        if (error) throw error;
+      });
+    });
+  },
+
+  /**
+   * Return usage counts keyed by field_id for existing upload records
+   */
+  async getHTEDocumentFieldUsage() {
+    const { data, error } = await supabase
+      .from("hte_document_uploads")
+      .select("field_id");
+
+    if (error) throw error;
+
+    return (data || []).reduce((acc, row) => {
+      if (!row.field_id) return acc;
+      acc[row.field_id] = (acc[row.field_id] || 0) + 1;
+      return acc;
+    }, {});
+  },
+
+  /**
+   * Delete one HTE document field
+   */
+  async deleteHTEDocumentField(fieldId) {
+    const { error } = await supabase
+      .from("hte_document_fields")
+      .delete()
+      .eq("id", fieldId);
+
+    if (error) throw error;
+  },
+
+  /**
    * Fetch a single thesis by ID with all details
    */
   async getThesisById(id) {
