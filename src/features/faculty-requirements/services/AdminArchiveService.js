@@ -129,7 +129,7 @@ export const archiveService = {
   /**
    * Bulk Download as ZIP
    */
-  downloadArchiveZip: async (config, onProgress) => {
+  downloadArchiveZip: async (config, onProgress, abortSignal) => {
     try {
       // 1. Get Links with all config filters
       const { data: files, error } = await supabase.rpc('get_archive_export_links_fs', {
@@ -165,11 +165,15 @@ export const archiveService = {
         return { success: false, message: 'No downloadable files found.' };
       }
 
+      // 2.5 Compute Total Bytes Before Fetch
+      const precalculatedTotalBytes = files.reduce((acc, f) => acc + (parseInt(f.file_size_bytes) || 0), 0);
+
       // 3. Request ZIP from Node Backend
       const response = await fetch('http://localhost:3002/api/faculty/export', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ courseId: 'Admin_Bulk', files: payloadFiles })
+        body: JSON.stringify({ courseId: 'Admin_Bulk', files: payloadFiles }),
+        signal: abortSignal
       });
 
       if (!response.ok) {
@@ -177,7 +181,26 @@ export const archiveService = {
         throw new Error(errorData.message || 'Export failed on server. Ensure the Node backend (port 3002) is running.');
       }
 
-      const content = await response.blob();
+      // Read ZIP stream
+      const reader = response.body.getReader();
+      const chunks = [];
+      let receivedBytes = 0;
+      
+      // If the backend magically sends content-length, we use it, otherwise we fall back to our ultra-precise precalculated bytes
+      const headerLength = parseInt(response.headers.get('content-length'), 10);
+      const totalBytes = !isNaN(headerLength) && headerLength > 0 ? headerLength : precalculatedTotalBytes;
+
+      while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+          receivedBytes += value.length;
+          if (onProgress) {
+              onProgress({ receivedBytes, totalBytes });
+          }
+      }
+
+      const content = new Blob(chunks, { type: 'application/zip' });
       
       const safeSem = config.semester === 'All Semesters' ? 'AllSem' : config.semester;
       const safeAY = config.academic_year === 'All Years' ? 'AllAY' : config.academic_year;

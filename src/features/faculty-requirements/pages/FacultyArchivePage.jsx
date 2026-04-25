@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, Fragment } from "react";
 import { openUrl } from '@/lib/openUrl';
+import { DownloadProgressModal } from "../components/DownloadProgressModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,7 +58,9 @@ export default function FacultyArchivePage() {
     downloadingCourseId,
     downloadingBulk,
     handleDownloadBulk,
-    options
+    options,
+    downloadProgress,
+    cancelDownload
   } = useFacultyArchive();
 
   const [selectedSemester, setSelectedSemester] = useState("");
@@ -154,6 +157,12 @@ export default function FacultyArchivePage() {
   return (
     <ToastProvider>
       <FacultyToastHandler error={error || localError} success={success} />
+      <DownloadProgressModal 
+        isOpen={downloadProgress?.isOpen} 
+        progressBytes={downloadProgress?.bytes} 
+        totalBytes={downloadProgress?.total} 
+        onCancel={cancelDownload} 
+      />
       <div className="space-y-6 flex flex-col h-full bg-neutral-50/30">
 
         {/* Header */}
