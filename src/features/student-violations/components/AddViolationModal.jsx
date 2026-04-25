@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
     Dialog,
     DialogContent,
@@ -21,6 +21,14 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState(null);
     const [successMsg, setSuccessMsg] = useState(null);
+    const errorRef = useRef(null);
+
+    // Auto-scroll to error message when it appears
+    useEffect(() => {
+        if (errorMsg && errorRef.current) {
+            errorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }, [errorMsg]);
 
     const [offenseTypes, setOffenseTypes] = useState([]);
     const [isLoadingData, setIsLoadingData] = useState(true);
@@ -328,7 +336,7 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
                     </DialogHeader>
 
                     {errorMsg && (
-                        <div className="bg-red-50 border border-red-200 text-destructive-semantic p-3 rounded-md flex items-start gap-3 mt-4 text-sm font-medium">
+                        <div ref={errorRef} className="bg-red-50 border border-red-200 text-destructive-semantic p-3 rounded-md flex items-start gap-3 mt-4 text-sm font-medium animate-in fade-in slide-in-from-top-2 duration-300">
                             <AlertCircle className="w-5 h-5 shrink-0" />
                             <p>{errorMsg}</p>
                         </div>
@@ -393,12 +401,12 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
                         {studentValidationStatus === 'valid' && (
                             <div className="col-span-2">
                                 {isLoadingHistory ? (
-                                    <div className="flex items-center gap-2 p-3 rounded-lg border border-neutral-200 bg-neutral-50 text-neutral-500 text-sm font-medium">
+                                    <div className="flex items-center justify-center gap-2 p-3 rounded-lg border border-neutral-200 bg-neutral-50 text-neutral-500 text-sm font-medium">
                                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                         Checking violation records...
                                     </div>
                                 ) : violationHistory.length === 0 ? (
-                                    <div className="flex items-center gap-2 p-3 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-medium">
+                                    <div className="flex items-center justify-center gap-2 p-3 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-medium">
                                         <CheckCircle2 className="w-4 h-4 shrink-0" />
                                         This student has a clean record — no prior violations found.
                                     </div>
@@ -419,7 +427,7 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
                                                 View History
                                             </Button>
                                         </div>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center justify-center gap-2">
                                             {majorCount > 0 && (
                                                 <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-red-100 text-red-700 border border-red-200">
                                                     {majorCount} Major

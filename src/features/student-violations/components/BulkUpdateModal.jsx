@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
     Dialog,
     DialogContent,
@@ -18,6 +18,14 @@ export function BulkUpdateModal({ isOpen, onClose, onSuccess, selectedStudents =
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState(null);
     const [successMsg, setSuccessMsg] = useState(null);
+    const errorRef = useRef(null);
+
+    // Auto-scroll to error message when it appears
+    useEffect(() => {
+        if (errorMsg && errorRef.current) {
+            errorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }, [errorMsg]);
 
     // Field toggles — the user opts-in to which fields to update
     const [updateStatus, setUpdateStatus] = useState(false);
@@ -115,7 +123,7 @@ export function BulkUpdateModal({ isOpen, onClose, onSuccess, selectedStudents =
                 <div className="flex-1 overflow-y-auto p-6 pt-4 space-y-5 scrollbar-hide">
                     {/* Error / Success Alerts */}
                     {errorMsg && (
-                        <div className="bg-red-50 border border-red-200 text-destructive-semantic p-3 rounded-md flex items-start gap-3 text-sm font-medium">
+                        <div ref={errorRef} className="bg-red-50 border border-red-200 text-destructive-semantic p-3 rounded-md flex items-start gap-3 text-sm font-medium animate-in fade-in slide-in-from-top-2 duration-300">
                             <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
                             <p>{errorMsg}</p>
                         </div>

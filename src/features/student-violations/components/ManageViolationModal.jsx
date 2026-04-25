@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
     Dialog,
     DialogContent,
@@ -50,6 +50,14 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState(null);
     const [successMsg, setSuccessMsg] = useState(null);
+    const errorRef = useRef(null);
+
+    // Auto-scroll to error message when it appears
+    useEffect(() => {
+        if (errorMsg && errorRef.current) {
+            errorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }, [errorMsg]);
 
     const [status, setStatus] = useState("Pending");
 
@@ -262,7 +270,7 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
                     </DialogHeader>
 
                     {errorMsg && (
-                        <div className="bg-red-50 border border-red-200 text-destructive-semantic p-3 rounded-md flex items-start gap-3 mt-4 text-sm font-medium">
+                        <div ref={errorRef} className="bg-red-50 border border-red-200 text-destructive-semantic p-3 rounded-md flex items-start gap-3 mt-4 text-sm font-medium animate-in fade-in slide-in-from-top-2 duration-300">
                             <AlertCircle className="w-5 h-5 shrink-0" />
                             <p>{errorMsg}</p>
                         </div>
