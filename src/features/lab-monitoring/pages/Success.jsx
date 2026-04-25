@@ -238,25 +238,39 @@ export default function Success() {
   }, [loading, countdown, navigate, labId, labName]);
 
   useEffect(() => {
-    if (attendanceType === "In" && studentData?.full_name) {
+    if ((attendanceType === "In" || attendanceType === "Out") && studentData?.full_name) {
       const synth = window.speechSynthesis;
 
       const speakGreeting = () => {
         synth.cancel(); // Stop any pending speech
-        const utterance = new SpeechSynthesisUtterance(
-          `Check in successful. Welcome to ${labName}, ${studentData.full_name}.`
-        );
+        const message = attendanceType === "In"
+          ? `Check in successful. Welcome to ${labName}, ${studentData.full_name}.`
+          : `Check out successful. Goodbye, ${studentData.full_name}.`;
+
+        const utterance = new SpeechSynthesisUtterance(message);
 
         const voices = synth.getVoices();
-        const preferredVoice = voices.find(
-          (voice) =>
-            voice.name.includes("Zira") ||
-            voice.name.includes("Female") ||
-            voice.name.includes("Google US")
-        );
+
+        // Use a strict priority array so the voice doesn't randomly change
+        // depending on the array order returned by getVoices()
+        const voicePriority = [
+          (v) => v.name.toLowerCase().includes("female"),
+          (v) => v.name.includes("Google US"),
+          (v) => v.name.includes("Zira"),
+          (v) => v.lang.startsWith("en-")
+        ];
+
+        let preferredVoice = null;
+        for (const condition of voicePriority) {
+          preferredVoice = voices.find(condition);
+          if (preferredVoice) break;
+        }
 
         if (preferredVoice) {
           utterance.voice = preferredVoice;
+          console.log(`[TTS Debug] Selected Voice: ${preferredVoice.name} (${preferredVoice.lang})`);
+        } else {
+          console.log("[TTS Debug] No preferred voice found, using system default.");
         }
 
         utterance.rate = 0.9;

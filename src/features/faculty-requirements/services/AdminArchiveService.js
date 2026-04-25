@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabaseClient';
+import { openUrl } from '@/lib/openUrl';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 
@@ -39,14 +40,14 @@ export const archiveService = {
   downloadFile: async (doc) => {
     // If we have a direct web view link from Google, use it
     if (doc.gdrive_web_view_link || doc.gdrive_download_link) {
-      window.open(doc.gdrive_download_link || doc.gdrive_web_view_link, '_blank');
+      await openUrl(doc.gdrive_download_link || doc.gdrive_web_view_link);
       return { success: true, message: 'Opening Google Drive...' };
     }
 
     // Fallback: Construct link using ID
     if (doc.gdrive_file_id) {
       const url = `https://drive.google.com/uc?export=download&id=${doc.gdrive_file_id}`;
-      window.open(url, '_blank');
+      await openUrl(url);
       return { success: true, message: 'Opening download link...' };
     }
 
