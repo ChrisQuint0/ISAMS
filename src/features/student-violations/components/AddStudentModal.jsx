@@ -80,9 +80,29 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
         }
     };
 
+    const generateEmail = (firstName, lastName) => {
+        const clean = (str) => str.trim().toLowerCase().replace(/\s+/g, '');
+        if (!firstName && !lastName) return '';
+        const last = clean(lastName);
+        const first = clean(firstName);
+        if (!last && !first) return '';
+        if (!last) return `${first}@plpasig.edu.ph`;
+        if (!first) return `${last}@plpasig.edu.ph`;
+        return `${last}_${first}@plpasig.edu.ph`;
+    };
+
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        setFormData((prev) => ({ ...prev, [name]: value }));
+        setFormData((prev) => {
+            const updated = { ...prev, [name]: value };
+            if (name === 'first_name' || name === 'last_name') {
+                updated.email = generateEmail(
+                    name === 'first_name' ? value : prev.first_name,
+                    name === 'last_name' ? value : prev.last_name
+                );
+            }
+            return updated;
+        });
     };
 
     const validateSingleForm = () => {
@@ -556,7 +576,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
 
                             <div className="space-y-2">
                                 <Label htmlFor="email" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Email Address <span className="text-destructive-semantic">*</span></Label>
-                                <Input id="email" name="email" type="email" value={formData.email} onChange={handleInputChange} className="bg-white border-neutral-200 focus-visible:ring-primary-500 h-9 text-sm text-neutral-900 placeholder:text-neutral-400" placeholder="juan@student.edu.ph" />
+                                <Input id="email" name="email" type="email" value={formData.email} readOnly tabIndex={-1} className="bg-neutral-100 border-neutral-200 h-9 text-sm text-neutral-500 cursor-not-allowed select-none" placeholder="Auto-generated from name" />
                             </div>
 
                             <div className="space-y-2">

@@ -5,13 +5,14 @@ import { ModuleRegistry, AllCommunityModule, themeQuartz } from "ag-grid-communi
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
-import { Plus, Search, UserCheck, Users, GraduationCap, Edit2, UserX, Clock, Ban, Loader2, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { Plus, Search, UserCheck, Users, GraduationCap, Edit2, UserX, Clock, Ban, Loader2, ArrowUpRight, ArrowDownRight, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/lib/supabaseClient";
 import { AddStudentModal } from "../components/AddStudentModal";
 import { EditStudentModal } from "../components/EditStudentModal";
+import { BulkUpdateModal } from "../components/BulkUpdateModal";
 
 // Custom theme using AG Grid v33+ Theming API with Quartz theme for a clean institutional look
 // Custom theme using AG Grid v33+ Theming API with Quartz theme for a clean institutional look
@@ -72,6 +73,8 @@ const StudRecords = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [searchValue, setSearchValue] = useState("");
+  const [selectedRows, setSelectedRows] = useState([]);
+  const [isBulkUpdateOpen, setIsBulkUpdateOpen] = useState(false);
 
   const fetchStudents = async () => {
     setIsLoading(true);
@@ -126,7 +129,20 @@ const StudRecords = () => {
 
   const columnDefs = useMemo(() => [
     {
-      headerName: "Student ID",
+      headerCheckboxSelection: true,
+      checkboxSelection: true,
+      width: 50,
+      maxWidth: 50,
+      pinned: 'left',
+      sortable: false,
+      filter: false,
+      resizable: false,
+      suppressHeaderMenuButton: true,
+      headerClass: 'flex items-center justify-center',
+      cellClass: 'flex items-center justify-center',
+    },
+    {
+      headerName: "Stud. ID",
       field: "id",
       flex: 1,
       cellStyle: { fontWeight: '500', color: 'var(--neutral-500)' },
@@ -252,8 +268,13 @@ const StudRecords = () => {
   const defaultColDef = useMemo(() => ({
     sortable: true,
     resizable: true,
-    floatingFilter: false, // Set to true if you want filter inputs under the headers
+    floatingFilter: false,
   }), []);
+
+  const onSelectionChanged = (event) => {
+    const rows = event.api.getSelectedRows();
+    setSelectedRows(rows);
+  };
 
 
   const totalStudents = students.length;
@@ -270,12 +291,24 @@ const StudRecords = () => {
           <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Student database</h1>
           <p className="text-neutral-500 text-sm font-medium">Manage and monitor student enrollment records</p>
         </div>
-        <Button
-          className="bg-primary-600 hover:bg-primary-700 text-white shadow-md shadow-emerald-900/10 transition-all font-bold h-9 px-4 rounded-md text-sm active:scale-95"
-          onClick={() => setIsModalOpen(true)}
-        >
-          <Plus className="w-4 h-4 mr-2" /> Add student
-        </Button>
+        <div className="flex items-center gap-2">
+          {selectedRows.length > 0 && (
+            <Button
+              variant="outline"
+              className="border-primary-300 text-primary-700 hover:bg-primary-50 hover:border-primary-500 shadow-sm transition-all font-bold h-9 px-4 rounded-md text-sm active:scale-95 animate-in fade-in slide-in-from-right-2 duration-200"
+              onClick={() => setIsBulkUpdateOpen(true)}
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Update {selectedRows.length} selected
+            </Button>
+          )}
+          <Button
+            className="bg-primary-600 hover:bg-primary-700 text-white shadow-md shadow-emerald-900/10 transition-all font-bold h-9 px-4 rounded-md text-sm active:scale-95"
+            onClick={() => setIsModalOpen(true)}
+          >
+            <Plus className="w-4 h-4 mr-2" /> Add student
+          </Button>
+        </div>
       </div>
 
 
@@ -381,6 +414,9 @@ const StudRecords = () => {
               pagination={true}
               paginationPageSize={15}
               suppressCellFocus={true}
+              rowSelection="multiple"
+              suppressRowClickSelection={true}
+              onSelectionChanged={onSelectionChanged}
             />
           )}
         </div>
@@ -397,6 +433,17 @@ const StudRecords = () => {
         onClose={() => setIsEditModalOpen(false)}
         onSuccess={fetchStudents}
         studentData={selectedStudent}
+      />
+
+      <BulkUpdateModal
+        isOpen={isBulkUpdateOpen}
+        onClose={() => setIsBulkUpdateOpen(false)}
+        onSuccess={() => {
+          fetchStudents();
+          setSelectedRows([]);
+          if (gridApi) gridApi.deselectAll();
+        }}
+        selectedStudents={selectedRows}
       />
     </div>
   );

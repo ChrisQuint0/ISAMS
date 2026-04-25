@@ -494,6 +494,7 @@ export function AddViolationModal({ isOpen, onClose, onSuccess }) {
                                 id="incident_date"
                                 name="incident_date"
                                 type="date"
+                                max={new Date().toLocaleDateString('en-CA')}
                                 value={formData.incident_date}
                                 onChange={handleInputChange}
                                 className="bg-white border-neutral-200 h-9 text-sm text-neutral-900 focus-visible:ring-primary-500"
