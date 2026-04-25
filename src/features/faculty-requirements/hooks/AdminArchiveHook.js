@@ -109,17 +109,18 @@ export function useAdminArchive() {
     setLoading(true);
     setError(null);
     try {
-      // Reconstitute the config from the log
-      // Currently the log only saves semester and academic_year (the core filters)
-      const config = {
-        semester: exportRecord.semester,
-        academic_year: exportRecord.academic_year,
-        doc_type: 'All Document Types',
-        faculty: 'All Faculty',
-        course: 'All Courses',
-        section: 'All Sections'
-      };
-      
+      // Use the full saved config if available (new exports), otherwise fall back to semester/year only (legacy)
+      const config = exportRecord.export_config
+        ? exportRecord.export_config
+        : {
+            semester: exportRecord.semester || 'All Semesters',
+            academic_year: exportRecord.academic_year || 'All Years',
+            doc_type: 'All Document Types',
+            faculty: 'All Faculty',
+            course: 'All Courses',
+            section: 'All Sections'
+          };
+
       const result = await archiveService.downloadArchiveZip(config);
       if (result.success) {
         setSuccess(`Successfully re-exported historical archive.`);

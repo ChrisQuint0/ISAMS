@@ -39,21 +39,21 @@ export default function ExportMonthModal({ isOpen, onClose, onConfirm, reportTit
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="bg-[#0f172a] border border-[#1e293b] w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="bg-white border border-neutral-200 w-full max-w-md rounded-2xl shadow-sm overflow-hidden animate-in fade-in zoom-in duration-200">
                 {/* Header */}
-                <div className="p-6 border-b border-[#1e293b] flex justify-between items-center bg-[#1e293b]/20">
+                <div className="p-6 border-b border-neutral-200 flex justify-between items-center bg-neutral-50">
                     <div>
-                        <h3 className="text-white font-bold text-lg uppercase tracking-tight">Export Report</h3>
-                        <p className="text-slate-500 text-[10px] uppercase font-bold mt-1 tracking-widest">{reportTitle}</p>
+                        <h3 className="text-neutral-900 font-bold text-lg uppercase tracking-tight">Export Report</h3>
+                        <p className="text-neutral-500 text-[10px] uppercase font-bold mt-1 tracking-widest">{reportTitle}</p>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-[#1e293b] rounded-full text-slate-400 transition-colors">
+                    <button onClick={onClose} className="p-2 hover:bg-neutral-100 rounded-full text-neutral-500 transition-colors">
                         <X size={18} />
                     </button>
                 </div>
 
                 {/* Body */}
                 <div className="p-6">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-4">
+                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider block mb-4">
                         Select Target Month ({currentYear})
                     </label>
                     <div className="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
@@ -69,18 +69,18 @@ export default function ExportMonthModal({ isOpen, onClose, onConfirm, reportTit
                                     className={`
                                         flex items-center justify-between p-3 rounded-xl border transition-all
                                         ${isFuture 
-                                            ? "bg-[#0f172a]/50 border-slate-800/50 text-slate-700 cursor-not-allowed opacity-50" 
+                                            ? "bg-neutral-50 border-neutral-200 text-neutral-400 cursor-not-allowed opacity-50" 
                                             : isSelected 
-                                                ? "bg-sky-500/15 border-sky-500 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.1)]" 
-                                                : "bg-[#020617] border-[#1e293b] text-slate-500 hover:border-slate-600 hover:text-slate-300"
+                                                ? "bg-primary-500/15 border-primary-500 text-primary-600 shadow-[0_0_15px_rgba(0,138,69,0.1)]" 
+                                                : "bg-neutral-50 border-neutral-200 text-neutral-600 hover:border-neutral-300 hover:text-neutral-900"
                                         }
                                     `}
                                 >
                                     <div className="flex items-center gap-3">
-                                        <Calendar size={14} className={isSelected ? "text-sky-400" : "text-slate-600"} />
+                                        <Calendar size={14} className={isSelected ? "text-primary-500" : "text-neutral-400"} />
                                         <span className="text-sm font-bold">{m.name}</span>
                                     </div>
-                                    {isFuture && <Lock size={12} className="text-slate-700" />}
+                                    {isFuture && <Lock size={12} className="text-neutral-400" />}
                                 </button>
                             );
                         })}
@@ -88,17 +88,17 @@ export default function ExportMonthModal({ isOpen, onClose, onConfirm, reportTit
                 </div>
 
                 {/* Footer */}
-                <div className="p-6 bg-[#020617]/50 border-t border-[#1e293b] flex gap-3">
+                <div className="p-6 bg-neutral-50 border-t border-neutral-200 flex gap-3">
                     <button 
                         onClick={onClose} 
-                        className="flex-1 px-4 py-2.5 rounded-xl border border-[#1e293b] text-slate-400 font-bold text-xs uppercase tracking-widest hover:bg-[#1e293b] transition-all"
+                        className="flex-1 px-4 py-2.5 rounded-xl border border-neutral-200 text-neutral-700 font-bold text-xs uppercase tracking-widest hover:bg-neutral-100 transition-all"
                     >
                         Cancel
                     </button>
                     <button 
                         onClick={handleExport}
                         disabled={isExporting}
-                        className="flex-1 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-sky-900/20 transition-all disabled:opacity-50 active:scale-95"
+                        className="flex-1 px-4 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-sm transition-all disabled:opacity-50 active:scale-95"
                     >
                         {isExporting ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />}
                         {isExporting ? "Processing..." : "Download Report"}

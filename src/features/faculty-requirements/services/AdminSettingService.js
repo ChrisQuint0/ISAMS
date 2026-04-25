@@ -27,7 +27,6 @@ export const settingsService = {
       general_default_deadline: parseInt(settingsMap.general_default_deadline || '14'),
       general_grace_period: parseInt(settingsMap.general_grace_period || '3'),
       general_auto_reminders: settingsMap.general_auto_reminders || '3days',
-      general_archive_retention: settingsMap.general_archive_retention || '5years',
 
       // Validation Defaults
       val_vision_mission: settingsMap.val_vision_mission === 'true',
@@ -61,7 +60,7 @@ export const settingsService = {
       gdrive_folder_name: docType.folder || docType.gdrive_folder_name,
       description: docType.description,
       is_active: docType.is_active,
-      required_by_default: docType.required
+      required_by_default: true
     };
 
     if (docType.id) {
@@ -201,6 +200,35 @@ export const settingsService = {
   },
 
   archiveTemplate: async (templateId, isActive) => {
+    // If we are restoring/activating a template, ensure we archive the currently active one
+    // for the same system category and course code to prevent duplicates.
+    if (isActive) {
+      const { data: targetTemplate, error: fetchError } = await supabase
+        .from('templates_fs')
+        .select('system_category, course_code')
+        .eq('template_id', templateId)
+        .single();
+        
+      if (fetchError) throw fetchError;
+
+      if (targetTemplate?.system_category) {
+        let deactivateQuery = supabase
+          .from('templates_fs')
+          .update({ is_active_default: false })
+          .eq('system_category', targetTemplate.system_category)
+          .eq('is_active_default', true);
+
+        if (targetTemplate.course_code) {
+          deactivateQuery = deactivateQuery.eq('course_code', targetTemplate.course_code);
+        } else {
+          deactivateQuery = deactivateQuery.is('course_code', null);
+        }
+
+        const { error: deactivateError } = await deactivateQuery;
+        if (deactivateError) throw deactivateError;
+      }
+    }
+
     const { error } = await supabase
       .from('templates_fs')
       .update({ is_active_default: isActive })
@@ -402,12 +430,14 @@ export const settingsService = {
       p_id: course.id || null,
     });
     if (error) throw error;
+    if (data && data.success === false) throw new Error(data.message || "Failed to save course assignment.");
     return data;
   },
 
   deleteCourse: async (courseId) => {
     const { data, error } = await supabase.rpc('delete_course_fs', { p_course_id: courseId });
     if (error) throw error;
+    if (data && data.success === false) throw new Error(data.message || "Failed to delete course assignment.");
     return data;
   },
 
@@ -444,12 +474,4 @@ export const settingsService = {
     return data;
   },
 
-  // DANGER ZONE: Purge Old Archives
-  purgeArchives: async (yearsToKeep = 5) => {
-    const { data, error } = await supabase.rpc('purge_old_archives_fs', {
-      p_retention_years: yearsToKeep
-    });
-    if (error) throw error;
-    return data;
-  }
-};
+};

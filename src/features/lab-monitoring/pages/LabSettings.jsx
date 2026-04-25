@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { ShieldCheck, Monitor, Save, Database, RefreshCcw, Upload, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabaseClient";
 import SettingRow from "../components/settings/SettingRow";
 import ActionCard from "../components/settings/ActionCard";
@@ -116,79 +117,71 @@ export default function LabSettings() {
     }, [importSuccessMessage, importFileError, isImportDialogOpen, setImportSuccessMessage, setImportFileError, setNotificationTitle]);
 
     return (
-        <div className="p-8 space-y-10 bg-[#020617] min-h-screen text-slate-100 relative">
+        <div className="p-6 space-y-10 bg-neutral-50 min-h-screen text-neutral-900 relative">
 
-            {/* Centered Glass Notification Overlay */}
             {(importSuccessMessage || (importFileError && !isImportDialogOpen)) && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 animate-in fade-in duration-300">
-                    {/* The Full Screen Frosted Glass Backdrop */}
                     <div
-                        className="absolute inset-0 bg-slate-950/40 backdrop-blur-md pointer-events-auto"
+                        className="absolute inset-0 bg-neutral-900/20 pointer-events-auto"
                         onClick={() => { setImportSuccessMessage(""); setImportFileError(""); }}
                     />
 
                     <div className="relative z-10 pointer-events-auto animate-in zoom-in-95 duration-300">
                         {importSuccessMessage && (
-                            <div className="flex flex-col items-center gap-5 bg-white/[0.03] border border-white/10 text-emerald-400 p-10 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.1)] backdrop-blur-2xl max-w-sm text-center">
-                                <div className="bg-emerald-500/20 p-4 rounded-full ring-8 ring-emerald-500/5 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-                                    <CheckCircle2 size={36} />
+                            <div className="flex flex-col items-center gap-5 bg-white border-neutral-200 text-success p-10 rounded-3xl shadow-lg max-w-sm text-center">
+                                <div className="bg-success p-4 rounded-full ring-8 ring-success/20 shadow-md">
+                                    <CheckCircle2 size={36} className="text-white" />
                                 </div>
                                 <div className="space-y-1">
-                                    <h3 className="text-xl font-bold text-white">{notificationTitle}</h3>
-                                    <p className="text-xs text-slate-400 leading-relaxed px-4">{importSuccessMessage}</p>
+                                    <h3 className="text-xl font-bold text-neutral-900">{notificationTitle}</h3>
+                                    <p className="text-xs text-neutral-600 leading-relaxed px-4">{importSuccessMessage}</p>
                                 </div>
-                                <button
+                                <Button
                                     onClick={() => setImportSuccessMessage("")}
-                                    className="mt-2 w-full text-[10px] uppercase tracking-[0.2em] font-black px-6 py-3 bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/40 rounded-xl transition-all duration-300 text-white"
+                                    className="w-full bg-success hover:bg-success/90 text-white"
                                 >
                                     Acknowledge
-                                </button>
+                                </Button>
                             </div>
                         )}
 
                         {importFileError && !isImportDialogOpen && (
-                            <div className="flex flex-col items-center gap-5 bg-white/[0.03] border border-white/10 text-rose-400 p-10 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.1)] backdrop-blur-2xl max-w-sm text-center">
-                                <div className="bg-rose-500/20 p-4 rounded-full ring-8 ring-rose-500/5 shadow-[0_0_20px_rgba(244,63,94,0.2)]">
-                                    <AlertCircle size={36} />
+                            <div className="flex flex-col items-center gap-5 bg-white border-neutral-200 text-destructive-semantic p-10 rounded-3xl shadow-lg max-w-sm text-center">
+                                <div className="bg-destructive-semantic p-4 rounded-full ring-8 ring-destructive-semantic/20 shadow-md">
+                                    <AlertCircle size={36} className="text-white" />
                                 </div>
                                 <div className="space-y-1">
-                                    <h3 className="text-xl font-bold text-white">Import Fault</h3>
-                                    <p className="text-xs text-slate-400 leading-relaxed px-4">{importFileError}</p>
+                                    <h3 className="text-xl font-bold text-neutral-900">Import Fault</h3>
+                                    <p className="text-xs text-neutral-600 leading-relaxed px-4">{importFileError}</p>
                                 </div>
-                                <button
+                                <Button
                                     onClick={() => setImportFileError("")}
-                                    className="mt-2 w-full text-[10px] uppercase tracking-[0.2em] font-black px-6 py-3 bg-white/5 hover:bg-rose-500/20 border border-white/10 hover:border-rose-500/40 rounded-xl transition-all duration-300 text-white"
+                                    variant="destructive"
+                                    className="w-full"
                                 >
                                     Re-attempt
-                                </button>
+                                </Button>
                             </div>
                         )}
                     </div>
                 </div>
             )}
 
-            {/* Header section with Save button */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-[#1e293b] pb-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-neutral-200 pb-6">
                 <div>
-                    <h1 className="text-2xl font-bold text-white tracking-tight">{labName} - System Settings</h1>
-                    <p className="text-slate-400 text-sm italic">Manage core attendance protocols and hardware maintenance thresholds.</p>
+                    <h1 className="text-[30px] font-bold text-neutral-900 tracking-tight">{labName} - System Settings</h1>
+                    <p className="text-neutral-600 text-sm italic">Manage core attendance protocols and hardware maintenance thresholds.</p>
                 </div>
-                <button
-                    onClick={handleSaveWrapper}
-                    disabled={isSaving}
-                    className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold py-2.5 px-6 rounded-lg transition-all relative overflow-hidden group/btn disabled:opacity-50"
-                >
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/0 via-white/0 to-white/0 group-hover/btn:from-white/10 group-hover/btn:via-white/0 group-hover/btn:to-white/0 transition-all duration-500 pointer-events-none" />
-                    <div className="absolute inset-0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
+                <Button onClick={handleSaveWrapper} disabled={isSaving} className="bg-primary-500 hover:bg-primary-600 text-white">
                     <Save size={16} /> <span>{isSaving ? "Saving..." : "Save Changes"}</span>
-                </button>
+                </Button>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-7 gap-8 items-stretch">
-                <section className="xl:col-span-4 h-full flex flex-col gap-6">
+            <div className="grid grid-cols-1 xl:grid-cols-7 gap-8">
+                <section className="xl:col-span-4 flex flex-col gap-6">
                     <div className="flex items-center gap-2">
-                        <ShieldCheck size={18} className="text-sky-500" />
-                        <h2 className="text-sm font-black uppercase tracking-[0.2em] text-slate-400">Attendance Protocols</h2>
+                        <ShieldCheck size={18} className="text-primary-500" />
+                        <h2 className="text-sm font-bold text-neutral-900 uppercase tracking-wider">Attendance Protocols</h2>
                     </div>
                     <div className="grid gap-4">
                         <SettingRow
@@ -197,7 +190,7 @@ export default function LabSettings() {
                             checked={settings.anti_cutting}
                             onChange={() => toggleSetting("anti_cutting")}
                         >
-                            <div className={`w-10 h-5 rounded-full flex items-center px-1 cursor-pointer transition-colors ${settings.anti_cutting ? 'bg-sky-600 justify-end' : 'bg-slate-700 justify-start'}`} onClick={() => toggleSetting("anti_cutting")}>
+                            <div className={`w-10 h-5 rounded-full flex items-center px-1 cursor-pointer transition-colors ${settings.anti_cutting ? 'bg-primary-500 justify-end' : 'bg-neutral-300 justify-start'}`} onClick={() => toggleSetting("anti_cutting")}>
                                 <div className="w-3.5 h-3.5 bg-white rounded-full shadow-sm" />
                             </div>
                         </SettingRow>
@@ -207,7 +200,7 @@ export default function LabSettings() {
                             checked={settings.hard_capacity}
                             onChange={() => toggleSetting("hard_capacity")}
                         >
-                            <div className={`w-10 h-5 rounded-full flex items-center px-1 cursor-pointer transition-colors ${settings.hard_capacity ? 'bg-sky-600 justify-end' : 'bg-slate-700 justify-start'}`} onClick={() => toggleSetting("hard_capacity")}>
+                            <div className={`w-10 h-5 rounded-full flex items-center px-1 cursor-pointer transition-colors ${settings.hard_capacity ? 'bg-primary-500 justify-end' : 'bg-neutral-300 justify-start'}`} onClick={() => toggleSetting("hard_capacity")}>
                                 <div className="w-3.5 h-3.5 bg-white rounded-full shadow-sm" />
                             </div>
                         </SettingRow>
@@ -217,60 +210,61 @@ export default function LabSettings() {
                             checked={settings.auto_assignment}
                             onChange={() => toggleSetting("auto_assignment")}
                         >
-                            <div className={`w-10 h-5 rounded-full flex items-center px-1 cursor-pointer transition-colors ${settings.auto_assignment ? 'bg-sky-600 justify-end' : 'bg-slate-700 justify-start'}`} onClick={() => toggleSetting("auto_assignment")}>
+                            <div className={`w-10 h-5 rounded-full flex items-center px-1 cursor-pointer transition-colors ${settings.auto_assignment ? 'bg-primary-500 justify-end' : 'bg-neutral-300 justify-start'}`} onClick={() => toggleSetting("auto_assignment")}>
                                 <div className="w-3.5 h-3.5 bg-white rounded-full shadow-sm" />
                             </div>
                         </SettingRow>
                     </div>
 
                     <section className="space-y-6">
-                        <div className="flex items-center gap-2"><Monitor size={18} className="text-sky-500" /><h2 className="text-sm font-black uppercase tracking-[0.2em] text-slate-400">Hardware Maintenance</h2></div>
-                        <div className="p-6 bg-[#0f172a] border border-[#1e293b] rounded-xl flex flex-col gap-6 shadow-sm group relative overflow-hidden hover:border-slate-600 transition-colors">
-                            <div className="absolute inset-0 bg-gradient-to-br from-slate-400/0 via-slate-400/0 to-slate-400/0 group-hover:from-slate-400/5 group-hover:via-slate-400/0 group-hover:to-slate-400/0 transition-all duration-500 pointer-events-none" />
+                        <div className="flex items-center gap-2"><Monitor size={18} className="text-primary-500" /><h2 className=" text-sm font-bold text-neutral-900 uppercase tracking-wider">Hardware Maintenance</h2></div>
+                        <div className="p-6 bg-white border border-neutral-200 rounded-xl flex flex-col gap-6 shadow-sm transition-colors">
                             <div className="flex justify-between items-center">
                                 <div className="space-y-1">
-                                    <p className="text-sm font-bold text-slate-200">Predictive Health Threshold</p>
-                                    <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black leading-relaxed">Limit for PC proactive alerts.</p>
+                                    <p className="text-sm font-bold text-neutral-900">Predictive Health Threshold</p>
+                                    <p className="text-[11px] text-neutral-600 uppercase tracking-wide">Limit for PC proactive alerts.</p>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <button
-                                        className="h-6 w-6 flex items-center justify-center bg-[#1e293b] text-slate-400 rounded-md hover:bg-slate-700 transition"
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
                                         onClick={() => handleThresholdChange(Math.max(100, settings.maintenance_threshold - 50))}
                                     >
-                                        -
-                                    </button>
-                                    <div className="flex items-center gap-2 bg-[#020617] border border-[#1e293b] rounded-lg px-2 py-1 shadow-inner min-w-[60px] justify-center">
-                                        <span className="text-sky-400 font-black text-xs">{settings.maintenance_threshold}</span><span className="text-[10px] text-slate-600 font-black ml-1">HRS</span>
+                                        −
+                                    </Button>
+                                    <div className="flex items-center gap-2 bg-white border border-neutral-200 rounded-lg px-2 py-1 shadow-sm min-w-[60px] justify-center">
+                                        <span className="text-primary-500 font-black text-xs">{settings.maintenance_threshold}</span><span className="text-[10px] text-neutral-600 font-black ml-1">HRS</span>
                                     </div>
-                                    <button
-                                        className="h-6 w-6 flex items-center justify-center bg-[#1e293b] text-slate-400 rounded-md hover:bg-slate-700 transition"
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
                                         onClick={() => handleThresholdChange(settings.maintenance_threshold + 50)}
                                     >
                                         +
-                                    </button>
+                                    </Button>
                                 </div>
                             </div>
-                            <div className="h-2 w-full bg-[#1e293b] rounded-full overflow-hidden">
-                                <div className="h-full bg-sky-500 shadow-[0_0_15px_rgba(14,165,233,0.3)] transition-all duration-300" style={{ width: `${Math.min(100, (settings.maintenance_threshold / 1000) * 100)}%` }}></div>
+                            <div className="h-2 w-full bg-neutral-200 rounded-full overflow-hidden">
+                                <div className="h-full bg-primary-500 transition-all duration-300" style={{ width: `${Math.min(100, (settings.maintenance_threshold / 1000) * 100)}%` }}></div>
                             </div>
                         </div>
                     </section>
                 </section>
 
-                <div className="xl:col-span-3 h-full flex flex-col gap-8">
+                <div className="xl:col-span-3 flex flex-col gap-8">
                     <section className="space-y-5">
-                        <div className="flex items-center gap-2"><Database size={18} className="text-sky-500" /><h2 className="text-sm font-black uppercase tracking-[0.2em] text-slate-400">Data & Audit</h2></div>
+                        <div className="flex items-center gap-2"><Database size={18} className="text-primary-500" /><h2 className="text-sm font-bold text-neutral-900 uppercase tracking-wider">Data & Audit</h2></div>
                         <div className="space-y-3">
                             <ActionCard icon={isReconciling ? Loader2 : RefreshCcw} title="Reconcile Room Status" subtitle="Force-run auto-checkout triggers." onClick={handleManualSync} />
-                            <ActionCard icon={isBackingUp ? Loader2 : Database} title="Generate System Snapshot" subtitle="Full relational backup of all lab data and settings." iconColorClass="bg-emerald-500/10 text-emerald-500" onClick={handleFullSystemBackup} />
+                            <ActionCard icon={isBackingUp ? Loader2 : Database} title="Generate System Snapshot" subtitle="Full relational backup of all lab data and settings." iconColorClass="bg-primary-500/10 text-primary-500" onClick={handleFullSystemBackup} />
                         </div>
                     </section>
 
                     <section className="space-y-5">
-                        <div className="flex items-center gap-2"><Upload size={18} className="text-sky-500" /><h2 className="text-sm font-black uppercase tracking-[0.2em] text-slate-400">Data Import</h2></div>
+                        <div className="flex items-center gap-2"><Upload size={18} className="text-primary-500" /><h2 className=" text-sm font-bold text-neutral-900 uppercase tracking-wider">Data Import</h2></div>
                         <div className="space-y-3">
                             <ActionCard icon={Upload} title="Import Classlist" subtitle="Upload CSV for students." onClick={() => openImportDialog("classlist")} />
-                            <ActionCard icon={Database} title="Import Laboratory Schedule" subtitle="Upload CSV for schedules." iconColorClass="bg-emerald-500/10 text-emerald-500" onClick={() => openImportDialog("schedule")} />
+                            <ActionCard icon={Database} title="Import Laboratory Schedule" subtitle="Upload CSV for schedules." iconColorClass="bg-primary-500/10 text-primary-500" onClick={() => openImportDialog("schedule")} />
                         </div>
                     </section>
                 </div>

@@ -146,7 +146,7 @@ export function AppSidebar() {
                   tooltip="System Settings"
                 >
                   <Settings className="h-4 w-4 shrink-0" />
-                  <span className="group-data-[collapsible=icon]:hidden font-medium">System Settings</span>
+                  <span className="group-data-[collapsible=icon]:hidden font-medium">Settings</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

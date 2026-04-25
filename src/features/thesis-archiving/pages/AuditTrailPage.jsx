@@ -8,6 +8,8 @@ import {
 import { AgGridReact } from 'ag-grid-react';
 import { ModuleRegistry, AllCommunityModule, themeBalham } from 'ag-grid-community';
 import { useAuditLogs } from "../hooks/useAuditLogs";
+import { supabase } from "@/lib/supabaseClient";
+import { useSettings } from "../../settings/hooks/useSettings";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -25,7 +27,45 @@ const auditTheme = themeBalham.withParams({
 
 export default function AuditTrailPage() {
     const gridRef = useRef();
+    const { settings } = useSettings();
     const { logs, availableActions, loading, error, filters, updateFilters, refresh } = useAuditLogs();
+    const [dateBounds, setDateBounds] = useState({ min: "", max: "" });
+
+    React.useEffect(() => {
+        let active = true;
+
+        async function loadDateBounds() {
+            try {
+                const { data } = await supabase
+                    .from("vw_audit_trail")
+                    .select("time")
+                    .not("time", "is", null)
+                    .order("time", { ascending: true })
+                    .limit(1);
+
+                const today = new Date();
+                const year = today.getFullYear();
+                const month = String(today.getMonth() + 1).padStart(2, '0');
+                const day = String(today.getDate()).padStart(2, '0');
+                const maxDate = `${year}-${month}-${day}`;
+
+                let minDate = maxDate;
+                if (active && data && data.length > 0) {
+                    const earliestYear = new Date(data[0].time).getFullYear();
+                    minDate = `${earliestYear}-01-01`;
+                }
+
+                if (active) {
+                    setDateBounds({ min: minDate, max: maxDate });
+                }
+            } catch (err) {
+                console.error("Failed to load audit date bounds:", err);
+            }
+        }
+        loadDateBounds();
+
+        return () => { active = false; };
+    }, []);
 
     const columnDefs = useMemo(() => [
         {
@@ -116,11 +156,28 @@ export default function AuditTrailPage() {
 
     const onExportClick = useCallback(() => {
         if (gridRef.current?.api) {
+            const now = new Date();
+            const dateStr = now.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+            const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+            const collegeName = settings?.college_name || "College of Computing and Information Sciences";
+            
+            const commas = ",,,,,,"; 
+            const customHeader = [
+              `"Pamantasan ng Lungsod ng Pasig"${commas}`,
+              `"${collegeName}"${commas}`,
+              `"Thesis Archiving Module  //  ISAMS"${commas}`,
+              `""${commas}`,
+              `"AUDIT TRAIL"${commas}`,
+              `"Date Generated: ${dateStr} ${timeStr}  ·  Total Records: ${logs.length}"${commas}`,
+              `""${commas}\r\n`
+            ].join("\r\n");
+
             gridRef.current.api.exportDataAsCsv({
-                fileName: `AuditTrail_${new Date().toISOString().split('T')[0]}.csv`
+                fileName: `AuditTrail_${new Date().toISOString().split('T')[0]}.csv`,
+                customHeader: customHeader
             });
         }
-    }, []);
+    }, [logs.length, settings]);
 
     const onSearchChange = (e) => {
         updateFilters({ search: e.target.value });
@@ -181,6 +238,8 @@ export default function AuditTrailPage() {
                                 value={filters.date}
                                 onChange={(e) => updateFilters({ date: e.target.value })}
                                 className="bg-transparent text-sm text-gray-700 outline-none cursor-pointer"
+                                min={dateBounds.min || undefined}
+                                max={dateBounds.max || undefined}
                             />
                         </div>
 

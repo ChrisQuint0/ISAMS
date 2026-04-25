@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { openUrl } from "@/lib/openUrl";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,12 +63,12 @@ export default function FacultyTemplateHubPage() {
     return templates.filter(t => {
       const matchesCategory = selectedCategory === "All" || t.category === selectedCategory;
       const q = searchQuery.toLowerCase();
-      
+
       // If search query is short (1-2 chars), only match title for accuracy
-      const matchesSearch = !searchQuery || 
-        t.title.toLowerCase().includes(q) || 
+      const matchesSearch = !searchQuery ||
+        t.title.toLowerCase().includes(q) ||
         (searchQuery.length > 2 && t.description?.toLowerCase().includes(q));
-        
+
       return matchesCategory && matchesSearch;
     });
   }, [templates, searchQuery, selectedCategory]);
@@ -87,7 +88,7 @@ export default function FacultyTemplateHubPage() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" />
             <Input
               placeholder="Search templates..."
-              className="pl-9 bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 shadow-sm font-medium"
+              className="pl-9 bg-white border-neutral-200 text-neutral-900 focus-visible:ring-primary-500 focus-visible:border-primary-500 rounded-lg"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -163,7 +164,7 @@ export default function FacultyTemplateHubPage() {
                         variant="outline"
                         className="w-full bg-white border-neutral-200 text-neutral-700 hover:text-primary-700 hover:bg-primary-50 shadow-sm font-bold active:scale-95 transition-all"
                         onClick={() => {
-                          if (t.file_url) window.open(t.file_url, '_blank');
+                          if (t.file_url) openUrl(t.file_url);
                         }}
                         disabled={!t.file_url}
                       >

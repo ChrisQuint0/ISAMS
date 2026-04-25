@@ -76,37 +76,71 @@ const formatFrequency = (freq) => {
 };
 
 // Helper: Build a human-readable detail message from a log entry
-const buildDetailMessage = (log, userName) => {
+// Accepts lookup maps to resolve IDs to human-readable names:
+//   studentMap: { student_number -> "First Last" }
+//   violationStudentMap: { violation_id -> student_number }
+//   sanctionViolationMap: { sanction_id -> violation_id }
+const buildDetailMessage = (log, userName, { studentMap = {}, violationStudentMap = {}, sanctionViolationMap = {} } = {}) => {
   const action = log.action_type;
   const table = log.table_name;
   const d = log.details || {};
-  // For UPDATE actions, relevant data is in details.new
   const data = action === 'UPDATE' ? (d.new || d) : d;
   const oldData = action === 'UPDATE' ? (d.old || {}) : {};
   const name = userName || 'Someone';
+
+  // Resolve a student_number to a display string like "Juan Dela Cruz (23-00117)"
+  const resolveStudent = (sn) => {
+    if (!sn) return 'a student';
+    const fullName = studentMap[sn];
+    return fullName ? `${fullName} (${sn})` : sn;
+  };
+
+  // Resolve a violation_id to its associated student display string
+  const resolveViolationStudent = (vid) => {
+    if (!vid) return 'a student';
+    const sn = violationStudentMap[vid] || violationStudentMap[String(vid)];
+    return sn ? resolveStudent(sn) : `violation #${vid}`;
+  };
+
+  // Resolve a sanction_id to its associated student display string
+  const resolveSanctionStudent = (sid) => {
+    if (!sid) return 'a student';
+    const vid = sanctionViolationMap[sid] || sanctionViolationMap[String(sid)];
+    if (vid) return resolveViolationStudent(vid);
+    return `sanction #${sid}`;
+  };
 
   try {
     switch (table) {
       case 'students_sv': {
         const sn = data.student_number || log.record_id;
-        if (action === 'INSERT') return `${name} added a student (${sn})`;
-        if (action === 'UPDATE') return `${name} updated student ${sn}`;
-        if (action === 'DELETE') return `${name} removed student ${sn}`;
-        break;
-      }
-      case 'violations_sv': {
-        const sn = data.student_number || '';
-        const vid = data.violation_id || log.record_id;
-        if (action === 'INSERT') return `${name} filed a violation against ${sn}`;
+        const studentDisplay = `${data.first_name || ''} ${data.last_name || ''}`.trim();
+        const label = studentDisplay ? `${studentDisplay} (${sn})` : sn;
+        if (action === 'INSERT') return `${name} registered student ${label}`;
         if (action === 'UPDATE') {
           const oldStatus = oldData.status;
           const newStatus = data.status;
           if (oldStatus && newStatus && oldStatus !== newStatus) {
-            return `${name} updated violation #${vid} status to ${newStatus}`;
+            return `${name} changed ${label}'s status from ${oldStatus} to ${newStatus}`;
           }
-          return `${name} updated violation #${vid} for ${sn}`;
+          return `${name} updated the record of ${label}`;
         }
-        if (action === 'DELETE') return `${name} removed violation #${vid}`;
+        if (action === 'DELETE') return `${name} removed student ${label}`;
+        break;
+      }
+      case 'violations_sv': {
+        const sn = data.student_number || '';
+        const studentLabel = resolveStudent(sn);
+        if (action === 'INSERT') return `${name} filed a violation against ${studentLabel}`;
+        if (action === 'UPDATE') {
+          const oldStatus = oldData.status;
+          const newStatus = data.status;
+          if (oldStatus && newStatus && oldStatus !== newStatus) {
+            return `${name} changed ${studentLabel}'s violation status from ${oldStatus} to ${newStatus}`;
+          }
+          return `${name} updated the violation record of ${studentLabel}`;
+        }
+        if (action === 'DELETE') return `${name} removed a violation record of ${studentLabel}`;
         break;
       }
       case 'offense_types_sv': {
@@ -118,6 +152,10 @@ const buildDetailMessage = (log, userName) => {
           if (oldSev && newSev && oldSev !== newSev) {
             return `${name} changed "${offName}" severity from ${oldSev} to ${newSev}`;
           }
+          const oldName = oldData.name;
+          if (oldName && oldName !== offName) {
+            return `${name} renamed offense type "${oldName}" to "${offName}"`;
+          }
           return `${name} updated offense type "${offName}"`;
         }
         if (action === 'DELETE') return `${name} removed offense type "${offName}"`;
@@ -127,44 +165,48 @@ const buildDetailMessage = (log, userName) => {
         const sName = data.sanction_name || `ID ${log.record_id}`;
         const severity = data.severity || '';
         const freq = data.frequency ? formatFrequency(data.frequency) : '';
-        if (action === 'INSERT') return `${name} added sanction "${sName}" (${severity}, ${freq})`;
+        const context = severity && freq ? ` for ${severity} ${freq} offense` : '';
+        if (action === 'INSERT') return `${name} added sanction rule "${sName}"${context}`;
         if (action === 'UPDATE') {
           const oldName = oldData.sanction_name;
           if (oldName && oldName !== sName) {
-            return `${name} renamed sanction "${oldName}" to "${sName}"`;
+            return `${name} renamed sanction rule "${oldName}" to "${sName}"`;
           }
-          return `${name} updated sanction "${sName}"`;
+          return `${name} updated sanction rule "${sName}"`;
         }
-        if (action === 'DELETE') return `${name} removed sanction "${sName}"`;
+        if (action === 'DELETE') return `${name} removed sanction rule "${sName}"`;
         break;
       }
       case 'student_sanctions_sv': {
         const penalty = data.penalty_name || 'a sanction';
         const vid = data.violation_id || '';
-        if (action === 'INSERT') return `${name} assigned "${penalty}" to violation #${vid}`;
+        const studentLabel = resolveViolationStudent(vid);
+        if (action === 'INSERT') return `${name} assigned "${penalty}" to ${studentLabel}`;
         if (action === 'UPDATE') {
           const oldStatus = oldData.status;
           const newStatus = data.status;
           if (oldStatus && newStatus && oldStatus !== newStatus) {
-            return `${name} updated sanction "${penalty}" status to ${newStatus}`;
+            return `${name} changed ${studentLabel}'s sanction "${penalty}" status from ${oldStatus} to ${newStatus}`;
           }
-          return `${name} updated sanction "${penalty}" for violation #${vid}`;
+          return `${name} updated sanction "${penalty}" for ${studentLabel}`;
         }
-        if (action === 'DELETE') return `${name} removed sanction "${penalty}" from violation #${vid}`;
+        if (action === 'DELETE') return `${name} removed sanction "${penalty}" from ${studentLabel}`;
         break;
       }
       case 'violation_evidence_sv': {
         const fileName = data.file_name || 'a file';
         const vid = data.violation_id || '';
-        if (action === 'INSERT') return `${name} uploaded evidence "${fileName}" for violation #${vid}`;
-        if (action === 'DELETE') return `${name} removed evidence from violation #${vid}`;
+        const studentLabel = resolveViolationStudent(vid);
+        if (action === 'INSERT') return `${name} uploaded evidence "${fileName}" for ${studentLabel}'s violation`;
+        if (action === 'DELETE') return `${name} removed evidence from ${studentLabel}'s violation`;
         break;
       }
       case 'compliance_evidence_sv': {
         const fileName = data.file_name || 'a file';
         const sid = data.sanction_id || '';
-        if (action === 'INSERT') return `${name} uploaded compliance evidence "${fileName}" for sanction #${sid}`;
-        if (action === 'DELETE') return `${name} removed compliance evidence from sanction #${sid}`;
+        const studentLabel = resolveSanctionStudent(sid);
+        if (action === 'INSERT') return `${name} uploaded compliance evidence "${fileName}" for ${studentLabel}'s sanction`;
+        if (action === 'DELETE') return `${name} removed compliance evidence from ${studentLabel}'s sanction`;
         break;
       }
       default:
@@ -176,7 +218,7 @@ const buildDetailMessage = (log, userName) => {
 
   // Generic fallback
   const tableMap = {
-    'students_sv': 'Student', 'violations_sv': 'Violation', 'sanctions_sv': 'Sanction Matrix',
+    'students_sv': 'Student', 'violations_sv': 'Violation', 'sanctions_sv': 'Sanction Rule',
     'offense_types_sv': 'Offense Type', 'student_sanctions_sv': 'Student Sanction',
     'violation_evidence_sv': 'Violation Evidence', 'compliance_evidence_sv': 'Compliance Evidence'
   };
@@ -242,7 +284,45 @@ export default function StudViolationDashboard() {
         }
       }
 
-      // 3. Format log data with human-readable details
+      // 3. Build lookup maps for resolving IDs to student names
+      // studentMap: student_number -> "First Last"
+      const { data: studentsData } = await supabase
+        .from('students_sv')
+        .select('student_number, first_name, last_name');
+      const studentMap = {};
+      if (studentsData) {
+        studentsData.forEach(s => {
+          studentMap[s.student_number] = `${s.first_name} ${s.last_name}`;
+        });
+      }
+
+      // violationStudentMap: violation_id -> student_number
+      const { data: violationsData } = await supabase
+        .from('violations_sv')
+        .select('violation_id, student_number');
+      const violationStudentMap = {};
+      if (violationsData) {
+        violationsData.forEach(v => {
+          violationStudentMap[v.violation_id] = v.student_number;
+          violationStudentMap[String(v.violation_id)] = v.student_number;
+        });
+      }
+
+      // sanctionViolationMap: sanction_id -> violation_id
+      const { data: sanctionsData } = await supabase
+        .from('student_sanctions_sv')
+        .select('sanction_id, violation_id');
+      const sanctionViolationMap = {};
+      if (sanctionsData) {
+        sanctionsData.forEach(s => {
+          sanctionViolationMap[s.sanction_id] = s.violation_id;
+          sanctionViolationMap[String(s.sanction_id)] = s.violation_id;
+        });
+      }
+
+      const lookups = { studentMap, violationStudentMap, sanctionViolationMap };
+
+      // 4. Format log data with human-readable details
       const formattedData = logData.map((log) => {
         let displayType = "System Activity";
         if (log.action_type === 'INSERT') displayType = "New Record";
@@ -250,7 +330,7 @@ export default function StudViolationDashboard() {
         else if (log.action_type === 'DELETE') displayType = "Record Removed";
 
         const performerName = userMap[log.performed_by] || 'System';
-        const detailMsg = buildDetailMessage(log, performerName.split(' ')[0]);
+        const detailMsg = buildDetailMessage(log, performerName.split(' ')[0], lookups);
 
         return {
           id: log.log_id,
@@ -343,15 +423,9 @@ export default function StudViolationDashboard() {
       }
     },
     {
-      headerName: "Performed By",
-      field: "performedBy",
-      flex: 0.8,
-      cellStyle: { color: 'var(--neutral-700)', fontWeight: '600' }
-    },
-    {
       headerName: "Details",
       field: "detail",
-      flex: 2,
+      flex: 3,
       filter: true,
       tooltipField: "detail",
       cellStyle: { color: 'var(--neutral-900)', fontWeight: '500' }

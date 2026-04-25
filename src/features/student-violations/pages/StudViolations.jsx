@@ -36,6 +36,14 @@ const customTheme = themeQuartz.withParams({
   fontSize: '13px',
 });
 
+// Helper to format dates to "March 16, 2026"
+const formatLongDate = (dateStr) => {
+  if (!dateStr || dateStr === 'None') return 'None';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return dateStr;
+  return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+};
+
 
 // --- Reusable Stat Card (Matching Analytics.jsx but Scaled Down) ---
 const StatCard = ({ title, value, icon: Icon, description, trend, isUp, isLoading, borderTopClass = "bg-primary-500", iconClass = "text-primary-600 bg-primary-50 border-primary-100" }) => (
@@ -142,7 +150,21 @@ const StudViolations = () => {
             updated_by_name: userMap[v.updated_by] || v.updated_by || 'Unknown'
           };
         });
-        setViolations(formattedData);
+        const statusPriority = {
+          'Pending': 1,
+          'Under Investigation': 2,
+          'Resolved': 3,
+          'Dismissed': 4
+        };
+
+        const sortedData = formattedData.sort((a, b) => {
+          const pA = statusPriority[a.status] || 5;
+          const pB = statusPriority[b.status] || 5;
+          if (pA !== pB) return pA - pB;
+          return new Date(b.created_at) - new Date(a.created_at);
+        });
+
+        setViolations(sortedData);
       }
 
       // 2. Fetch Sanctions
@@ -167,7 +189,7 @@ const StudViolations = () => {
             : 'Unknown',
           sanction_name: s.penalty_name,
           status: s.status,
-          due_date: s.deadline_date || 'None',
+          due_date: formatLongDate(s.deadline_date),
           assigned_by_name: userMap[s.assigned_by] || s.assigned_by || 'Unknown',
           updated_by_name: userMap[s.updated_by] || s.updated_by || 'Unknown',
           original_data: s

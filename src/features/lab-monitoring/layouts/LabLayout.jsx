@@ -54,27 +54,27 @@ export default function LabLayout() {
           <LabSidebar labId={currentLabId} labName={currentLabName} />
 
           <div className="flex-1 flex flex-col">
-            <header className="flex h-14 items-center gap-4 border-b border-slate-800 bg-slate-900/50 px-6 backdrop-blur-sm">
-              <SidebarTrigger className="text-slate-400 hover:text-slate-100" />
+            <header className="flex h-16 items-center gap-4 border-b border-neutral-200 bg-white px-6">
+              <SidebarTrigger className="text-neutral-700 hover:text-neutral-900" />
 
-              <div className="h-4 w-px bg-slate-800" />
+              <div className="h-4 w-px bg-neutral-200" />
 
               <Breadcrumb>
                 <BreadcrumbList>
                   <BreadcrumbItem>
-                    <BreadcrumbLink asChild className="text-slate-500 hover:text-slate-300">
+                    <BreadcrumbLink asChild className="text-neutral-600 hover:text-neutral-900">
                       <Link to="/lab-monitoring">Computer Laboratories</Link>
                     </BreadcrumbLink>
                   </BreadcrumbItem>
-                  <BreadcrumbSeparator className="text-slate-700" />
+                  <BreadcrumbSeparator className="text-neutral-300" />
                   <BreadcrumbItem>
-                    <BreadcrumbLink asChild className="text-slate-500 hover:text-slate-300">
+                    <BreadcrumbLink asChild className="text-neutral-600 hover:text-neutral-900">
                       <Link to="/lab-dashboard">{breadcrumbLabName}</Link>
                     </BreadcrumbLink>
                   </BreadcrumbItem>
-                  <BreadcrumbSeparator className="text-slate-700" />
+                  <BreadcrumbSeparator className="text-neutral-300" />
                   <BreadcrumbItem>
-                    <BreadcrumbPage className="text-slate-100 font-medium">
+                    <BreadcrumbPage className="text-neutral-900 font-medium">
                       {getPageTitle()}
                     </BreadcrumbPage>
                   </BreadcrumbItem>

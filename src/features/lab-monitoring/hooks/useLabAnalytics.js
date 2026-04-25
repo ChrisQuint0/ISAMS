@@ -56,8 +56,8 @@ export function useLabAnalytics(labName, dateFrom, dateTo) {
 
     // Metrics calculation logic remains same...
     const metrics = useMemo(() => {
-        if (!rawLogs.length) return { peakHour: "N/A", peakDay: "N/A", avgDurationStr: "0h 0m", topSection: "N/A", topSectionCount: 0, laptopPercentage: 0, pcPercentage: 0, totalSessions: 0 };
-        
+        if (!rawLogs.length) return { peakHour: "—", peakDay: "—", avgDurationStr: "—", topSection: "—", topSectionCount: 0, laptopPercentage: 0, pcPercentage: 0, totalSessions: 0 };
+
         let totalMs = 0, completed = 0, laptop = 0;
         const hrCounts = {}, dayCounts = {}, secCounts = {};
         const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -82,14 +82,14 @@ export function useLabAnalytics(labName, dateFrom, dateTo) {
             }
         });
 
-        const getPeak = (c) => Object.keys(c).reduce((a, b) => c[a] > c[b] ? a : b, "N/A");
+        const getPeak = (c) => Object.keys(c).reduce((a, b) => c[a] > c[b] ? a : b, "—");
         const phNum = parseInt(getPeak(hrCounts));
-        const phStr = !isNaN(phNum) ? `${phNum % 12 || 12} ${phNum >= 12 ? 'PM' : 'AM'}` : "N/A";
+        const phStr = !isNaN(phNum) ? `${phNum % 12 || 12} ${phNum >= 12 ? 'PM' : 'AM'}` : "—";
         const top = getPeak(secCounts);
 
         return {
-            peakHour: phStr, peakDay: getPeak(dayCounts).slice(0, 3), 
-            avgDurationStr: completed ? `${Math.floor((totalMs / completed / 3600000))}h ${Math.floor((totalMs / completed / 60000) % 60)}m` : "0h 0m",
+            peakHour: phStr, peakDay: getPeak(dayCounts).slice(0, 3),
+            avgDurationStr: completed ? `${Math.floor((totalMs / completed / 3600000))}h ${Math.floor((totalMs / completed / 60000) % 60)}m` : "—",
             topSection: top, topSectionCount: secCounts[top] || 0,
             laptopPercentage: Math.round((laptop / rawLogs.length) * 100),
             pcPercentage: Math.round(((rawLogs.length - laptop) / rawLogs.length) * 100),

@@ -18,6 +18,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabaseClient";
 
+// Branding Hooks
+import { useLogo } from "../../settings/hooks/useLogo";
+import { useSettings } from "../../settings/hooks/useSettings";
+
 // Assets
 import plpLogo from "@/assets/images/plp_logo.png";
 import ccsLogo from "@/assets/images/ccs_logo.png";
@@ -132,6 +136,9 @@ const SelectDropdown = ({ label, value, onChange, options, placeholder }) => (
 
 
 const GenerateReport = () => {
+  const { logoUrl } = useLogo();
+  const { settings } = useSettings();
+
   const [selectedType, setSelectedType] = useState("violations");
   const [isLoading, setIsLoading] = useState(false);
   const [previewData, setPreviewData] = useState([]);
@@ -335,10 +342,10 @@ const GenerateReport = () => {
         hour: '2-digit', minute: '2-digit' 
       });
 
-      // Load logos
+      // Load logos (dynamic fallback to local asset if null)
       const [plpBase64, ccsBase64] = await Promise.all([
         imageUrlToBase64(plpLogo),
-        imageUrlToBase64(ccsLogo)
+        imageUrlToBase64(logoUrl || ccsLogo)
       ]);
 
       const pageWidth = doc.internal.pageSize.getWidth();
@@ -397,7 +404,7 @@ const GenerateReport = () => {
         doc.setFontSize(9);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(220, 235, 225);
-        doc.text("COLLEGE OF COMPUTER STUDIES", pageWidth / 2, 22, { align: "center" });
+        doc.text((settings.college_name || "COLLEGE OF COMPUTER STUDIES").toUpperCase(), pageWidth / 2, 22, { align: "center" });
 
         doc.setFontSize(7);
         doc.setTextColor(180, 220, 190);
@@ -551,10 +558,10 @@ const GenerateReport = () => {
 
       const ws = wb.addWorksheet(title);
 
-      // Load logos
+      // Load logos (dynamic fallback to local asset if null)
       const [plpBase64, ccsBase64] = await Promise.all([
         imageUrlToBase64(plpLogo),
-        imageUrlToBase64(ccsLogo)
+        imageUrlToBase64(logoUrl || ccsLogo)
       ]);
 
       // Add Headers manually to manage space for the formal header
@@ -572,7 +579,7 @@ const GenerateReport = () => {
       // College name
       ws.mergeCells(2, 1, 2, headers.length);
       const collegeCell = ws.getCell(2, 1);
-      collegeCell.value = "College of Computer Studies";
+      collegeCell.value = settings.college_name || "College of Computer Studies";
       collegeCell.font = { size: 12 };
       collegeCell.alignment = { horizontal: "center", vertical: "middle" };
 

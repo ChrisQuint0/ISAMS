@@ -22,6 +22,7 @@ import { ToastProvider, useToast } from "@/components/ui/toast/toaster";
 // Import our new Hook
 import { useAdminArchive } from '../hooks/AdminArchiveHook';
 import { archiveService } from '../services/AdminArchiveService';
+import { openUrl } from '@/lib/openUrl';
 
 // Custom theme using AG Grid v33+ Theming API with Quartz theme for a modern institutional look
 const customTheme = themeQuartz.withParams({
@@ -71,7 +72,54 @@ export default function AdminArchivePage() {
     doc_type: 'All Document Types'
   });
 
+  // Dynamically filter which semesters apply to the selected academic year (Bulk)
+  const filteredSemesters = useMemo(() => {
+    if (!options?.semesterPeriods) return options?.semesters || [];
+    if (bulkConfig.academic_year === 'All Years') {
+      return [...new Set(options.semesterPeriods.map(p => p.semester))].filter(Boolean);
+    }
+    return [...new Set(
+      options.semesterPeriods
+        .filter(p => p.academic_year === bulkConfig.academic_year)
+        .map(p => p.semester)
+    )].filter(Boolean);
+  }, [options, bulkConfig.academic_year]);
+
+  // Dynamically filter which semesters apply to the selected academic year (Filter Grid)
+  const archiveFilteredSemesters = useMemo(() => {
+    if (!options?.semesterPeriods) return options?.semesters || [];
+    if (filters.academic_year === 'All Years') {
+      return [...new Set(options.semesterPeriods.map(p => p.semester))].filter(Boolean);
+    }
+    return [...new Set(
+      options.semesterPeriods
+        .filter(p => p.academic_year === filters.academic_year)
+        .map(p => p.semester)
+    )].filter(Boolean);
+  }, [options, filters.academic_year]);
+
   const [downloading, setDownloading] = useState(false);
+  const [downloadingItemId, setDownloadingItemId] = useState(null);
+
+  const handleReExport = async (item) => {
+    setDownloadingItemId(item.history_id);
+    try {
+      await reExportArchive(item);
+      addToast({
+        title: 'Re-Export Successful',
+        description: `Re-exported "${item.report_name || item.original_filename}" successfully.`,
+        variant: 'success',
+      });
+    } catch (err) {
+      addToast({
+        title: 'Re-Export Failed',
+        description: err?.message || 'An error occurred during re-export.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDownloadingItemId(null);
+    }
+  };
 
   const handleBulkExport = async () => {
     setDownloading(true);
@@ -163,7 +211,7 @@ export default function AdminArchivePage() {
               variant="ghost"
               size="icon"
               className="h-7 w-7 text-neutral-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
-              onClick={() => window.open(params.data.gdrive_web_view_link, '_blank')}
+              onClick={() => openUrl(params.data.gdrive_web_view_link)}
               title="View in Drive"
             >
               <ExternalLink className="h-3.5 w-3.5" />
@@ -207,10 +255,10 @@ export default function AdminArchivePage() {
           variant="outline"
           size="sm"
           onClick={refresh}
-          disabled={loading}
+          disabled={loading && !downloadingItemId}
           className="bg-primary-500 border-primary-500 text-neutral-50 hover:bg-primary-600 hover:text-neutral-50 shadow-sm"
         >
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-4 w-4 mr-2 ${loading && !downloadingItemId ? 'animate-spin' : ''}`} />
           Refresh Archive
         </Button>
       </div>
@@ -237,7 +285,7 @@ export default function AdminArchivePage() {
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-neutral-400" />
                     <Input
                       placeholder="Find by filename, faculty, or course..."
-                      className="pl-8 bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus-visible:ring-primary-500 font-medium"
+                      className="pl-8 bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus-visible:ring-primary-500 focus-visible:border-primary-500 rounded-lg font-medium"
                       value={filters.search_query}
                       onChange={(e) => updateFilter('search_query', e.target.value)}
                     />
@@ -246,13 +294,20 @@ export default function AdminArchivePage() {
 
                 <div className="flex-1 space-y-1 w-full min-w-[130px]">
                   <Label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-0.5">Academic Year</Label>
-                  <Select value={filters.academic_year} onValueChange={(v) => updateFilter('academic_year', v)}>
+                  <Select value={filters.academic_year} onValueChange={(v) => { updateFilter('academic_year', v); updateFilter('semester', 'All Semesters'); }}>
                     <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus:ring-primary-500/20 font-medium">
                       <SelectValue placeholder="All Years" />
                     </SelectTrigger>
                     <SelectContent className="bg-white border-neutral-200">
                       <SelectItem value="All Years" className="text-xs font-medium">All Years</SelectItem>
-                      {options.years?.map(y => <SelectItem key={y} value={y} className="text-xs font-medium">{y}</SelectItem>)}
+                      {options.years?.map(year => (
+                        <SelectItem key={year} value={year} className="text-xs font-medium">
+                          {year}
+                          {options?.currentAcademicYear === year && (
+                            <span className="ml-1.5 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/20"> Active</span>
+                          )}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -265,7 +320,20 @@ export default function AdminArchivePage() {
                     </SelectTrigger>
                     <SelectContent className="bg-white border-neutral-200">
                       <SelectItem value="All Semesters" className="text-xs font-medium">All Semesters</SelectItem>
-                      {options.semesters?.map(s => <SelectItem key={s} value={s} className="text-xs font-medium">{s}</SelectItem>)}
+                      {archiveFilteredSemesters.map(sem => {
+                        const period = options?.semesterPeriods?.find(
+                          p => p.semester === sem && (filters.academic_year === 'All Years' || p.academic_year === filters.academic_year)
+                        );
+                        const isActive = period?.status === 'Active';
+                        return (
+                          <SelectItem key={sem} value={sem} className="text-xs font-medium">
+                            {sem}
+                            {isActive && (
+                              <span className="ml-1.5 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/20"> Active</span>
+                            )}
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
@@ -325,7 +393,7 @@ export default function AdminArchivePage() {
                   columnDefs={colDefs}
                   pagination={true}
                   paginationPageSize={20}
-                  loading={loading}
+                  loading={loading && !downloadingItemId}
                   suppressCellFocus={true}
                   overlayNoRowsTemplate='<div class="text-[10px] font-black uppercase tracking-widest text-neutral-400 p-8 text-center">No documents found.</div>'
                 />
@@ -348,31 +416,56 @@ export default function AdminArchivePage() {
             <CardContent className="p-5 space-y-5 bg-white">
               <div className="space-y-4">
                 <div className="space-y-1.5 flex-1 min-w-[130px]">
-                  <Label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-0.5">Academic Year & Semester</Label>
+                  <Label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-0.5">Academic Year</Label>
                   <Select
-                    value={bulkConfig.semester !== 'All Semesters' && bulkConfig.academic_year !== 'All Years' ? `${bulkConfig.semester}||${bulkConfig.academic_year}` : 'All||All'}
+                    value={bulkConfig.academic_year}
                     onValueChange={(v) => {
-                      if (v === 'All||All') {
-                        setBulkConfig({ ...bulkConfig, semester: 'All Semesters', academic_year: 'All Years' });
-                      } else {
-                        const [sem, yr] = v.split("||");
-                        setBulkConfig({ ...bulkConfig, semester: sem, academic_year: yr });
-                      }
+                      setBulkConfig({ ...bulkConfig, academic_year: v, semester: 'All Semesters' });
                     }}
                   >
                     <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus:ring-primary-500/20 font-medium">
-                      <SelectValue placeholder="All Available Semesters" />
+                      <SelectValue placeholder="All Academic Years" />
                     </SelectTrigger>
                     <SelectContent className="bg-white border-neutral-200">
-                      <SelectItem value="All||All" className="text-xs font-medium font-bold text-primary-600">All Semesters</SelectItem>
+                      <SelectItem value="All Years" className="text-xs font-medium font-bold text-primary-600">All Academic Years</SelectItem>
                       {options?.years?.map(year => (
-                        options?.semesters?.map(sem => (
-                          <SelectItem key={`${sem}-${year}`} value={`${sem}||${year}`} className="text-xs font-medium">
-                            {sem}, {year}
-                          </SelectItem>
-                        ))
+                        <SelectItem key={year} value={year} className="text-xs font-medium">
+                          {year}
+                          {options?.currentAcademicYear === year && (
+                            <span className="ml-1.5 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/20"> Active</span>
+                          )}
+                        </SelectItem>
                       ))}
-                      {(!options?.years?.length) && <SelectItem value="loading">Loading options...</SelectItem>}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5 flex-1 min-w-[130px]">
+                  <Label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-0.5">Semester</Label>
+                  <Select
+                    value={bulkConfig.semester}
+                    onValueChange={(v) => setBulkConfig({ ...bulkConfig, semester: v })}
+                  >
+                    <SelectTrigger className="w-full bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus:ring-primary-500/20 font-medium">
+                      <SelectValue placeholder="All Semesters" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border-neutral-200">
+                      <SelectItem value="All Semesters" className="text-xs font-medium font-bold text-primary-600">All Semesters</SelectItem>
+                      {filteredSemesters.map(sem => {
+                        // Find the status of this semester within the selected year
+                        const period = options?.semesterPeriods?.find(
+                          p => p.semester === sem && (bulkConfig.academic_year === 'All Years' || p.academic_year === bulkConfig.academic_year)
+                        );
+                        const isActive = period?.status === 'Active';
+                        return (
+                          <SelectItem key={sem} value={sem} className="text-xs font-medium">
+                            {sem}
+                            {isActive && (
+                              <span className="ml-1.5 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/20"> Active</span>
+                            )}
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
@@ -467,7 +560,7 @@ export default function AdminArchivePage() {
           </Card>
 
           {/* 5. Recent Downloads List */}
-          <Card className="bg-white border-neutral-200 shadow-sm flex-1 overflow-hidden">
+          <Card className="bg-white border-neutral-200 shadow-sm overflow-hidden">
             <CardHeader className="border-b border-neutral-200 bg-neutral-50/50 py-3.5 px-4">
               <CardTitle className="text-base text-neutral-900 font-bold tracking-tight flex items-center gap-2">
                 <History className="h-4 w-4 text-primary-600" />
@@ -477,14 +570,14 @@ export default function AdminArchivePage() {
             <CardContent className="p-0 bg-white">
               <div className="divide-y divide-neutral-100">
                 {recentDownloads && recentDownloads.length > 0 ? (
-                  recentDownloads.map((item) => (
+                  recentDownloads.slice(0, 5).map((item) => (
                     <RecentExportItem
                       key={item.history_id}
                       name={item.report_name}
                       date={new Date(item.generated_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                       type={item.report_type}
-                      onDownload={() => reExportArchive(item)}
-                      loading={downloading}
+                      onDownload={() => handleReExport(item)}
+                      loading={downloadingItemId === item.history_id}
                     />
                   ))
                 ) : (
@@ -525,7 +618,7 @@ const CheckboxItem = ({ label, checked, onChange }) => (
 );
 
 const RecentExportItem = ({ name, date, type, onDownload, loading }) => (
-  <div className="flex items-center justify-between p-4 hover:bg-neutral-50 transition-colors group cursor-pointer" onClick={onDownload}>
+  <div className="flex items-center justify-between p-4 hover:bg-neutral-50 transition-colors group cursor-pointer" onClick={!loading ? onDownload : undefined}>
     <div className="flex items-center gap-3">
       <div className={`p-2 rounded-md bg-white border border-neutral-200 shadow-sm ${type === 'PDF' ? 'text-rose-500' : 'text-emerald-500'}`}>
         <FileArchive className="h-4 w-4" />
@@ -539,13 +632,19 @@ const RecentExportItem = ({ name, date, type, onDownload, loading }) => (
       variant="ghost"
       size="icon"
       disabled={loading}
-      className="h-7 w-7 text-neutral-400 hover:text-primary-600 hover:bg-primary-50 opacity-0 group-hover:opacity-100 transition-all shrink-0"
+      className={`h-7 w-7 transition-all shrink-0 ${
+        loading
+          ? 'text-primary-600 bg-primary-50 opacity-100'
+          : 'text-neutral-400 hover:text-primary-600 hover:bg-primary-50 opacity-0 group-hover:opacity-100'
+      }`}
       onClick={(e) => {
         e.stopPropagation();
-        onDownload();
+        if (!loading) onDownload();
       }}
     >
-      <Download className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+      {loading
+        ? <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+        : <Download className="h-3.5 w-3.5" />}
     </Button>
   </div>
 );

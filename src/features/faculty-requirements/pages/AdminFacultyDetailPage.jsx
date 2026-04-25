@@ -2,6 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useLogo } from '../../settings/hooks/useLogo';
+import { useSettings } from '../../settings/hooks/useSettings';
+import plpLogo from '@/assets/images/plp_logo.png';
+import ccsLogo from '@/assets/images/ccs_logo.png';
+import { openUrl } from '@/lib/openUrl';
 import {
     ChevronLeft, Mail, Bell, RefreshCw, CheckCircle, AlertCircle,
     FileText, Download, User as UserIcon, BookOpen, Clock, AlertTriangle,
@@ -45,6 +50,8 @@ export default function AdminFacultyDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
     const { addToast } = useToast();
+    const { logoUrl } = useLogo();
+    const { settings } = useSettings();
 
     const [loading, setLoading] = useState(true);
     const [faculty, setFaculty] = useState(null);
@@ -143,6 +150,40 @@ export default function AdminFacultyDetailPage() {
         }
     }, [faculty]);
 
+    // Auto-retrieve GDrive folder ID when faculty has no folder linked yet
+    useEffect(() => {
+        if (!faculty || faculty.gdrive_folder_id) return;
+
+        const autoLink = async () => {
+            try {
+                const rootFolderId = await getFolderLink();
+                if (!rootFolderId) return; // No root configured, skip silently
+
+                const { data: settings } = await supabase
+                    .from('systemsettings_fs')
+                    .select('setting_key, setting_value')
+                    .in('setting_key', ['current_semester', 'current_academic_year']);
+
+                const semester = settings?.find(s => s.setting_key === 'current_semester')?.setting_value;
+                const academicYear = settings?.find(s => s.setting_key === 'current_academic_year')?.setting_value;
+                const facultyName = `${faculty.first_name || ''} ${faculty.last_name || ''}`.trim();
+
+                const folderId = await ensureFolderStructure(rootFolderId, { academicYear, semester, facultyName });
+
+                if (folderId) {
+                    await settingsService.updateFacultyManagement(faculty.user_id, 'gdrive_folder_id', folderId);
+                    setFaculty(prev => ({ ...prev, gdrive_folder_id: folderId }));
+                    setGdriveFolderIdInput(folderId);
+                }
+            } catch (err) {
+                // Silent fail – admin can manually click Auto-Link if needed
+                console.warn('[GDrive Auto-Link] Silently failed:', err.message);
+            }
+        };
+
+        autoLink();
+    }, [faculty?.user_id, faculty?.gdrive_folder_id]);
+
     const stats = useMemo(() => {
         if (!courses || courses.length === 0) return { progress: 0, pending: 0, total: 0 };
         const total = courses.reduce((acc, c) => acc + (c.total_required || 0), 0);
@@ -156,26 +197,138 @@ export default function AdminFacultyDetailPage() {
 
     const isFullyCleared = stats.progress === 100;
 
-    const handleExportExecutiveReport = () => {
-        const doc = new jsPDF();
-        doc.setFontSize(22);
-        doc.setTextColor(0, 138, 69);
-        doc.text('Faculty Executive Summary', 14, 25);
+    const imageUrlToBase64 = async (url) => {
+        try {
+            const response = await fetch(url);
+            const blob = await response.blob();
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        } catch (error) {
+            console.error('Error converting image to base64:', error);
+            return null;
+        }
+    };
 
-        doc.setFontSize(10);
-        doc.setTextColor(100);
-        doc.text(`Institutional Submission & Monitoring System (ISAMS)`, 14, 32);
-        doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 37);
+    const buildBrandedPDF = async (orientation = 'portrait') => {
+        const doc = new jsPDF({ orientation });
+        const now = new Date().toLocaleString(undefined, {
+            month: 'short', day: 'numeric', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+        });
+        const [plpBase64, ccsBase64] = await Promise.all([
+            imageUrlToBase64(plpLogo),
+            imageUrlToBase64(logoUrl || ccsLogo)
+        ]);
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 14;
+        const footerHeight = 18;
 
-        doc.setFontSize(12);
-        doc.setTextColor(0);
-        doc.setFont(undefined, 'bold');
-        doc.text(`Faculty: ${faculty?.first_name} ${faculty?.last_name}`, 14, 48);
-        doc.setFont(undefined, 'normal');
-        doc.setFontSize(10);
-        doc.text(`Department: ${faculty?.department}`, 14, 54);
-        doc.text(`Status: ${isFullyCleared ? 'CLEARED' : 'PENDING'}`, 14, 59);
-        doc.text(`Overall Progress: ${stats.progress}%`, 14, 64);
+        const C = {
+            primary: [17, 58, 26],
+            accent: [34, 130, 68],
+            white: [255, 255, 255],
+            offWhite: [245, 249, 246],
+            lightGray: [230, 232, 230],
+            midGray: [150, 155, 152],
+            textDark: [35, 40, 38],
+            textMuted: [110, 118, 114],
+        };
+
+        const drawFirstPageHeader = (title, recordCount) => {
+            doc.setFillColor(...C.white);
+            doc.rect(0, 0, pageWidth, 38, 'F');
+            doc.setFillColor(...C.primary);
+            doc.rect(0, 38, pageWidth, 0.8, 'F');
+
+            doc.setDrawColor(...C.primary);
+            doc.setLineWidth(0.6);
+            doc.line(margin - 2, 5, margin - 2, 12);
+            doc.line(margin - 2, 5, margin + 5, 5);
+            doc.line(pageWidth - margin + 2, 5, pageWidth - margin + 2, 12);
+            doc.line(pageWidth - margin + 2, 5, pageWidth - margin - 5, 5);
+
+            if (plpBase64) doc.addImage(plpBase64, 'PNG', margin + 2, 9, 20, 20);
+            if (ccsBase64) doc.addImage(ccsBase64, 'PNG', pageWidth - 22 - margin, 9, 20, 20);
+
+            doc.setTextColor(...C.primary);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(12);
+            doc.text('PAMANTASAN NG LUNGSOD NG PASIG', pageWidth / 2, 16, { align: 'center' });
+
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(...C.textMuted);
+            doc.text((settings?.college_name || 'COLLEGE OF COMPUTER STUDIES').toUpperCase(), pageWidth / 2, 22, { align: 'center' });
+
+            doc.setFontSize(7);
+            doc.setTextColor(...C.midGray);
+            doc.text('FACULTY REQUIREMENT MONITORING SYSTEM  //  ISAMS', pageWidth / 2, 27.5, { align: 'center' });
+
+            doc.setFontSize(6.5);
+            doc.setTextColor(...C.midGray);
+            doc.text(`GENERATED: ${now}`, margin + 2, 34.5);
+            if (recordCount != null) doc.text(`${recordCount} RECORDS`, pageWidth - margin - 2, 34.5, { align: 'right' });
+
+            doc.setTextColor(...C.primary);
+            doc.setFontSize(15);
+            doc.setFont('helvetica', 'bold');
+            doc.text(title.toUpperCase(), margin, 48);
+
+            doc.setDrawColor(...C.accent);
+            doc.setLineWidth(0.4);
+            doc.line(margin, 51, margin + 60, 51);
+
+            doc.setFontSize(7.5);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(...C.textMuted);
+            doc.text(now, pageWidth - margin, 48, { align: 'right' });
+        };
+
+        const drawSubPageHeader = (title) => {
+            doc.setFillColor(...C.white);
+            doc.rect(0, 0, pageWidth, 11, 'F');
+            doc.setFillColor(...C.primary);
+            doc.rect(0, 11, pageWidth, 0.5, 'F');
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...C.primary);
+            doc.text(`ISAMS  //  ${title.toUpperCase()}`, margin, 7);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(...C.textMuted);
+            doc.text(now, pageWidth - margin, 7, { align: 'right' });
+        };
+
+        const drawFooter = (pageNumber, totalPages, label) => {
+            const footerY = pageHeight - footerHeight;
+            doc.setFillColor(...C.accent);
+            doc.rect(margin, footerY, pageWidth - margin * 2, 0.3, 'F');
+            doc.setFontSize(5.5);
+            doc.setFont('helvetica', 'italic');
+            doc.setTextColor(...C.midGray);
+            doc.text('Electronically generated  ·  No signature required for internal circulation', margin, footerY + 5);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(6);
+            doc.setTextColor(...C.primary);
+            doc.text(`PLP-ISAMS  //  ${label}`, pageWidth / 2, footerY + 5, { align: 'center' });
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...C.textMuted);
+            doc.setFontSize(7);
+            doc.text(`${String(pageNumber).padStart(2, '0')} / ${String(totalPages).padStart(2, '0')}`, pageWidth - margin, footerY + 5, { align: 'right' });
+            doc.setFillColor(...C.primary);
+            doc.rect(0, pageHeight - 2, pageWidth, 2, 'F');
+        };
+
+        return { doc, now, pageWidth, pageHeight, margin, footerHeight, C, drawFirstPageHeader, drawSubPageHeader, drawFooter };
+    };
+
+    const handleExportExecutiveReport = async () => {
+        const reportTitle = 'Faculty Executive Summary';
+        const { doc, margin, footerHeight, C, drawFirstPageHeader, drawSubPageHeader, drawFooter } = await buildBrandedPDF('landscape');
 
         const tableData = courses.map(c => [
             c.course_code,
@@ -185,62 +338,119 @@ export default function AdminFacultyDetailPage() {
             c.submitted_count === c.total_required ? 'Complete' : 'Pending'
         ]);
 
-        autoTable(doc, {
-            head: [['Code', 'Sec', 'Course Name', 'Submissions', 'Status']],
+        drawFirstPageHeader(reportTitle, tableData.length);
+
+        // Faculty info block
+        const doc2 = doc;
+        doc2.setFontSize(10);
+        doc2.setFont('helvetica', 'bold');
+        doc2.setTextColor(...C.textDark);
+        doc2.text(`Faculty: ${faculty?.first_name} ${faculty?.last_name}`, margin, 56);
+        doc2.setFont('helvetica', 'normal');
+        doc2.setFontSize(8);
+        doc2.setTextColor(...C.textMuted);
+        if (faculty?.emp_id) doc2.text(`ID: ${faculty.emp_id}  |  Status: ${isFullyCleared ? 'CLEARED' : 'PENDING'}  |  Progress: ${stats.progress}%`, margin, 60);
+
+        autoTable(doc2, {
+            head: [['CODE', 'SEC', 'COURSE NAME', 'SUBMISSIONS', 'STATUS']],
             body: tableData,
-            startY: 72,
-            theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 3 },
-            headStyles: { fillColor: [0, 138, 69], textColor: [255, 255, 255], fontStyle: 'bold' },
-            alternateRowStyles: { fillColor: [245, 248, 245] }
+            startY: 65,
+            styles: {
+                fontSize: 7.5,
+                cellPadding: { top: 3, right: 4, bottom: 3, left: 4 },
+                font: 'helvetica',
+                textColor: C.textDark,
+                lineColor: C.lightGray,
+                lineWidth: 0.15,
+                overflow: 'linebreak'
+            },
+            headStyles: {
+                fillColor: C.primary, textColor: C.white, fontStyle: 'bold',
+                fontSize: 7, halign: 'center', valign: 'middle',
+                cellPadding: { top: 4, right: 4, bottom: 4, left: 4 }
+            },
+            alternateRowStyles: { fillColor: C.offWhite },
+            margin: { top: 16, left: margin, right: margin, bottom: footerHeight + 4 },
+            didDrawPage: (data) => {
+                if (data.pageNumber > 1) drawSubPageHeader(reportTitle);
+            }
         });
+
+        const totalPages = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+            doc.setPage(i);
+            drawFooter(i, totalPages, 'FACULTY EXECUTIVE SUMMARY');
+        }
 
         const fileName = `Executive_Report_${faculty?.last_name}_${new Date().toISOString().slice(0, 10)}.pdf`;
         doc.save(fileName);
-        addToast({ title: "Success", description: "Executive Report generated successfully!", variant: "success" });
+        addToast({ title: 'Success', description: 'Executive Report generated successfully!', variant: 'success' });
     };
 
-    const handleExportPDRReport = () => {
-        const doc = new jsPDF();
-        doc.setFontSize(22);
-        doc.setTextColor(218, 165, 32);
-        doc.text('Professional Development Report (PDR)', 14, 25);
-
-        doc.setFontSize(10);
-        doc.setTextColor(100);
-        doc.text(`Institutional Submission & Monitoring System (ISAMS)`, 14, 32);
-        doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 37);
-
-        doc.setFontSize(12);
-        doc.setTextColor(0);
-        doc.text(`Faculty Performance Review: ${faculty?.first_name} ${faculty?.last_name}`, 14, 48);
+    const handleExportPDRReport = async () => {
+        const reportTitle = 'Professional Development Report';
+        const { doc, margin, footerHeight, C, drawFirstPageHeader, drawSubPageHeader, drawFooter } = await buildBrandedPDF('landscape');
 
         const tableData = [];
         courses.forEach(course => {
-            course.documents?.forEach(doc => {
+            course.documents?.forEach(docItem => {
                 tableData.push([
                     course.course_code,
-                    doc.doc_type,
-                    doc.status,
-                    doc.submitted_at ? new Date(doc.submitted_at).toLocaleDateString() : 'N/A',
-                    (doc.status === 'APPROVED' || doc.status === 'VALIDATED') ? 'Validated' :
-                        doc.status === 'REVISION_REQUESTED' ? 'Requires Attention' : ''
+                    docItem.doc_type,
+                    docItem.status,
+                    docItem.submitted_at ? new Date(docItem.submitted_at).toLocaleDateString() : 'N/A',
+                    (docItem.status === 'APPROVED' || docItem.status === 'VALIDATED') ? 'Validated' :
+                        docItem.status === 'REVISION_REQUESTED' ? 'Requires Attention' : ''
                 ]);
             });
         });
 
-        autoTable(doc, {
-            head: [['Course', 'Requirement', 'Status', 'Submission Date', 'Review Result']],
+        drawFirstPageHeader(reportTitle, tableData.length);
+
+        const doc2 = doc;
+        doc2.setFontSize(10);
+        doc2.setFont('helvetica', 'bold');
+        doc2.setTextColor(...C.textDark);
+        doc2.text(`Faculty Performance Review: ${faculty?.first_name} ${faculty?.last_name}`, margin, 56);
+        doc2.setFont('helvetica', 'normal');
+        doc2.setFontSize(8);
+        doc2.setTextColor(...C.textMuted);
+        if (faculty?.emp_id) doc2.text(`Employee ID: ${faculty.emp_id}`, margin, 60);
+
+        autoTable(doc2, {
+            head: [['COURSE', 'REQUIREMENT', 'STATUS', 'SUBMISSION DATE', 'REVIEW RESULT']],
             body: tableData,
-            startY: 55,
-            theme: 'striped',
-            styles: { fontSize: 8 },
-            headStyles: { fillColor: [218, 165, 32], textColor: [255, 255, 255] }
+            startY: 65,
+            styles: {
+                fontSize: 7.5,
+                cellPadding: { top: 3, right: 4, bottom: 3, left: 4 },
+                font: 'helvetica',
+                textColor: C.textDark,
+                lineColor: C.lightGray,
+                lineWidth: 0.15,
+                overflow: 'linebreak'
+            },
+            headStyles: {
+                fillColor: C.primary, textColor: C.white, fontStyle: 'bold',
+                fontSize: 7, halign: 'center', valign: 'middle',
+                cellPadding: { top: 4, right: 4, bottom: 4, left: 4 }
+            },
+            alternateRowStyles: { fillColor: C.offWhite },
+            margin: { top: 16, left: margin, right: margin, bottom: footerHeight + 4 },
+            didDrawPage: (data) => {
+                if (data.pageNumber > 1) drawSubPageHeader(reportTitle);
+            }
         });
+
+        const totalPages = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+            doc.setPage(i);
+            drawFooter(i, totalPages, 'PROFESSIONAL DEVELOPMENT REPORT (PDR)');
+        }
 
         const fileName = `PDR_Report_${faculty?.last_name}_${new Date().toISOString().slice(0, 10)}.pdf`;
         doc.save(fileName);
-        addToast({ title: "Success", description: "PDR Report generated successfully!", variant: "success" });
+        addToast({ title: 'Success', description: 'PDR Report generated successfully!', variant: 'success' });
     };
 
     const handleForceSubmission = async () => {
@@ -286,18 +496,18 @@ export default function AdminFacultyDetailPage() {
 
             if (successCount > 0) {
                 const lateMsg = lateCount > 0 ? ` (${lateCount} marked as late)` : "";
-                addToast({ 
-                    title: "Upload Complete", 
+                addToast({
+                    title: "Upload Complete",
                     description: `Successfully uploaded ${successCount} of ${forceFiles.length} file(s)${lateMsg}.`,
-                    variant: "success" 
+                    variant: "success"
                 });
             }
 
             if (failCount > 0) {
-                addToast({ 
-                    title: "Upload Issues", 
-                    description: `${failCount} file(s) failed or were invalid.`, 
-                    variant: "destructive" 
+                addToast({
+                    title: "Upload Issues",
+                    description: `${failCount} file(s) failed or were invalid.`,
+                    variant: "destructive"
                 });
             }
 
@@ -323,9 +533,9 @@ export default function AdminFacultyDetailPage() {
         setSelectedFiles([]);
         setViewerCourseContext(course);
         const matchedDocType = docTypes.find(dt => dt.type_name === doc.doc_type);
-        setViewerDocContext({ 
-            ...doc, 
-            doc_type_id: doc.doc_type_id || matchedDocType?.doc_type_id 
+        setViewerDocContext({
+            ...doc,
+            doc_type_id: doc.doc_type_id || matchedDocType?.doc_type_id
         });
 
         try {
@@ -384,7 +594,7 @@ export default function AdminFacultyDetailPage() {
             if (gdriveFiles && gdriveFiles.length > 0) {
                 for (const gFile of gdriveFiles) {
                     const dbMatch = dbSubmissions?.find(db => db.gdrive_file_id === gFile.id);
-                    
+
                     if (dbMatch) {
                         uniqueFilesMap.set(gFile.id, {
                             ...dbMatch,
@@ -440,7 +650,7 @@ export default function AdminFacultyDetailPage() {
                 });
             }
 
-            const sortedFinal = Array.from(uniqueFilesMap.values()).sort((a, b) => 
+            const sortedFinal = Array.from(uniqueFilesMap.values()).sort((a, b) =>
                 new Date(b.submitted_at) - new Date(a.submitted_at)
             );
             setViewerFiles(sortedFinal);
@@ -449,13 +659,13 @@ export default function AdminFacultyDetailPage() {
             const revisionReqIds = sortedFinal
                 .filter(f => f.submission_status === 'REVISION_REQUESTED' && f.submission_id && /^\d+$/.test(String(f.submission_id)))
                 .map(f => f.submission_id);
-            
+
             if (revisionReqIds.length > 0) {
                 facultyMonitorService.syncSubmissionsWithGDrive(revisionReqIds).then(count => {
                     if (count > 0) {
                         // Refresh data if anything was updated to RESUBMITTED
                         loadData();
-                        handleOpenDocViewer(doc, course); 
+                        handleOpenDocViewer(doc, course);
                     }
                 });
             }
@@ -485,10 +695,10 @@ export default function AdminFacultyDetailPage() {
     };
 
     const handleRequestRevision = (doc, courseCode) => {
-        setRevisionDoc({ 
-            ...doc, 
-            courseCode, 
-            filenames: [doc.original_filename], 
+        setRevisionDoc({
+            ...doc,
+            courseCode,
+            filenames: [doc.original_filename],
             standardized_filename: doc.standardized_filename,
             course_id: doc.course_id || viewerCourseContext?.course_id,
             doc_type_id: doc.doc_type_id || viewerDocContext?.doc_type_id
@@ -712,11 +922,15 @@ export default function AdminFacultyDetailPage() {
                                 </Badge>
                             </div>
                             <div className="flex items-center text-neutral-500 text-xs font-medium gap-3 mt-1">
-                                <span>{faculty.department} Department</span>
-                                <span className="w-1 h-1 rounded-full bg-neutral-300"></span>
-                                <span>{faculty.employment_type}</span>
-                                <span className="w-1 h-1 rounded-full bg-neutral-300"></span>
-                                <span className="font-mono">ID: {faculty.emp_id || 'N/A'}</span>
+                                {faculty.employment_type && (
+                                    <span>{faculty.employment_type}</span>
+                                )}
+                                {faculty.employment_type && faculty.emp_id && (
+                                    <span className="w-1 h-1 rounded-full bg-neutral-300"></span>
+                                )}
+                                {faculty.emp_id && (
+                                    <span className="font-mono">ID: {faculty.emp_id}</span>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -736,7 +950,7 @@ export default function AdminFacultyDetailPage() {
                             <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => window.open(`https://drive.google.com/drive/folders/${faculty.gdrive_folder_id}`, '_blank')}
+                                onClick={() => openUrl(`https://drive.google.com/drive/folders/${faculty.gdrive_folder_id}`)}
                                 className="h-8 px-3 bg-white border-neutral-200 text-neutral-700 hover:text-primary-600 shadow-sm font-bold text-xs transition-all"
                             >
                                 <Folder className="h-4 w-4 mr-2 text-primary-500" />
@@ -754,17 +968,17 @@ export default function AdminFacultyDetailPage() {
                         <CardContent className="p-5 flex flex-col h-full">
                             <div className="flex justify-between items-start mb-4">
                                 <div>
-                                    <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1">Completion Rate</p>
-                                    <p className="text-3xl font-black text-neutral-900 tracking-tight">{stats.progress}%</p>
-                                    <p className="text-[10px] text-neutral-400 mt-1 font-bold uppercase tracking-wider">{stats.pending} pending of {stats.total}</p>
+                                    <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-1">Completion Rate</p>
+                                    <p className="text-2xl font-bold text-neutral-900 tracking-tight">{stats.progress}%</p>
+                                    <p className="text-[10px] text-neutral-400 mt-2 font-bold uppercase tracking-wider">{stats.pending} pending of {stats.total}</p>
                                 </div>
                                 <div className="p-2.5 rounded-lg bg-neutral-50 border border-neutral-100">
                                     <CheckCircle className="h-5 w-5 text-success" />
                                 </div>
                             </div>
                             <div className="mt-auto pt-2">
-                                <Progress value={stats.progress} className="h-1.5 bg-neutral-100 border border-neutral-200/50" indicatorClassName={isFullyCleared ? 'bg-success' : 'bg-primary-500'} />
-                                <p className={`text-[10px] font-bold mt-3 text-center uppercase tracking-widest ${isFullyCleared ? 'text-success' : 'text-warning'}`}>
+                                <Progress value={stats.progress} className="h-1.5 bg-neutral-100 border border-neutral-200/50" indicatorClassName={isFullyCleared ? 'bg-primary-500' : 'bg-gold-500'} />
+                                <p className={`text-[10px] font-bold mt-3 text-center uppercase tracking-widest ${isFullyCleared ? 'text-primary-500' : 'text-gold-500'}`}>
                                     {isFullyCleared ? 'CLEARED FOR SEMESTER' : 'SUBMISSIONS PENDING'}
                                 </p>
                             </div>
@@ -777,7 +991,7 @@ export default function AdminFacultyDetailPage() {
                             <div className="flex justify-between items-start mb-3">
                                 <div className="flex-1 mr-4">
                                     <div className="flex items-center gap-2 mb-1">
-                                        <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Drive Connectivity</p>
+                                        <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Drive Connectivity</p>
                                         {faculty?.gdrive_folder_id && (
                                             <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse"></span>
                                         )}
@@ -801,10 +1015,13 @@ export default function AdminFacultyDetailPage() {
                                             </Button>
                                         </div>
                                     ) : (
-                                        <p className="text-sm font-mono font-bold text-neutral-900 tracking-tight truncate mt-1">
-                                            {faculty?.gdrive_folder_id ? faculty.gdrive_folder_id : 'NOT CONNECTED'}
+                                        <p className="text-sm font-bold text-neutral-900 tracking-tight truncate mt-1 font-mono">
+                                            {faculty?.gdrive_folder_id ? faculty.gdrive_folder_id : <span className="text-neutral-400">NOT CONNECTED</span>}
                                         </p>
                                     )}
+                                    <p className="text-[10px] text-neutral-400 mt-2 font-bold uppercase tracking-wider">
+                                        {faculty?.gdrive_folder_id ? 'Folder linked' : 'No folder linked'}
+                                    </p>
                                 </div>
                                 <div className="p-2.5 rounded-lg bg-neutral-50 border border-neutral-100 shrink-0">
                                     <HardDrive className="h-5 w-5 text-info" />
@@ -842,8 +1059,9 @@ export default function AdminFacultyDetailPage() {
                         <CardContent className="p-5 flex flex-col h-full">
                             <div className="flex justify-between items-start mb-4">
                                 <div>
-                                    <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1">Documentation</p>
-                                    <p className="text-lg font-bold text-neutral-900 tracking-tight leading-tight">Generate Official<br />Faculty Reports</p>
+                                    <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-1">Documentation</p>
+                                    <p className="text-2xl font-bold text-neutral-900 tracking-tight">Reports</p>
+                                    <p className="text-[10px] text-neutral-400 mt-2 font-bold uppercase tracking-wider">Generate official faculty docs</p>
                                 </div>
                                 <div className="p-2.5 rounded-lg bg-neutral-50 border border-neutral-100">
                                     <FileSpreadsheet className="h-5 w-5 text-primary-600" />
@@ -854,7 +1072,7 @@ export default function AdminFacultyDetailPage() {
                                     onClick={handleExportExecutiveReport}
                                     variant="outline"
                                     size="sm"
-                                    className="flex-1 h-8 border-success/30 bg-success/5 text-success hover:bg-success/10 font-bold text-[10px] uppercase tracking-widest shadow-none"
+                                    className="flex-1 h-8 border-success/30 bg-success/5 text-success hover:bg-success/10 hover:text-success font-bold text-[10px] uppercase tracking-widest shadow-none"
                                 >
                                     <FileText className="h-3 w-3 mr-1.5" /> Executive
                                 </Button>
@@ -862,7 +1080,7 @@ export default function AdminFacultyDetailPage() {
                                     onClick={handleExportPDRReport}
                                     variant="outline"
                                     size="sm"
-                                    className="flex-1 h-8 border-warning/30 bg-warning/5 text-warning hover:bg-warning/10 font-bold text-[10px] uppercase tracking-widest shadow-none"
+                                    className="flex-1 h-8 border-warning/30 bg-warning/5 text-warning hover:bg-warning/10 hover:text-warning font-bold text-[10px] uppercase tracking-widest shadow-none"
                                 >
                                     <Bell className="h-3 w-3 mr-1.5" /> PDR
                                 </Button>
@@ -1004,84 +1222,95 @@ export default function AdminFacultyDetailPage() {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
-                        {courses.map(course => (
-                            <Card key={course.course_id} className="bg-white border-neutral-200 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow group">
-                                <CardHeader className="bg-neutral-50/50 border-b border-neutral-200 py-3.5 px-4 flex-row justify-between items-center space-y-0">
-                                    <div className="min-w-0 flex-1">
-                                        <div className="flex items-center gap-2">
-                                            <CardTitle className="text-sm font-bold text-neutral-900 group-hover:text-primary-600 transition-colors truncate">
-                                                {course.course_code} - {course.section}
-                                            </CardTitle>
-                                            {!course.master_is_active && <Badge variant="destructive" className="text-[8px] h-4 px-1 uppercase tracking-wider">Inactive</Badge>}
+                        {courses.map(course => {
+                            const pct = Math.round((course.submitted_count / course.total_required) * 100) || 0;
+                            return (
+                                <Card key={course.course_id} className="bg-white border-neutral-200 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow group">
+                                    {/* Updated Header to match Faculty Dashboard EXACTLY */}
+                                    <div className="flex justify-between items-start p-4 bg-neutral-50/50 border-b border-neutral-100">
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <h3 className="text-sm font-bold text-neutral-900 group-hover:text-primary-600 transition-colors truncate">
+                                                    {course.course_code}
+                                                    {course.section && <span className="text-neutral-400 font-medium ml-1">· {course.section}</span>}
+                                                </h3>
+                                                {!course.master_is_active && (
+                                                    <Badge variant="outline" className="bg-neutral-100 text-neutral-500 border-neutral-200 text-[8px] h-4 px-1 uppercase tracking-wider">
+                                                        Inactive
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                            <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest truncate mt-0.5">{course.course_name}</p>
                                         </div>
-                                        <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest truncate mt-0.5">{course.course_name}</p>
+                                        <div className={`px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded-full border shadow-sm shrink-0 ml-4 ${pct === 100 ? 'bg-success/10 text-success border-success/20' :
+                                            pct >= 50 ? 'bg-primary-50 text-primary-700 border-primary-200' :
+                                                'bg-warning/10 text-warning border-warning/20'
+                                            }`}>
+                                            {pct}% Complete
+                                        </div>
                                     </div>
-                                    <div className="text-center shrink-0 bg-white border border-neutral-200 px-2 py-1 rounded-md shadow-sm mt-2">
-                                        <p className="text-xs font-black text-neutral-900">Completion: {course.submitted_count} / {course.total_required}</p>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="p-0 flex-1 flex flex-col">
-                                    <ScrollArea className="flex-1 h-[240px]">
-                                        <div className="p-4 space-y-2">
-                                            {course.documents && course.documents.map((doc, idx) => {
-                                                const isDone = ['SUBMITTED', 'RESUBMITTED', 'APPROVED', 'VALIDATED', 'ARCHIVED'].includes(doc.status);
-                                                const displayStatus = doc.status === 'REVISION_REQUESTED' ? 'ONGOING' :
-                                                    doc.is_submitted_late ? 'LATE' :
-                                                        (doc.status === 'APPROVED' || doc.status === 'VALIDATED' || doc.status === 'ARCHIVED') ? 'SUBMITTED' :
-                                                            doc.status;
+                                    <CardContent className="p-0 flex-1 flex flex-col">
+                                        <ScrollArea className="flex-1 h-[240px]">
+                                            <div className="p-4 space-y-2">
+                                                {course.documents && course.documents.map((doc, idx) => {
+                                                    const isDone = ['SUBMITTED', 'RESUBMITTED', 'APPROVED', 'VALIDATED', 'ARCHIVED'].includes(doc.status);
+                                                    const displayStatus = doc.status === 'REVISION_REQUESTED' ? 'ONGOING' :
+                                                        doc.is_submitted_late ? 'LATE' :
+                                                            (doc.status === 'APPROVED' || doc.status === 'VALIDATED' || doc.status === 'ARCHIVED') ? 'SUBMITTED' :
+                                                                (doc.status || 'PENDING');
 
-                                                // Minimalist List Design
-                                                return (
-                                                    <div key={idx} className="flex flex-col p-2.5 rounded-lg border border-neutral-100 bg-neutral-50/50 hover:bg-white hover:border-neutral-200 transition-all group/item">
-                                                        <div className="flex items-center justify-between mb-1.5">
-                                                            <div className="flex items-center gap-2">
-                                                                {isDone ? (
-                                                                    <CheckSquare className="h-3.5 w-3.5 text-success" />
-                                                                ) : (
-                                                                    <Square className="h-3.5 w-3.5 text-neutral-300" />
-                                                                )}
-                                                                <span className={`text-xs font-bold truncate ${isDone ? 'text-neutral-900' : 'text-neutral-500'}`}>
-                                                                    {doc.doc_type}
+                                                    // Minimalist List Design
+                                                    return (
+                                                        <div key={idx} className="flex flex-col p-2.5 rounded-lg border border-neutral-100 bg-neutral-50/50 hover:bg-white hover:border-neutral-200 transition-all group/item">
+                                                            <div className="flex items-center justify-between mb-1.5">
+                                                                <div className="flex items-center gap-2">
+                                                                    {isDone ? (
+                                                                        <CheckSquare className="h-3.5 w-3.5 text-success" />
+                                                                    ) : (
+                                                                        <Square className="h-3.5 w-3.5 text-neutral-300" />
+                                                                    )}
+                                                                    <span className={`text-xs font-bold truncate ${isDone ? 'text-neutral-900' : 'text-neutral-500'}`}>
+                                                                        {doc.doc_type}
+                                                                    </span>
+                                                                </div>
+                                                                <Badge className={`text-[8px] font-extrabold tracking-widest px-1.5 py-0 shadow-none border uppercase ${doc.is_submitted_late ? 'bg-warning/10 border-warning/20 text-warning' :
+                                                                    isDone ? 'bg-success/10 border-success/20 text-success' :
+                                                                        doc.status === 'REVISION_REQUESTED' ? 'bg-warning/10 border-warning/20 text-warning' :
+                                                                            'bg-neutral-100 border-neutral-200 text-neutral-500'
+                                                                    }`}>
+                                                                    {doc.status === 'RESUBMITTED' ? 'SUBMITTED' : displayStatus}
+                                                                </Badge>
+                                                            </div>
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest">
+                                                                    {doc.submitted_at ? new Date(doc.submitted_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'NOT SUBMITTED'}
                                                                 </span>
-                                                            </div>
-                                                            <Badge className={`text-[8px] font-extrabold tracking-widest px-1.5 py-0 shadow-none border uppercase ${doc.is_submitted_late ? 'bg-warning/10 border-warning/20 text-warning' :
-                                                                doc.status === 'RESUBMITTED' ? 'bg-blue-100 border-blue-200 text-blue-700' :
-                                                                isDone ? 'bg-success/10 border-success/20 text-success' :
-                                                                    doc.status === 'REVISION_REQUESTED' ? 'bg-warning/10 border-warning/20 text-warning' :
-                                                                        'bg-neutral-100 border-neutral-200 text-neutral-500'
-                                                                }`}>
-                                                                {doc.status === 'RESUBMITTED' ? 'ReSubmitted' : displayStatus}
-                                                            </Badge>
-                                                        </div>
-                                                        <div className="flex items-center justify-between">
-                                                            <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest">
-                                                                {doc.submitted_at ? new Date(doc.submitted_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'NOT SUBMITTED'}
-                                                            </span>
 
-                                                            {/* Controls */}
-                                                            <div className="flex gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
-                                                                {(doc.submitted_at || doc.status === 'VALIDATED' || doc.status === 'APPROVED' || doc.status === 'ARCHIVED' || doc.status === 'REVISION_REQUESTED' || doc.status === 'SUBMITTED') && (
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        onClick={() => handleOpenDocViewer(doc, course)}
-                                                                        className="h-6 w-6 rounded-md text-neutral-400 hover:text-primary-600 hover:bg-primary-50"
-                                                                        title="View Files"
-                                                                    >
-                                                                        <Eye className="h-3.5 w-3.5" />
-                                                                    </Button>
-                                                                )}
+                                                                {/* Controls */}
+                                                                <div className="flex gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
+                                                                    {(doc.submitted_at || doc.status === 'VALIDATED' || doc.status === 'APPROVED' || doc.status === 'ARCHIVED' || doc.status === 'REVISION_REQUESTED' || doc.status === 'SUBMITTED') && (
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            onClick={() => handleOpenDocViewer(doc, course)}
+                                                                            className="h-6 w-6 rounded-md text-neutral-400 hover:text-primary-600 hover:bg-primary-50"
+                                                                            title="View Files"
+                                                                        >
+                                                                            <Eye className="h-3.5 w-3.5" />
+                                                                        </Button>
+                                                                    )}
 
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </ScrollArea>
-                                </CardContent>
-                            </Card>
-                        ))}
+                                                    );
+                                                })}
+                                            </div>
+                                        </ScrollArea>
+                                    </CardContent>
+                                </Card>
+                            );
+                        })}
                     </div>
                 </div>
 
@@ -1296,7 +1525,7 @@ export default function AdminFacultyDetailPage() {
                                 </div>
                             </div>
 
-                                 {/* File Deletion Option Removed as per USER request */}
+                            {/* File Deletion Option Removed as per USER request */}
 
                             <div className="space-y-1.5">
                                 <Label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest pl-0.5">Revision Reason <span className="text-destructive">*</span></Label>

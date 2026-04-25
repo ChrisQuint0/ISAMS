@@ -2,6 +2,10 @@ import React, { useState, useMemo, useEffect } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useNavigate } from 'react-router-dom';
+import { useLogo } from '../../settings/hooks/useLogo';
+import { useSettings } from '../../settings/hooks/useSettings';
+import plpLogo from '@/assets/images/plp_logo.png';
+import ccsLogo from '@/assets/images/ccs_logo.png';
 import {
   Eye, Mail, Bell, FileSpreadsheet, Search,
   RefreshCw, AlertCircle, CheckCircle, GraduationCap, X,
@@ -38,9 +42,27 @@ const MonitorToastHandler = ({ success, error }) => {
   return null;
 };
 
+const imageUrlToBase64 = async (url) => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error('Error converting image to base64:', error);
+    return null;
+  }
+};
+
 export default function AdminFacultyMonitorPage() {
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const { logoUrl } = useLogo();
+  const { settings } = useSettings();
   const {
     loading, error, success,
     facultyList, options, filters, setFilters,
@@ -69,7 +91,7 @@ export default function AdminFacultyMonitorPage() {
     const total = facultyList.length;
     const cleared = facultyList.filter(f => f.overall_progress >= 100).length;
     const pending = facultyList.reduce((acc, f) => acc + (f.pending_submissions || 0), 0);
-    const atRisk = facultyList.filter(f => f.status === 'At Risk' || f.status === 'Delayed').length;
+    const atRisk = facultyList.filter(f => f.status === 'At Risk' || f.status === 'In Progress').length;
     return { total, cleared, pending, atRisk };
   }, [facultyList]);
 
@@ -81,7 +103,8 @@ export default function AdminFacultyMonitorPage() {
     switch (status) {
       case 'On Track': return 'bg-success/10 text-success border-success/20';
       case 'At Risk': return 'bg-warning/10 text-warning border-warning/20';
-      case 'Delayed': return 'bg-destructive/10 text-destructive-semantic border-destructive/20';
+      case 'In Progress': return 'bg-primary-50 text-primary-600 border-primary-200';
+      case 'No Submissions': return 'bg-neutral-100 text-neutral-500 border-neutral-200';
       default: return 'bg-neutral-100 text-neutral-500 border-neutral-200';
     }
   };
@@ -113,9 +136,10 @@ export default function AdminFacultyMonitorPage() {
           variant: "warning"
         });
       } else {
+        const sentTo = result.email_sent_to || result.sent_to || `${selectedFaculty.first_name} ${selectedFaculty.last_name}`;
         addToast({
           title: "Email Sent",
-          description: `Reminder sent to ${result.email_sent_to}`,
+          description: `Reminder sent to ${sentTo}`,
           variant: "success"
         });
       }
@@ -130,7 +154,7 @@ export default function AdminFacultyMonitorPage() {
   // --- Bulk reminder scope helpers ---
   const bulkTargets = useMemo(() => {
     if (bulkScope === 'at_risk') return facultyList.filter(f => f.status === 'At Risk');
-    if (bulkScope === 'delayed') return facultyList.filter(f => f.status === 'Delayed');
+    if (bulkScope === 'in_progress') return facultyList.filter(f => f.status === 'In Progress');
     if (bulkScope === 'not_cleared') return facultyList.filter(f => f.overall_progress < 100);
     return facultyList; // 'all'
   }, [bulkScope, facultyList]);
@@ -185,17 +209,15 @@ export default function AdminFacultyMonitorPage() {
                 <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-primary-400" />
               </span>
               <div className="flex gap-1 items-center mt-0.5">
-                <span className="text-[9px] uppercase font-bold text-neutral-400 tracking-wider">
-                  {f.employment_type || 'Faculty'}
-                </span>
-                {f.courses?.length > 0 && (
-                  <>
-                    <span className="text-neutral-300">•</span>
-                    <span className="text-[9px] font-mono text-primary-500 font-bold">
-                      {f.courses.slice(0, 2).map(c => c.course_code).join(', ')}
-                      {f.courses.length > 2 && ' ...'}
-                    </span>
-                  </>
+                {f.courses?.length > 0 ? (
+                  <span className="text-[9px] font-mono text-primary-500 font-bold">
+                    {f.courses.slice(0, 3).map(c => `${c.section} • ${c.course_code}`).join(', ')}
+                    {f.courses.length > 3 && ' ...'}
+                  </span>
+                ) : (
+                  <span className="text-[9px] uppercase font-bold text-neutral-400 tracking-wider">
+                    No Courses Assigned
+                  </span>
                 )}
               </div>
             </div>
@@ -209,14 +231,9 @@ export default function AdminFacultyMonitorPage() {
       width: 130,
       cellRenderer: (p) => {
         if (!p.value) return null;
-        const styles = {
-          'On Track': 'bg-success/10 text-success border-success/20',
-          'At Risk': 'bg-warning/10 text-warning border-warning/20',
-          'Delayed': 'bg-destructive/10 text-destructive-semantic border-destructive/20',
-        };
         return (
           <div className="flex items-center h-full">
-            <span className={`font-bold text-xs px-2 py-0.5 rounded-full border ${styles[p.value] || 'bg-neutral-100 text-neutral-500 border-neutral-200'}`}>
+            <span className={`font-bold text-xs px-2 py-0.5 rounded-full border ${getStatusColor(p.value)}`}>
               {p.value}
             </span>
           </div>
@@ -303,15 +320,138 @@ export default function AdminFacultyMonitorPage() {
   ], [navigate]);
 
   // Export PDF
-  const handleExportPDF = () => {
-    const doc = new jsPDF();
-    doc.setFontSize(22);
-    doc.setTextColor(0, 138, 69);
-    doc.text('Faculty Monitoring Report', 14, 25);
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text('Institutional Submission & Monitoring System (ISAMS)', 14, 32);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 37);
+  const handleExportPDF = async () => {
+    const doc = new jsPDF({ orientation: 'landscape' });
+    const title = 'FACULTY MONITORING REPORT';
+    const now = new Date().toLocaleString(undefined, {
+      month: 'short', day: 'numeric', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+
+    const [plpBase64, ccsBase64] = await Promise.all([
+      imageUrlToBase64(plpLogo),
+      imageUrlToBase64(logoUrl || ccsLogo)
+    ]);
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 14;
+    const footerHeight = 18;
+    const headerHeightFirstPage = 62;
+    const headerHeightSubPages = 16;
+
+    const C = {
+      primary:     [17, 58, 26],
+      accent:      [34, 130, 68],
+      white:       [255, 255, 255],
+      offWhite:    [245, 249, 246],
+      lightGray:   [230, 232, 230],
+      midGray:     [150, 155, 152],
+      textDark:    [35, 40, 38],
+      textMuted:   [110, 118, 114],
+    };
+
+    const drawFirstPageHeader = () => {
+      // White background banner
+      doc.setFillColor(...C.white);
+      doc.rect(0, 0, pageWidth, 38, 'F');
+
+      // Bottom border line instead of solid green banner
+      doc.setFillColor(...C.primary);
+      doc.rect(0, 38, pageWidth, 0.8, 'F');
+
+      // Corner markers (dark on white)
+      doc.setDrawColor(...C.primary);
+      doc.setLineWidth(0.6);
+      doc.line(margin - 2, 5, margin - 2, 12);
+      doc.line(margin - 2, 5, margin + 5, 5);
+      doc.line(pageWidth - margin + 2, 5, pageWidth - margin + 2, 12);
+      doc.line(pageWidth - margin + 2, 5, pageWidth - margin - 5, 5);
+
+      // Logos
+      if (plpBase64) doc.addImage(plpBase64, 'PNG', margin + 2, 9, 20, 20);
+      if (ccsBase64) doc.addImage(ccsBase64, 'PNG', pageWidth - 22 - margin, 9, 20, 20);
+
+      // Institution text (dark on white)
+      doc.setTextColor(...C.primary);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text('PAMANTASAN NG LUNGSOD NG PASIG', pageWidth / 2, 16, { align: 'center' });
+
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...C.textMuted);
+      doc.text((settings?.college_name || 'COLLEGE OF COMPUTER STUDIES').toUpperCase(), pageWidth / 2, 22, { align: 'center' });
+
+      doc.setFontSize(7);
+      doc.setTextColor(...C.midGray);
+      doc.text('FACULTY REQUIREMENT MONITORING SYSTEM  //  ISAMS', pageWidth / 2, 27.5, { align: 'center' });
+
+      doc.setFontSize(6.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...C.midGray);
+      doc.text(`GENERATED: ${now}`, margin + 2, 34.5);
+      doc.text(`${facultyList.length} RECORDS`, pageWidth - margin - 2, 34.5, { align: 'right' });
+
+      // Report title area
+      doc.setTextColor(...C.primary);
+      doc.setFontSize(15);
+      doc.setFont('helvetica', 'bold');
+      doc.text(title, margin, 48);
+
+      doc.setDrawColor(...C.accent);
+      doc.setLineWidth(0.4);
+      doc.line(margin, 51, margin + 60, 51);
+
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...C.textMuted);
+      doc.text(now, pageWidth - margin, 48, { align: 'right' });
+    };
+
+    const drawSubPageHeader = () => {
+      doc.setFillColor(...C.white);
+      doc.rect(0, 0, pageWidth, 11, 'F');
+      doc.setFillColor(...C.primary);
+      doc.rect(0, 11, pageWidth, 0.5, 'F');
+
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...C.primary);
+      doc.text(`ISAMS  //  ${title}`, margin, 7);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...C.textMuted);
+      doc.text(now, pageWidth - margin, 7, { align: 'right' });
+    };
+
+    const drawFooter = (pageNumber, totalPages) => {
+      const footerY = pageHeight - footerHeight;
+
+      doc.setFillColor(...C.accent);
+      doc.rect(margin, footerY, pageWidth - margin * 2, 0.3, 'F');
+
+      doc.setFontSize(5.5);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(...C.midGray);
+      doc.text('Electronically generated  ·  No signature required for internal circulation', margin, footerY + 5);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6);
+      doc.setTextColor(...C.primary);
+      doc.text('PLP-ISAMS  //  FACULTY REQUIREMENT MONITORING SYSTEM', pageWidth / 2, footerY + 5, { align: 'center' });
+
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...C.textMuted);
+      doc.setFontSize(7);
+      doc.text(`${String(pageNumber).padStart(2, '0')} / ${String(totalPages).padStart(2, '0')}`, pageWidth - margin, footerY + 5, { align: 'right' });
+
+      doc.setFillColor(...C.primary);
+      doc.rect(0, pageHeight - 2, pageWidth, 2, 'F');
+    };
+
+    drawFirstPageHeader();
+
     const tableData = facultyList.map(f => [
       `${f.first_name} ${f.last_name}`,
       f.status,
@@ -321,16 +461,48 @@ export default function AdminFacultyMonitorPage() {
       f.late_submissions,
       f.courses?.map(c => c.course_code).join(', ') || 'N/A'
     ]);
+
     autoTable(doc, {
-      head: [['Faculty Name', 'Status', 'Progress', 'Submitted', 'Pending', 'Late', 'Courses']],
+      head: [['FACULTY NAME', 'STATUS', 'PROGRESS', 'SUBMITTED', 'PENDING', 'LATE', 'COURSES']],
       body: tableData,
-      startY: 45,
-      theme: 'grid',
-      styles: { fontSize: 8, cellPadding: 3 },
-      headStyles: { fillColor: [0, 138, 69], textColor: [255, 255, 255], fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [245, 248, 245] }
+      startY: headerHeightFirstPage,
+      styles: {
+        fontSize: 7.5,
+        cellPadding: { top: 3, right: 4, bottom: 3, left: 4 },
+        font: 'helvetica',
+        textColor: C.textDark,
+        lineColor: C.lightGray,
+        lineWidth: 0.15,
+        overflow: 'linebreak'
+      },
+      headStyles: {
+        fillColor: C.primary,
+        textColor: C.white,
+        fontStyle: 'bold',
+        fontSize: 7,
+        halign: 'center',
+        valign: 'middle',
+        cellPadding: { top: 4, right: 4, bottom: 4, left: 4 }
+      },
+      alternateRowStyles: { fillColor: C.offWhite },
+      margin: { top: headerHeightSubPages, left: margin, right: margin, bottom: footerHeight + 4 },
+      didDrawPage: (data) => {
+        if (data.pageNumber > 1) drawSubPageHeader();
+      }
     });
+
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      drawFooter(i, totalPages);
+    }
+
     doc.save(`Faculty_Monitoring_${new Date().toISOString().slice(0, 10)}.pdf`);
+    addToast({
+      title: 'PDF Exported',
+      description: `Faculty Monitoring Report has been downloaded successfully.`,
+      variant: 'success',
+    });
   };
 
   const hasActiveFilters = filters.status !== "All Status" ||
@@ -377,7 +549,7 @@ export default function AdminFacultyMonitorPage() {
             </Button>
             <Button
               size="sm"
-              className="bg-gold-400 text-neutral-900 hover:text-neutral-900 hover:bg-gold-600 shadow-sm active:scale-95 transition-all text-xs font-bold"
+              className="bg-gold-600 text-black hover:text-black hover:bg-[#E5A800] shadow-sm active:scale-95 transition-all text-xs font-bold"
               onClick={() => {
                 setBulkSubject('');
                 setBulkMessage('');
@@ -396,7 +568,7 @@ export default function AdminFacultyMonitorPage() {
           <StatCard icon={Users} label="Total Faculty" value={stats.total} color="text-primary-600" sub="Currently monitored" />
           <StatCard icon={Award} label="Fully Cleared" value={stats.cleared} color="text-success" sub="100% completion" />
           <StatCard icon={Clock} label="Pending Items" value={stats.pending} color="text-warning" sub="Across all faculty" />
-          <StatCard icon={AlertTriangle} label="At Risk / Delayed" value={stats.atRisk} color="text-destructive-semantic" sub="Needs attention" />
+          <StatCard icon={AlertTriangle} label="At Risk / In Progress" value={stats.atRisk} color="text-destructive-semantic" sub="Needs attention" />
         </div>
 
         {/* Filter Card */}
@@ -415,7 +587,7 @@ export default function AdminFacultyMonitorPage() {
                   <Search className="absolute left-3 top-2.5 h-4 w-4 text-neutral-400" />
                   <Input
                     placeholder="By name or course..."
-                    className="pl-9 bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus-visible:ring-primary-500 font-medium"
+                    className="pl-9 bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-xs focus-visible:ring-primary-500 focus-visible:border-primary-500 rounded-lg"
                     value={filters.search}
                     onChange={e => setFilters(prev => ({ ...prev, search: e.target.value }))}
                   />
@@ -462,7 +634,8 @@ export default function AdminFacultyMonitorPage() {
                     <SelectItem value="All Status" className="font-medium text-xs">All Status</SelectItem>
                     <SelectItem value="On Track" className="font-medium text-xs text-success">On Track</SelectItem>
                     <SelectItem value="At Risk" className="font-medium text-xs text-warning">At Risk</SelectItem>
-                    <SelectItem value="Delayed" className="font-medium text-xs text-destructive">Delayed</SelectItem>
+                    <SelectItem value="In Progress" className="font-medium text-xs text-primary-600">In Progress</SelectItem>
+                    <SelectItem value="No Submissions" className="font-medium text-xs text-neutral-500">No Submissions</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -486,12 +659,8 @@ export default function AdminFacultyMonitorPage() {
             <CardTitle className="text-base font-bold text-neutral-900 flex items-center gap-2">
               <GraduationCap className="h-4 w-4 text-primary-600" />
               Faculty Roster
-              <Badge className="bg-primary-50 text-primary-600 border-primary-100 text-[10px] font-black px-2 py-0 ml-1">{facultyList.length}</Badge>
             </CardTitle>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={exportCSV} className="h-8 bg-white text-xs font-bold px-3 border-neutral-200 text-neutral-600 shadow-sm hover:bg-neutral-50">
-                <FileSpreadsheet className="h-3.5 w-3.5 mr-1.5 text-success" /> Excel
-              </Button>
               <Button variant="outline" size="sm" onClick={handleExportPDF} className="h-8 bg-white text-xs font-bold px-3 border-neutral-200 text-neutral-600 shadow-sm hover:bg-neutral-50">
                 <FileText className="h-3.5 w-3.5 mr-1.5 text-destructive" /> PDF
               </Button>
@@ -617,7 +786,7 @@ export default function AdminFacultyMonitorPage() {
                   </SelectTrigger>
                   <SelectContent className="bg-white border-neutral-200">
                     <SelectItem value="at_risk" className="font-medium text-xs">At Risk faculty only</SelectItem>
-                    <SelectItem value="delayed" className="font-medium text-xs">Delayed faculty only</SelectItem>
+                    <SelectItem value="in_progress" className="font-medium text-xs">In Progress faculty only</SelectItem>
                     <SelectItem value="not_cleared" className="font-medium text-xs">All faculty not yet cleared</SelectItem>
                     <SelectItem value="all" className="font-medium text-xs">All faculty (entire list)</SelectItem>
                   </SelectContent>
@@ -667,7 +836,7 @@ export default function AdminFacultyMonitorPage() {
                     ? <CheckCircle className="h-4 w-4 text-success shrink-0" />
                     : <AlertCircle className="h-4 w-4 text-warning shrink-0" />}
                   <p className="text-xs font-bold text-neutral-700">
-                    {bulkResult.succeeded} sent 
+                    {bulkResult.succeeded} sent
                     {bulkResult.ignored > 0 && ` · ${bulkResult.ignored} skipped`}
                     {bulkResult.failed > 0 && ` · ${bulkResult.failed} failed`}
                     {` · ${bulkResult.total} total`}

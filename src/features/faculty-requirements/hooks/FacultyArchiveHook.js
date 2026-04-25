@@ -5,7 +5,7 @@ export function useFacultyArchive() {
   const [courseList, setCourseList] = useState([]);
   const [history, setHistory] = useState([]);
   const [submissionVersions, setSubmissionVersions] = useState([]);
-  const [options, setOptions] = useState({ semesters: [], academic_years: [] });
+  const [options, setOptions] = useState({ semesters: [], academic_years: [], semesterPeriods: [], currentSemester: null, currentAcademicYear: null });
   
   const [loading, setLoading] = useState(false);
   const [downloadingCourseId, setDownloadingCourseId] = useState(null);
@@ -65,9 +65,9 @@ export function useFacultyArchive() {
     }
   };
 
-  const loadSubmissionVersions = async (submissionId) => {
+  const loadSubmissionVersions = async (submissionId, filename = null) => {
     try {
-      const data = await FacultyArchiveService.getSubmissionVersions(submissionId);
+      const data = await FacultyArchiveService.getSubmissionVersions(submissionId, filename);
       setSubmissionVersions(data || []);
     } catch (err) {
       console.error("Error loading submission versions", err);

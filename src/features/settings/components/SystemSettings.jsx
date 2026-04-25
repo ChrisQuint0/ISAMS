@@ -23,33 +23,34 @@ export function SystemSettings() {
   const { user, rbac } = useAuth();
   const { logoUrl, isLoading: isLogoLoading, uploadLogo, deleteLogo } = useLogo();
   const { settings, isLoading: isSettingsLoading, updateCollegeName } = useSettings();
-  
+
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
-  
+
   const [collegeName, setCollegeName] = useState("");
   const [isSavingName, setIsSavingName] = useState(false);
 
   // Google Auth State
-  const [googleStatus, setGoogleStatus] = useState({ 
-    authenticated: false, 
+  const [googleStatus, setGoogleStatus] = useState({
+    authenticated: false,
+    hasDriveScope: false,
     email: "",
     isLoading: true,
-    authUrl: "" 
+    authUrl: ""
   });
-  
+
   const isFetching = useRef(false);
   const lastCheckedId = useRef(null);
 
   // Dialog States
-  const [alertDialog, setAlertDialog] = useState({ 
-    open: false, 
-    title: "", 
-    description: "", 
-    variant: "default" 
+  const [alertDialog, setAlertDialog] = useState({
+    open: false,
+    title: "",
+    description: "",
+    variant: "default"
   });
-  
+
   const [confirmDialog, setConfirmDialog] = useState({
     open: false,
     title: "",
@@ -87,11 +88,13 @@ export function SystemSettings() {
     try {
       const status = await settingsService.getGoogleAuthStatus(user.id);
       let url = "";
-      if (!status.authenticated) {
+      // Fetch auth URL if not authenticated OR if authenticated but missing Drive scope
+      if (!status.authenticated || !status.hasDriveScope) {
         url = await settingsService.getGoogleAuthUrl(user.id);
       }
       setGoogleStatus({
         authenticated: status.authenticated,
+        hasDriveScope: status.hasDriveScope ?? false,
         email: status.email || "",
         isLoading: false,
         authUrl: url || ""
@@ -112,7 +115,7 @@ export function SystemSettings() {
 
   const handleGoogleAuth = async () => {
     let url = googleStatus.authUrl;
-    
+
     try {
       // If we don't have a URL yet (e.g. we were already authenticated), fetch it now
       if (!url) {
@@ -140,12 +143,12 @@ export function SystemSettings() {
         // Standard browser behavior
         window.open(url, "_blank");
       }
-      
+
       // Start polling to check if authentication is complete
       const timer = setInterval(() => {
         checkGoogleStatus(true);
       }, 5000);
-      
+
       // Stop polling after 5 minutes
       setTimeout(() => clearInterval(timer), 300000);
     } catch (error) {
@@ -210,11 +213,11 @@ export function SystemSettings() {
     }
   };
 
-  const isAdmin = 
-    rbac?.superadmin || 
-    rbac?.thesis_role === "admin" || 
-    rbac?.facsub_role === "admin" || 
-    rbac?.labman_role === "admin" || 
+  const isAdmin =
+    rbac?.superadmin ||
+    rbac?.thesis_role === "admin" ||
+    rbac?.facsub_role === "admin" ||
+    rbac?.labman_role === "admin" ||
     rbac?.studvio_role === "admin";
 
   return (
@@ -237,7 +240,8 @@ export function SystemSettings() {
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Checking connection status...
               </div>
-            ) : googleStatus.authenticated ? (
+            ) : googleStatus.authenticated && googleStatus.hasDriveScope ? (
+              // Connected with full Drive access
               <div className="bg-primary-500/5 border border-primary-500/20 rounded-lg p-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-primary-500/10 flex items-center justify-center">
@@ -248,16 +252,39 @@ export function SystemSettings() {
                     <p className="text-xs text-muted-foreground">{googleStatus.email}</p>
                   </div>
                 </div>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={handleGoogleAuth}
                   className="border-primary-500/30 text-primary-600 hover:bg-primary-500/10"
                 >
                   Change Account
                 </Button>
               </div>
+            ) : googleStatus.authenticated && !googleStatus.hasDriveScope ? (
+              // Connected but missing Drive scope — needs re-auth
+              <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-4 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center">
+                    <AlertCircle className="h-6 w-6 text-amber-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Connected as {googleStatus.email} — Drive Access Missing</p>
+                    <p className="text-xs text-muted-foreground text-pretty">
+                      Your account is linked but only has login-level access. Re-authenticate to grant Google Drive upload permissions.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={handleGoogleAuth}
+                  className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+                >
+                  <img src="https://www.google.com/favicon.ico" className="w-4 h-4 mr-2" alt="Google" />
+                  Re-authenticate with Drive Access
+                </Button>
+              </div>
             ) : (
+              // Not connected at all
               <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-4 space-y-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center">
@@ -270,7 +297,7 @@ export function SystemSettings() {
                     </p>
                   </div>
                 </div>
-                <Button 
+                <Button
                   onClick={handleGoogleAuth}
                   className="w-full bg-[#008A45] hover:bg-[#007038] text-white"
                 >
@@ -298,14 +325,14 @@ export function SystemSettings() {
           <div className="space-y-2">
             <Label className="text-sm font-semibold text-foreground/70">College Name</Label>
             <div className="flex gap-2">
-              <Input 
+              <Input
                 value={collegeName}
                 onChange={(e) => setCollegeName(e.target.value)}
                 placeholder="Enter College Name"
                 className="flex-1"
                 disabled={isSettingsLoading}
               />
-              <Button 
+              <Button
                 onClick={handleSaveName}
                 disabled={isSavingName || isSettingsLoading || collegeName === settings.college_name}
                 className="bg-primary-500 hover:bg-primary-600"
@@ -327,10 +354,10 @@ export function SystemSettings() {
         <CardHeader>
           <CardTitle className="text-xl font-bold flex items-center gap-2">
             <ImageIcon className="h-5 w-5 text-primary-500" />
-            Dynamic CCS Logo
+            Dynamic Logo
           </CardTitle>
           <CardDescription>
-            Customize the CCS logo displayed on the login page.
+            Customize the logo displayed on the login page.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -342,9 +369,9 @@ export function SystemSettings() {
                 {isLogoLoading ? (
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 ) : (
-                  <img 
-                    src={logoUrl || ccsLogoDefault} 
-                    alt="Current CCS Logo" 
+                  <img
+                    src={logoUrl || ccsLogoDefault}
+                    alt="Current CCS Logo"
                     className="h-32 w-32 object-contain transition-transform duration-300 group-hover:scale-105"
                     onError={(e) => {
                       if (e.target.src !== ccsLogoDefault) {
@@ -360,9 +387,9 @@ export function SystemSettings() {
                 )}
               </div>
               {logoUrl && (
-                <Button 
-                  variant="destructive" 
-                  size="sm" 
+                <Button
+                  variant="destructive"
+                  size="sm"
                   onClick={handleDelete}
                   className="w-full mt-2"
                 >
@@ -376,14 +403,14 @@ export function SystemSettings() {
             <div className="space-y-4 flex-1 w-full">
               <div className="space-y-2">
                 <Label className="text-sm font-semibold text-foreground/70">Upload New Logo</Label>
-                <Input 
-                  type="file" 
-                  accept="image/*" 
+                <Input
+                  type="file"
+                  accept="image/*"
                   onChange={handleFileChange}
                   className="cursor-pointer"
                 />
               </div>
-              
+
               {previewUrl && (
                 <div className="space-y-2 animate-in fade-in slide-in-from-top-4">
                   <p className="text-xs font-medium text-muted-foreground">Preview:</p>
@@ -393,8 +420,8 @@ export function SystemSettings() {
                 </div>
               )}
 
-              <Button 
-                onClick={handleUpload} 
+              <Button
+                onClick={handleUpload}
                 disabled={!selectedFile || isUploading}
                 className="w-full bg-primary-500 hover:bg-primary-600 shadow-md shadow-primary-500/20"
               >
@@ -437,7 +464,7 @@ export function SystemSettings() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={() => {
                 if (confirmDialog.onConfirm) confirmDialog.onConfirm();
                 setConfirmDialog(prev => ({ ...prev, open: false }));

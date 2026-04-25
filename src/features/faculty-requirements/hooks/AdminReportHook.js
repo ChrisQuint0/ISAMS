@@ -6,20 +6,50 @@ export function useAdminReports() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [reportData, setReportData] = useState(null);
+  const [downloadingItemId, setDownloadingItemId] = useState(null);
 
   const [recentExports, setRecentExports] = useState([]);
   const [options, setOptions] = useState({ semesters: [], academic_years: [] });
 
   const loadOptions = useCallback(async () => {
     try {
-      const { data } = await supabase
-        .from('courses_fs')
-        .select('semester, academic_year');
-      if (data) {
-        const sems = [...new Set(data.map(c => c.semester))].filter(Boolean).sort();
-        const years = [...new Set(data.map(c => c.academic_year))].filter(Boolean).sort().reverse();
-        setOptions({ semesters: sems, academic_years: years });
+      const [semesterPeriods, systemSettings] = await Promise.all([
+        supabase.from('semester_history_fs').select('academic_year, semester, status').order('created_at', { ascending: false }),
+        supabase.from('systemsettings_fs').select('setting_key, setting_value').in('setting_key', ['current_semester', 'current_academic_year'])
+      ]);
+
+      const settingsMap = {};
+      (systemSettings.data || []).forEach(s => { settingsMap[s.setting_key] = s.setting_value; });
+      const currentSemester = settingsMap['current_semester'];
+      const currentAcademicYear = settingsMap['current_academic_year'];
+
+      const historicalPeriods = (semesterPeriods.data || []).map(p => ({
+        academic_year: p.academic_year,
+        semester: p.semester,
+        status: p.status === 'COMPLETED' ? 'Completed' : 'Active'
+      }));
+
+      const isCurrentInHistory = historicalPeriods.some(
+        p => p.academic_year === currentAcademicYear && p.semester === currentSemester
+      );
+      if (currentSemester && currentAcademicYear && !isCurrentInHistory) {
+        historicalPeriods.unshift({
+          academic_year: currentAcademicYear,
+          semester: currentSemester,
+          status: 'Active'
+        });
       }
+
+      const uniqueSemesters = [...new Set(historicalPeriods.map(p => p.semester))].filter(Boolean);
+      const uniqueYears = [...new Set(historicalPeriods.map(p => p.academic_year))].filter(Boolean);
+
+      setOptions({
+        semesters: uniqueSemesters,
+        academic_years: uniqueYears,
+        semesterPeriods: historicalPeriods,
+        currentSemester,
+        currentAcademicYear
+      });
     } catch (err) {
       console.error('Failed to load filter options:', err);
     }
@@ -58,6 +88,7 @@ export function useAdminReports() {
 
   const reExportReport = async (exportRecord) => {
     setLoading(true);
+    setDownloadingItemId(exportRecord.history_id);
     try {
       const config = {
         reportType: exportRecord.report_name, // Based on logExport call in exportCSV
@@ -66,10 +97,7 @@ export function useAdminReports() {
       };
       const data = await reportService.generateReport(config);
       if (data) {
-        reportService.exportCSV(data);
-        if (addToast) {
-          addToast({ title: "Download Success", description: `Re-exported ${exportRecord.report_name}`, variant: "success" });
-        }
+        return data;
       }
     } catch (err) {
       console.error('Re-export failed:', err);
@@ -78,6 +106,7 @@ export function useAdminReports() {
       }
     } finally {
       setLoading(false);
+      setDownloadingItemId(null);
     }
   };
 
@@ -111,6 +140,8 @@ export function useAdminReports() {
     options,
     generateReport,
     exportCSV,
-    reExportReport
+    reExportReport,
+    loadExports,
+    downloadingItemId
   };
 }

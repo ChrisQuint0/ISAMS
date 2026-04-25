@@ -443,7 +443,8 @@ export default function ThesisArchivingDashboardPage() {
                                             return (
                                                 <div
                                                     key={item.id}
-                                                    className="group flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-neutral-100 bg-neutral-50/50 p-4 hover:bg-white hover:border-neutral-200 hover:shadow-sm transition-all"
+                                                    onClick={() => navigate(`/thesis-archiving/digital-repository/${item.id}`)}
+                                                    className="group flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-neutral-100 bg-neutral-50/50 p-4 hover:bg-white hover:border-neutral-200 hover:shadow-sm transition-all cursor-pointer"
                                                 >
                                                     <div className="flex items-start gap-4">
                                                         <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${config.class.split(' ').filter(c => c.startsWith('bg-') || c.startsWith('text-')).join(' ')} bg-opacity-30`}>

@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import plpLogo from "@/assets/images/plp_logo.png";
 import ccsLogo from "@/assets/images/ccs_logo.png";
-import isamsLogo from "@/assets/images/isams_logo_icon.png";
+import isamsLogo from "@/assets/images/isams_logo_icon.svg";
 import isamsLogoText from "@/assets/images/isams_logo_text.png";
 import { useLogo } from "@/features/settings/hooks/useLogo";
 import { useSettings } from "@/features/settings/hooks/useSettings";

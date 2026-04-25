@@ -2,13 +2,15 @@ import React from "react";
 import {
     FileText, Upload, CheckCircle2, Clock, RefreshCw, X,
     AlertTriangle, User, Calendar, Building2, ChevronRight,
-    MinusCircle, Eye, Info, GraduationCap,
+    MinusCircle, Eye, EyeOff, Info, GraduationCap,
     LayoutDashboard, BookOpen, LogOut,
+    KeyRound, Lock, Mail, Shield, Loader2
 } from "lucide-react";
 import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
 import { HTEArchivingHeader } from "./HTEDocumentArchivePage";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { settingsService } from "@/features/settings/services/settingsService";
+import { supabase } from "@/lib/supabaseClient";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared constants
@@ -176,6 +178,9 @@ function StudentSidebar(props) {
     var onNavigate = props.onNavigate;
     var student    = props.student;
 
+    var cpState = React.useState(false); var showChangePassword = cpState[0]; var setShowChangePassword = cpState[1];
+    var modalState = React.useState(false); var showPasswordModal = modalState[0]; var setShowPasswordModal = modalState[1];
+
     if (isMobile && !openMobile) return null;
     var isCollapsed = !isMobile && state === "collapsed";
 
@@ -223,26 +228,50 @@ function StudentSidebar(props) {
             <div className={"border-t border-neutral-200 flex-shrink-0 " + (isCollapsed ? "px-2 py-3" : "p-3")}>
                 {isCollapsed ? (
                     <div className="flex flex-col items-center gap-2">
-                        <div title={student.name} className="h-8 w-8 rounded-full bg-primary-500/10 border border-primary-500/20 flex items-center justify-center cursor-default">
+                        <button onClick={function () { setShowPasswordModal(true); }} title="Change Password" className="h-8 w-8 rounded-full bg-primary-500/10 border border-primary-500/20 flex items-center justify-center cursor-pointer hover:bg-primary-500/20 transition-all">
                             <User className="h-4 w-4 text-primary-500" />
-                        </div>
+                        </button>
                     </div>
                 ) : (
-                    <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3 space-y-2.5">
-                        <div className="flex items-center gap-2.5">
-                            <div className="h-8 w-8 rounded-full bg-primary-500/10 border border-primary-500/20 flex items-center justify-center flex-shrink-0"><User className="h-4 w-4 text-primary-500" /></div>
-                            <div className="min-w-0">
-                                <p className="text-xs font-bold text-neutral-900 truncate leading-none">{student.name}</p>
-                                <p className="text-[10px] text-neutral-500 mt-0.5 truncate">{student.id}</p>
+                    <div className="space-y-2">
+                        {/* Change Password button — slides in above profile card */}
+                        {showChangePassword && (
+                            <button
+                                onClick={function () { setShowPasswordModal(true); setShowChangePassword(false); }}
+                                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-600 bg-primary-500/8 border border-primary-500/20 hover:bg-primary-500/15 hover:border-primary-500/30 transition-all cursor-pointer"
+                            >
+                                <KeyRound className="h-4 w-4" /><span>Change Password</span>
+                            </button>
+                        )}
+                        {/* Clickable Profile Card */}
+                        <div
+                            onClick={function () { setShowChangePassword(function (p) { return !p; }); }}
+                            className={"bg-neutral-50 border rounded-xl p-3 space-y-2.5 cursor-pointer transition-all " + (showChangePassword ? "border-primary-500/30 bg-primary-500/5 shadow-sm" : "border-neutral-200 hover:border-neutral-300 hover:bg-neutral-100")}
+                        >
+                            <div className="flex items-center gap-2.5">
+                                <div className={"h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all " + (showChangePassword ? "bg-primary-500/15 border border-primary-500/30" : "bg-primary-500/10 border border-primary-500/20")}><User className="h-4 w-4 text-primary-500" /></div>
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-xs font-bold text-neutral-900 truncate leading-none">{student.name}</p>
+                                    <p className="text-[10px] text-neutral-500 mt-0.5 truncate">{student.id}</p>
+                                </div>
+                                <ChevronRight className={"h-3 w-3 text-neutral-400 flex-shrink-0 transition-transform duration-200 " + (showChangePassword ? "rotate-90" : "")} />
                             </div>
-                        </div>
-                        <div className="space-y-1 text-[10px] text-neutral-500 pl-0.5">
-                            <div className="flex items-center gap-1.5"><Calendar className="h-2.5 w-2.5 text-neutral-400 flex-shrink-0" /><span>{student.year} · {student.semester}</span></div>
-                            <div className="flex items-center gap-1.5"><GraduationCap className="h-2.5 w-2.5 text-neutral-400 flex-shrink-0" /><span className="truncate">{student.email}</span></div>
+                            <div className="space-y-1 text-[10px] text-neutral-500 pl-0.5">
+                                <div className="flex items-center gap-1.5"><Calendar className="h-2.5 w-2.5 text-neutral-400 flex-shrink-0" /><span>{student.year} · {student.semester}</span></div>
+                                <div className="flex items-center gap-1.5"><GraduationCap className="h-2.5 w-2.5 text-neutral-400 flex-shrink-0" /><span className="truncate">{student.email}</span></div>
+                            </div>
                         </div>
                     </div>
                 )}
             </div>
+            {/* Change Password Modal */}
+            {showPasswordModal && (
+                <ChangePasswordModal
+                    studentEmail={student.email}
+                    studentName={student.name}
+                    onClose={function () { setShowPasswordModal(false); }}
+                />
+            )}
         </aside>
     );
 }
@@ -675,6 +704,258 @@ function GuidelinesPage() {
                     </div>
                 );
             })}
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Change Password Modal
+// ─────────────────────────────────────────────────────────────────────────────
+function ChangePasswordModal(props) {
+    var studentEmail = props.studentEmail;
+    var studentName = props.studentName;
+    var onClose = props.onClose;
+
+    // Steps: "otp" → "password" → "done"
+    var stepState = React.useState("otp"); var step = stepState[0]; var setStep = stepState[1];
+    var otpState = React.useState(""); var otp = otpState[0]; var setOtp = otpState[1];
+    var passwordState = React.useState(""); var password = passwordState[0]; var setPassword = passwordState[1];
+    var confirmState = React.useState(""); var confirmPassword = confirmState[0]; var setConfirmPassword = confirmState[1];
+    var loadingState = React.useState(false); var loading = loadingState[0]; var setLoading = loadingState[1];
+    var errorState = React.useState(""); var error = errorState[0]; var setError = errorState[1];
+    var successState = React.useState(""); var success = successState[0]; var setSuccess = successState[1];
+    var otpSentState = React.useState(false); var otpSent = otpSentState[0]; var setOtpSent = otpSentState[1];
+    var showPwState = React.useState(false); var showPw = showPwState[0]; var setShowPw = showPwState[1];
+    var showCpwState = React.useState(false); var showCpw = showCpwState[0]; var setShowCpw = showCpwState[1];
+    var cooldownState = React.useState(0); var cooldown = cooldownState[0]; var setCooldown = cooldownState[1];
+
+    React.useEffect(function () {
+        if (cooldown <= 0) return;
+        var timer = setTimeout(function () { setCooldown(function (c) { return c - 1; }); }, 1000);
+        return function () { clearTimeout(timer); };
+    }, [cooldown]);
+
+    async function handleSendOtp() {
+        setLoading(true);
+        setError("");
+        try {
+            var res = await supabase.functions.invoke("send-student-otp", {
+                body: { student_email: studentEmail, student_name: studentName }
+            });
+            if (res.error) throw new Error(res.error.message || "Failed to send OTP");
+            if (res.data && res.data.error) throw new Error(res.data.error);
+            setOtpSent(true);
+            setCooldown(60);
+            setSuccess("OTP sent to " + studentEmail);
+            setTimeout(function () { setSuccess(""); }, 3000);
+        } catch (err) {
+            setError(err.message || "Failed to send OTP. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function handleVerifyOtp() {
+        if (!otp || otp.length !== 6) { setError("Please enter a valid 6-digit OTP."); return; }
+        setLoading(true);
+        setError("");
+        try {
+            var res = await supabase.functions.invoke("update-student-password", {
+                body: { student_email: studentEmail, otp: otp }
+            });
+            if (res.error) throw new Error(res.error.message || "Failed to verify OTP");
+            if (res.data && res.data.error) throw new Error(res.data.error);
+            setStep("password");
+        } catch (err) {
+            setError(err.message || "Invalid or expired OTP.");
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function handleSavePassword() {
+        if (!password || password.length < 6) { setError("Password must be at least 6 characters."); return; }
+        if (password !== confirmPassword) { setError("Passwords do not match."); return; }
+        setLoading(true);
+        setError("");
+        try {
+            var res = await supabase.functions.invoke("update-student-password", {
+                body: { student_email: studentEmail, otp: otp, new_password: password }
+            });
+            if (res.error) throw new Error(res.error.message || "Failed to update password");
+            if (res.data && res.data.error) throw new Error(res.data.error);
+            setStep("done");
+            setSuccess("Password changed successfully!");
+        } catch (err) {
+            setError(err.message || "Failed to update password.");
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    function handleOtpInput(e) {
+        var val = e.target.value.replace(/[^0-9]/g, "").slice(0, 6);
+        setOtp(val);
+    }
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center" onClick={function (e) { if (e.target === e.currentTarget && step !== "done") onClose(); }}>
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+            <div className="relative bg-white rounded-2xl shadow-2xl border border-neutral-200 w-full max-w-md mx-4 overflow-hidden">
+                {/* Header */}
+                <div className="bg-gradient-primary px-6 py-5 flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center flex-shrink-0">
+                        <Shield className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <h2 className="text-base font-bold text-white">Change Password</h2>
+                        <p className="text-xs text-white/70 mt-0.5">
+                            {step === "otp" ? "Verify your identity with OTP" : step === "password" ? "Set your new password" : "All done!"}
+                        </p>
+                    </div>
+                    <button onClick={onClose} className="h-8 w-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all cursor-pointer">
+                        <X className="h-4 w-4 text-white" />
+                    </button>
+                </div>
+
+                {/* Step indicators */}
+                <div className="px-6 pt-4 pb-2 flex items-center gap-2">
+                    <div className={"flex items-center gap-1.5 text-xs font-semibold " + (step === "otp" ? "text-primary-600" : "text-success")}>
+                        <div className={"h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold " + (step === "otp" ? "bg-primary-500 text-white" : "bg-success text-white")}>
+                            {step === "otp" ? "1" : "✓"}
+                        </div>
+                        <span>Verify</span>
+                    </div>
+                    <div className={"flex-1 h-px " + (step !== "otp" ? "bg-success" : "bg-neutral-200")} />
+                    <div className={"flex items-center gap-1.5 text-xs font-semibold " + (step === "password" ? "text-primary-600" : step === "done" ? "text-success" : "text-neutral-400")}>
+                        <div className={"h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold " + (step === "password" ? "bg-primary-500 text-white" : step === "done" ? "bg-success text-white" : "bg-neutral-200 text-neutral-500")}>
+                            {step === "done" ? "✓" : "2"}
+                        </div>
+                        <span>Reset</span>
+                    </div>
+                </div>
+
+                <div className="px-6 py-4 space-y-4">
+                    {error && (
+                        <div className="flex items-start gap-2.5 p-3 bg-red-50 border border-red-200 rounded-xl">
+                            <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+                            <p className="text-xs text-red-700 leading-relaxed">{error}</p>
+                        </div>
+                    )}
+                    {success && (
+                        <div className="flex items-start gap-2.5 p-3 bg-green-50 border border-green-200 rounded-xl">
+                            <CheckCircle2 className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
+                            <p className="text-xs text-green-700 leading-relaxed">{success}</p>
+                        </div>
+                    )}
+
+                    {step === "otp" && (
+                        <React.Fragment>
+                            <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3">
+                                <div className="flex items-center gap-2 text-xs text-neutral-600">
+                                    <Mail className="h-3.5 w-3.5 text-neutral-400 flex-shrink-0" />
+                                    <span>OTP will be sent to: <strong className="text-neutral-900">{studentEmail}</strong></span>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-neutral-700 mb-1.5">Enter OTP Code</label>
+                                <input
+                                    type="text"
+                                    value={otp}
+                                    onChange={handleOtpInput}
+                                    placeholder="Enter 6-digit code"
+                                    maxLength={6}
+                                    className="w-full h-11 px-4 text-center text-lg font-bold tracking-[0.5em] rounded-xl border border-neutral-300 bg-white text-neutral-900 placeholder:text-neutral-400 placeholder:text-sm placeholder:tracking-normal outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
+                                    disabled={loading}
+                                    autoFocus
+                                />
+                            </div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleSendOtp}
+                                    disabled={loading || cooldown > 0}
+                                    className={btnSmDefault + " flex-1 h-10 !text-sm"}
+                                >
+                                    {loading && !otpSent ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                                    <span>{cooldown > 0 ? "Resend in " + cooldown + "s" : otpSent ? "Resend OTP" : "Send OTP"}</span>
+                                </button>
+                                <button
+                                    onClick={handleVerifyOtp}
+                                    disabled={loading || otp.length !== 6}
+                                    className={btnSmDefault + " flex-1 h-10 !text-sm !bg-neutral-800 !border-neutral-900 hover:!bg-neutral-700"}
+                                >
+                                    {loading && otpSent ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
+                                    <span>Submit</span>
+                                </button>
+                            </div>
+                        </React.Fragment>
+                    )}
+
+                    {step === "password" && (
+                        <React.Fragment>
+                            <div>
+                                <label className="block text-xs font-semibold text-neutral-700 mb-1.5">New Password</label>
+                                <div className="relative">
+                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+                                    <input
+                                        type={showPw ? "text" : "password"}
+                                        value={password}
+                                        onChange={function (e) { setPassword(e.target.value); }}
+                                        placeholder="Min. 6 characters"
+                                        className="w-full h-11 pl-10 pr-10 rounded-xl border border-neutral-300 bg-white text-sm text-neutral-900 placeholder:text-neutral-400 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
+                                        disabled={loading}
+                                        autoFocus
+                                    />
+                                    <button type="button" onClick={function () { setShowPw(function (p) { return !p; }); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 cursor-pointer">
+                                        {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-neutral-700 mb-1.5">Confirm Password</label>
+                                <div className="relative">
+                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+                                    <input
+                                        type={showCpw ? "text" : "password"}
+                                        value={confirmPassword}
+                                        onChange={function (e) { setConfirmPassword(e.target.value); }}
+                                        placeholder="Re-enter password"
+                                        className="w-full h-11 pl-10 pr-10 rounded-xl border border-neutral-300 bg-white text-sm text-neutral-900 placeholder:text-neutral-400 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
+                                        disabled={loading}
+                                    />
+                                    <button type="button" onClick={function () { setShowCpw(function (p) { return !p; }); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 cursor-pointer">
+                                        {showCpw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </button>
+                                </div>
+                            </div>
+                            {password && confirmPassword && password !== confirmPassword && (
+                                <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Passwords do not match</p>
+                            )}
+                            <button
+                                onClick={handleSavePassword}
+                                disabled={loading || !password || !confirmPassword || password !== confirmPassword}
+                                className={btnSmDefault + " w-full h-10 !text-sm"}
+                            >
+                                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                                <span>Save New Password</span>
+                            </button>
+                        </React.Fragment>
+                    )}
+
+                    {step === "done" && (
+                        <div className="text-center py-4">
+                            <div className="h-16 w-16 rounded-2xl bg-success/10 border border-success/20 flex items-center justify-center mx-auto mb-4">
+                                <CheckCircle2 className="h-8 w-8 text-success" />
+                            </div>
+                            <h3 className="text-base font-bold text-neutral-900 mb-1">Password Changed!</h3>
+                            <p className="text-sm text-neutral-500 mb-5">Your password has been updated successfully. Use your new password next time you log in.</p>
+                            <button onClick={onClose} className={btnSmDefault + " h-10 !text-sm px-8"}>
+                                <span>Done</span>
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
     );
 }

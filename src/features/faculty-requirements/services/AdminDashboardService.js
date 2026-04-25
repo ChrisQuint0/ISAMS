@@ -11,19 +11,10 @@ export const dashboardService = {
   },
 
   /**
-   * Fetch Department Progress
+   * Fetch Recent Activities Table
    */
-  getDeptProgress: async () => {
-    const { data, error } = await supabase.rpc('get_department_progress_fs');
-    if (error) throw error;
-    return data;
-  },
-
-  /**
-   * Fetch Faculty List with calculated status
-   */
-  getFacultyStatus: async () => {
-    const { data, error } = await supabase.rpc('get_faculty_status_overview_fs');
+  getRecentActivity: async (limit = 50) => {
+    const { data, error } = await supabase.rpc('get_admin_recent_activity_fs', { p_limit: limit });
     if (error) throw error;
     return data;
   },

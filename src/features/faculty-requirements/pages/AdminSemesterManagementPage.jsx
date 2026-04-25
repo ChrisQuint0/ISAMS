@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
     Calendar, Clock, AlertTriangle, CheckCircle,
     RefreshCw, ArrowRight, AlertCircle, History, Info,
-    ShieldCheck, Trash2, Bell, CalendarOff, BarChart2, Users
+    ShieldCheck, Trash2, Bell, CalendarOff, BarChart2, Users, FileText
 } from 'lucide-react';
 import { useAdminSemesterManagement } from '../hooks/AdminSemesterManagementHook';
 import { Button } from "@/components/ui/button";
@@ -94,25 +94,10 @@ export default function AdminSemesterManagementPage() {
         setError, setSuccess
     } = useAdminSemesterManagement();
 
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [editFormData, setEditFormData] = useState({ semester: '', academic_year: '' });
     const [isRolloverModalOpen, setIsRolloverModalOpen] = useState(false);
     const [rolloverStep, setRolloverStep] = useState(1);
     const [rolloverFormData, setRolloverFormData] = useState({ nextSemester: '', nextYear: '' });
     const [confirmValue, setConfirmValue] = useState('');
-    const editAYError = useMemo(() => validateAcademicYear(editFormData.academic_year), [editFormData.academic_year]);
-
-    const isCompletedPeriod = useMemo(() => {
-        if (!editFormData.semester || !editFormData.academic_year) return false;
-        return (history || []).some(
-            r => r.status === 'COMPLETED'
-                && r.academic_year === editFormData.academic_year.trim()
-                && r.semester === editFormData.semester
-        );
-    }, [editFormData.semester, editFormData.academic_year, history]);
-
-    const canSaveEdit = !editAYError && !!editFormData.semester && !isCompletedPeriod;
-
     const nextOptions = useMemo(
         () => getNextSemesterOptions(currentSettings.semester, currentSettings.academic_year),
         [currentSettings.semester, currentSettings.academic_year]
@@ -134,12 +119,6 @@ export default function AdminSemesterManagementPage() {
         !rolloverAYError &&
         !rolloverSemError;
 
-    useEffect(() => {
-        if (isEditModalOpen) {
-            setEditFormData({ semester: currentSettings.semester, academic_year: currentSettings.academic_year });
-        }
-    }, [isEditModalOpen, currentSettings]);
-
     const handleRolloverOpenChange = (open) => {
         if (!open) {
             setRolloverStep(1);
@@ -157,19 +136,6 @@ export default function AdminSemesterManagementPage() {
         });
         setConfirmValue('');
         setIsRolloverModalOpen(true);
-    };
-
-    const handleManualSave = async () => {
-        if (editAYError) return;
-
-        // Trim labels to prevent whitespace mismatch in SQL queries
-        const trimmedSettings = {
-            semester: editFormData.semester?.trim(),
-            academic_year: editFormData.academic_year?.trim()
-        };
-
-        const ok = await updateSettings(trimmedSettings);
-        if (ok) setIsEditModalOpen(false);
     };
 
     const handleExecuteRollover = async () => {
@@ -284,54 +250,60 @@ export default function AdminSemesterManagementPage() {
                                 </Badge>
                             </div>
                         </CardHeader>
-                        <CardContent className="pt-4">
-                            <div className="grid grid-cols-2 gap-8 mb-5">
-                                <div className="space-y-1.5">
-                                    <p className="text-xs uppercase text-neutral-500 font-bold tracking-widest">Academic Year</p>
-                                    <p className="text-2xl font-mono font-bold text-neutral-900 tracking-tight">
-                                        {currentSettings.academic_year || '—'}
-                                    </p>
-                                </div>
-                                <div className="space-y-1.5">
-                                    <p className="text-xs uppercase text-neutral-500 font-bold tracking-widest">Current Semester</p>
-                                    <p className="text-xl font-bold text-neutral-700">
-                                        {currentSettings.semester || '—'}
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Stats of active semester */}
-                            {statsMap[`${currentSettings.academic_year}|${currentSettings.semester}`] && (() => {
-                                const s = statsMap[`${currentSettings.academic_year}|${currentSettings.semester}`];
-                                const pct = parseFloat(s.completion_rate);
-                                return (
-                                    <div className="grid grid-cols-3 gap-3 mb-5">
-                                        {[
-                                            { label: 'Faculty', val: s.total_faculty },
-                                            { label: 'Submissions', val: s.total_submissions },
-                                            { label: 'Completion', val: `${pct}%`, color: pct >= 80 ? 'text-success' : pct >= 50 ? 'text-warning' : 'text-destructive' },
-                                        ].map(item => (
-                                            <div key={item.label} className="bg-neutral-50 border border-neutral-200 rounded-lg p-3 text-center shadow-inner">
-                                                <p className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider mb-1">{item.label}</p>
-                                                <p className={`text-lg font-bold font-mono ${item.color || 'text-neutral-900'}`}>{item.val}</p>
-                                            </div>
-                                        ))}
+                        <CardContent className="pt-6 flex-1 flex flex-col justify-between">
+                            <div className="space-y-6">
+                                <div className="grid grid-cols-2 gap-8 mb-2">
+                                    <div className="space-y-1.5">
+                                        <p className="text-xs uppercase text-neutral-400 font-bold tracking-widest">Academic Year</p>
+                                        <p className="text-3xl font-mono font-black text-neutral-900 tracking-tight">
+                                            {currentSettings.academic_year || '—'}
+                                        </p>
                                     </div>
-                                );
-                            })()}
+                                    <div className="space-y-1.5">
+                                        <p className="text-xs uppercase text-neutral-400 font-bold tracking-widest">Active Semester</p>
+                                        <p className="text-2xl font-black text-primary-600">
+                                            {currentSettings.semester || '—'}
+                                        </p>
+                                    </div>
+                                </div>
 
-                            <div className="flex items-center gap-2 text-sm text-info bg-info/5 p-3 rounded-lg border border-info/20 mb-5 font-medium shadow-inner">
-                                <Info className="h-4 w-4 shrink-0 text-info" />
-                                This determines the target for all faculty submissions and deadline calculations.
+                                {/* Stats of active semester - Enhanced Layout */}
+                                {statsMap[`${currentSettings.academic_year}|${currentSettings.semester}`] && (() => {
+                                    const s = statsMap[`${currentSettings.academic_year}|${currentSettings.semester}`];
+                                    const pct = parseFloat(s.completion_rate);
+                                    return (
+                                        <div className="grid grid-cols-1 gap-3">
+                                            {[
+                                                { label: 'Total Faculty', val: s.total_faculty, icon: Users, sub: "Assigned this period" },
+                                                { label: 'Submissions', val: s.total_submissions, icon: FileText, sub: "Validated documents" },
+                                                { label: 'Completion', val: `${pct}%`, icon: CheckCircle, sub: "Institutional rate", color: pct >= 80 ? 'text-success' : pct >= 50 ? 'text-warning' : 'text-destructive' },
+                                            ].map(item => (
+                                                <div key={item.label} className="flex items-center justify-between bg-neutral-50/50 border border-neutral-100 rounded-xl p-4 shadow-sm hover:bg-white hover:border-neutral-200 transition-all group">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="p-2 rounded-lg bg-white border border-neutral-100 shadow-sm group-hover:border-primary-100 transition-colors">
+                                                            <item.icon className="h-4 w-4 text-primary-500" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider leading-none mb-1">{item.label}</p>
+                                                            <p className="text-[9px] text-neutral-400 font-medium leading-none">{item.sub}</p>
+                                                        </div>
+                                                    </div>
+                                                    <p className={`text-xl font-black font-mono ${item.color || 'text-neutral-900'}`}>{item.val}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    );
+                                })()}
                             </div>
 
-                            <Button
-                                variant="outline"
-                                className="w-full bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900 shadow-sm active:scale-95 transition-all"
-                                onClick={() => setIsEditModalOpen(true)}
-                            >
-                                Manual Settings Override
-                            </Button>
+                            {/* System Status Footer to fill space */}
+                            <div className="mt-8 pt-4 border-t border-neutral-50 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+                                <span className="flex items-center gap-1.5">
+                                    <div className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
+                                    System Sync Active
+                                </span>
+                                <span>Refreshed: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            </div>
                         </CardContent>
                     </Card>
 
@@ -410,85 +382,6 @@ export default function AdminSemesterManagementPage() {
                     </CardContent>
                 </Card>
 
-                {/* Manual Edit Modal */}
-                <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-                    <DialogContent className="bg-white border-neutral-200 text-neutral-900 sm:max-w-[425px] shadow-xl">
-                        <DialogHeader>
-                            <DialogTitle className="text-neutral-900 font-bold">Override Period Settings</DialogTitle>
-                            <DialogDescription className="text-neutral-500 font-medium">
-                                Manually correct the active semester or academic year label.
-                            </DialogDescription>
-                        </DialogHeader>
-
-                        {/* Warning Banner */}
-                        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 mt-1">
-                            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                            <div className="text-xs text-amber-800">
-                                <p className="font-bold mb-0.5">Label-only change — data is NOT touched.</p>
-                                <p className="font-medium opacity-80">This only updates the display label. No submissions, deadlines, or holidays will be wiped. To properly close a semester, use the <span className="font-bold">Rollover Protocol</span> instead.</p>
-                            </div>
-                        </div>
-
-                        <div className="grid gap-4 py-4">
-                            <div className="space-y-1.5">
-                                <Label htmlFor="ay" className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Academic Year</Label>
-                                <Input
-                                    id="ay"
-                                    value={editFormData.academic_year}
-                                    onChange={(e) => setEditFormData({ ...editFormData, academic_year: e.target.value })}
-                                    placeholder="e.g. 2025-2026"
-                                    className={`bg-white text-neutral-900 font-mono shadow-sm focus-visible:ring-primary-500 focus-visible:border-primary-500 ${editAYError ? 'border-destructive/60' : 'border-neutral-200'
-                                        }`}
-                                />
-                                {editAYError && (
-                                    <p className="text-xs text-destructive font-medium italic flex items-center gap-1.5">
-                                        <AlertCircle className="h-3 w-3" />
-                                        {editAYError}
-                                    </p>
-                                )}
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label htmlFor="sem" className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Semester</Label>
-                                <Select value={editFormData.semester} onValueChange={(v) => setEditFormData({ ...editFormData, semester: v })}>
-                                    <SelectTrigger id="sem" className="bg-white border-neutral-200 text-neutral-900 shadow-sm focus:ring-primary-500">
-                                        <SelectValue placeholder="Select Semester" />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-white border-neutral-200 text-neutral-900 shadow-md">
-                                        <SelectItem value="1st Semester">1st Semester</SelectItem>
-                                        <SelectItem value="2nd Semester">2nd Semester</SelectItem>
-                                        <SelectItem value="Summer">Summer</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                {isCompletedPeriod && (
-                                    <p className="flex items-center gap-1.5 text-xs text-destructive font-medium mt-1">
-                                        <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                                        <span>
-                                            <strong>{editFormData.academic_year} — {editFormData.semester}</strong> is already closed and archived. You cannot revert to a completed period.
-                                        </span>
-                                    </p>
-                                )}
-                            </div>
-                        </div>
-                        <DialogFooter className="mt-4 gap-2 sm:gap-3">
-                            <Button
-                                variant="outline"
-                                className="border-neutral-200 text-neutral-700 hover:bg-neutral-100 shadow-sm"
-                                onClick={() => setIsEditModalOpen(false)}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                onClick={handleManualSave}
-                                disabled={loading || !canSaveEdit}
-                                className="bg-primary-600 hover:bg-primary-700 text-white shadow-sm transition-all active:scale-95 font-bold disabled:opacity-50"
-                            >
-                                {loading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : null}
-                                Save Changes
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
-
                 {/* Rollover Protocol Modal */}
                 <Dialog open={isRolloverModalOpen} onOpenChange={handleRolloverOpenChange}>
                     <DialogContent className="sm:max-w-[560px] bg-white px-0 pt-0 overflow-hidden border-neutral-200 shadow-2xl">
@@ -522,8 +415,7 @@ export default function AdminSemesterManagementPage() {
                                         <AlertCircle className="h-4 w-4 text-warning" />
                                         <AlertTitle className="font-bold text-warning">Review Before Closing</AlertTitle>
                                         <AlertDescription className="text-warning/80 text-xs font-medium mt-1">
-                                            Faculty members below have not completed their requirements.
-                                            Proceeding will permanently mark them as <span className="font-bold">INCOMPLETE_CLOSED</span> for this semester.
+                                            Faculty members below have not completed their requirements. Proceeding will permanently mark them as INCOMPLETE for this semester.
                                         </AlertDescription>
                                     </Alert>
 
@@ -584,6 +476,14 @@ export default function AdminSemesterManagementPage() {
                                             </div>
                                         </div>
                                     </div>
+
+                                    {/* Final Warning for period accuracy */}
+                                    <Alert className="bg-warning/5 border border-warning/20 shadow-sm py-2.5">
+                                        <AlertCircle className="h-4 w-4 text-warning" />
+                                        <AlertDescription className="text-warning/80 text-[10px] font-bold uppercase tracking-wider">
+                                            Verify Academic Year & Semester accuracy. This action is irreversible.
+                                        </AlertDescription>
+                                    </Alert>
 
                                     {/* Input fields */}
                                     <div className="grid grid-cols-2 gap-4">

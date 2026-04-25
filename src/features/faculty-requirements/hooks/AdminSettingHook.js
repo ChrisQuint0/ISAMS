@@ -213,7 +213,7 @@ export function useAdminSettings() {
 
     try {
       await settingsService.updateFacultyManagement(original.user_id, field, value);
-      setSuccess('✓ Saved');
+      setSuccess('Faculty Information Saved');
       setTimeout(() => setSuccess(null), 1500);
     } catch (err) {
       console.error('updateFacultyManagement failed:', { facultyId, field, value, err });
@@ -292,7 +292,7 @@ export function useAdminSettings() {
         courseId,
         field === 'is_active' ? value : original.is_active
       );
-      setSuccess('✓ Saved');
+      setSuccess('Catalog Information Saved');
       setTimeout(() => setSuccess(null), 1500);
     } catch (err) {
       setError('Failed to update catalog: ' + err.message);
@@ -441,7 +441,8 @@ export function useAdminSettings() {
       setDocRequirements(docs.map(d => ({
         id: d.doc_type_id,
         name: d.type_name,
-        folder: d.description || 'General',
+        folder: d.gdrive_folder_name || 'General',
+        description: d.description || '',
         is_active: d.is_active,
         required: d.required_by_default
       })));

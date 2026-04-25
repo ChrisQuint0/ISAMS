@@ -70,7 +70,8 @@ export const similarityService = {
      * Fetch last 10 scans via backend (supabaseAdmin bypasses RLS)
      */
     async fetchRecentScans() {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
         if (!user) return [];
 
         const res = await fetch(`${SERVER_URL}/api/similarity/recent/${user.id}`);
@@ -241,5 +242,19 @@ export const similarityService = {
 
         const filename = `similarity-report-${new Date().toISOString().slice(0, 10)}.pdf`;
         doc.save(filename);
+    },
+    /**
+     * Get the download URL for the thesis template from Supabase Storage
+     */
+    getTemplateDownloadUrl() {
+        try {
+            const { data: { publicUrl } } = supabase.storage
+                .from("thesis_template")
+                .getPublicUrl("thesis_template.docx");
+            return publicUrl;
+        } catch (error) {
+            console.error("Error fetching template URL:", error);
+            return null;
+        }
     },
 };

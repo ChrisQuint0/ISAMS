@@ -1,11 +1,13 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import {
     FileText, Upload, CheckCircle2, Clock, RefreshCw, X,
     AlertTriangle, User, Calendar, Building2, ChevronRight,
-    MinusCircle, Eye, Info, GraduationCap,
-    LayoutDashboard, BookOpen, LogOut, Loader2
+    MinusCircle, Eye, EyeOff, Info, GraduationCap,
+    LayoutDashboard, BookOpen, LogOut, Loader2,
+    KeyRound, Lock, Mail, Shield
 } from "lucide-react";
 import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
 import { HTEArchivingHeader } from "./HTEDocumentArchivePage";
@@ -23,7 +25,7 @@ export default function StudentDocumentPortal() {
 
     const actorInfo = React.useMemo(() => ({
         actorUserId: user?.id,
-        actorName: user?.user_metadata?.first_name 
+        actorName: user?.user_metadata?.first_name
             ? `${user.user_metadata.first_name} ${user.user_metadata.last_name || ""}`.trim()
             : user?.email || "Student"
     }), [user]);
@@ -38,7 +40,6 @@ export default function StudentDocumentPortal() {
         setDataLoading(true);
         setDataError(null);
         try {
-            // 1. Load ALL doc fields (including inactive) so students see "Not Required" slots
             const fields = await thesisService.getHTEDocumentFieldsAll();
             const fieldsMapped = fields.map(f => ({
                 ...f,
@@ -47,7 +48,6 @@ export default function StudentDocumentPortal() {
             }));
             setDocFields(fieldsMapped);
 
-            // 2. Load the student record linked to this Supabase auth user
             const { data: studentRow, error: studentError } = await supabase
                 .from("hte_ojt_students")
                 .select(`
@@ -67,7 +67,6 @@ export default function StudentDocumentPortal() {
                 return;
             }
 
-            // 3. Build uploads map keyed by field_id (mirrors coordinator view)
             const uploadsMap = {};
             fields.forEach(f => {
                 uploadsMap[f.id] = { fieldId: f.id, status: "pending", file: null };
@@ -87,7 +86,6 @@ export default function StudentDocumentPortal() {
 
             setStudentData({
                 ...studentRow,
-                // id is the real DB UUID — critical for the upload API
                 id: studentRow.id,
                 student_no: studentRow.student_no,
                 firstName: studentRow.first_name,
@@ -202,32 +200,14 @@ const ACCEPTED_EXTENSIONS = [".pdf", ".docx", ".jpg", ".jpeg", ".png"];
 const MAX_FILE_SIZE_MB = 10;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
-// Button tokens
 const btnBase = "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 cursor-pointer";
 const btnIconGhost = btnBase + " size-7 text-neutral-500 border border-neutral-200 bg-white hover:bg-neutral-100 hover:text-neutral-900 hover:border-neutral-300 shadow-xs";
 const btnIconDestructive = btnBase + " size-7 text-red-500 border border-red-200/50 bg-red-50 hover:bg-red-100 hover:border-red-300 shadow-xs";
 const btnSmDefault = btnBase + " h-8 px-3 text-xs gap-1.5 bg-primary-500 text-white hover:bg-primary-600 shadow-sm border border-primary-600";
 const btnSmSecondary = btnBase + " h-8 px-3 text-xs gap-1.5 bg-neutral-100 text-neutral-900 hover:bg-neutral-200 shadow-xs border border-neutral-300 hover:border-neutral-400";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// STATUS SYSTEM
-// Every document slot must display exactly one of three statuses.
-// resolveStatus() is the single source of truth — all rendering reads from it.
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** The three valid statuses */
 const VALID_STATUSES = ["uploaded", "pending", "not_required"];
 
-/**
- * Resolves the display status for a document slot.
- * Rules (in priority order):
- *  1. If the field is deactivated  → "not_required"
- *  2. If there is an upload record with status "uploaded" → "uploaded"
- *  3. Everything else              → "pending"
- *
- * This guarantees every slot shows exactly one of the three statuses,
- * even if rec is missing, null, or has an unexpected status value.
- */
 function resolveStatus(field, rec) {
     if (!field.active) return "not_required";
     if (rec && rec.status === "uploaded") return "uploaded";
@@ -255,7 +235,6 @@ const STATUS_CONFIG = {
     },
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
 const PAGE = { OVERVIEW: "overview", OJT: "ojt", HTE: "hte", GUIDELINES: "guidelines" };
 
 function validateFile(file) {
@@ -293,9 +272,6 @@ function StudentDocumentPortalContent(props) {
     async function handleUpload(fieldId, file) {
         var err = validateFile(file);
         if (err) { handleError(err); return; }
-
-        // Google Auth check removed for students - now using system token
-
         setUploadingFieldId(fieldId);
         try {
             await onUpload(student.id, fieldId, file);
@@ -311,12 +287,9 @@ function StudentDocumentPortalContent(props) {
         setToast({ type: "success", msg: 'Document removed successfully.' }); setTimeout(function () { setToast(null); }, 3500);
     }
 
-    // Separate all fields by category — inactive fields are NOT filtered out,
-    // they are passed through and displayed with "Not Required" status.
     var ojtFields = docFields.filter(function (f) { return f.category === "ojt"; }).sort(function (a, b) { return a.order - b.order; });
     var hteFields = docFields.filter(function (f) { return f.category === "hte"; }).sort(function (a, b) { return a.order - b.order; });
 
-    // Active-only subsets are only used for completion counting — NOT for rendering
     var ojtActive = ojtFields.filter(function (f) { return f.active; });
     var hteActive = hteFields.filter(function (f) { return f.active; });
 
@@ -352,7 +325,7 @@ function StudentDocumentPortalContent(props) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Sidebar — collapses to narrow icon rail on desktop, fully hides on mobile
+// Sidebar
 // ─────────────────────────────────────────────────────────────────────────────
 function StudentSidebar(props) {
     const { state, openMobile, isMobile } = useSidebar();
@@ -360,6 +333,9 @@ function StudentSidebar(props) {
     var onNavigate = props.onNavigate;
     var student = props.student;
     var onSignOut = props.onSignOut;
+
+    var cpState = React.useState(false); var showChangePassword = cpState[0]; var setShowChangePassword = cpState[1];
+    var modalState = React.useState(false); var showPasswordModal = modalState[0]; var setShowPasswordModal = modalState[1];
 
     if (isMobile && !openMobile) return null;
     var isCollapsed = !isMobile && state === "collapsed";
@@ -410,22 +386,34 @@ function StudentSidebar(props) {
             <div className={"border-t border-neutral-200 flex-shrink-0 " + (isCollapsed ? "px-2 py-3" : "p-3")}>
                 {isCollapsed ? (
                     <div className="flex flex-col items-center gap-2">
-                        <div title={student.name} className="h-8 w-8 rounded-full bg-primary-500/10 border border-primary-500/20 flex items-center justify-center cursor-default">
+                        <button onClick={function () { setShowPasswordModal(true); }} title="Change Password" className="h-8 w-8 rounded-full bg-primary-500/10 border border-primary-500/20 flex items-center justify-center cursor-pointer hover:bg-primary-500/20 transition-all">
                             <User className="h-4 w-4 text-primary-500" />
-                        </div>
+                        </button>
                         <button onClick={onSignOut} title="Sign Out" className="h-8 w-8 flex items-center justify-center rounded-lg text-destructive-semantic hover:bg-destructive-semantic/10 transition-all cursor-pointer">
                             <LogOut className="h-4 w-4" />
                         </button>
                     </div>
                 ) : (
-                    <div className="space-y-3">
-                        <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3 space-y-2.5">
+                    <div className="space-y-2">
+                        {showChangePassword && (
+                            <button
+                                onClick={function () { setShowPasswordModal(true); setShowChangePassword(false); }}
+                                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-600 bg-primary-500/8 border border-primary-500/20 hover:bg-primary-500/15 hover:border-primary-500/30 transition-all cursor-pointer animate-in fade-in slide-in-from-bottom-2 duration-200"
+                            >
+                                <KeyRound className="h-4 w-4" /><span>Change Password</span>
+                            </button>
+                        )}
+                        <div
+                            onClick={function () { setShowChangePassword(function (p) { return !p; }); }}
+                            className={"bg-neutral-50 border rounded-xl p-3 space-y-2.5 cursor-pointer transition-all " + (showChangePassword ? "border-primary-500/30 bg-primary-500/5 shadow-sm" : "border-neutral-200 hover:border-neutral-300 hover:bg-neutral-100")}
+                        >
                             <div className="flex items-center gap-2.5">
-                                <div className="h-8 w-8 rounded-full bg-primary-500/10 border border-primary-500/20 flex items-center justify-center flex-shrink-0"><User className="h-4 w-4 text-primary-500" /></div>
-                                <div className="min-w-0">
+                                <div className={"h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all " + (showChangePassword ? "bg-primary-500/15 border border-primary-500/30" : "bg-primary-500/10 border border-primary-500/20")}><User className="h-4 w-4 text-primary-500" /></div>
+                                <div className="min-w-0 flex-1">
                                     <p className="text-xs font-bold text-neutral-900 truncate leading-none">{student.name}</p>
                                     <p className="text-[10px] text-neutral-500 mt-0.5 truncate">{student.id}</p>
                                 </div>
+                                <ChevronRight className={"h-3 w-3 text-neutral-400 flex-shrink-0 transition-transform duration-200 " + (showChangePassword ? "rotate-90" : "")} />
                             </div>
                             <div className="space-y-1 text-[10px] text-neutral-500 pl-0.5">
                                 <div className="flex items-center gap-1.5"><Calendar className="h-2.5 w-2.5 text-neutral-400 flex-shrink-0" /><span>{student.year} · {student.semester}</span></div>
@@ -438,6 +426,14 @@ function StudentSidebar(props) {
                     </div>
                 )}
             </div>
+            {/* Change Password Modal — rendered via portal so backdrop covers entire screen */}
+            {showPasswordModal && (
+                <ChangePasswordModal
+                    studentEmail={student.email}
+                    studentName={student.name}
+                    onClose={function () { setShowPasswordModal(false); }}
+                />
+            )}
         </aside>
     );
 }
@@ -447,7 +443,7 @@ function StudentSidebar(props) {
 // ─────────────────────────────────────────────────────────────────────────────
 function OverviewPage(props) {
     var student = props.student;
-    var ojtFields = props.ojtFields;   // ALL ojt fields including inactive
+    var ojtFields = props.ojtFields;
     var ojtActive = props.ojtActive;
     var hteActive = props.hteActive;
     var ojtUploaded = props.ojtUploaded;
@@ -460,14 +456,12 @@ function OverviewPage(props) {
     var isComplete = props.isComplete;
     var onNavigate = props.onNavigate;
 
-    // Pending list only counts active fields that are not yet uploaded
     var pendingOjt = ojtActive.filter(function (f) {
         return resolveStatus(f, student.uploads[f.id]) === "pending";
     });
 
     return (
         <div className="w-full space-y-5">
-            {/* Welcome banner */}
             <div className={"rounded-2xl p-6 flex items-center gap-5 shadow-sm " + (isComplete ? "bg-success/8 border border-success/30" : "bg-gradient-primary")}>
                 <div className={"h-14 w-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm " + (isComplete ? "bg-success/15 border border-success/30" : "bg-white/15 border border-white/20")}>
                     {isComplete ? <CheckCircle2 className="h-7 w-7 text-success" /> : <GraduationCap className="h-7 w-7 text-white" />}
@@ -487,7 +481,6 @@ function OverviewPage(props) {
                 </div>
             </div>
 
-            {/* Stat cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <button onClick={function () { onNavigate(PAGE.OJT); }} className="group text-left bg-white border border-neutral-200 rounded-xl p-5 shadow-sm hover:shadow-md hover:border-primary-500/30 transition-all">
                     <div className="flex items-start justify-between mb-4">
@@ -523,7 +516,6 @@ function OverviewPage(props) {
                 </button>
             </div>
 
-            {/* Pending OJT list */}
             {pendingOjt.length > 0 && (
                 <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm">
                     <div className="px-5 py-4 border-b border-neutral-100 flex items-center justify-between">
@@ -555,7 +547,6 @@ function OverviewPage(props) {
                 </div>
             )}
 
-            {/* Info callout */}
             <div className="bg-primary-500/5 border border-primary-500/20 rounded-xl p-4 flex items-start gap-3">
                 <Info className="h-4 w-4 text-primary-500 mt-0.5 flex-shrink-0" />
                 <div className="text-xs text-neutral-600 leading-relaxed space-y-1">
@@ -570,14 +561,12 @@ function OverviewPage(props) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // OJT Documents Page
-// NOTE: fields = ALL ojt fields (active + inactive). Inactive ones render as
-//       "Not Required" — they are never hidden.
 // ─────────────────────────────────────────────────────────────────────────────
 function OJTPage(props) {
     var student = props.student;
-    var fields = props.fields;   // ALL ojt fields, sorted
+    var fields = props.fields;
     var uploaded = props.uploaded;
-    var total = props.total;    // count of active fields only (for progress)
+    var total = props.total;
     var pct = props.pct;
     var onUpload = props.onUpload;
     var onRemove = props.onRemove;
@@ -587,7 +576,6 @@ function OJTPage(props) {
 
     return (
         <div className="w-full space-y-5">
-            {/* Identity header */}
             <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm flex items-center gap-4">
                 <div className="h-12 w-12 rounded-xl bg-primary-500/10 border border-primary-500/20 flex items-center justify-center flex-shrink-0"><User className="h-6 w-6 text-primary-500" /></div>
                 <div className="flex-1 min-w-0">
@@ -600,7 +588,6 @@ function OJTPage(props) {
                 </div>
             </div>
 
-            {/* Progress bar */}
             <div className="bg-white border border-neutral-200 rounded-xl px-5 py-4 shadow-sm">
                 <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Submission Progress</span>
@@ -611,7 +598,6 @@ function OJTPage(props) {
                 </div>
             </div>
 
-            {/* Info banner */}
             <div className="bg-warning/8 border border-warning/30 rounded-xl p-4 flex items-start gap-3">
                 <AlertTriangle className="h-4 w-4 text-warning mt-0.5 flex-shrink-0" />
                 <p className="text-xs text-neutral-700 leading-relaxed">
@@ -620,7 +606,6 @@ function OJTPage(props) {
                 </p>
             </div>
 
-            {/* Document list — every field rendered with one of three statuses */}
             <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm">
                 <div className="px-5 py-3.5 border-b border-neutral-200 bg-gradient-primary flex items-center justify-between">
                     <h2 className="text-sm font-bold text-white flex items-center gap-2"><FileText className="h-4 w-4" />OJT Trainee Documents</h2>
@@ -629,7 +614,7 @@ function OJTPage(props) {
                 <div className="divide-y divide-neutral-100">
                     {fields.map(function (field, idx) {
                         var rec = student.uploads[field.id];
-                        var status = resolveStatus(field, rec); // always "uploaded" | "pending" | "not_required"
+                        var status = resolveStatus(field, rec);
                         return <OJTDocRow key={field.id} index={idx + 1} field={field} rec={rec} status={status} onUpload={onUpload} onRemove={onRemove} isUploading={uploadingFieldId === field.id} />;
                     })}
                 </div>
@@ -640,22 +625,20 @@ function OJTPage(props) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // OJT Document Row
-// status is always exactly one of: "uploaded" | "pending" | "not_required"
 // ─────────────────────────────────────────────────────────────────────────────
 function OJTDocRow(props) {
     var index = props.index;
     var field = props.field;
     var rec = props.rec;
-    var status = props.status; // guaranteed to be one of the three valid values
+    var status = props.status;
     var onUpload = props.onUpload;
     var onRemove = props.onRemove;
-    var isUploading = props.isUploading;
     var isUploading = props.isUploading;
 
     var fileInputRef = React.useRef(null);
     var exp = React.useState(false); var expanded = exp[0]; var setExpanded = exp[1];
 
-    var cfg = STATUS_CONFIG[status]; // always defined — no fallback needed
+    var cfg = STATUS_CONFIG[status];
     var StatusIcon = cfg.icon;
     var isUploaded = status === "uploaded";
     var isPending = status === "pending";
@@ -666,15 +649,10 @@ function OJTDocRow(props) {
     return (
         <div className={"transition-colors " + (isNotRequired ? "opacity-60 bg-neutral-50/60" : "hover:bg-neutral-50")}>
             <div className="flex items-center gap-3 px-5 py-4">
-                {/* Row number */}
                 <span className="text-xs font-bold text-neutral-300 w-5 text-right flex-shrink-0 tabular-nums">{index}</span>
-
-                {/* Status icon */}
                 <div className={"h-9 w-9 rounded-lg border flex items-center justify-center flex-shrink-0 " + cfg.wrapper}>
                     <StatusIcon className="h-4 w-4" />
                 </div>
-
-                {/* Name + sub-label */}
                 <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-neutral-900 truncate">{field.name}</p>
                     {isUploaded && rec && rec.uploadedAt ? (
@@ -684,24 +662,18 @@ function OJTDocRow(props) {
                     ) : isNotRequired ? (
                         <p className="text-xs text-neutral-400 mt-0.5">Deactivated by coordinator — not counted toward completion</p>
                     ) : (
-                        /* isPending */
                         <p className="text-xs text-neutral-400 mt-0.5">PDF, DOCX, JPG, PNG · max 10 MB</p>
                     )}
                 </div>
-
-                {/* Status badge — always visible */}
                 <span className={"text-xs px-2.5 py-1 rounded-full border font-semibold flex-shrink-0 " + cfg.badge}>
                     {cfg.text}
                 </span>
-
-                {/* Actions */}
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                     {isUploaded && (
                         <button title={expanded ? "Hide details" : "View details"} onClick={function () { setExpanded(function (p) { return !p; }); }} className={btnIconGhost}>
                             <Eye className="h-3.5 w-3.5" />
                         </button>
                     )}
-                    {/* Upload / Replace only available on active fields (uploaded or pending) */}
                     {!isNotRequired && (
                         <React.Fragment>
                             <input ref={fileInputRef} type="file" accept={ACCEPTED_EXTENSIONS.join(",")} onChange={handleFileChange} className="hidden" />
@@ -718,8 +690,6 @@ function OJTDocRow(props) {
                     )}
                 </div>
             </div>
-
-            {/* Expanded file details */}
             {expanded && isUploaded && rec && (
                 <div className="mx-5 mb-4 p-4 bg-neutral-50 border border-neutral-200 rounded-xl">
                     <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-3">File Details</p>
@@ -737,8 +707,6 @@ function OJTDocRow(props) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HTE Documents Page
-// NOTE: fields = ALL hte fields. Inactive ones render as "Not Required".
-// Students can upload to active HTE slots just like OJT slots.
 // ─────────────────────────────────────────────────────────────────────────────
 function HTEPage(props) {
     var student = props.student;
@@ -784,7 +752,6 @@ function HTEPage(props) {
                 </p>
             </div>
 
-            {/* Document list — every field rendered with one of three statuses */}
             <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm">
                 <div className="px-5 py-3.5 border-b border-neutral-200 bg-neutral-800 flex items-center justify-between">
                     <h2 className="text-sm font-bold text-white flex items-center gap-2"><Building2 className="h-4 w-4" />HTE Documents</h2>
@@ -802,7 +769,9 @@ function HTEPage(props) {
     );
 }
 
-// Mirrors OJTDocRow — students can upload/replace active HTE slots
+// ─────────────────────────────────────────────────────────────────────────────
+// HTE Document Row
+// ─────────────────────────────────────────────────────────────────────────────
 function HTEDocRow(props) {
     var index = props.index;
     var field = props.field;
@@ -919,6 +888,250 @@ function GuidelinesPage() {
                 );
             })}
         </div>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Change Password Modal — uses React Portal so backdrop covers entire screen
+// including the sticky header
+// ─────────────────────────────────────────────────────────────────────────────
+function ChangePasswordModal(props) {
+    var studentEmail = props.studentEmail;
+    var studentName = props.studentName;
+    var onClose = props.onClose;
+
+    var stepState = React.useState("otp"); var step = stepState[0]; var setStep = stepState[1];
+    var otpState = React.useState(""); var otp = otpState[0]; var setOtp = otpState[1];
+    var passwordState = React.useState(""); var password = passwordState[0]; var setPassword = passwordState[1];
+    var confirmState = React.useState(""); var confirmPassword = confirmState[0]; var setConfirmPassword = confirmState[1];
+    var loadingState = React.useState(false); var loading = loadingState[0]; var setLoading = loadingState[1];
+    var errorState = React.useState(""); var error = errorState[0]; var setError = errorState[1];
+    var successState = React.useState(""); var success = successState[0]; var setSuccess = successState[1];
+    var otpSentState = React.useState(false); var otpSent = otpSentState[0]; var setOtpSent = otpSentState[1];
+    var showPwState = React.useState(false); var showPw = showPwState[0]; var setShowPw = showPwState[1];
+    var showCpwState = React.useState(false); var showCpw = showCpwState[0]; var setShowCpw = showCpwState[1];
+    var cooldownState = React.useState(0); var cooldown = cooldownState[0]; var setCooldown = cooldownState[1];
+
+    React.useEffect(function () {
+        if (cooldown <= 0) return;
+        var timer = setTimeout(function () { setCooldown(function (c) { return c - 1; }); }, 1000);
+        return function () { clearTimeout(timer); };
+    }, [cooldown]);
+
+    async function handleSendOtp() {
+        setLoading(true);
+        setError("");
+        try {
+            var res = await supabase.functions.invoke("send-student-otp", {
+                body: { student_email: studentEmail, student_name: studentName }
+            });
+            if (res.error) throw new Error(res.error.message || "Failed to send OTP");
+            if (res.data && res.data.error) throw new Error(res.data.error);
+            setOtpSent(true);
+            setCooldown(60);
+            setSuccess("OTP sent to " + studentEmail);
+            setTimeout(function () { setSuccess(""); }, 3000);
+        } catch (err) {
+            setError(err.message || "Failed to send OTP. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function handleVerifyOtp() {
+        if (!otp || otp.length !== 6) { setError("Please enter a valid 6-digit OTP."); return; }
+        setLoading(true);
+        setError("");
+        try {
+            var res = await supabase.functions.invoke("update-student-password", {
+                body: { student_email: studentEmail, otp: otp }
+            });
+            if (res.error) throw new Error(res.error.message || "Failed to verify OTP");
+            if (res.data && res.data.error) throw new Error(res.data.error);
+            setStep("password");
+        } catch (err) {
+            setError(err.message || "Invalid or expired OTP.");
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function handleSavePassword() {
+        if (!password || password.length < 6) { setError("Password must be at least 6 characters."); return; }
+        if (password !== confirmPassword) { setError("Passwords do not match."); return; }
+        setLoading(true);
+        setError("");
+        try {
+            var res = await supabase.functions.invoke("update-student-password", {
+                body: { student_email: studentEmail, otp: otp, new_password: password }
+            });
+            if (res.error) throw new Error(res.error.message || "Failed to update password");
+            if (res.data && res.data.error) throw new Error(res.data.error);
+            setStep("done");
+            setSuccess("Password changed successfully!");
+        } catch (err) {
+            setError(err.message || "Failed to update password.");
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    function handleOtpInput(e) {
+        var val = e.target.value.replace(/[^0-9]/g, "").slice(0, 6);
+        setOtp(val);
+    }
+
+    return createPortal(
+        <div className="fixed inset-0 z-[200] flex items-center justify-center" onClick={function (e) { if (e.target === e.currentTarget && step !== "done") onClose(); }}>
+            {/* Backdrop — covers everything including sticky header */}
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+            {/* Modal */}
+            <div className="relative bg-white rounded-2xl shadow-2xl border border-neutral-200 w-full max-w-md mx-4 overflow-hidden">
+                {/* Header */}
+                <div className="bg-gradient-primary px-6 py-5 flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center flex-shrink-0">
+                        <Shield className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <h2 className="text-base font-bold text-white">Change Password</h2>
+                        <p className="text-xs text-white/70 mt-0.5">
+                            {step === "otp" ? "Verify your identity with OTP" : step === "password" ? "Set your new password" : "All done!"}
+                        </p>
+                    </div>
+                    <button onClick={onClose} className="h-8 w-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all cursor-pointer">
+                        <X className="h-4 w-4 text-white" />
+                    </button>
+                </div>
+
+                {/* Step indicators */}
+                <div className="px-6 pt-4 pb-2 flex items-center gap-2">
+                    <div className={"flex items-center gap-1.5 text-xs font-semibold " + (step === "otp" ? "text-primary-600" : "text-success")}>
+                        <div className={"h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold " + (step === "otp" ? "bg-primary-500 text-white" : "bg-success text-white")}>
+                            {step === "otp" ? "1" : "✓"}
+                        </div>
+                        <span>Verify</span>
+                    </div>
+                    <div className={"flex-1 h-px " + (step !== "otp" ? "bg-success" : "bg-neutral-200")} />
+                    <div className={"flex items-center gap-1.5 text-xs font-semibold " + (step === "password" ? "text-primary-600" : step === "done" ? "text-success" : "text-neutral-400")}>
+                        <div className={"h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold " + (step === "password" ? "bg-primary-500 text-white" : step === "done" ? "bg-success text-white" : "bg-neutral-200 text-neutral-500")}>
+                            {step === "done" ? "✓" : "2"}
+                        </div>
+                        <span>Reset</span>
+                    </div>
+                </div>
+
+                {/* Content */}
+                <div className="px-6 py-4 space-y-4">
+                    {error && (
+                        <div className="flex items-start gap-2.5 p-3 bg-red-50 border border-red-200 rounded-xl">
+                            <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+                            <p className="text-xs text-red-700 leading-relaxed">{error}</p>
+                        </div>
+                    )}
+                    {success && (
+                        <div className="flex items-start gap-2.5 p-3 bg-green-50 border border-green-200 rounded-xl">
+                            <CheckCircle2 className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
+                            <p className="text-xs text-green-700 leading-relaxed">{success}</p>
+                        </div>
+                    )}
+
+                    {step === "otp" && (
+                        <React.Fragment>
+                            <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3">
+                                <div className="flex items-center gap-2 text-xs text-neutral-600">
+                                    <Mail className="h-3.5 w-3.5 text-neutral-400 flex-shrink-0" />
+                                    <span>OTP will be sent to: <strong className="text-neutral-900">{studentEmail}</strong></span>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-neutral-700 mb-1.5">Enter OTP Code</label>
+                                <input
+                                    type="text"
+                                    value={otp}
+                                    onChange={handleOtpInput}
+                                    placeholder="Enter 6-digit code"
+                                    maxLength={6}
+                                    className="w-full h-11 px-4 text-center text-lg font-bold tracking-[0.5em] rounded-xl border border-neutral-300 bg-white text-neutral-900 placeholder:text-neutral-400 placeholder:text-sm placeholder:tracking-normal outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
+                                    disabled={loading}
+                                    autoFocus
+                                />
+                            </div>
+                            <div className="flex gap-2">
+                                <button onClick={handleSendOtp} disabled={loading || cooldown > 0} className={btnSmDefault + " flex-1 h-10 !text-sm"}>
+                                    {loading && !otpSent ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                                    <span>{cooldown > 0 ? "Resend in " + cooldown + "s" : otpSent ? "Resend OTP" : "Send OTP"}</span>
+                                </button>
+                                <button onClick={handleVerifyOtp} disabled={loading || otp.length !== 6} className={btnSmDefault + " flex-1 h-10 !text-sm !bg-neutral-800 !border-neutral-900 hover:!bg-neutral-700"}>
+                                    {loading && otpSent ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
+                                    <span>Submit</span>
+                                </button>
+                            </div>
+                        </React.Fragment>
+                    )}
+
+                    {step === "password" && (
+                        <React.Fragment>
+                            <div>
+                                <label className="block text-xs font-semibold text-neutral-700 mb-1.5">New Password</label>
+                                <div className="relative">
+                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+                                    <input
+                                        type={showPw ? "text" : "password"}
+                                        value={password}
+                                        onChange={function (e) { setPassword(e.target.value); }}
+                                        placeholder="Min. 6 characters"
+                                        className="w-full h-11 pl-10 pr-10 rounded-xl border border-neutral-300 bg-white text-sm text-neutral-900 placeholder:text-neutral-400 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
+                                        disabled={loading}
+                                        autoFocus
+                                    />
+                                    <button type="button" onClick={function () { setShowPw(function (p) { return !p; }); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 cursor-pointer">
+                                        {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-neutral-700 mb-1.5">Confirm Password</label>
+                                <div className="relative">
+                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+                                    <input
+                                        type={showCpw ? "text" : "password"}
+                                        value={confirmPassword}
+                                        onChange={function (e) { setConfirmPassword(e.target.value); }}
+                                        placeholder="Re-enter password"
+                                        className="w-full h-11 pl-10 pr-10 rounded-xl border border-neutral-300 bg-white text-sm text-neutral-900 placeholder:text-neutral-400 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
+                                        disabled={loading}
+                                    />
+                                    <button type="button" onClick={function () { setShowCpw(function (p) { return !p; }); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 cursor-pointer">
+                                        {showCpw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </button>
+                                </div>
+                            </div>
+                            {password && confirmPassword && password !== confirmPassword && (
+                                <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Passwords do not match</p>
+                            )}
+                            <button onClick={handleSavePassword} disabled={loading || !password || !confirmPassword || password !== confirmPassword} className={btnSmDefault + " w-full h-10 !text-sm"}>
+                                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                                <span>Save New Password</span>
+                            </button>
+                        </React.Fragment>
+                    )}
+
+                    {step === "done" && (
+                        <div className="text-center py-4">
+                            <div className="h-16 w-16 rounded-2xl bg-success/10 border border-success/20 flex items-center justify-center mx-auto mb-4">
+                                <CheckCircle2 className="h-8 w-8 text-success" />
+                            </div>
+                            <h3 className="text-base font-bold text-neutral-900 mb-1">Password Changed!</h3>
+                            <p className="text-sm text-neutral-500 mb-5">Your password has been updated successfully. Use your new password next time you log in.</p>
+                            <button onClick={onClose} className={btnSmDefault + " h-10 !text-sm px-8"}>
+                                <span>Done</span>
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>,
+        document.body
     );
 }
 

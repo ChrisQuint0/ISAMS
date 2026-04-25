@@ -2,23 +2,24 @@ import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { supabase } from "@/lib/supabaseClient";
-import { ShieldX, Mail, RefreshCw, Lock } from "lucide-react";
+import { ShieldX, Mail, CheckCircle, Lock } from "lucide-react";
 
 // Inactive Account Screen
 function InactiveAccountScreen({ email }) {
     return (
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 relative overflow-hidden">
+        <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-6 relative overflow-hidden">
 
-            {/* Background */}
-            <div className="absolute inset-0 overflow-hidden">
-                <div className="absolute top-1/4 -left-48 w-96 h-96 bg-red-500/20 rounded-full blur-3xl animate-pulse" />
+            {/* Background Decor - Replicating LoginPage layout with Red (Destructive) theme */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                {/* Top-left glow */}
                 <div
-                    className="absolute bottom-1/4 -right-48 w-96 h-96 bg-rose-500/20 rounded-full blur-3xl animate-pulse"
-                    style={{ animationDelay: "1s" }}
+                    className="absolute -top-[10%] -left-[10%] w-[50%] h-[50%] rounded-full blur-[120px] animate-pulse opacity-20"
+                    style={{ background: 'var(--destructive)' }}
                 />
+                {/* Bottom-right glow */}
                 <div
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-orange-500/10 rounded-full blur-3xl animate-pulse"
-                    style={{ animationDelay: "2s" }}
+                    className="absolute -bottom-[10%] -right-[10%] w-[50%] h-[50%] rounded-full blur-[120px] animate-pulse opacity-20"
+                    style={{ background: 'var(--destructive)', animationDelay: "1s" }}
                 />
             </div>
 
@@ -26,65 +27,71 @@ function InactiveAccountScreen({ email }) {
 
                 {/* Icon cluster */}
                 <div className="relative">
-                    {/* Outer ring */}
-                    <div className="w-28 h-28 rounded-full border border-red-900/50 bg-red-950/20
+                    {/* Outer ring - Neutral 200 */}
+                    <div className="w-28 h-28 rounded-full border border-neutral-200 bg-white shadow-sm
                         flex items-center justify-center">
-                        {/* Inner ring */}
-                        <div className="w-20 h-20 rounded-full border border-red-800/60 bg-red-950/30
+                        {/* Inner ring - Neutral 100 */}
+                        <div className="w-20 h-20 rounded-full border border-neutral-200 bg-neutral-100
                             flex items-center justify-center">
-                            <ShieldX className="w-9 h-9 text-red-400" strokeWidth={1.5} />
+                            {/* Icon - Destructive */}
+                            <ShieldX className="w-9 h-9 text-destructive" strokeWidth={1.5} />
                         </div>
                     </div>
-                    {/* Lock badge */}
+                    {/* Lock badge - Neutral 900 with Destructive icon */}
                     <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full
-                        bg-slate-900 border border-red-900/60
+                        bg-neutral-900 border-2 border-white shadow-sm
                         flex items-center justify-center">
-                        <Lock className="w-3.5 h-3.5 text-red-500" />
+                        <Lock className="w-3.5 h-3.5 text-destructive" />
                     </div>
                 </div>
 
                 {/* Text */}
                 <div className="space-y-3">
+                    {/* Badge using Destructive to signify suspended state */}
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full
-                        bg-red-500/10 border border-red-900/50 text-red-400 text-xs font-semibold tracking-widest uppercase">
-                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+                        bg-destructive/10 border border-destructive/30 text-destructive text-[10px] font-bold tracking-widest uppercase">
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-destructive animate-pulse" />
                         Account Suspended
                     </div>
 
-                    <h1 className="text-2xl font-bold text-slate-100 mt-2">
+                    <h1 className="text-2xl font-bold text-neutral-900 mt-2">
                         Your account is currently inactive
                     </h1>
 
-                    <p className="text-slate-400 text-sm leading-relaxed">
+                    <p className="text-neutral-500 text-sm leading-relaxed px-4">
                         Access to the Faculty Submission Module has been suspended for your account.
-                        If you believe this is a mistake, please reach out to your system administrator.
+                        Please reach out to your system administrator for assistance.
                     </p>
                 </div>
 
-                {/* Info card */}
-                <div className="w-full rounded-xl border border-slate-800 bg-slate-900/60 p-4
-                    backdrop-blur-sm divide-y divide-slate-800 text-left">
+                {/* Info card - Institutional Style */}
+                <div className="w-full rounded-xl border border-neutral-200 bg-white p-4 shadow-sm
+                    divide-y divide-neutral-200 text-left">
                     <div className="pb-3 flex items-start gap-3">
-                        <Mail className="w-4 h-4 text-slate-500 mt-0.5 shrink-0" />
+                        <div className="w-8 h-8 rounded-lg bg-neutral-100 flex items-center justify-center shrink-0">
+                            <Mail className="w-4 h-4 text-neutral-500" />
+                        </div>
                         <div>
-                            <p className="text-xs text-slate-500 uppercase tracking-wider font-medium">Affected Account</p>
-                            <p className="text-sm text-slate-200 font-mono mt-0.5">{email || "—"}</p>
+                            <p className="text-[10px] text-neutral-500 uppercase tracking-wider font-bold">Affected Account</p>
+                            <p className="text-sm text-neutral-900 font-medium mt-0.5">{email || "—"}</p>
                         </div>
                     </div>
                     <div className="pt-3 flex items-start gap-3">
-                        <RefreshCw className="w-4 h-4 text-slate-500 mt-0.5 shrink-0" />
+                        <div className="w-8 h-8 rounded-lg bg-neutral-100 flex items-center justify-center shrink-0">
+                            <CheckCircle className="w-4 h-4 text-neutral-500" />
+                        </div>
                         <div>
-                            <p className="text-xs text-slate-500 uppercase tracking-wider font-medium">What to do</p>
-                            <p className="text-sm text-slate-300 mt-0.5 leading-relaxed">
-                                Contact your CCS Admin and provide your employee ID so they can reactivate your account in System Settings.
+                            <p className="text-[10px] text-neutral-500 uppercase tracking-wider font-bold">What to do</p>
+                            <p className="text-sm text-neutral-900 mt-0.5 leading-relaxed">
+                                Provide your employee ID to the Admin to reactivate your account in System Settings.
                             </p>
                         </div>
                     </div>
                 </div>
 
                 {/* Footer note */}
-                <p className="text-xs text-slate-600">
-                    ISAMS · College of Computer Studies · Faculty Submission Module
+                <p className="text-[10px] text-neutral-400 font-medium tracking-wide uppercase">
+                    ISAMS · Faculty Submission Module
                 </p>
             </div>
         </div>
@@ -138,8 +145,9 @@ export default function FacultyModuleGuard() {
     // Invisible loading state
     if (loading) {
         return (
-            <div className="bg-slate-950 h-screen w-screen"
-                style={{ backgroundColor: "#020617" }} />
+            <div className="bg-neutral-50 h-screen w-screen flex items-center justify-center">
+                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
         );
     }
 

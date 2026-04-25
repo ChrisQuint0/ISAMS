@@ -8,6 +8,13 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Wrench } from "lucide-react";
 
+// GSDS Color Tokens
+const GSDS_COLORS = {
+    primary500: '#008A45',
+    gold400: '#FFD700',
+    warning: '#f59e0b'
+};
+
 export default function BulkMaintenanceModal({ isOpen, onClose, onConfirm, pcCount }) {
     const [note, setNote] = useState("");
 
@@ -23,23 +30,23 @@ export default function BulkMaintenanceModal({ isOpen, onClose, onConfirm, pcCou
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="bg-slate-900 border-slate-800 text-slate-100 sm:max-w-md">
+            <DialogContent className="bg-neutral-50 border-neutral-200 text-neutral-900 sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-amber-500">
+                    <DialogTitle className="flex items-center gap-2" style={{ color: GSDS_COLORS.warning }}>
                         <Wrench size={18} /> Bulk Flag for Maintenance
                     </DialogTitle>
-                    <DialogDescription className="text-slate-400">
-                        You are about to flag <strong className="text-slate-200">{pcCount} {pcCount === 1 ? 'station' : 'stations'}</strong> for maintenance. Please provide a reason for the audit trail.
+                    <DialogDescription className="text-neutral-500">
+                        You are about to flag <strong className="text-neutral-900">{pcCount} {pcCount === 1 ? 'station' : 'stations'}</strong> for maintenance. Please provide a reason for the audit trail.
                     </DialogDescription>
                 </DialogHeader>
                 
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                        <Label className="text-slate-300">Maintenance Note / Issue</Label>
+                        <Label className="text-neutral-700">Maintenance Note / Issue</Label>
                         <Input 
                             value={note} 
                             onChange={(e) => setNote(e.target.value)} 
-                            className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" 
+                            className="bg-neutral-50 border-neutral-200 text-neutral-900 placeholder:text-neutral-500" 
                             placeholder="e.g. Network offline, Power issues..." 
                             autoFocus
                             onKeyDown={(e) => e.key === 'Enter' && note.trim() && handleSubmit()}
@@ -50,15 +57,18 @@ export default function BulkMaintenanceModal({ isOpen, onClose, onConfirm, pcCou
                 <DialogFooter className="gap-3 mt-2">
                     <Button 
                         variant="outline" 
-                        onClick={onClose} 
-                        className="bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white"
+                        onClick={onClose}
                     >
                         Cancel
                     </Button>
                     <Button 
                         onClick={handleSubmit} 
                         disabled={!note.trim()}
-                        className="bg-amber-600 hover:bg-amber-700 text-white font-bold"
+                        className="font-bold text-white"
+                        style={{
+                            backgroundColor: note.trim() ? GSDS_COLORS.gold400 : '#d1d5db',
+                            color: note.trim() ? '#1a1a1a' : '#6b7280'
+                        }}
                     >
                         Confirm Flag
                     </Button>

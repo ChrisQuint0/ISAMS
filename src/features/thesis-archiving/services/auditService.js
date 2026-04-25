@@ -2,6 +2,38 @@ import { supabase } from "@/lib/supabaseClient";
 
 export const auditService = {
     /**
+     * Record a Login event for a thesis archiving user.
+     * Called only after confirming the user has the `thesis` RBAC flag.
+     * @param {{ userId: string, actorName: string }} param0
+     */
+    async logLogin({ userId, actorName }) {
+        try {
+            const userAgent = navigator.userAgent;
+            const { error } = await supabase
+                .from("ta_audit_logs")
+                .insert([{
+                    actor_user_id: userId,
+                    actor_name: actorName,
+                    action: "Login",
+                    description: `${actorName} logged in to Thesis Archiving`,
+                    module_affected: "Thesis Archiving",
+                    record_id: null,
+                    record_type: null,
+                    old_values: null,
+                    new_values: null,
+                    ip_address: null,
+                    user_agent: userAgent,
+                }]);
+
+            if (error) {
+                console.error("[AuditService] Failed to log login:", error);
+            }
+        } catch (err) {
+            console.error("[AuditService] Unexpected error logging login:", err);
+        }
+    },
+
+    /**
      * Fetch activity logs from the vw_audit_trail view
      * @param {Object} filters - Search and filter parameters
      */

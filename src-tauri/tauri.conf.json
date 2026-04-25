@@ -12,13 +12,26 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "ISAMS - Integrated Smart Academic Management System",
         "width": 1000,
         "height": 800,
+        "visible": false,
         "dragDropEnabled": true,
         "resizable": true,
         "fullscreen": false,
         "decorations": false
+      },
+      {
+        "label": "splashscreen",
+        "title": "ISAMS Loading...",
+        "url": "splashscreen.html",
+        "width": 450,
+        "height": 350,
+        "center": true,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true
       }
     ],
     "security": {

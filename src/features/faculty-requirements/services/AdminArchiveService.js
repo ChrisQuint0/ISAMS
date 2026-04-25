@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabaseClient';
+import { openUrl } from '@/lib/openUrl';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 
@@ -39,14 +40,14 @@ export const archiveService = {
   downloadFile: async (doc) => {
     // If we have a direct web view link from Google, use it
     if (doc.gdrive_web_view_link || doc.gdrive_download_link) {
-      window.open(doc.gdrive_download_link || doc.gdrive_web_view_link, '_blank');
+      await openUrl(doc.gdrive_download_link || doc.gdrive_web_view_link);
       return { success: true, message: 'Opening Google Drive...' };
     }
 
     // Fallback: Construct link using ID
     if (doc.gdrive_file_id) {
       const url = `https://drive.google.com/uc?export=download&id=${doc.gdrive_file_id}`;
-      window.open(url, '_blank');
+      await openUrl(url);
       return { success: true, message: 'Opening download link...' };
     }
 
@@ -57,15 +58,17 @@ export const archiveService = {
    * Helper to fetch dropdown options
    */
   getOptions: async () => {
-    const [types, courses, faculty] = await Promise.all([
+    const [types, courses, faculty, semesterPeriods, systemSettings] = await Promise.all([
       supabase.from('documenttypes_fs').select('type_name'),
       supabase.from('courses_fs').select('semester, academic_year, course_code, section, faculty_id'),
-      supabase.from('faculty_fs').select('faculty_id, first_name, last_name').neq('role', 'ADMIN')
+      supabase.from('faculty_fs').select('faculty_id, first_name, last_name').neq('role', 'ADMIN'),
+      // Fetch all historical + active periods from semester management
+      supabase.from('semester_history_fs').select('academic_year, semester, status').order('created_at', { ascending: false }),
+      // Fetch the current active semester from system settings
+      supabase.from('systemsettings_fs').select('setting_key, setting_value').in('setting_key', ['current_semester', 'current_academic_year'])
     ]);
 
     const uniqueTypes = types.data?.map(t => t.type_name) || [];
-    const uniqueSemesters = [...new Set(courses.data?.map(c => c.semester))].filter(Boolean);
-    const uniqueYears = [...new Set(courses.data?.map(c => c.academic_year))].filter(Boolean);
     
     // We will now return the full raw courses array so the frontend can filter by faculty_id
     const rawCourses = courses.data || [];
@@ -80,13 +83,45 @@ export const archiveService = {
       name: `${f.first_name} ${f.last_name}`
     })).sort((a,b) => a.name.localeCompare(b.name));
 
+    // Build current semester object from system settings
+    const settingsMap = {};
+    (systemSettings.data || []).forEach(s => { settingsMap[s.setting_key] = s.setting_value; });
+    const currentSemester = settingsMap['current_semester'];
+    const currentAcademicYear = settingsMap['current_academic_year'];
+
+    // Build semester periods: combine semester_history (past) + current active from systemsettings
+    const historicalPeriods = (semesterPeriods.data || []).map(p => ({
+      academic_year: p.academic_year,
+      semester: p.semester,
+      status: p.status === 'COMPLETED' ? 'Completed' : 'Active'
+    }));
+
+    // If current active semester isn't already in history, add it at the top
+    const isCurrentInHistory = historicalPeriods.some(
+      p => p.academic_year === currentAcademicYear && p.semester === currentSemester
+    );
+    if (currentSemester && currentAcademicYear && !isCurrentInHistory) {
+      historicalPeriods.unshift({
+        academic_year: currentAcademicYear,
+        semester: currentSemester,
+        status: 'Active'
+      });
+    }
+
+    // Unique semesters and years from all periods
+    const uniqueSemesters = [...new Set(historicalPeriods.map(p => p.semester))].filter(Boolean);
+    const uniqueYears = [...new Set(historicalPeriods.map(p => p.academic_year))].filter(Boolean);
+
     return {
       types: uniqueTypes,
-      semesters: uniqueSemesters.length ? uniqueSemesters : [],
-      years: uniqueYears.length ? uniqueYears : [],
+      semesters: uniqueSemesters,
+      years: uniqueYears,
+      semesterPeriods: historicalPeriods, // for rich dropdowns with status labels
+      currentSemester,
+      currentAcademicYear,
       courses: uniqueCourses,
       sections: uniqueSections,
-      rawCourses: rawCourses, // <--- Send raw data to frontend for dynamic filtering
+      rawCourses: rawCourses,
       faculties: facultiesList
     };
   },
@@ -107,35 +142,42 @@ export const archiveService = {
       });
 
       if (error) throw error;
-      if (!files || files.length === 0) return { success: false, message: 'No files found to export.' };
+      // 2. Prepare payload for Node backend to bypass CORS
+      const payloadFiles = files.map(file => {
+        // SQL function gives us original_filename, document_type, course_code, section, faculty_name, gdrive_download_link
+        const docType = file.document_type || 'Uncategorized';
+        const filename = file.original_filename || 'Unknown_File';
+        const facultyFolder = file.faculty_name ? file.faculty_name.replace(/[\/\\:*?"<>|]/g, '').trim() : 'Unknown_Faculty';
+        const courseFolder = `${file.course_code || 'Course'} - ${file.section || 'Sec'}`.replace(/[\/\\:*?"<>|]/g, '').trim();
+        
+        // Extract ID for the backend
+        const fileIdMatch = file.gdrive_download_link?.match(/id=([^&]+)/) || file.gdrive_download_link?.match(/\/d\/([a-zA-Z0-9-_]+)/);
 
-      const zip = new JSZip();
-      const folder = zip.folder(`Archive_${new Date().toISOString().slice(0, 10)}`);
-
-      let processed = 0;
-      const total = files.length;
-
-      // 2. Download each file
-      // Note: This relies on the file URL being accessible via fetch (CORS).
-      // If GDrive links block CORS, this step will fail.
-      const downloadPromises = files.map(async (file) => {
-        try {
-          const response = await fetch(file.download_link);
-          if (!response.ok) throw new Error('Network response was not ok');
-          const blob = await response.blob();
-          folder.file(file.filename, blob);
-          processed++;
-          if (onProgress) onProgress(Math.round((processed / total) * 100));
-        } catch (err) {
-          console.warn(`Failed to download ${file.filename}:`, err);
-          folder.file(`${file.filename}.txt`, `Failed to download. Link: ${file.download_link}`);
-        }
+        return {
+          folder: `${facultyFolder}/${courseFolder}/${docType}`,
+          filename: filename,
+          fileId: fileIdMatch ? fileIdMatch[1] : null,
+          fallbackLink: file.gdrive_download_link
+        };
       });
 
-      await Promise.all(downloadPromises);
+      if (payloadFiles.length === 0) {
+        return { success: false, message: 'No downloadable files found.' };
+      }
 
-      // 3. Generate ZIP
-      const content = await zip.generateAsync({ type: "blob" });
+      // 3. Request ZIP from Node Backend
+      const response = await fetch('http://localhost:3002/api/faculty/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ courseId: 'Admin_Bulk', files: payloadFiles })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Export failed on server. Ensure the Node backend (port 3002) is running.');
+      }
+
+      const content = await response.blob();
       
       const safeSem = config.semester === 'All Semesters' ? 'AllSem' : config.semester;
       const safeAY = config.academic_year === 'All Years' ? 'AllAY' : config.academic_year;
@@ -150,13 +192,13 @@ export const archiveService = {
       saveAs(content, filename);
 
       // Log to database asynchronously (don't block the user return)
-      archiveService.logExport(filename, config.semester, config.academic_year);
+      archiveService.logExport(filename, config.semester, config.academic_year, 'ZIP_ARCHIVE_EXPORT', config);
 
-      return { success: true, message: `Successfully exported ${processed} files.` };
+      return { success: true, message: `Successfully exported archive.` };
 
     } catch (err) {
       console.error("ZIP Export Failed:", err);
-      return { success: false, message: err.message || "Export failed." };
+      return { success: false, message: err.message || "Export failed. Please ensure the backend server is running." };
     }
   },
 
@@ -177,13 +219,14 @@ export const archiveService = {
   /**
    * Log a new Export Action
    */
-  logExport: async (reportName, semester, year, type = 'ZIP_ARCHIVE_EXPORT') => {
+  logExport: async (reportName, semester, year, type = 'ZIP_ARCHIVE_EXPORT', config = null) => {
     try {
       const { error } = await supabase.rpc('log_report_export_fs', {
         p_report_name: reportName,
         p_report_type: type,
         p_semester: semester || 'All',
-        p_academic_year: year || 'All'
+        p_academic_year: year || 'All',
+        p_export_config: config ? config : null
       });
       if (error) console.error('Failed to log export:', error);
     } catch (err) {

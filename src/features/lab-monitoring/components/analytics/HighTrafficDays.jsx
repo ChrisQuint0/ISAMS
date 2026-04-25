@@ -2,9 +2,9 @@ import React, { useMemo } from "react";
 import { TrendingUp, AlertTriangle } from "lucide-react";
 
 const levelConfig = {
-    critical: { bg: "bg-rose-500/10", text: "text-rose-400", border: "border-rose-500/20", dot: "bg-rose-500" },
-    high: { bg: "bg-amber-500/10", text: "text-amber-400", border: "border-amber-500/20", dot: "bg-amber-500" },
-    moderate: { bg: "bg-sky-500/10", text: "text-sky-400", border: "border-sky-500/20", dot: "bg-sky-500" },
+    critical: { bg: "bg-destructive-semantic/10", text: "text-destructive-semantic", border: "border-destructive-semantic/20", dot: "bg-destructive-semantic" },
+    high: { bg: "bg-warning/10", text: "text-warning", border: "border-warning/20", dot: "bg-warning" },
+    moderate: { bg: "bg-primary-500/10", text: "text-primary-600", border: "border-primary-500/20", dot: "bg-primary-500" },
 };
 
 export default function HighTrafficDays({ rawLogs = [] }) {
@@ -95,7 +95,7 @@ export default function HighTrafficDays({ rawLogs = [] }) {
 
     if (!predictions.length) {
         return (
-            <div className="w-full h-[200px] flex items-center justify-center text-slate-500 font-mono text-xs uppercase tracking-widest border border-dashed border-slate-800 rounded-lg">
+            <div className="w-full h-[200px] flex items-center justify-center text-neutral-500 font-mono text-xs uppercase tracking-widest border border-dashed border-neutral-200 rounded-lg">
                 Not enough historical data
             </div>
         );
@@ -106,20 +106,20 @@ export default function HighTrafficDays({ rawLogs = [] }) {
             {predictions.map((p, i) => {
                 const cfg = levelConfig[p.level];
                 return (
-                    <div key={i} className="flex items-center gap-3 p-3 bg-[#020617] border border-[#1e293b] rounded-lg hover:border-slate-600 transition-colors">
+                    <div key={i} className="flex items-center gap-3 p-3 bg-neutral-50 border border-neutral-200 rounded-lg hover:border-neutral-300 transition-colors">
                         <div className={`w-2 h-2 rounded-full ${cfg.dot} shrink-0`} />
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold text-slate-100">{p.day}, {p.date}</span>
+                                <span className="text-xs font-bold text-neutral-900">{p.day}, {p.date}</span>
                                 <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
                                     {p.level}
                                 </span>
                             </div>
-                            <p className="text-[10px] text-slate-500 truncate mt-0.5">{p.reason}</p>
+                            <p className="text-[10px] text-neutral-600 truncate mt-0.5">{p.reason}</p>
                         </div>
                         <div className="text-right shrink-0">
-                            <span className="text-sm font-bold text-white">{p.students}</span>
-                            <p className="text-[9px] text-slate-600 uppercase">predicted</p>
+                            <span className="text-sm font-bold text-neutral-900">{p.students}</span>
+                            <p className="text-[9px] text-neutral-500 uppercase">predicted</p>
                         </div>
                     </div>
                 );

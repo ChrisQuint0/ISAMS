@@ -122,12 +122,38 @@ export const ensureFolderStructure = async (rootFolderId, meta = {}) => {
 };
 
 /**
+ * Rename all Google Drive folders matching oldFolderName to newFolderName.
+ * Calls the submission backend's /api/folders/rename endpoint which searches the
+ * entire Drive (scoped to the authenticated account) and bulk-renames matching folders.
+ *
+ * @param {string} rootFolderId - The admin-configured root GDrive folder ID (for scoping)
+ * @param {string} oldFolderName - The current folder name to find
+ * @param {string} newFolderName - The new name to apply
+ * @returns {Promise<{ renamed: number, total: number, message: string }>}
+ */
+export const renameGDriveFolders = async (rootFolderId, oldFolderName, newFolderName) => {
+    const res = await fetch(`${API_BASE}/api/folders/rename`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rootFolderId, oldFolderName, newFolderName }),
+    });
+
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to rename GDrive folders' }));
+        throw new Error(err.error || 'Failed to rename Google Drive folders');
+    }
+
+    return res.json(); // { renamed, total, message }
+};
+
+/**
  * Upload a file to Google Drive via the server.js backend.
  * @param {File} file - The file to upload
  * @param {string} folderId - The Google Drive folder ID to upload into
  * @returns {Promise<{ id: string, name: string, webViewLink: string, webContentLink: string }>}
  */
 export const uploadToGDrive = async (file, folderId) => {
+
     const formData = new FormData();
     formData.append('file', file);
     if (folderId) {

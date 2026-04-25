@@ -14,27 +14,26 @@ export function useAdminDashboard() {
     validation_queue: 0,
     on_time_rate: 0,
     total_faculty: 0,
+    active_faculty: 0,
+    inactive_faculty: 0,
     total_courses: 0,
     total_submissions: 0
   });
-  const [departmentProgress, setDepartmentProgress] = useState([]);
-  const [facultyStatus, setFacultyStatus] = useState([]);
+  const [recentActivity, setRecentActivity] = useState([]);
   const [trends, setTrends] = useState([]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [statsData, deptData, facultyData, trendsData] = await Promise.all([
+      const [statsData, recentData, trendsData] = await Promise.all([
         dashboardService.getStats(),
-        dashboardService.getDeptProgress(),
-        dashboardService.getFacultyStatus(),
+        dashboardService.getRecentActivity(50),
         dashboardService.getTrends()
       ]);
 
       setStats(statsData);
-      setDepartmentProgress(deptData);
-      setFacultyStatus(facultyData);
+      setRecentActivity(recentData);
       setTrends(trendsData);
     } catch (err) {
       console.error(err);
@@ -114,8 +113,7 @@ export function useAdminDashboard() {
     error,
     success,
     stats,
-    departmentProgress,
-    facultyStatus,
+    recentActivity,
     trends,
     settings,
     refresh,

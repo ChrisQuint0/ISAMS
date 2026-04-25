@@ -23,54 +23,53 @@ const hourlyData = [
 const chartConfig = {
     occupancy: {
         label: "Students",
-        color: "#38bdf8", 
+        color: "#006B35", 
     },
 };
 
 
 export default function OccupancyChart() {
     return (
-        /* Reduced h-[220px] to h-[180px] */
-        <ChartContainer config={chartConfig} className="w-full h-[280px]">
-            <AreaChart data={hourlyData} margin={{ top: 5, right: 10, left: -25, bottom: 0 }}>
+        <ChartContainer config={chartConfig} className="w-full h-full">
+            <AreaChart data={hourlyData} margin={{ top: 5, right: 15, left: -30, bottom: 5 }}>
                 <defs>
                     <linearGradient id="occupancyGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#38bdf8" stopOpacity={0.25} />
-                        <stop offset="100%" stopColor="#38bdf8" stopOpacity={0} />
+                        <stop offset="0%" stopColor="#006B35" stopOpacity={0.25} />
+                        <stop offset="100%" stopColor="#006B35" stopOpacity={0} />
                     </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
                 <XAxis
                     dataKey="hour"
-                    stroke="#64748b"
+                    stroke="#6b7280"
                     fontSize={10}
                     tickLine={false}
                     axisLine={false}
                     dy={8}
                 />
                 <YAxis
-                    stroke="#64748b"
+                    stroke="#6b7280"
                     fontSize={10}
                     tickLine={false}
                     axisLine={false}
                     domain={[0, 45]}
                 />
                 <ChartTooltip
-                    cursor={{ stroke: "#334155", strokeWidth: 1, strokeDasharray: "4 4" }}
+                    cursor={{ stroke: "#e5e7eb", strokeWidth: 1, strokeDasharray: "4 4" }}
                     content={
                         <ChartTooltipContent
-                            className="bg-[#1e293b] border-[#334155] shadow-2xl [&_.text-foreground]:text-white [&_.text-muted-foreground]:text-slate-400"
+                            className="bg-white border-neutral-200 shadow-lg [&_.text-foreground]:text-neutral-900 [&_.text-muted-foreground]:text-neutral-500"
                         />
                     }
                 />
                 <Area
                     type="monotone"
                     dataKey="occupancy"
-                    stroke="#38bdf8"
+                    stroke="#006B35"
                     strokeWidth={2.5}
                     fill="url(#occupancyGrad)"
-                    dot={{ r: 3, fill: "#0F172A", stroke: "#38bdf8", strokeWidth: 2 }}
-                    activeDot={{ r: 5, fill: "#38bdf8", stroke: "#fff", strokeWidth: 2 }}
+                    dot={{ r: 3, fill: "#f9fafb", stroke: "#006B35", strokeWidth: 2 }}
+                    activeDot={{ r: 5, fill: "#006B35", stroke: "#fff", strokeWidth: 2 }}
                 />
             </AreaChart>
         </ChartContainer>
