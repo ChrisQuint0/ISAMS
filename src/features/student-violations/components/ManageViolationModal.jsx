@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
     Dialog,
     DialogContent,
@@ -14,6 +14,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { CheckCircle2, AlertCircle, Loader2, FileText, ExternalLink, ShieldCheck, X, Trash2 } from "lucide-react";
 import { ImposeSanctionModal } from "./ImposeSanctionModal";
 import { uploadEvidenceToGDrive, deleteEvidenceFromGDrive } from "../services/gdriveEvidenceUpload";
+import { sendViolationNotification } from "../services/emailNotificationService";
 
 const getFileIdFromUrl = (url) => {
     if (!url) return null;
@@ -49,6 +50,14 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState(null);
     const [successMsg, setSuccessMsg] = useState(null);
+    const errorRef = useRef(null);
+
+    // Auto-scroll to error message when it appears
+    useEffect(() => {
+        if (errorMsg && errorRef.current) {
+            errorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }, [errorMsg]);
 
     const [status, setStatus] = useState("Pending");
 
@@ -222,6 +231,19 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
             if (error) throw error;
 
             setSuccessMsg("Violation status updated successfully!");
+
+            // Fire-and-forget email notification
+            const offenseName = violationData.offense_types_sv?.name || violationData.violation?.split(':')[0] || 'Unknown Offense';
+            sendViolationNotification({
+                student_number: violationData.student_number,
+                event_type: 'violation_updated',
+                details: {
+                    offense_name: offenseName,
+                    new_status: status,
+                    old_status: violationData.status || ''
+                }
+            });
+
             setTimeout(() => {
                 handleOpenChange(false);
                 if (onSuccess) onSuccess();
@@ -248,7 +270,7 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
                     </DialogHeader>
 
                     {errorMsg && (
-                        <div className="bg-red-50 border border-red-200 text-destructive-semantic p-3 rounded-md flex items-start gap-3 mt-4 text-sm font-medium">
+                        <div ref={errorRef} className="bg-red-50 border border-red-200 text-destructive-semantic p-3 rounded-md flex items-start gap-3 mt-4 text-sm font-medium animate-in fade-in slide-in-from-top-2 duration-300">
                             <AlertCircle className="w-5 h-5 shrink-0" />
                             <p>{errorMsg}</p>
                         </div>
@@ -377,7 +399,15 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
                                     </div>
                                     <div>
                                         <p className="text-neutral-500 text-xs uppercase tracking-wider font-bold mb-1">Status</p>
-                                        <p className="text-neutral-700 font-medium">{existingSanction.status}</p>
+                                        <div className="flex items-center gap-2">
+                                            <span className={`h-1.5 w-1.5 rounded-full ${
+                                                existingSanction.status === 'Completed' ? 'bg-success' : 
+                                                existingSanction.status === 'Overdue' ? 'bg-destructive-semantic' : 
+                                                existingSanction.status === 'In Progress' ? 'bg-info' : 
+                                                'bg-neutral-400'
+                                            }`} />
+                                            <p className="text-neutral-700 font-medium">{existingSanction.status}</p>
+                                        </div>
                                     </div>
                                     <div className="col-span-2">
                                         <p className="text-neutral-500 text-xs uppercase tracking-wider font-bold mb-1">Duration / Deadline</p>

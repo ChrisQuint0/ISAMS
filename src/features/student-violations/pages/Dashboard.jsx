@@ -16,6 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabaseClient";
+import { ViolationHistoryModal } from "../components/ViolationHistoryModal";
 
 // Custom theme using AG Grid v33+ Theming API with Quartz theme for a clean institutional look
 const customTheme = themeQuartz.withParams({
@@ -234,6 +235,26 @@ export default function StudViolationDashboard() {
   const [quickFilterText, setQuickFilterText] = useState("");
   const [overdueSanctions, setOverdueSanctions] = useState([]);
   const [alertDismissed, setAlertDismissed] = useState(false);
+  const [topViolators, setTopViolators] = useState([]);
+  const [selectedViolator, setSelectedViolator] = useState(null);
+  const [severityFilter, setSeverityFilter] = useState("All");
+
+  const filteredTopViolators = useMemo(() => {
+    if (severityFilter === "All") return topViolators;
+    
+    return topViolators
+      .map(violator => {
+        const filteredViols = violator.violations.filter(v => v.severity === severityFilter);
+        return {
+          ...violator,
+          count: filteredViols.length,
+          violations: filteredViols
+        };
+      })
+      .filter(violator => violator.count > 0)
+      .sort((a, b) => b.count - a.count);
+  }, [topViolators, severityFilter]);
+
   const [kpiStats, setKpiStats] = useState({
     complianceRate: "0%",
     activeCases: 0,
@@ -275,11 +296,14 @@ export default function StudViolationDashboard() {
       if (uniqueUuids.length > 0) {
         const { data: users } = await supabase
           .from('users_with_roles')
-          .select('id, first_name, last_name')
+          .select('id, first_name, last_name, email')
           .in('id', uniqueUuids);
         if (users) {
           users.forEach(u => {
-            userMap[u.id] = `${u.first_name} ${u.last_name}`;
+            const hasName = u.first_name || u.last_name;
+            userMap[u.id] = hasName 
+              ? `${u.first_name || ''} ${u.last_name || ''}`.trim()
+              : (u.email ? u.email.split('@')[0] : 'Unknown User');
           });
         }
       }
@@ -299,14 +323,45 @@ export default function StudViolationDashboard() {
       // violationStudentMap: violation_id -> student_number
       const { data: violationsData } = await supabase
         .from('violations_sv')
-        .select('violation_id, student_number');
+        .select(`
+          violation_id, 
+          student_number,
+          status,
+          offense_type_id,
+          incident_date,
+          offense_types_sv (name, severity)
+        `);
       const violationStudentMap = {};
+      const violatorMap = {};
       if (violationsData) {
         violationsData.forEach(v => {
           violationStudentMap[v.violation_id] = v.student_number;
           violationStudentMap[String(v.violation_id)] = v.student_number;
+
+          if (v.student_number) {
+            if (!violatorMap[v.student_number]) {
+              violatorMap[v.student_number] = {
+                student_number: v.student_number,
+                name: studentMap[v.student_number] || 'Unknown Student',
+                count: 0,
+                violations: []
+              };
+            }
+            violatorMap[v.student_number].count += 1;
+            violatorMap[v.student_number].violations.push({
+              violation_id: v.violation_id,
+              offense_name: v.offense_types_sv?.name || 'Unknown',
+              severity: v.offense_types_sv?.severity || 'Unknown',
+              status: v.status,
+              incident_date: v.incident_date
+            });
+          }
         });
       }
+      
+      const topViolatorArray = Object.values(violatorMap)
+        .sort((a, b) => b.count - a.count);
+      setTopViolators(topViolatorArray);
 
       // sanctionViolationMap: sanction_id -> violation_id
       const { data: sanctionsData } = await supabase
@@ -358,11 +413,10 @@ export default function StudViolationDashboard() {
       setAlertDismissed(false);
 
       // 3. Fetch KPI Data (Violations and Sanctions)
-      const { data: violations } = await supabase.from('violations_sv').select('status, offense_type_id');
       const { data: sanctions } = await supabase.from('student_sanctions_sv').select('status');
       const { data: offenseTypes } = await supabase.from('offense_types_sv').select('offense_type_id, severity');
       
-      const vList = violations || [];
+      const vList = violationsData || [];
       const sList = sanctions || [];
       const oList = offenseTypes || [];
 
@@ -444,12 +498,7 @@ export default function StudViolationDashboard() {
   }), []);
 
 
-  const navActions = [
-    { icon: <Users size={20} />, label: "Records", onClick: () => navigate('/students'), color: "text-success" },
-    { icon: <ShieldAlert size={20} />, label: "Manage", onClick: () => navigate('/violations'), color: "text-destructive-semantic" },
-    { icon: <FileText size={20} />, label: "Reports", onClick: () => navigate('/generate-report'), color: "text-warning" },
-    { icon: <BarChart3 size={20} />, label: "Analytics", onClick: () => navigate('/analytics'), color: "text-info" },
-  ];
+
 
 
   return (
@@ -562,9 +611,9 @@ export default function StudViolationDashboard() {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
         {/* RECENT ACTIVITY LOG - COMPACTED HEADER */}
-        <Card className="lg:col-span-3 bg-white border-neutral-200 flex flex-col rounded-lg overflow-hidden shadow-sm p-0 z-10">
+        <Card className="lg:col-span-7 bg-white border-neutral-200 flex flex-col rounded-lg overflow-hidden shadow-sm p-0 z-10 h-[400px]">
           <div className="px-5 pt-5 pb-2 flex items-center justify-between bg-white relative z-20">
             <div className="flex items-center gap-2">
               <History className="h-[15px] w-[15px] text-neutral-600" />
@@ -584,22 +633,7 @@ export default function StudViolationDashboard() {
             </div>
           </div>
 
-          <div className="w-full flex-1 hide-ag-scrollbars [&_.ag-root-wrapper]:border-none [&_.ag-header]:border-t-0 -mt-[15px]" style={{ height: "400px" }}>
-            <style>{`
-              .hide-ag-scrollbars .ag-body-viewport::-webkit-scrollbar,
-              .hide-ag-scrollbars .ag-body-vertical-scroll-viewport::-webkit-scrollbar,
-              .hide-ag-scrollbars .ag-body-horizontal-scroll-viewport::-webkit-scrollbar {
-                display: none !important;
-                width: 0 !important;
-                height: 0 !important;
-              }
-              .hide-ag-scrollbars .ag-body-viewport,
-              .hide-ag-scrollbars .ag-body-vertical-scroll-viewport,
-              .hide-ag-scrollbars .ag-body-horizontal-scroll-viewport {
-                -ms-overflow-style: none !important;
-                scrollbar-width: none !important;
-              }
-            `}</style>
+          <div className="w-full flex-1 [&_.ag-root-wrapper]:border-none [&_.ag-header]:border-t-0 -mt-[15px]" style={{ height: "236px" }}>
             <AgGridReact
               theme={customTheme}
               rowData={rowData}
@@ -610,38 +644,80 @@ export default function StudViolationDashboard() {
               animateRows={true}
               rowHeight={48}
               headerHeight={44}
-              pagination={true}
-              paginationPageSize={10}
+              pagination={false}
               suppressCellFocus={true}
             />
           </div>
         </Card>
 
-        {/* QUICK ACTIONS SIDEBAR */}
-        <Card className="lg:col-span-1 bg-white border-neutral-200 p-4 flex flex-col gap-3 h-full shadow-sm">
-          <h3 className="text-base font-bold text-neutral-900 uppercase tracking-tight pb-2 border-b border-neutral-100 mb-2">Quick Actions</h3>
-          <div className="flex flex-col gap-2">
-            {navActions.map((action, i) => (
-              <button
-                key={i}
-                onClick={action.onClick}
-                className="flex items-center gap-3 p-3 rounded-lg border border-neutral-100 bg-neutral-50/30 hover:border-primary-200 hover:shadow-sm transition-all group text-left"
-              >
-                <div className={`p-2 rounded-md bg-white border border-neutral-200 ${action.color} group-hover:border-primary-100 transition-colors shadow-xs`}>
-                  {action.icon}
-                </div>
-                <span className="text-sm font-bold text-neutral-900 tracking-tight">
-                  {action.label}
-                </span>
-              </button>
-            ))}
+        {/* TOP VIOLATORS SIDEBAR */}
+        <Card className="lg:col-span-3 bg-white border-neutral-200 p-4 flex flex-col gap-3 h-[400px] shadow-sm">
+          <div className="flex items-center justify-between pb-2 border-b border-neutral-100 mb-2 mt-1">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-[16px] w-[16px] text-destructive-semantic" />
+              <h3 className="text-[15px] font-bold text-neutral-900 uppercase tracking-wider leading-none">Top Violators</h3>
+            </div>
+            <select
+              value={severityFilter}
+              onChange={(e) => setSeverityFilter(e.target.value)}
+              className="text-[11px] font-bold text-neutral-600 bg-neutral-100 border-none rounded-md px-2 py-1 outline-none cursor-pointer focus:ring-1 focus:ring-primary-500 hover:bg-neutral-200 transition-colors"
+            >
+              <option value="All">All Severities</option>
+              <option value="Major">Major</option>
+              <option value="Minor">Minor</option>
+              <option value="Compliance">Compliance</option>
+            </select>
           </div>
-
-          <div className="mt-auto pt-4">
+          <div className="flex flex-col gap-2 overflow-y-auto pr-1 hide-ag-scrollbars" style={{ maxHeight: '350px' }}>
+            {filteredTopViolators.length === 0 ? (
+              <p className="text-sm text-neutral-500 font-medium text-center py-4">No violators found.</p>
+            ) : (
+              filteredTopViolators.map((violator, i) => (
+                <div key={violator.student_number} className="flex items-center justify-between p-3 rounded-lg border border-neutral-100 bg-neutral-50/30 hover:border-primary-200 transition-all group">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center h-8 w-8 rounded-full bg-neutral-100 text-neutral-700 font-black text-xs group-hover:bg-destructive-semantic/10 group-hover:text-destructive-semantic transition-colors">
+                      #{i + 1}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-neutral-900 tracking-tight leading-tight">{violator.student_number}</span>
+                      <span className="text-[11px] font-medium text-neutral-500">{violator.name}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex flex-col items-center justify-center pr-2 border-r border-neutral-200">
+                      <span className="text-sm font-black text-neutral-900 leading-none">{violator.count}</span>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-7 px-2.5 text-[11px] font-bold bg-white text-primary-700 hover:bg-primary-50 hover:text-primary-800 border-primary-200"
+                      onClick={() => setSelectedViolator(violator)}
+                    >
+                      View
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </Card>
       </div>
+
+      {/* MODAL FOR STUDENT VIOLATIONS */}
+      <ViolationHistoryModal
+        isOpen={!!selectedViolator}
+        onClose={() => setSelectedViolator(null)}
+        studentName={selectedViolator ? `${selectedViolator.name} (${selectedViolator.student_number})` : ''}
+        violations={selectedViolator ? selectedViolator.violations.map(v => ({
+          violation_id: v.violation_id,
+          incident_date: v.incident_date,
+          status: v.status,
+          offense_types_sv: {
+            name: v.offense_name,
+            severity: v.severity
+          }
+        })) : []}
+      />
     </div>
   );
 }
-
