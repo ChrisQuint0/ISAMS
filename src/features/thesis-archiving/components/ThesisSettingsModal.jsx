@@ -24,9 +24,9 @@ import {
   Plus,
   Trash2,
   Check,
-  ArrowLeft,
   Save,
   Calendar,
+  FileText,
 } from "lucide-react";
 import { thesisService } from "../services/thesisService";
 import { AgGridReact } from "ag-grid-react";
@@ -165,11 +165,12 @@ const ActionCellRenderer = (params) => {
 
 export function ThesisSettingsModal({ variant = "dark" }) {
   const isDark = variant === "dark";
-  const [view, setView] = useState("settings"); // 'settings' | 'advisers' | 'categories' | 'sections' | 'years'
+  const [view, setView] = useState("settings"); // 'settings' | 'advisers' | 'categories' | 'sections' | 'years' | 'hte-document-categories'
   const [advisers, setAdvisers] = useState([]);
   const [categories, setCategories] = useState([]);
   const [sections, setSections] = useState([]);
   const [academicYears, setAcademicYears] = useState([]);
+  const [hteDocumentCategories, setHteDocumentCategories] = useState([]);
   const [loading, setLoading] = useState(false);
 
   // Form states
@@ -182,6 +183,7 @@ export function ThesisSettingsModal({ variant = "dark" }) {
   const [newSectionProgram, setNewSectionProgram] =
     useState("Computer Science");
   const [newYearName, setNewYearName] = useState("");
+  const [newHTEDocCategoryName, setNewHTEDocCategoryName] = useState("");
   const [thesisFolderLink, setThesisFolderLink] = useState("");
   const [hteFolderLink, setHteFolderLink] = useState("");
   const [isSaved, setIsSaved] = useState(false);
@@ -196,13 +198,14 @@ export function ThesisSettingsModal({ variant = "dark" }) {
   const fetchInitialData = async () => {
     setLoading(true);
     try {
-      const [advData, catData, secData, yearData, settingsData] =
+      const [advData, catData, secData, yearData, settingsData, hteDocCats] =
         await Promise.all([
           thesisService.getAdvisers(),
           thesisService.getCategories(),
           thesisService.getSections(),
           thesisService.getAcademicYears(),
           thesisService.getSettings(),
+          thesisService.getHTEDocumentCategories(),
         ]);
       setAdvisers(
         advData.map((a) => ({
@@ -216,6 +219,7 @@ export function ThesisSettingsModal({ variant = "dark" }) {
       setCategories(catData);
       setSections(secData);
       setAcademicYears(yearData.map((y) => ({ ...y, name: y.name || "" })));
+      setHteDocumentCategories(hteDocCats || []);
 
       // Map folder links
       if (settingsData.thesis_root_folder_id) {
@@ -311,6 +315,51 @@ export function ThesisSettingsModal({ variant = "dark" }) {
       setNewYearName("");
     } catch (error) {
       console.error("Failed to add academic year:", error);
+    }
+  };
+
+  const handleAddHTEDocumentCategory = async () => {
+    const trimmed = newHTEDocCategoryName.trim();
+    if (!trimmed) return;
+
+    const exists = hteDocumentCategories.some(
+      (item) => item.value.toLowerCase() === trimmed.toLowerCase(),
+    );
+    if (exists) return;
+
+    try {
+      const {
+        data: { user },
+      } = await thesisService.getSettingsAuth();
+
+      const updated = await thesisService.saveHTEDocumentCategories(
+        hteDocumentCategories.concat([{ value: trimmed, label: trimmed }]),
+        user?.id,
+      );
+
+      setHteDocumentCategories(updated);
+      setNewHTEDocCategoryName("");
+    } catch (error) {
+      console.error("Failed to add HTE document category:", error);
+    }
+  };
+
+  const handleRemoveHTEDocumentCategory = async (categoryValue) => {
+    if (categoryValue === "ojt" || categoryValue === "hte") return;
+
+    try {
+      const {
+        data: { user },
+      } = await thesisService.getSettingsAuth();
+
+      const updated = await thesisService.saveHTEDocumentCategories(
+        hteDocumentCategories.filter((item) => item.value !== categoryValue),
+        user?.id,
+      );
+
+      setHteDocumentCategories(updated);
+    } catch (error) {
+      console.error("Failed to remove HTE document category:", error);
     }
   };
 
@@ -689,6 +738,20 @@ export function ThesisSettingsModal({ variant = "dark" }) {
                   Edit / Add Academic Years
                 </Button>
               </div>
+
+              <div className="flex items-center gap-4">
+                <Label className="text-base w-48 text-neutral-900">
+                  HTE Doc Categories
+                </Label>
+                <Button
+                  variant="outline"
+                  className="flex-1 justify-start gap-2 h-10 px-4 font-normal text-base bg-white border-neutral-200 text-neutral-900 hover:bg-neutral-50 hover:text-neutral-900 hover:border-neutral-300"
+                  onClick={() => setView("hte-document-categories")}
+                >
+                  <Edit className="h-4 w-4" />
+                  Edit / Add Document Categories
+                </Button>
+              </div>
             </div>
 
             <div className="flex justify-end pt-2 border-t border-neutral-200 mt-auto items-center gap-3">
@@ -917,6 +980,94 @@ export function ThesisSettingsModal({ variant = "dark" }) {
                   onCellValueChanged={handleCellValueChanged}
                 />
               </div>
+            </div>
+          </div>
+        ) : view === "hte-document-categories" ? (
+          <div className="flex flex-col h-full gap-4">
+            <DialogHeader>
+              <div className="flex items-center gap-1 text-sm mb-1">
+                <button
+                  onClick={handleBack}
+                  className="text-neutral-600 hover:text-neutral-900 transition-colors flex items-center"
+                >
+                  Settings
+                </button>
+                <ChevronRight className="h-4 w-4 text-neutral-400" />
+                <span className="text-neutral-900 font-medium">
+                  HTE Document Categories
+                </span>
+              </div>
+              <DialogTitle className="text-xl font-semibold text-neutral-900">
+                Manage HTE Document Categories
+              </DialogTitle>
+              <DialogDescription className="text-neutral-600 text-sm">
+                Categories here appear in the Manage Fields target category
+                list.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex gap-2 items-center">
+              <Input
+                placeholder="Enter Category Name (e.g. Other Documents)"
+                value={newHTEDocCategoryName}
+                onChange={(e) => setNewHTEDocCategoryName(e.target.value)}
+                className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-neutral-300"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleAddHTEDocumentCategory();
+                }}
+              />
+              <Button
+                variant="outline"
+                className="bg-primary-500 text-white hover:bg-primary-600 hover:text-white border-none font-medium shrink-0"
+                onClick={handleAddHTEDocumentCategory}
+              >
+                Add
+              </Button>
+            </div>
+
+            <div className="border border-neutral-200 rounded-md bg-white p-3 h-[350px] overflow-y-auto space-y-2">
+              {hteDocumentCategories.map((item) => {
+                const isSystem = item.value === "ojt" || item.value === "hte";
+                return (
+                  <div
+                    key={item.value}
+                    className="flex items-center justify-between rounded-lg border border-neutral-200 px-3 py-2"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileText className="h-4 w-4 text-neutral-500" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-neutral-900 truncate">
+                          {item.label || item.value}
+                        </p>
+                        <p className="text-xs text-neutral-500 truncate">
+                          {item.value}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      disabled={isSystem}
+                      onClick={() =>
+                        handleRemoveHTEDocumentCategory(item.value)
+                      }
+                      className={
+                        isSystem
+                          ? "text-neutral-300"
+                          : "text-red-500 hover:text-red-600 hover:bg-red-50"
+                      }
+                      title={
+                        isSystem
+                          ? "System category cannot be removed"
+                          : "Remove category"
+                      }
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                );
+              })}
             </div>
           </div>
         ) : (

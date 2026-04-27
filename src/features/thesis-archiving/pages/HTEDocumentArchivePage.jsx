@@ -530,6 +530,50 @@ function mergeCategoryFields(docFields, category, reorderedFields) {
   });
 }
 
+var DEFAULT_FIELD_CATEGORY_OPTIONS = [
+  { value: "ojt", label: "OJT Trainee" },
+  { value: "hte", label: "HTE" },
+];
+
+function mergeCategoryOptions(fieldCategories, configuredCategories) {
+  var seen = new Set();
+  var merged = [];
+
+  DEFAULT_FIELD_CATEGORY_OPTIONS.concat(configuredCategories || []).forEach(
+    function (item) {
+      var value = (item && item.value ? item.value : "").trim();
+      if (!value || seen.has(value)) return;
+      seen.add(value);
+      merged.push({ value: value, label: item.label || value });
+    },
+  );
+
+  fieldCategories.forEach(function (value) {
+    if (!value || seen.has(value)) return;
+    seen.add(value);
+    merged.push({ value: value, label: value });
+  });
+
+  return merged;
+}
+
+function getCategoryLabel(category, categoryOptions) {
+  var found = (categoryOptions || []).find(function (item) {
+    return item.value === category;
+  });
+  return found ? found.label : category;
+}
+
+function sortCategoryValues(values) {
+  var priorities = { ojt: 1, hte: 2 };
+  return values.slice().sort(function (a, b) {
+    var pa = priorities[a] || 99;
+    var pb = priorities[b] || 99;
+    if (pa !== pb) return pa - pb;
+    return a.localeCompare(b);
+  });
+}
+
 /**
  * Returns a map of { studentId -> ISO timestamp } for all students notified
  * within the cooldown window, based on the notification log.
@@ -749,6 +793,9 @@ export default function HTEDocumentArchivePage() {
   var s17 = React.useState(false);
   var isAddStudentModalOpen = s17[0];
   var setIsAddStudentModalOpen = s17[1];
+  var s22 = React.useState(DEFAULT_FIELD_CATEGORY_OPTIONS);
+  var fieldCategoryOptions = s22[0];
+  var setFieldCategoryOptions = s22[1];
 
   // Recompute the recently-sent map on every render (it's cheap — O(log entries))
   var recentlySentMap = buildRecentlySentMap(notificationLog);
@@ -768,6 +815,7 @@ export default function HTEDocumentArchivePage() {
         sections,
         academicYears,
         usageCounts,
+        configuredCategories,
       ] = await Promise.all([
         thesisService.getHTEDocumentFieldsAll(),
         thesisService.getHTEStudents(),
@@ -775,6 +823,7 @@ export default function HTEDocumentArchivePage() {
         thesisService.getSections(),
         thesisService.getAcademicYears(),
         thesisService.getHTEDocumentFieldUsage(),
+        thesisService.getHTEDocumentCategories(),
       ]);
       console.log("HTEArchive: Data loaded", {
         fields,
@@ -789,6 +838,14 @@ export default function HTEDocumentArchivePage() {
         order: f.display_order,
       }));
       setDocFields(fieldsMapped);
+      setFieldCategoryOptions(
+        mergeCategoryOptions(
+          fieldsMapped.map(function (f) {
+            return f.category;
+          }),
+          configuredCategories,
+        ),
+      );
       setFieldUsageCounts(usageCounts || {});
       setFilterOptions({ advisers, sections, academicYears });
 
@@ -1629,10 +1686,25 @@ export default function HTEDocumentArchivePage() {
         students={students}
         studentId={studentId}
         showFieldConfig={showFieldConfig}
-        onToggleFieldConfig={function () {
-          setShowFieldConfig(function (p) {
-            return !p;
-          });
+        onToggleFieldConfig={async function () {
+          var nextOpen = !showFieldConfig;
+          if (nextOpen) {
+            try {
+              var configuredCategories =
+                await thesisService.getHTEDocumentCategories();
+              setFieldCategoryOptions(
+                mergeCategoryOptions(
+                  docFields.map(function (f) {
+                    return f.category;
+                  }),
+                  configuredCategories,
+                ),
+              );
+            } catch (error) {
+              console.error("Failed to refresh document categories:", error);
+            }
+          }
+          setShowFieldConfig(nextOpen);
         }}
         onAddStudent={function () {
           setIsAddStudentModalOpen(true);
@@ -1662,6 +1734,7 @@ export default function HTEDocumentArchivePage() {
               {role === "admin" && showFieldConfig && (
                 <FieldConfigPanel
                   docFields={docFields}
+                  categoryOptions={fieldCategoryOptions}
                   fieldUsageCounts={fieldUsageCounts}
                   onAddField={handleAddField}
                   onToggleActive={handleToggleFieldActive}
@@ -2037,7 +2110,9 @@ export default function HTEDocumentArchivePage() {
                   <span>
                     Notify {duplicateWarnData.allowedStudents.length} Eligible
                     Student
-                    {duplicateWarnData.allowedStudents.length !== 1 ? "s" : ""}{" "}
+                    {duplicateWarnData.allowedStudents.length !== 1
+                      ? "s"
+                      : ""}{" "}
                     Only
                   </span>
                 </button>
@@ -2532,6 +2607,7 @@ export function HTEArchivingHeader(props) {
 // ── Field Config Panel ───────────────────────────────────────────────────────
 function FieldConfigPanel(props) {
   var docFields = props.docFields;
+  var categoryOptions = props.categoryOptions || DEFAULT_FIELD_CATEGORY_OPTIONS;
   var onAddField = props.onAddField;
   var onToggleActive = props.onToggleActive;
   var onUpdateName = props.onUpdateName;
@@ -2556,20 +2632,42 @@ function FieldConfigPanel(props) {
   var ff = React.useState(null);
   var dragOverFieldId = ff[0];
   var setDragOverFieldId = ff[1];
-  var ojtFields = docFields
-    .filter(function (f) {
-      return f.category === "ojt";
-    })
-    .sort(function (a, b) {
-      return a.order - b.order;
-    });
-  var hteFields = docFields
-    .filter(function (f) {
-      return f.category === "hte";
-    })
-    .sort(function (a, b) {
-      return a.order - b.order;
-    });
+  var categoryValues = sortCategoryValues(
+    mergeCategoryOptions(
+      docFields.map(function (f) {
+        return f.category;
+      }),
+      categoryOptions,
+    ).map(function (opt) {
+      return opt.value;
+    }),
+  );
+  var groupedFields = categoryValues.map(function (categoryValue) {
+    var fields = docFields
+      .filter(function (f) {
+        return f.category === categoryValue;
+      })
+      .sort(function (a, b) {
+        return a.order - b.order;
+      });
+    return {
+      category: categoryValue,
+      label: getCategoryLabel(categoryValue, categoryOptions),
+      fields: fields,
+      activeCount: fields.filter(function (f) {
+        return f.active;
+      }).length,
+    };
+  });
+
+  React.useEffect(
+    function () {
+      if (categoryValues.indexOf(newCategory) !== -1) return;
+      setNewCategory(categoryValues[0] || "ojt");
+    },
+    [newCategory, categoryValues],
+  );
+
   async function handleAdd() {
     if (!newName.trim()) {
       setAddError("Document name is required.");
@@ -2767,8 +2865,13 @@ function FieldConfigPanel(props) {
                 }}
                 className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-neutral-900 text-sm focus:outline-none focus:border-neutral-900"
               >
-                <option value="ojt">OJT Trainee</option>
-                <option value="hte">HTE</option>
+                {categoryValues.map(function (categoryValue) {
+                  return (
+                    <option key={categoryValue} value={categoryValue}>
+                      {getCategoryLabel(categoryValue, categoryOptions)}
+                    </option>
+                  );
+                })}
               </select>
             </div>
             <div>
@@ -2796,40 +2899,31 @@ function FieldConfigPanel(props) {
             </button>
           </div>
         </div>
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-neutral-900 flex items-center gap-2">
-              <FileText className="h-4 w-4 text-neutral-500" />
-              OJT Trainee Fields
-            </h3>
-            <span className="text-xs text-neutral-500">
-              {
-                ojtFields.filter(function (f) {
-                  return f.active;
-                }).length
-              }{" "}
-              active / {ojtFields.length} total
-            </span>
-          </div>
-          <div className="space-y-2">{ojtFields.map(renderFieldRow)}</div>
-        </div>
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-neutral-900 flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-neutral-500" />
-              HTE Fields
-            </h3>
-            <span className="text-xs text-neutral-500">
-              {
-                hteFields.filter(function (f) {
-                  return f.active;
-                }).length
-              }{" "}
-              active / {hteFields.length} total
-            </span>
-          </div>
-          <div className="space-y-2">{hteFields.map(renderFieldRow)}</div>
-        </div>
+        {groupedFields.map(function (group) {
+          var Icon = group.category === "hte" ? Building2 : FileText;
+          return (
+            <div key={group.category}>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold text-neutral-900 flex items-center gap-2">
+                  <Icon className="h-4 w-4 text-neutral-500" />
+                  {group.label} Fields
+                </h3>
+                <span className="text-xs text-neutral-500">
+                  {group.activeCount} active / {group.fields.length} total
+                </span>
+              </div>
+              {group.fields.length > 0 ? (
+                <div className="space-y-2">
+                  {group.fields.map(renderFieldRow)}
+                </div>
+              ) : (
+                <div className="border border-dashed border-neutral-300 rounded-lg p-4 text-xs text-neutral-500 bg-neutral-50">
+                  No fields yet in this category.
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -2853,28 +2947,39 @@ function StudentDetailModal(props) {
     "2023-2024 2nd Semester",
     "2022-2023 2nd Semester",
   ];
-  var ojtFields = docFields
-    .filter(function (f) {
-      return f.category === "ojt";
+  var categoryValues = sortCategoryValues(
+    Array.from(
+      new Set(
+        docFields.map(function (f) {
+          return f.category;
+        }),
+      ),
+    ),
+  );
+  var categoryOptions = mergeCategoryOptions(categoryValues, []);
+  var sections = categoryValues
+    .map(function (categoryValue) {
+      var fields = docFields
+        .filter(function (f) {
+          return f.category === categoryValue && (role === "admin" || f.active);
+        })
+        .sort(function (a, b) {
+          return a.order - b.order;
+        });
+      var activeFields = docFields.filter(function (f) {
+        return f.category === categoryValue && f.active;
+      });
+      return {
+        category: categoryValue,
+        label: getCategoryLabel(categoryValue, categoryOptions),
+        fields: fields,
+        activeCount: activeFields.length,
+        uploadedCount: countUploadedForFields(s, activeFields),
+      };
     })
-    .sort(function (a, b) {
-      return a.order - b.order;
+    .filter(function (section) {
+      return section.fields.length > 0;
     });
-  var hteFields = docFields
-    .filter(function (f) {
-      return f.category === "hte" && (role === "admin" || f.active);
-    })
-    .sort(function (a, b) {
-      return a.order - b.order;
-    });
-  var ojtActive = docFields.filter(function (f) {
-    return f.category === "ojt" && f.active;
-  });
-  var hteActive = docFields.filter(function (f) {
-    return f.category === "hte" && f.active;
-  });
-  var ojtUploaded = countUploadedForFields(s, ojtActive);
-  var hteUploaded = countUploadedForFields(s, hteActive);
   return (
     <Modal onClose={onClose} wide={true}>
       <div className="flex flex-col max-h-[90vh]">
@@ -2886,70 +2991,73 @@ function StudentDetailModal(props) {
           </p>
         </div>
         <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-neutral-50">
-          <DocSection
-            title="OJT Trainee Documents"
-            icon={<FileText className="h-5 w-5 text-neutral-500" />}
-            fields={ojtFields}
-            uploads={s.uploads}
-            canUpload={true}
-            canDownload={role === "admin"}
-            canRemove={role === "admin"}
-            onUpload={onUpload}
-            onRemoveUpload={onRemoveUpload}
-            onError={onError}
-            badgeColor="primary"
-            uploadedCount={ojtUploaded}
-            activeCount={ojtActive.length}
-            showInactive={true}
-            uploadingFieldId={uploadingFieldId}
-          />
-          <DocSection
-            title="Host Training Establishment Documents"
-            icon={<Building2 className="h-5 w-5 text-neutral-500" />}
-            fields={hteFields}
-            uploads={s.uploads}
-            canUpload={true}
-            canDownload={role === "admin"}
-            canRemove={role === "admin"}
-            onUpload={onUpload}
-            onRemoveUpload={onRemoveUpload}
-            onError={onError}
-            badgeColor="gold"
-            uploadedCount={hteUploaded}
-            activeCount={hteActive.length}
-            showInactive={true}
-            uploadingFieldId={uploadingFieldId}
-            termSelector={
-              role === "admin" ? (
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-3.5 w-3.5 text-neutral-500" />
-                  <span className="text-xs text-neutral-500">Term:</span>
-                  <select
-                    value={selectedTerm}
-                    onChange={function (e) {
-                      setSelectedTerm(e.target.value);
-                    }}
-                    className="text-xs px-2 py-1 bg-white border border-neutral-200 rounded text-neutral-900 focus:outline-none focus:border-neutral-900"
-                  >
-                    {availableTerms.map(function (t) {
-                      return (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
+          {sections.map(function (section) {
+            var icon =
+              section.category === "hte" ? (
+                <Building2 className="h-5 w-5 text-neutral-500" />
               ) : (
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-3.5 w-3.5 text-neutral-500" />
-                  <span className="text-xs text-neutral-500">
-                    {selectedTerm}
-                  </span>
-                </div>
-              )
-            }
-          />
+                <FileText className="h-5 w-5 text-neutral-500" />
+              );
+            var title =
+              section.category === "ojt"
+                ? "OJT Trainee Documents"
+                : section.category === "hte"
+                  ? "Host Training Establishment Documents"
+                  : section.label + " Documents";
+
+            return (
+              <DocSection
+                key={section.category}
+                title={title}
+                icon={icon}
+                fields={section.fields}
+                uploads={s.uploads}
+                canUpload={true}
+                canDownload={role === "admin"}
+                canRemove={role === "admin"}
+                onUpload={onUpload}
+                onRemoveUpload={onRemoveUpload}
+                onError={onError}
+                badgeColor={section.category === "ojt" ? "primary" : "gold"}
+                uploadedCount={section.uploadedCount}
+                activeCount={section.activeCount}
+                showInactive={true}
+                uploadingFieldId={uploadingFieldId}
+                termSelector={
+                  section.category === "hte" ? (
+                    role === "admin" ? (
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-3.5 w-3.5 text-neutral-500" />
+                        <span className="text-xs text-neutral-500">Term:</span>
+                        <select
+                          value={selectedTerm}
+                          onChange={function (e) {
+                            setSelectedTerm(e.target.value);
+                          }}
+                          className="text-xs px-2 py-1 bg-white border border-neutral-200 rounded text-neutral-900 focus:outline-none focus:border-neutral-900"
+                        >
+                          {availableTerms.map(function (t) {
+                            return (
+                              <option key={t} value={t}>
+                                {t}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-3.5 w-3.5 text-neutral-500" />
+                        <span className="text-xs text-neutral-500">
+                          {selectedTerm}
+                        </span>
+                      </div>
+                    )
+                  ) : null
+                }
+              />
+            );
+          })}
         </div>
         <div className="p-5 border-t border-neutral-200 bg-white flex justify-end">
           <button onClick={onClose} className={btnSecondary}>

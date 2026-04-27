@@ -2,6 +2,52 @@ import { supabase } from "@/lib/supabaseClient";
 
 const BACKEND_URL = "http://localhost:3001/api/thesis";
 
+const DEFAULT_HTE_DOCUMENT_CATEGORIES = [
+  { value: "ojt", label: "OJT Trainee" },
+  { value: "hte", label: "HTE" },
+];
+
+function normalizeHTEDocumentCategories(raw) {
+  let parsed = raw;
+  if (typeof raw === "string") {
+    try {
+      parsed = JSON.parse(raw);
+    } catch (_error) {
+      parsed = null;
+    }
+  }
+
+  const arr = Array.isArray(parsed) ? parsed : [];
+  const seen = new Set();
+  const normalized = [];
+
+  arr.forEach((item) => {
+    const value =
+      typeof item === "string"
+        ? item.trim()
+        : typeof item?.value === "string"
+          ? item.value.trim()
+          : "";
+    if (!value || seen.has(value)) return;
+
+    const label =
+      typeof item === "object" && typeof item?.label === "string"
+        ? item.label.trim()
+        : value;
+
+    seen.add(value);
+    normalized.push({ value, label: label || value });
+  });
+
+  DEFAULT_HTE_DOCUMENT_CATEGORIES.forEach((fallback) => {
+    if (seen.has(fallback.value)) return;
+    seen.add(fallback.value);
+    normalized.unshift(fallback);
+  });
+
+  return normalized;
+}
+
 export const thesisService = {
   /**
    * Fetch all thesis categories
@@ -1069,6 +1115,34 @@ export const thesisService = {
       acc[setting.key] = setting.value;
       return acc;
     }, {});
+  },
+
+  async getHTEDocumentCategories() {
+    const settings = await this.getSettings();
+    return normalizeHTEDocumentCategories(settings.hte_document_categories);
+  },
+
+  async saveHTEDocumentCategories(categories, userId) {
+    const normalized = normalizeHTEDocumentCategories(categories);
+    await this.updateSetting(
+      "hte_document_categories",
+      JSON.stringify(normalized),
+      userId,
+    );
+
+    // Sync slugs to hte_document_categories table so FK constraints stay valid
+    if (normalized.length > 0) {
+      const rows = normalized.map((cat, idx) => ({
+        slug: cat.value,
+        name: cat.label,
+        display_order: idx + 1,
+      }));
+      await supabase
+        .from("hte_document_categories")
+        .upsert(rows, { onConflict: "slug", ignoreDuplicates: false });
+    }
+
+    return normalized;
   },
 
   async updateSetting(key, value, userId) {
