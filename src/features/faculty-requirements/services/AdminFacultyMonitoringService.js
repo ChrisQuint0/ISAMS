@@ -100,7 +100,7 @@ export const facultyMonitorService = {
         faculty_id: facultyId,
         notification_type: 'DEADLINE_REMINDER',
         subject: 'Urgent: Submission Reminder',
-        message: isSkipped 
+        message: isSkipped
           ? '[SKIPPED] Manual reminder not sent due to faculty email preferences.'
           : 'This is a manual reminder to complete your faculty requirements.'
       });
@@ -125,10 +125,10 @@ export const facultyMonitorService = {
       template: 'deadline_reminder'
     });
 
-    return { 
-      total_sent: results.succeeded, 
+    return {
+      total_sent: results.succeeded,
       total_ignored: results.ignored || 0,
-      message: `Processed ${filteredFacultyList.length} reminders. ${results.succeeded} sent, ${results.ignored || 0} skipped.` 
+      message: `Processed ${filteredFacultyList.length} reminders. ${results.succeeded} sent, ${results.ignored || 0} skipped.`
     };
   },
 
@@ -296,7 +296,7 @@ export const facultyMonitorService = {
         } else {
           // Robust ID Resolution
           const targetDocTypeId = m.doc_type_id || docTypeId;
-          
+
           if (!targetDocTypeId) {
             console.error("[Service] Skipping manual upload insertion: Missing docTypeId", m);
             continue;
@@ -427,7 +427,7 @@ export const facultyMonitorService = {
     const succeeded = results.filter(r => r.status === 'fulfilled' && !r.value.ignored).length;
     const failed = results.filter(r => r.status === 'rejected').length;
     const ignored = results.filter(r => r.status === 'fulfilled' && r.value.ignored).length;
-    
+
     return { succeeded, failed, ignored, total: facultyList.length };
   },
 
@@ -457,7 +457,7 @@ export const facultyMonitorService = {
 
         try {
           const metadata = await getGDriveFileMetadata(record.gdrive_file_id);
-          
+
           if (metadata && metadata.modifiedTime) {
             const modDate = new Date(metadata.modifiedTime);
             const subDate = new Date(record.submitted_at);
@@ -481,16 +481,16 @@ export const facultyMonitorService = {
 
       // 3. Apply updates to DB
       if (updates.length > 0) {
-        await Promise.all(updates.map(u => 
+        await Promise.all(updates.map(u =>
           supabase
             .from('submissions_fs')
-            .update({ 
-               submission_status: u.submission_status,
-               approval_remarks: 'Automatically detected resubmission via GDrive file update.'
+            .update({
+              submission_status: u.submission_status,
+              approval_remarks: 'Automatically detected resubmission via GDrive file update.'
             })
             .eq('submission_id', u.submission_id)
         ));
-        
+
         return updates.length;
       }
 

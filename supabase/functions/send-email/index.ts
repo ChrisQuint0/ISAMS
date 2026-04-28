@@ -121,6 +121,23 @@ Deno.serve(async (req: Request) => {
 
     if (!faculty_id) return Response.json({ error: 'faculty_id is required' }, { status: 400 });
 
+    // ── Check if auto-reminders are globally enabled ──────────────────────────
+    const { data: reminderSetting } = await supabaseAdmin
+      .from('systemsettings_fs')
+      .select('setting_value')
+      .eq('setting_key', 'general_auto_reminders')
+      .maybeSingle();
+
+    if (reminderSetting?.setting_value === 'disabled') {
+      console.log('[send-email] Auto-reminders are disabled by administrator. Skipping.');
+      return Response.json({
+        success: true,
+        skipped: true,
+        message: 'Auto-reminders are currently disabled by the administrator.'
+      });
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     const facultyRes = await supabaseAdmin.from('faculty_fs').select('first_name, last_name, email, email_reminders_enabled').eq('faculty_id', faculty_id).single();
     const faculty = facultyRes.data;
     const fErr = facultyRes.error;

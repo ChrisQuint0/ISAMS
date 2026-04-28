@@ -341,14 +341,14 @@ export default function AdminFacultyMonitorPage() {
     const headerHeightSubPages = 16;
 
     const C = {
-      primary:     [17, 58, 26],
-      accent:      [34, 130, 68],
-      white:       [255, 255, 255],
-      offWhite:    [245, 249, 246],
-      lightGray:   [230, 232, 230],
-      midGray:     [150, 155, 152],
-      textDark:    [35, 40, 38],
-      textMuted:   [110, 118, 114],
+      primary: [17, 58, 26],
+      accent: [34, 130, 68],
+      white: [255, 255, 255],
+      offWhite: [245, 249, 246],
+      lightGray: [230, 232, 230],
+      midGray: [150, 155, 152],
+      textDark: [35, 40, 38],
+      textMuted: [110, 118, 114],
     };
 
     const drawFirstPageHeader = () => {
