@@ -168,6 +168,11 @@ export function ImposeSanctionModal({ isOpen, onClose, onSuccess, violationData 
             return;
         }
 
+        if (!deadlineDate) {
+            setErrorMsg("Deadline Date is required.");
+            return;
+        }
+
         setIsSubmitting(true);
         setSuccessMsg(null);
         setErrorMsg(null);
@@ -186,7 +191,7 @@ export function ImposeSanctionModal({ isOpen, onClose, onSuccess, violationData 
                 penalty_name: sanctionName,
                 description: description || null,
                 start_date: startDate || null,
-                deadline_date: deadlineDate || null,
+                deadline_date: deadlineDate,
                 status: 'In Progress',
                 assigned_by: user.id
             };
@@ -368,7 +373,7 @@ export function ImposeSanctionModal({ isOpen, onClose, onSuccess, violationData 
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="deadlineDate" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Deadline / End Date</Label>
+                                <Label htmlFor="deadlineDate" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Deadline / End Date <span className="text-destructive-semantic">*</span></Label>
                                 <Input
                                     id="deadlineDate"
                                     type="date"
@@ -376,6 +381,7 @@ export function ImposeSanctionModal({ isOpen, onClose, onSuccess, violationData 
                                     value={deadlineDate}
                                     onChange={(e) => setDeadlineDate(e.target.value)}
                                     className="bg-white border-neutral-200 text-neutral-900 shadow-sm h-9 text-sm focus-visible:ring-primary-500"
+                                    required
                                 />
                             </div>
                         </div>
@@ -385,7 +391,7 @@ export function ImposeSanctionModal({ isOpen, onClose, onSuccess, violationData 
                 <div className="p-6 border-t border-neutral-100 bg-neutral-50 shrink-0 rounded-b-xl">
                     <div className="flex justify-end gap-3">
                         <Button type="button" variant="ghost" className="text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200 font-bold" onClick={() => handleOpenChange(false)}>Cancel</Button>
-                        <Button form="impose-sanction-form" type="submit" className="bg-destructive-semantic hover:bg-red-600 text-white font-bold shadow-md transition-all active:scale-95 px-6" disabled={isSubmitting || !sanctionName}>
+                        <Button form="impose-sanction-form" type="submit" className="bg-destructive-semantic hover:bg-red-600 text-white font-bold shadow-md transition-all active:scale-95 px-6" disabled={isSubmitting || !sanctionName || !deadlineDate}>
                             {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                             Confirm & Impose Sanction
                         </Button>
