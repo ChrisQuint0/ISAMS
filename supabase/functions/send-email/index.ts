@@ -46,7 +46,6 @@ function buildEmailHtml(template: string, data: Record<string, string>, docs: Pe
   if (template === 'deadline_reminder') {
     const defaultSub = '[ISAMS] Action Required — Your Pending Faculty Requirements';
 
-    // Grouping logic
     const urgentDocs = docs.filter(function (d) {
       return (d.days_left !== null && Number(d.days_left) < 0) || d.is_grace_period;
     });
@@ -61,8 +60,6 @@ function buildEmailHtml(template: string, data: Record<string, string>, docs: Pe
       for (let i = 0; i < items.length; i++) {
         const d = items[i];
         const isLate = Number(d.days_left) < 0;
-        const statusText = isLate ? ' OVERDUE' : '';
-
         listHtml += '<li style="margin-bottom:6px;font-size:13px;color:#334155;">' +
           '<strong>' + d.type_name + '</strong>' +
           '<div style="font-size:11px;color:#64748b;margin-top:2px;">' +
@@ -73,7 +70,6 @@ function buildEmailHtml(template: string, data: Record<string, string>, docs: Pe
           '</div>' +
           '</li>';
       }
-
       return '<div style="margin-bottom:24px;">' +
         '<div style="display:flex;align-items:center;margin-bottom:12px;">' +
         '<span style="background:' + color + ';color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;text-transform:uppercase;margin-right:8px;">' + badgeTxt + '</span>' +
@@ -102,10 +98,7 @@ function buildEmailHtml(template: string, data: Record<string, string>, docs: Pe
       pendingSummary +
       '<p style="font-size:14px;color:#475569;line-height:1.7;">Please log in to the <strong>ISAMS portal</strong> to complete your submissions.</p>';
 
-    return {
-      subject: subject || defaultSub,
-      html: wrap(contentHtml)
-    };
+    return { subject: subject || defaultSub, html: wrap(contentHtml) };
   }
 
   return {
@@ -128,13 +121,29 @@ Deno.serve(async (req: Request) => {
 
     if (!faculty_id) return Response.json({ error: 'faculty_id is required' }, { status: 400 });
 
+    // ── Check if auto-reminders are globally enabled ──────────────────────────
+    const { data: reminderSetting } = await supabaseAdmin
+      .from('systemsettings_fs')
+      .select('setting_value')
+      .eq('setting_key', 'general_auto_reminders')
+      .maybeSingle();
+
+    if (reminderSetting?.setting_value === 'disabled') {
+      console.log('[send-email] Auto-reminders are disabled by administrator. Skipping.');
+      return Response.json({
+        success: true,
+        skipped: true,
+        message: 'Auto-reminders are currently disabled by the administrator.'
+      });
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     const facultyRes = await supabaseAdmin.from('faculty_fs').select('first_name, last_name, email, email_reminders_enabled').eq('faculty_id', faculty_id).single();
     const faculty = facultyRes.data;
     const fErr = facultyRes.error;
 
     if (fErr || !faculty) return Response.json({ error: 'Faculty not found' }, { status: 404 });
 
-    // Respect faculty preference
     if (faculty.email_reminders_enabled === false) {
       await supabaseAdmin.from('notifications_fs').insert({
         faculty_id: faculty_id,
@@ -150,35 +159,24 @@ Deno.serve(async (req: Request) => {
 
     const facultyName = (faculty.first_name + ' ' + faculty.last_name).trim();
 
-    // Get the REAL total pending count from the database
     const pcRes = await supabaseAdmin.rpc('get_faculty_total_pending', { p_faculty_id: faculty_id });
-    const totalPendingData = pcRes.data;
-    const pendingCount = (totalPendingData ?? 0).toString();
+    const pendingCount = ((pcRes.data ?? 0)).toString();
 
-    // Fetch pending docs with deadline info
     const pdRes = await supabaseAdmin.rpc('get_pending_doc_types_for_faculty', { p_faculty_id: faculty_id });
-    const pendingDocs = pdRes.data;
-    let docs: PendingDoc[] = (pendingDocs || []) as PendingDoc[];
+    const docs: PendingDoc[] = ((pdRes.data || []) as PendingDoc[]);
 
-    // Filter documents for the summary:
-    // - Imminent deadlines (0-3 days)
-    // - Current Grace Period items (cut-off not yet reached)
-    // - Overdue items (deadline passed, even if no grace period or grace passed)
     const relevantDocs = docs.filter(function (d) {
       if (d.days_left === null) return false;
       const daysLeft = Number(d.days_left);
       const daysToCutoff = Number(d.days_to_cutoff);
-
-      return (daysLeft <= 3) ||
-        (d.is_grace_period && daysToCutoff >= 0);
+      return (daysLeft <= 3) || (d.is_grace_period && daysToCutoff >= 0);
     });
 
-    // If there are NO imminent/late deadlines, and this was an automated summary trigger, we can skip
     if (relevantDocs.length === 0 && alert_type === 'consolidated_summary') {
       return Response.json({ success: true, sent: false, message: 'No imminent or overdue deadlines to notify about.' });
     }
 
-    const builtRes = buildEmailHtml(template, { facultyName: facultyName, subject: subject || '', message: message || '', pendingCount: pendingCount }, relevantDocs);
+    const builtRes = buildEmailHtml(template, { facultyName, subject: subject || '', message: message || '', pendingCount }, relevantDocs);
 
     const sgReqBody = {
       personalizations: [{ to: [{ email: faculty.email, name: facultyName }] }],
@@ -208,7 +206,7 @@ Deno.serve(async (req: Request) => {
       email_recipient: faculty.email
     });
 
-    return Response.json({ success: true, email_sent_to: faculty.email, template: template, alert_type: alert_type || 'manual', relevant_count: relevantDocs.length });
+    return Response.json({ success: true, email_sent_to: faculty.email, template, alert_type: alert_type || 'manual', relevant_count: relevantDocs.length });
   } catch (err) {
     console.error('Edge function error:', err);
     return Response.json({ error: (err as Error).message }, { status: 500 });

@@ -119,7 +119,7 @@ export const FacultyArchiveService = {
   /**
    * Bulk Download as ZIP for a specific course routed through Node backend
    */
-  downloadArchiveZip: async (course, semester, academicYear, onProgress) => {
+  downloadArchiveZip: async (course, semester, academicYear, onProgress, abortSignal) => {
     try {
       const history = await FacultyArchiveService.getCourseHistory(course.course_id);
       
@@ -132,6 +132,9 @@ export const FacultyArchiveService = {
       if (filesToDownload.length === 0) {
         return { success: false, message: 'No downloadable files found.' };
       }
+
+      // Compute Total Bytes
+      const precalculatedTotalBytes = filesToDownload.reduce((acc, f) => acc + (parseInt(f.file_size_bytes) || 0), 0);
 
       // Map the files into a clear payload payload for the backend
       const payloadFiles = filesToDownload.map(file => {
@@ -153,7 +156,8 @@ export const FacultyArchiveService = {
       const response = await fetch('http://localhost:3002/api/faculty/export', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ courseId: course.course_id, files: payloadFiles })
+          body: JSON.stringify({ courseId: course.course_id, files: payloadFiles }),
+          signal: abortSignal
       });
 
       if (!response.ok) {
@@ -161,8 +165,25 @@ export const FacultyArchiveService = {
           throw new Error(errorData.message || 'Export failed on server');
       }
 
-      // Receive the ZIP stream from the Express server and trigger browser download
-      const blob = await response.blob();
+      // Read ZIP stream
+      const reader = response.body.getReader();
+      const chunks = [];
+      let receivedBytes = 0;
+      
+      const headerLength = parseInt(response.headers.get('content-length'), 10);
+      const totalBytes = !isNaN(headerLength) && headerLength > 0 ? headerLength : precalculatedTotalBytes;
+
+      while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+          receivedBytes += value.length;
+          if (onProgress) {
+              onProgress({ receivedBytes, totalBytes });
+          }
+      }
+
+      const blob = new Blob(chunks, { type: 'application/zip' });
       
       const sanitize = (str) => (str || 'Unknown').replace(/[\/\\:*?"<>|]/g, '').replace(/\s+/g, '_');
       const ayStr = sanitize(academicYear);
@@ -184,7 +205,7 @@ export const FacultyArchiveService = {
   /**
    * Bulk Download as ZIP for multiple courses
    */
-  downloadBulkArchiveZip: async (courseList, semester, academicYear) => {
+  downloadBulkArchiveZip: async (courseList, semester, academicYear, onProgress, abortSignal) => {
     try {
       if (!courseList || courseList.length === 0) {
         return { success: false, message: 'No courses available to export.' };
@@ -208,7 +229,8 @@ export const FacultyArchiveService = {
                 folder: `${courseFolder}/${docType}`,
                 filename: filename,
                 fileId: fileIdMatch ? fileIdMatch[1] : null,
-                fallbackLink: file.gdrive_web_view_link
+                fallbackLink: file.gdrive_web_view_link,
+                original_size: file.file_size_bytes
             };
         });
 
@@ -219,16 +241,38 @@ export const FacultyArchiveService = {
         return { success: false, message: 'No downloadable files found across all courses.' };
       }
 
+      // Compute Total Bytes
+      const precalculatedTotalBytes = allPayloadFiles.reduce((acc, f) => acc + (parseInt(f.original_size) || 0), 0);
+
       // POST the payload to the Express Node server to bypass CORS
       const response = await fetch('http://localhost:3002/api/faculty/export', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ courseId: 'Bulk', files: allPayloadFiles })
+          body: JSON.stringify({ courseId: 'Bulk', files: allPayloadFiles }),
+          signal: abortSignal
       });
 
       if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           throw new Error(errorData.message || 'Export failed on server');
+      }
+
+      // Read ZIP stream
+      const reader = response.body.getReader();
+      const chunks = [];
+      let receivedBytes = 0;
+      
+      const headerLength = parseInt(response.headers.get('content-length'), 10);
+      const totalBytes = !isNaN(headerLength) && headerLength > 0 ? headerLength : precalculatedTotalBytes;
+
+      while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+          receivedBytes += value.length;
+          if (onProgress) {
+              onProgress({ receivedBytes, totalBytes });
+          }
       }
 
       // Format filename: AY_SEM_DATE.zip
@@ -237,7 +281,7 @@ export const FacultyArchiveService = {
       const semStr = sanitizeFile(semester);
       const dateStr = new Date().toISOString().slice(0, 10);
       
-      const blob = await response.blob();
+      const blob = new Blob(chunks, { type: 'application/zip' });
       const folderName = `${ayStr}_${semStr}_${dateStr}.zip`;
       saveAs(blob, folderName);
 

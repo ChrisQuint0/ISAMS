@@ -191,7 +191,7 @@ export default function FacultyDashboardPage() {
       firstPage.drawText(name, { x: centerX, y, size: fontSize, font, color: rgb(rgbColor.r, rgbColor.g, rgbColor.b) });
       const pdfBytes = await pdfDoc.save();
       saveAs(new Blob([pdfBytes], { type: 'application/pdf' }), `Clearance_${facultyProfile?.last_name || 'Certificate'}.pdf`);
-      toast({ title: "Success", description: "Certificate generated successfully!" });
+      toast({ title: "Success", description: "Certificate generated successfully!", variant: "success" });
     } catch (err) {
       console.error(err);
       toast({ variant: "destructive", title: "Generation Failed", description: "Failed to generate certificate." });

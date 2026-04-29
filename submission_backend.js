@@ -458,6 +458,8 @@ app.post("/api/folders/rename", async (req, res) => {
         q: broadQ,
         fields: "nextPageToken, files(id, name, parents)",
         pageSize: 100,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
         ...(pageToken ? { pageToken } : {})
       };
       const { data } = await drive.files.list(params);
@@ -477,7 +479,8 @@ app.post("/api/folders/rename", async (req, res) => {
         await drive.files.update({
           fileId: folder.id,
           requestBody: { name: safeNew },
-          fields: "id, name"
+          fields: "id, name",
+          supportsAllDrives: true
         });
         renamed++;
         console.log(`[GDrive Rename] "${safeOld}" → "${safeNew}" (id: ${folder.id})`);

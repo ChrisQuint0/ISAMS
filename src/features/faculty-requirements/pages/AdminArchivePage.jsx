@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import { ModuleRegistry, AllCommunityModule, themeQuartz } from 'ag-grid-community';
 
@@ -23,6 +23,7 @@ import { ToastProvider, useToast } from "@/components/ui/toast/toaster";
 import { useAdminArchive } from '../hooks/AdminArchiveHook';
 import { archiveService } from '../services/AdminArchiveService';
 import { openUrl } from '@/lib/openUrl';
+import { DownloadProgressModal } from "../components/DownloadProgressModal";
 
 // Custom theme using AG Grid v33+ Theming API with Quartz theme for a modern institutional look
 const customTheme = themeQuartz.withParams({
@@ -100,6 +101,17 @@ export default function AdminArchivePage() {
 
   const [downloading, setDownloading] = useState(false);
   const [downloadingItemId, setDownloadingItemId] = useState(null);
+  const [downloadProgress, setDownloadProgress] = useState({ isOpen: false, bytes: 0, total: 0 });
+  const abortControllerRef = useRef(null);
+
+  const cancelDownload = () => {
+    if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+    }
+    setDownloadProgress({ isOpen: false, bytes: 0, total: 0 });
+    setDownloading(false);
+  };
 
   const handleReExport = async (item) => {
     setDownloadingItemId(item.history_id);
@@ -123,8 +135,15 @@ export default function AdminArchivePage() {
 
   const handleBulkExport = async () => {
     setDownloading(true);
+    abortControllerRef.current = new AbortController();
+    setDownloadProgress({ isOpen: true, bytes: 0, total: 0 });
+
     try {
-      const result = await archiveService.downloadArchiveZip(bulkConfig);
+      const result = await archiveService.downloadArchiveZip(
+        bulkConfig, 
+        (prog) => setDownloadProgress(prev => ({ ...prev, bytes: prog.receivedBytes, total: prog.totalBytes })),
+        abortControllerRef.current.signal
+      );
       if (result.success) {
         addToast({
           title: "Export Successful",
@@ -132,20 +151,30 @@ export default function AdminArchivePage() {
           variant: "success",
         });
       } else {
-        addToast({
-          title: "Export Error",
-          description: result.message,
-          variant: "destructive",
-        });
+        if (result.message.includes('aborted') || result.message.includes('The user aborted a request')) {
+            addToast({ title: "Export Canceled", description: "Download was canceled.", variant: "destructive" });
+        } else {
+            addToast({
+              title: "Export Error",
+              description: result.message,
+              variant: "destructive",
+            });
+        }
       }
     } catch (err) {
-      addToast({
-        title: "Download Failed",
-        description: err.message || "An unexpected error occurred during zip export.",
-        variant: "destructive",
-      });
+      if (err.name === 'AbortError') {
+          addToast({ title: "Export Canceled", description: "Download was canceled.", variant: "destructive" });
+      } else {
+          addToast({
+            title: "Download Failed",
+            description: err.message || "An unexpected error occurred during zip export.",
+            variant: "destructive",
+          });
+      }
     } finally {
       setDownloading(false);
+      setDownloadProgress({ isOpen: false, bytes: 0, total: 0 });
+      abortControllerRef.current = null;
     }
   };
 
@@ -244,6 +273,12 @@ export default function AdminArchivePage() {
 
   return (
     <div className="space-y-6 flex flex-col h-full bg-neutral-50/30">
+      <DownloadProgressModal 
+        isOpen={downloadProgress.isOpen} 
+        progressBytes={downloadProgress.bytes} 
+        totalBytes={downloadProgress.total} 
+        onCancel={cancelDownload} 
+      />
 
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">

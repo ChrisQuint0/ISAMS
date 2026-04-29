@@ -2157,28 +2157,6 @@ export default function AdminSettingsPage() {
                                                             <FileText className="mr-2 h-4 w-4 text-primary-600" /> Text Extraction Rules
                                                         </h3>
                                                         <div className="grid grid-cols-1 gap-6 pl-1">
-                                                            {/* Required Keywords */}
-                                                            <div className="space-y-2">
-                                                                <div className="flex flex-col gap-1.5">
-                                                                    <div className="flex items-center justify-between">
-                                                                        <Label className="text-xs font-bold text-success uppercase tracking-wider">Must Contain Keywords</Label>
-                                                                        <span className="text-[10px] font-bold text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded border border-neutral-200 uppercase tracking-wider">Comma separated</span>
-                                                                    </div>
-                                                                    <div className="flex items-start gap-2 bg-info/5 border border-info/20 p-2.5 rounded-md">
-                                                                        <p className="text-[11px] text-info font-medium leading-relaxed">
-                                                                            <strong className="font-bold">Recommendation:</strong> Choose broad/generic words for batch submissions (like Presentations). As long as one slide in the batch contains the word, the whole batch passes.
-                                                                        </p>
-                                                                    </div>
-                                                                </div>
-                                                                <Input
-                                                                    value={docRules.required_keywords || ''}
-                                                                    onChange={(e) => setDocRules({ ...docRules, required_keywords: e.target.value })}
-                                                                    className="bg-white border-neutral-200 text-neutral-900 focus-visible:ring-success/20 focus-visible:border-success shadow-sm text-sm"
-                                                                    placeholder="e.g. Vision & Mission, Grading System, Course Outcomes"
-                                                                />
-                                                                <p className="text-xs text-neutral-500 font-medium">The OCR bot will instantly reject the document if any of these phrases are missing.</p>
-                                                            </div>
-
                                                             {/* Forbidden Keywords */}
                                                             <div className="space-y-2 mt-2">
                                                                 <div className="flex flex-col gap-1.5">
@@ -2188,7 +2166,7 @@ export default function AdminSettingsPage() {
                                                                     </div>
                                                                     <div className="flex items-start gap-2 bg-warning/5 border border-warning/20 p-2.5 rounded-md">
                                                                         <p className="text-[11px] text-warning font-medium leading-relaxed">
-                                                                            <strong className="font-bold">Recommendation:</strong> Choose broad/generic words for batch submissions (like Research). As long as one slide in the batch contains the word, the whole batch is rejected.
+                                                                            <strong className="font-bold">Recommendation:</strong> Choose broad/generic words for batch submissions (like Research). The rejection is per file.
                                                                         </p>
                                                                     </div>
                                                                 </div>
