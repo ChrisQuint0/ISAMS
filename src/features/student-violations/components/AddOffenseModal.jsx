@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
     Dialog,
     DialogContent,
@@ -18,6 +18,14 @@ export function AddOffenseModal({ isOpen, onClose, onSuccess, editingOffense }) 
     const [isSaving, setIsSaving] = useState(false);
     const [errorMsg, setErrorMsg] = useState(null);
     const [successMsg, setSuccessMsg] = useState(null);
+    const errorRef = useRef(null);
+
+    // Auto-scroll to error message
+    useEffect(() => {
+        if (errorMsg && errorRef.current) {
+            errorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }, [errorMsg]);
     const [createdByName, setCreatedByName] = useState('Unknown');
     const [updatedByName, setUpdatedByName] = useState('Unknown');
 
@@ -134,7 +142,7 @@ export function AddOffenseModal({ isOpen, onClose, onSuccess, editingOffense }) 
                     </DialogHeader>
 
                     {errorMsg && (
-                        <div className="bg-red-50 border border-red-200 text-destructive-semantic p-3 rounded-md flex items-start gap-3 mb-4 text-xs font-medium">
+                        <div ref={errorRef} className="bg-red-50 border border-red-200 text-destructive-semantic p-3 rounded-md flex items-start gap-3 mb-4 text-xs font-medium animate-in fade-in slide-in-from-top-2 duration-300">
                             <AlertCircle className="w-4 h-4 shrink-0" />
                             <p>{errorMsg}</p>
                         </div>

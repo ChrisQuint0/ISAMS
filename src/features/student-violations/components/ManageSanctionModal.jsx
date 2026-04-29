@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
     Dialog,
     DialogContent,
@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/lib/supabaseClient";
 import { CheckCircle2, AlertCircle, Loader2, UploadCloud, X, FileText, ExternalLink, Trash2 } from "lucide-react";
 import { uploadEvidenceToGDrive, deleteEvidenceFromGDrive } from "../services/gdriveEvidenceUpload";
+import { sendViolationNotification } from "../services/emailNotificationService";
 
 const getFileIdFromUrl = (url) => {
     if (!url) return null;
@@ -49,6 +50,14 @@ export function ManageSanctionModal({ isOpen, onClose, onSuccess, sanctionData }
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState(null);
     const [successMsg, setSuccessMsg] = useState(null);
+    const errorRef = useRef(null);
+
+    // Auto-scroll to error message when it appears
+    useEffect(() => {
+        if (errorMsg && errorRef.current) {
+            errorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }, [errorMsg]);
 
     const [status, setStatus] = useState("In Progress");
     const [remarks, setRemarks] = useState("");
@@ -198,6 +207,16 @@ export function ManageSanctionModal({ isOpen, onClose, onSuccess, sanctionData }
             return;
         }
 
+        if (completionDate && sanctionData?.original_data?.start_date) {
+            const startDateStr = new Date(sanctionData.original_data.start_date).toISOString().split('T')[0];
+            const compDateStr = new Date(completionDate).toISOString().split('T')[0];
+            
+            if (compDateStr < startDateStr) {
+                setErrorMsg(`Completion date cannot be earlier than the start date (${startDateStr}).`);
+                return;
+            }
+        }
+
         setIsSubmitting(true);
         setSuccessMsg(null);
         setErrorMsg(null);
@@ -262,6 +281,18 @@ export function ManageSanctionModal({ isOpen, onClose, onSuccess, sanctionData }
             }
 
             setSuccessMsg("Sanction updated successfully!");
+
+            // Fire-and-forget email notification
+            sendViolationNotification({
+                student_number: sanctionData.student_number,
+                event_type: 'sanction_updated',
+                details: {
+                    penalty_name: sanctionData.sanction_name || 'Unknown Sanction',
+                    new_status: status,
+                    completion_date: completionDate || ''
+                }
+            });
+
             setTimeout(() => {
                 handleOpenChange(false);
                 if (onSuccess) onSuccess();
@@ -289,7 +320,7 @@ export function ManageSanctionModal({ isOpen, onClose, onSuccess, sanctionData }
                     </DialogHeader>
 
                     {errorMsg && (
-                        <div className="bg-red-50 border border-red-200 text-destructive-semantic p-3 rounded-md flex items-start gap-3 mt-4 text-xs font-medium">
+                        <div ref={errorRef} className="bg-red-50 border border-red-200 text-destructive-semantic p-3 rounded-md flex items-start gap-3 mt-4 text-xs font-medium animate-in fade-in slide-in-from-top-2 duration-300">
                             <AlertCircle className="w-4 h-4 shrink-0" />
                             <p>{errorMsg}</p>
                         </div>
