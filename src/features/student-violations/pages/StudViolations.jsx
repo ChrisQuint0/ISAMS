@@ -433,7 +433,7 @@ const StudViolations = () => {
           <div className="flex items-center gap-2">
             <ShieldAlert className="h-[15px] w-[15px] text-neutral-600" />
             <h3 className="text-[15px] font-bold text-neutral-900 uppercase tracking-wider leading-none">
-              {activeTab === "violations" ? "Disciplinary logs" : "Sanction records"}
+              {activeTab === "violations" ? "Disciplinary records" : "Sanction records"}
             </h3>
           </div>
           <div className="flex items-center gap-2 w-full md:w-auto">

@@ -470,7 +470,7 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
                     <form onSubmit={handleSubmit}>
                         <div className="space-y-2 mb-6">
                             <Label htmlFor="status" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Update Status</Label>
-                            <Select value={status} onValueChange={handleStatusChange}>
+                            <Select value={status} onValueChange={handleStatusChange} disabled={violationData.status === 'Resolved'}>
                                 <SelectTrigger className="w-full bg-white border-neutral-200 h-9 text-sm text-neutral-900 focus:ring-primary-500 shadow-sm">
                                     <SelectValue placeholder="Select status" />
                                 </SelectTrigger>
@@ -486,7 +486,7 @@ export function ManageViolationModal({ isOpen, onClose, onSuccess, violationData
 
                         <div className="flex justify-end gap-3">
                             <Button type="button" variant="ghost" className="text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200 font-bold" onClick={() => handleOpenChange(false)}>Close</Button>
-                            <Button type="submit" className="bg-primary-600 hover:bg-primary-700 text-white font-bold shadow-md" disabled={isSubmitting || (status === violationData.status && newEvidenceFiles.length === 0)}>
+                            <Button type="submit" className="bg-primary-600 hover:bg-primary-700 text-white font-bold shadow-md" disabled={isSubmitting || (status === violationData.status && newEvidenceFiles.length === 0) || violationData.status === 'Resolved'}>
                                 {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                                 {isUploadingEvidence ? 'Uploading...' : 'Save Changes'}
                             </Button>

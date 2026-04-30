@@ -417,7 +417,7 @@ export function ManageSanctionModal({ isOpen, onClose, onSuccess, sanctionData }
                     <form id="manage-sanction-form" onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-1.5">
                             <Label htmlFor="status" className="text-xs font-bold text-neutral-600 uppercase tracking-wider">Sanction Status</Label>
-                            <Select value={status} onValueChange={handleStatusChange}>
+                            <Select value={status} onValueChange={handleStatusChange} disabled={sanctionData.original_data?.status === 'Completed'}>
                                 <SelectTrigger className="w-full bg-white border-neutral-200 focus:ring-primary-500 h-9 text-sm text-neutral-900">
                                     <SelectValue placeholder="Select status" />
                                 </SelectTrigger>
@@ -510,7 +510,7 @@ export function ManageSanctionModal({ isOpen, onClose, onSuccess, sanctionData }
                     <Button type="button" variant="ghost" onClick={() => handleOpenChange(false)} className="text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200 font-bold">
                         Close
                     </Button>
-                    <Button form="manage-sanction-form" type="submit" className="bg-primary-600 hover:bg-primary-700 text-white font-bold shadow-md" disabled={isSubmitting}>
+                    <Button form="manage-sanction-form" type="submit" className="bg-primary-600 hover:bg-primary-700 text-white font-bold shadow-md" disabled={isSubmitting || sanctionData.original_data?.status === 'Completed'}>
                         {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                         {isUploading ? 'Uploading...' : 'Update Status'}
                     </Button>

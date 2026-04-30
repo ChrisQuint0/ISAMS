@@ -200,7 +200,7 @@ const ManageSanctions = () => {
                 <div className="px-5 pt-5 pb-2 flex items-center justify-between bg-white relative z-20">
                     <div className="flex items-center gap-2">
                         <FileWarning className="h-[15px] w-[15px] text-neutral-600" />
-                        <h3 className="text-[15px] font-bold text-neutral-900 uppercase tracking-wider leading-none">Sanction Matrix Database</h3>
+                        <h3 className="text-[15px] font-bold text-neutral-900 uppercase tracking-wider leading-none">Sanction Matrix List</h3>
                     </div>
                     <div className="flex items-center gap-2 w-full md:w-auto">
                         <div className="relative w-full md:w-72 group">
