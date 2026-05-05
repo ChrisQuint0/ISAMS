@@ -6,7 +6,7 @@ import {
     Clock, Archive, HardDrive, Server, Activity,
     Wifi, WifiOff, Globe, Lock, Unlock, AlertTriangle,
     ChevronUp, ChevronDown, Plus, Folder, File as FileIcon, LayoutTemplate, Users, BookOpen, X, Settings2, ArchiveRestore, Info, Search, ExternalLink,
-    Download, UploadCloud
+    Download, UploadCloud, SlidersHorizontal
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -533,6 +533,20 @@ export default function AdminSettingsPage() {
     const [assignModalOpen, setAssignModalOpen] = useState(false);
     const [newAssignment, setNewAssignment] = useState({ master_course_id: '', section: '', faculty_id: '' });
     const [facultyAssignmentsSearch, setFacultyAssignmentsSearch] = useState('');
+    const [assignmentFilters, setAssignmentFilters] = useState({ status: 'all', employmentType: 'all' });
+    const [filterPanelOpen, setFilterPanelOpen] = useState(false);
+    const filterPanelRef = React.useRef(null);
+    const activeFilterCount = (assignmentFilters.status !== 'all' ? 1 : 0) + (assignmentFilters.employmentType !== 'all' ? 1 : 0);
+
+    // Close filter panel on outside click
+    React.useEffect(() => {
+        if (!filterPanelOpen) return;
+        const handler = (e) => {
+            if (filterPanelRef.current && !filterPanelRef.current.contains(e.target)) setFilterPanelOpen(false);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [filterPanelOpen]);
 
     const selectedCatalogEntry = masterCourseList.find(c => c.id === Number(newAssignment.master_course_id));
     const SECTION_PATTERN = /^[A-Z]+-\d+[A-Z]$/;  // e.g. BSIT-3A
@@ -563,6 +577,10 @@ export default function AdminSettingsPage() {
         const map = new Map();
         courseList.forEach(c => {
             const fid = c.faculty_id || '__unassigned__';
+            // If the person has been promoted to Admin, their faculty_id will
+            // no longer be in facultyList (the RPC filters by facsub_role = 'faculty').
+            // Skip them so they don't appear in the Course Assignments view.
+            if (fid !== '__unassigned__' && !facultyList.some(f => f.faculty_id === c.faculty_id)) return;
             if (!map.has(fid)) {
                 const fac = facultyList.find(f => f.faculty_id === c.faculty_id);
                 map.set(fid, {
@@ -579,9 +597,17 @@ export default function AdminSettingsPage() {
     }, [courseList, facultyList]);
 
     const filteredFacultyGroups = useMemo(() => {
-        if (!facultyAssignmentsSearch.trim()) return facultyGroups;
+        let groups = facultyGroups;
+        if (assignmentFilters.status !== 'all') {
+            const isActive = assignmentFilters.status === 'active';
+            groups = groups.filter(g => g.is_active === isActive);
+        }
+        if (assignmentFilters.employmentType !== 'all') {
+            groups = groups.filter(g => g.employment_type === assignmentFilters.employmentType);
+        }
+        if (!facultyAssignmentsSearch.trim()) return groups;
         const q = facultyAssignmentsSearch.toLowerCase();
-        return facultyGroups.filter(g => {
+        return groups.filter(g => {
             if (g.name.toLowerCase().includes(q)) return true;
             return g.assignments.some(a =>
                 (a.course_code && a.course_code.toLowerCase().includes(q)) ||
@@ -590,7 +616,7 @@ export default function AdminSettingsPage() {
                 (a.semester && a.semester.toLowerCase().includes(q))
             );
         });
-    }, [facultyGroups, facultyAssignmentsSearch]);
+    }, [facultyGroups, facultyAssignmentsSearch, assignmentFilters]);
 
 
     // Column definitions for faculty tab
@@ -1376,6 +1402,82 @@ export default function AdminSettingsPage() {
                                                     onChange={(e) => setFacultyAssignmentsSearch(e.target.value)}
                                                 />
                                             </div>
+
+                                            {/* Filter Button + Panel */}
+                                            <div className="relative" ref={filterPanelRef}>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className={`h-9 px-3 gap-1.5 border-neutral-200 font-semibold text-xs transition-all ${
+                                                        activeFilterCount > 0
+                                                            ? 'border-primary-400 text-primary-700 bg-primary-50 hover:bg-primary-100'
+                                                            : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
+                                                    }`}
+                                                    onClick={() => setFilterPanelOpen(p => !p)}
+                                                >
+                                                    <SlidersHorizontal className="h-3.5 w-3.5" />
+                                                    Filters
+                                                    {activeFilterCount > 0 && (
+                                                        <span className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary-600 text-[10px] font-bold text-white">
+                                                            {activeFilterCount}
+                                                        </span>
+                                                    )}
+                                                </Button>
+
+                                                {filterPanelOpen && (
+                                                    <div className="absolute right-0 top-10 z-50 w-56 bg-white border border-neutral-200 rounded-xl shadow-lg p-3 space-y-3">
+                                                        <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400 px-1">Filter By</p>
+
+                                                        <div className="space-y-1">
+                                                            <Label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 px-1">Status</Label>
+                                                            <div className="flex flex-col gap-1">
+                                                                {[['all', 'All'], ['active', 'Active'], ['inactive', 'Inactive']].map(([val, label]) => (
+                                                                    <button
+                                                                        key={val}
+                                                                        onClick={() => setAssignmentFilters(f => ({ ...f, status: val }))}
+                                                                        className={`text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                                                                            assignmentFilters.status === val
+                                                                                ? 'bg-primary-50 text-primary-700 border border-primary-200'
+                                                                                : 'text-neutral-600 hover:bg-neutral-50 border border-transparent'
+                                                                        }`}
+                                                                    >
+                                                                        {label}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="border-t border-neutral-100 pt-2 space-y-1">
+                                                            <Label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 px-1">Employment Type</Label>
+                                                            <div className="flex flex-col gap-1">
+                                                                {[['all', 'All'], ['Full Time', 'Full Time'], ['Part Time', 'Part Time']].map(([val, label]) => (
+                                                                    <button
+                                                                        key={val}
+                                                                        onClick={() => setAssignmentFilters(f => ({ ...f, employmentType: val }))}
+                                                                        className={`text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                                                                            assignmentFilters.employmentType === val
+                                                                                ? 'bg-primary-50 text-primary-700 border border-primary-200'
+                                                                                : 'text-neutral-600 hover:bg-neutral-50 border border-transparent'
+                                                                        }`}
+                                                                    >
+                                                                        {label}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+
+                                                        {activeFilterCount > 0 && (
+                                                            <button
+                                                                onClick={() => { setAssignmentFilters({ status: 'all', employmentType: 'all' }); setFilterPanelOpen(false); }}
+                                                                className="w-full mt-1 text-center text-xs font-bold text-destructive hover:text-destructive/80 border-t border-neutral-100 pt-2 transition-colors"
+                                                            >
+                                                                Clear Filters
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+
                                             <Button onClick={openAssignModal} className="shrink-0 h-9">
                                                 <Plus className="h-4 w-4 mr-2" /> Assign Faculty
                                             </Button>
