@@ -625,7 +625,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }) {
                                 <UploadCloud className="w-10 h-10 text-neutral-400 mb-4" />
                                 <Label htmlFor="file_upload" className="cursor-pointer text-primary-600 hover:text-primary-700 hover:underline text-center font-bold">
                                     Click to browse Excel or CSV file
-                                    <Input id="file_upload" type="file" accept=".csv, .xlsx, .xls" className="hidden" onChange={handleFileUpload} />
+                                    <Input id="file_upload" type="file" accept=".csv, .xlsx, .xls" className="hidden" onChange={handleFileUpload} onClick={(e) => { e.target.value = null; setErrorMsg(null); }} />
                                 </Label>
                                 <p className="text-xs font-medium text-neutral-500 mt-2">Maximum file size 5MB</p>
 
