@@ -9,63 +9,143 @@ import Tesseract from "tesseract.js";
 import JSZip from "jszip";
 import { Readable } from "stream";
 import sgMail from "@sendgrid/mail";
+import path from "path";
+import { fileURLToPath } from "url";
 
-// Load environment variables from .env.local
-dotenv.config({ path: "./.env.local" });
+// Get the directory name of the current module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load environment variables from .env.local (use absolute path)
+const envPath = path.join(__dirname, ".env.local");
+console.log("[submission_backend.js] Loading .env from:", envPath);
+dotenv.config({ path: envPath });
 
 const app = express();
 const port = 3002; // Dedicated port for Faculty Submissions
 
-// Config
-const GOOGLE_CLIENT_ID = process.env.VITE_GOOGLE_CLIENT_ID;
-const GOOGLE_CLIENT_SECRET = process.env.VITE_GOOGLE_CLIENT_SECRET;
-const REDIRECT_URI = "http://localhost:3002/oauth2callback";
+// System config loaded from Supabase
+let systemConfig = {};
+
+// Config - Only Supabase credentials from env, rest from database
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const GOOGLE_DRIVE_FOLDER_ID = process.env.VITE_GOOGLE_DRIVE_FOLDER_ID;
-const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
-const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || "noreply@isams.edu";
-const SENDGRID_FROM_NAME = process.env.SENDGRID_FROM_NAME || "ISAMS System";
 
-if (SENDGRID_API_KEY) {
-  sgMail.setApiKey(SENDGRID_API_KEY);
+/**
+ * Load system configuration from Supabase
+ */
+async function loadSystemConfig() {
+  try {
+    console.log("📡 [Submission] Loading system config from Supabase...");
+
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+      throw new Error("Supabase credentials not found in environment");
+    }
+
+    const configClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    const { data, error } = await configClient
+      .from("system_config")
+      .select("key, value");
+
+    if (error) throw error;
+
+    systemConfig = data.reduce((acc, item) => {
+      acc[item.key] = item.value;
+      return acc;
+    }, {});
+
+    console.log(
+      `✅ [Submission] System config loaded: ${Object.keys(systemConfig).length} keys`,
+    );
+  } catch (error) {
+    console.error("❌ [Submission] Failed to load system config:", error);
+    throw error;
+  }
+}
+
+// Helper to get config value
+function getConfig(key, defaultValue = null) {
+  return systemConfig[key] ?? defaultValue;
+}
+
+const REDIRECT_URI = "http://localhost:3002/oauth2callback";
+const GOOGLE_DRIVE_FOLDER_ID = process.env.VITE_GOOGLE_DRIVE_FOLDER_ID;
+
+// Initialize SendGrid after config loads
+function initializeSendGrid() {
+  const apiKey = getConfig("SENDGRID_API_KEY");
+  if (apiKey) {
+    sgMail.setApiKey(apiKey);
+    console.log("✅ [Submission] SendGrid initialized");
+  } else {
+    console.warn("⚠️ [Submission] SendGrid API key not found in config");
+  }
 }
 
 // Middleware
 app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 // Request Logger
 app.use((req, res, next) => {
-  console.log(`[Submission Backend] ${new Date().toISOString()} ${req.method} ${req.url}`);
+  console.log(
+    `[Submission Backend] ${new Date().toISOString()} ${req.method} ${req.url}`,
+  );
   next();
 });
 
 // Supabase Clients
-const supabase = (SUPABASE_URL && SUPABASE_KEY)
-  ? createClient(SUPABASE_URL, SUPABASE_KEY)
-  : null;
+const supabase =
+  SUPABASE_URL && SUPABASE_KEY
+    ? createClient(SUPABASE_URL, SUPABASE_KEY)
+    : null;
 
-const supabaseAdmin = (SUPABASE_URL && SUPABASE_SERVICE_KEY)
-  ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  })
-  : null;
+const supabaseAdmin =
+  SUPABASE_URL && SUPABASE_SERVICE_KEY
+    ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      })
+    : null;
 
-// OAuth2 Client
-const oauth2Client = new google.auth.OAuth2(
-  GOOGLE_CLIENT_ID,
-  GOOGLE_CLIENT_SECRET,
-  REDIRECT_URI
-);
+// OAuth2 Client (initialized after config loads)
+let oauth2Client = null;
+
+function initializeOAuthClient() {
+  const clientId = getConfig("GOOGLE_CLIENT_ID");
+  const clientSecret = getConfig("GOOGLE_CLIENT_SECRET");
+
+  if (clientId && clientSecret) {
+    oauth2Client = new google.auth.OAuth2(clientId, clientSecret, REDIRECT_URI);
+    console.log("✅ [Submission] OAuth2 client initialized");
+  } else {
+    console.warn(
+      "⚠️ [Submission] Google OAuth credentials not found in config",
+    );
+  }
+}
 
 // Multer for file uploads
 const upload = multer({ storage: multer.memoryStorage() });
 
 // ---------- Email HTML template builder ----------
-function buildEmailHtml(template, { facultyName, subject, message, pendingCount, lateCount, courseDetails, docType, filenames }) {
+function buildEmailHtml(
+  template,
+  {
+    facultyName,
+    subject,
+    message,
+    pendingCount,
+    lateCount,
+    courseDetails,
+    docType,
+    filenames,
+  },
+) {
   const primaryColor = "#009845";
   const baseStyle = `font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; padding: 32px 16px; margin: 0;`;
   const cardStyle = `background: #ffffff; border-radius: 12px; padding: 32px; max-width: 560px; margin: 0 auto; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.06);`;
@@ -79,36 +159,51 @@ function buildEmailHtml(template, { facultyName, subject, message, pendingCount,
       <p style="margin: 0; font-size: 11px; color: #94a3b8;">This is an automated message from ISAMS. Do not reply to this email.</p>
     </div>`;
 
-  const wrap = (body) => `<div style="${baseStyle}"><div style="${cardStyle}">${headerStr}${body}${footerStr}</div></div>`;
+  const wrap = (body) =>
+    `<div style="${baseStyle}"><div style="${cardStyle}">${headerStr}${body}${footerStr}</div></div>`;
 
   if (template === "deadline_reminder") {
     // Note: filenames in the context of reminders will now include Course - Section context if provided
     return {
-      subject: subject || "[ISAMS] Action Required — Your Pending Faculty Requirements",
+      subject:
+        subject ||
+        "[ISAMS] Action Required — Your Pending Faculty Requirements",
       html: wrap(`
         <p style="font-size: 15px; color: #1e293b; margin: 0 0 12px;">Dear <strong>${facultyName}</strong>,</p>
         <p style="font-size: 14px; color: #475569; line-height: 1.7;">This is a reminder that you have pending faculty requirement submissions that need your attention.</p>
         
-        ${courseDetails || docType ? `
+        ${
+          courseDetails || docType
+            ? `
         <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;">
           ${courseDetails ? `<p style="margin: 0 0 8px; font-size: 13px; color: #475569;"><strong style="color: #1e293b;">Course:</strong> ${courseDetails}</p>` : ""}
           ${docType ? `<p style="margin: 0 0 8px; font-size: 13px; color: #475569;"><strong style="color: #1e293b;">Requirement:</strong> ${docType}</p>` : ""}
-        </div>` : ""}
+        </div>`
+            : ""
+        }
 
-        ${message ? `
+        ${
+          message
+            ? `
         <div style="background: #fefce8; border-left: 4px solid #eab308; padding: 16px; border-radius: 4px; margin: 20px 0;">
           <p style="margin: 0; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #854d0e;">Message from Administrator</p>
           <p style="margin: 8px 0 0; font-size: 14px; color: #713f12; white-space: pre-line;">${message}</p>
-        </div>` : ""}
+        </div>`
+            : ""
+        }
 
-        ${pendingCount ? `
+        ${
+          pendingCount
+            ? `
         <div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 16px; margin: 20px 0;">
           <p style="margin: 0; font-size: 13px; font-weight: 700; color: #c2410c;">⚠ You have ${pendingCount} pending submission${parseInt(pendingCount) !== 1 ? "s" : ""} in ISAMS.</p>
           ${lateCount && parseInt(lateCount) > 0 ? `<p style="margin: 6px 0 0; font-size: 12px; color: #dc2626;">🔴 ${lateCount} item${parseInt(lateCount) !== 1 ? "s" : ""} marked as Late</p>` : ""}
-        </div>` : ""}
+        </div>`
+            : ""
+        }
         
         <p style="font-size: 14px; color: #475569; line-height: 1.7;">Please log in to the <strong>ISAMS portal</strong> to complete your submissions before the deadline.</p>
-      `)
+      `),
     };
   }
 
@@ -125,13 +220,17 @@ function buildEmailHtml(template, { facultyName, subject, message, pendingCount,
           ${filenames ? `<p style="margin: 0; font-size: 13px; color: #475569;"><strong style="color: #1e293b;">Files:</strong> ${filenames}</p>` : ""}
         </div>
 
-        ${message ? `
+        ${
+          message
+            ? `
         <div style="background: #fefce8; border-left: 4px solid #eab308; padding: 16px; border-radius: 4px; margin: 20px 0;">
           <p style="margin: 0; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #854d0e;">Revision Reason</p>
           <p style="margin: 8px 0 0; font-size: 14px; color: #713f12;">${message}</p>
-        </div>` : ""}
+        </div>`
+            : ""
+        }
         <p style="font-size: 14px; color: #475569;">Please log in to ISAMS, review the feedback, and resubmit your document.</p>
-      `)
+      `),
     };
   }
 
@@ -145,14 +244,16 @@ function buildEmailHtml(template, { facultyName, subject, message, pendingCount,
         <p style="font-size: 15px; color: #1e293b; margin: 0 0 12px;">Dear <strong>${facultyName}</strong>,</p>
         <p style="font-size: 14px; color: #475569; line-height: 1.7;">${message || "Your submission deadline has passed. Immediate action is required to avoid disciplinary measures."}</p>
         <p style="font-size: 14px; color: #475569;">Please contact the administrator immediately.</p>
-      `)
+      `),
     };
   }
 
   // Generic
   return {
     subject: subject || "[ISAMS] Notification",
-    html: wrap(`<p style="font-size:15px;color:#1e293b;">Dear <strong>${facultyName}</strong>,</p><p style="font-size:14px;color:#475569;">${message || ""}</p>`)
+    html: wrap(
+      `<p style="font-size:15px;color:#1e293b;">Dear <strong>${facultyName}</strong>,</p><p style="font-size:14px;color:#475569;">${message || ""}</p>`,
+    ),
   };
 }
 
@@ -170,11 +271,15 @@ async function loadToken() {
   const data = scopedTokens && scopedTokens.length > 0 ? scopedTokens[0] : null;
 
   if (!data) {
-    console.warn("[loadToken] No Drive-scoped token found in google_auth_tokens.");
+    console.warn(
+      "[loadToken] No Drive-scoped token found in google_auth_tokens.",
+    );
     return null;
   }
 
-  console.log(`[loadToken] Using token id=${data.id}, created=${data.created_at}`);
+  console.log(
+    `[loadToken] Using token id=${data.id}, created=${data.created_at}`,
+  );
 
   oauth2Client.setCredentials({
     access_token: data.access_token,
@@ -226,7 +331,9 @@ app.get("/oauth2callback", async (req, res) => {
       return res.status(500).send("Error saving tokens");
     }
 
-    res.send("Authentication successful! You can close this window and return to the app.");
+    res.send(
+      "Authentication successful! You can close this window and return to the app.",
+    );
   } catch (error) {
     console.error("Error getting tokens:", error);
     res.status(500).send("Authentication failed");
@@ -245,7 +352,8 @@ app.get("/api/files", async (req, res) => {
 
     const response = await drive.files.list({
       pageSize: 50,
-      fields: "nextPageToken, files(id, name, webViewLink, iconLink, createdTime, size, webContentLink)",
+      fields:
+        "nextPageToken, files(id, name, webViewLink, iconLink, createdTime, size, webContentLink)",
       q: query,
     });
 
@@ -274,12 +382,17 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
     });
 
     if (existingFiles.files && existingFiles.files.length > 0) {
-      console.log(`[GDrive] Found existing file "${fileName}", deleting ID: ${existingFiles.files[0].id} for overwrite.`);
+      console.log(
+        `[GDrive] Found existing file "${fileName}", deleting ID: ${existingFiles.files[0].id} for overwrite.`,
+      );
       await drive.files.delete({ fileId: existingFiles.files[0].id });
     }
 
     const fileMetadata = { name: fileName, parents: [folderId] };
-    const media = { mimeType: req.file.mimetype, body: Readable.from(req.file.buffer) };
+    const media = {
+      mimeType: req.file.mimetype,
+      body: Readable.from(req.file.buffer),
+    };
 
     const file = await drive.files.create({
       resource: fileMetadata,
@@ -300,8 +413,10 @@ app.post("/api/validate-image", upload.array("files"), async (req, res) => {
     const { doc_type_id } = req.body;
     const files = req.files;
 
-    if (!files || files.length === 0) return res.status(400).json({ error: "No image file provided" });
-    if (!doc_type_id) return res.status(400).json({ error: "Missing doc_type_id" });
+    if (!files || files.length === 0)
+      return res.status(400).json({ error: "No image file provided" });
+    if (!doc_type_id)
+      return res.status(400).json({ error: "Missing doc_type_id" });
 
     let extractedText = "";
     let processedFiles = [];
@@ -309,9 +424,13 @@ app.post("/api/validate-image", upload.array("files"), async (req, res) => {
     for (const file of files) {
       processedFiles.push(file.originalname);
       try {
-        const worker = await Tesseract.createWorker('eng');
-        await worker.setParameters({ tessedit_pageseg_mode: Tesseract.PSM.SPARSE_TEXT });
-        const { data: { text } } = await worker.recognize(file.buffer);
+        const worker = await Tesseract.createWorker("eng");
+        await worker.setParameters({
+          tessedit_pageseg_mode: Tesseract.PSM.SPARSE_TEXT,
+        });
+        const {
+          data: { text },
+        } = await worker.recognize(file.buffer);
         await worker.terminate();
         extractedText += text + "\n\n";
       } catch (ocrErr) {
@@ -322,28 +441,42 @@ app.post("/api/validate-image", upload.array("files"), async (req, res) => {
 
     const normalizedText = extractedText.toLowerCase();
     const { data: docType, error: docError } = await supabaseAdmin
-      .from('documenttypes_fs')
-      .select('required_keywords, forbidden_keywords, max_file_size_mb')
-      .eq('doc_type_id', doc_type_id)
+      .from("documenttypes_fs")
+      .select("required_keywords, forbidden_keywords, max_file_size_mb")
+      .eq("doc_type_id", doc_type_id)
       .single();
 
     if (docError || !docType) throw new Error("Validation rules not found");
 
-    const wordCount = extractedText.trim().split(/\s+/).filter(w => w.length > 0).length;
+    const wordCount = extractedText
+      .trim()
+      .split(/\s+/)
+      .filter((w) => w.length > 0).length;
     const missingKeywords = [];
     const foundForbidden = [];
-    const noSpaceText = normalizedText.replace(/\s+/g, '');
+    const noSpaceText = normalizedText.replace(/\s+/g, "");
 
     if (docType.required_keywords && Array.isArray(docType.required_keywords)) {
       for (const keyword of docType.required_keywords) {
-        const kwNoSpace = keyword.toLowerCase().replace(/\s+/g, '');
-        if (!normalizedText.includes(keyword.toLowerCase()) && !noSpaceText.includes(kwNoSpace)) missingKeywords.push(keyword);
+        const kwNoSpace = keyword.toLowerCase().replace(/\s+/g, "");
+        if (
+          !normalizedText.includes(keyword.toLowerCase()) &&
+          !noSpaceText.includes(kwNoSpace)
+        )
+          missingKeywords.push(keyword);
       }
     }
-    if (docType.forbidden_keywords && Array.isArray(docType.forbidden_keywords)) {
+    if (
+      docType.forbidden_keywords &&
+      Array.isArray(docType.forbidden_keywords)
+    ) {
       for (const keyword of docType.forbidden_keywords) {
-        const kwNoSpace = keyword.toLowerCase().replace(/\s+/g, '');
-        if (normalizedText.includes(keyword.toLowerCase()) || noSpaceText.includes(kwNoSpace)) foundForbidden.push(keyword);
+        const kwNoSpace = keyword.toLowerCase().replace(/\s+/g, "");
+        if (
+          normalizedText.includes(keyword.toLowerCase()) ||
+          noSpaceText.includes(kwNoSpace)
+        )
+          foundForbidden.push(keyword);
       }
     }
 
@@ -353,7 +486,7 @@ app.post("/api/validate-image", upload.array("files"), async (req, res) => {
       wordCount,
       missingKeywords,
       foundForbidden,
-      processedFiles
+      processedFiles,
     });
   } catch (error) {
     console.error("[OCR] Full fallback error:", error);
@@ -363,25 +496,38 @@ app.post("/api/validate-image", upload.array("files"), async (req, res) => {
 
 // Folder Helpers
 function sanitizeFolderName(name) {
-  if (!name) return 'Untitled';
-  return name.replace(/[\/\\:*?"<>|]/g, '').replace(/\s+/g, ' ').trim() || 'Untitled';
+  if (!name) return "Untitled";
+  return (
+    name
+      .replace(/[\/\\:*?"<>|]/g, "")
+      .replace(/\s+/g, " ")
+      .trim() || "Untitled"
+  );
 }
 
 async function getOrCreateFolder(drive, folderName, parentId) {
   const safeName = sanitizeFolderName(folderName);
   const query = `name='${safeName.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`;
-  const { data } = await drive.files.list({ q: query, fields: 'files(id, name)', pageSize: 1 });
+  const { data } = await drive.files.list({
+    q: query,
+    fields: "files(id, name)",
+    pageSize: 1,
+  });
   if (data.files && data.files.length > 0) return data.files[0].id;
 
   const createRes = await drive.files.create({
-    resource: { name: safeName, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] },
-    fields: 'id',
+    resource: {
+      name: safeName,
+      mimeType: "application/vnd.google-apps.folder",
+      parents: [parentId],
+    },
+    fields: "id",
   });
   return createRes.data.id;
 }
 
 function formatCourseFolderName(courseCode, section) {
-  const safeCode = sanitizeFolderName(courseCode || 'UNKNOWN');
+  const safeCode = sanitizeFolderName(courseCode || "UNKNOWN");
   return section ? `${safeCode} - ${sanitizeFolderName(section)}` : safeCode;
 }
 
@@ -391,15 +537,33 @@ app.post("/api/folders/ensure", async (req, res) => {
     const auth = await loadToken();
     if (!auth) return res.status(401).json({ error: "Not authenticated" });
     const drive = google.drive({ version: "v3", auth });
-    const { rootFolderId: bodyRootId, academicYear, semester, facultyName, courseCode, section, docTypeName, termName } = req.body;
+    const {
+      rootFolderId: bodyRootId,
+      academicYear,
+      semester,
+      facultyName,
+      courseCode,
+      section,
+      docTypeName,
+      termName,
+    } = req.body;
     let targetId = bodyRootId || GOOGLE_DRIVE_FOLDER_ID;
 
-    if (academicYear) targetId = await getOrCreateFolder(drive, academicYear, targetId);
+    if (academicYear)
+      targetId = await getOrCreateFolder(drive, academicYear, targetId);
     if (semester) targetId = await getOrCreateFolder(drive, semester, targetId);
-    if (facultyName) targetId = await getOrCreateFolder(drive, facultyName, targetId);
-    if (courseCode) targetId = await getOrCreateFolder(drive, formatCourseFolderName(courseCode, section), targetId);
-    if (docTypeName) targetId = await getOrCreateFolder(drive, docTypeName, targetId);
-    if (!academicYear && termName) targetId = await getOrCreateFolder(drive, termName, targetId);
+    if (facultyName)
+      targetId = await getOrCreateFolder(drive, facultyName, targetId);
+    if (courseCode)
+      targetId = await getOrCreateFolder(
+        drive,
+        formatCourseFolderName(courseCode, section),
+        targetId,
+      );
+    if (docTypeName)
+      targetId = await getOrCreateFolder(drive, docTypeName, targetId);
+    if (!academicYear && termName)
+      targetId = await getOrCreateFolder(drive, termName, targetId);
 
     res.json({ folderId: targetId });
   } catch (err) {
@@ -413,7 +577,10 @@ app.post("/api/folders/init-isams", async (req, res) => {
     if (!auth) return res.status(401).json({ error: "Not authenticated" });
     const drive = google.drive({ version: "v3", auth });
     const { mainFolderId } = req.body;
-    const { data: folder } = await drive.files.get({ fileId: mainFolderId, fields: 'id, name' });
+    const { data: folder } = await drive.files.get({
+      fileId: mainFolderId,
+      fields: "id, name",
+    });
     res.json({ success: true, rootId: folder.id, mainFolderId });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -430,10 +597,15 @@ app.post("/api/folders/rename", async (req, res) => {
 
     const { rootFolderId, oldFolderName, newFolderName } = req.body;
     if (!oldFolderName || !newFolderName) {
-      return res.status(400).json({ error: "oldFolderName and newFolderName are required" });
+      return res
+        .status(400)
+        .json({ error: "oldFolderName and newFolderName are required" });
     }
     if (oldFolderName.trim() === newFolderName.trim()) {
-      return res.json({ renamed: 0, message: "Names are identical, nothing to do." });
+      return res.json({
+        renamed: 0,
+        message: "Names are identical, nothing to do.",
+      });
     }
 
     const safeOld = sanitizeFolderName(oldFolderName);
@@ -460,7 +632,7 @@ app.post("/api/folders/rename", async (req, res) => {
         pageSize: 100,
         supportsAllDrives: true,
         includeItemsFromAllDrives: true,
-        ...(pageToken ? { pageToken } : {})
+        ...(pageToken ? { pageToken } : {}),
       };
       const { data } = await drive.files.list(params);
       allFolders = allFolders.concat(data.files || []);
@@ -468,7 +640,10 @@ app.post("/api/folders/rename", async (req, res) => {
     } while (pageToken);
 
     if (allFolders.length === 0) {
-      return res.json({ renamed: 0, message: `No folders named "${safeOld}" found.` });
+      return res.json({
+        renamed: 0,
+        message: `No folders named "${safeOld}" found.`,
+      });
     }
 
     // Rename each matching folder
@@ -480,12 +655,17 @@ app.post("/api/folders/rename", async (req, res) => {
           fileId: folder.id,
           requestBody: { name: safeNew },
           fields: "id, name",
-          supportsAllDrives: true
+          supportsAllDrives: true,
         });
         renamed++;
-        console.log(`[GDrive Rename] "${safeOld}" → "${safeNew}" (id: ${folder.id})`);
+        console.log(
+          `[GDrive Rename] "${safeOld}" → "${safeNew}" (id: ${folder.id})`,
+        );
       } catch (err) {
-        console.error(`[GDrive Rename] Failed for folder ${folder.id}:`, err.message);
+        console.error(
+          `[GDrive Rename] Failed for folder ${folder.id}:`,
+          err.message,
+        );
         errors.push({ id: folder.id, error: err.message });
       }
     }
@@ -494,7 +674,7 @@ app.post("/api/folders/rename", async (req, res) => {
       renamed,
       total: allFolders.length,
       errors: errors.length > 0 ? errors : undefined,
-      message: `Renamed ${renamed} of ${allFolders.length} folder(s) from "${safeOld}" to "${safeNew}".`
+      message: `Renamed ${renamed} of ${allFolders.length} folder(s) from "${safeOld}" to "${safeNew}".`,
     });
   } catch (err) {
     console.error("[GDrive Rename] Error:", err.message);
@@ -511,7 +691,11 @@ app.post("/api/files/clone", async (req, res) => {
     const { fileId, targetFolderId, newFileName } = req.body;
     const fileMetadata = { parents: [targetFolderId] };
     if (newFileName) fileMetadata.name = newFileName;
-    const file = await drive.files.copy({ fileId, resource: fileMetadata, fields: "id, name, webViewLink, webContentLink" });
+    const file = await drive.files.copy({
+      fileId,
+      resource: fileMetadata,
+      fields: "id, name, webViewLink, webContentLink",
+    });
     res.json(file.data);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -526,7 +710,12 @@ app.post("/api/files/move", async (req, res) => {
     const { fileId, targetFolderId } = req.body;
     const file = await drive.files.get({ fileId, fields: "parents" });
     const previousParents = (file.data.parents || []).join(",");
-    const result = await drive.files.update({ fileId, addParents: targetFolderId, removeParents: previousParents, fields: "id, parents" });
+    const result = await drive.files.update({
+      fileId,
+      addParents: targetFolderId,
+      removeParents: previousParents,
+      fields: "id, parents",
+    });
     res.json({ message: "File moved successfully", data: result.data });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -542,7 +731,8 @@ app.get("/api/files/metadata", async (req, res) => {
 
     const response = await drive.files.get({
       fileId,
-      fields: "id, name, webViewLink, iconLink, createdTime, size, mimeType, trashed"
+      fields:
+        "id, name, webViewLink, iconLink, createdTime, size, mimeType, trashed",
     });
 
     res.json(response.data);
@@ -551,7 +741,6 @@ app.get("/api/files/metadata", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
 
 app.post("/api/files/delete", async (req, res) => {
   try {
@@ -564,7 +753,7 @@ app.post("/api/files/delete", async (req, res) => {
       fileId: req.body.fileId,
       requestBody: { trashed: true },
       supportsAllDrives: true,
-      supportsTeamDrives: true
+      supportsTeamDrives: true,
     });
 
     res.json({ message: "File moved to trash successfully" });
@@ -580,30 +769,47 @@ app.post("/api/archive/export", async (req, res) => {
     if (!auth) return res.status(401).json({ error: "Not authenticated" });
     const drive = google.drive({ version: "v3", auth });
     const { semester, academic_year, department } = req.body;
-    const p_semester = (semester === 'All Semesters' || semester === 'ALL') ? null : semester;
-    const p_academic_year = (academic_year === 'All Years' || academic_year === 'ALL') ? null : academic_year;
-    const p_department = (department === 'All Departments' || department === 'ALL') ? null : department;
+    const p_semester =
+      semester === "All Semesters" || semester === "ALL" ? null : semester;
+    const p_academic_year =
+      academic_year === "All Years" || academic_year === "ALL"
+        ? null
+        : academic_year;
+    const p_department =
+      department === "All Departments" || department === "ALL"
+        ? null
+        : department;
 
-    const { data: files, error } = await supabase.rpc('get_archive_export_links_fs', { p_semester, p_academic_year, p_department });
+    const { data: files, error } = await supabase.rpc(
+      "get_archive_export_links_fs",
+      { p_semester, p_academic_year, p_department },
+    );
     if (error) throw error;
-    if (!files || files.length === 0) return res.status(404).json({ message: "No files found" });
+    if (!files || files.length === 0)
+      return res.status(404).json({ message: "No files found" });
 
-    res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename="Archive.zip"`);
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Disposition", `attachment; filename="Archive.zip"`);
     const zip = new JSZip();
     for (const file of files) {
       const fileIdMatch = file.download_link?.match(/id=([^&]+)/);
       const fileId = fileIdMatch ? fileIdMatch[1] : null;
       if (fileId) {
         try {
-          const driveRes = await drive.files.get({ fileId, alt: 'media' }, { responseType: 'stream' });
+          const driveRes = await drive.files.get(
+            { fileId, alt: "media" },
+            { responseType: "stream" },
+          );
           zip.file(file.filename, driveRes.data);
         } catch (err) {
-          zip.file(`ERROR_${file.filename}.txt`, `Failed to download: ${err.message}`);
+          zip.file(
+            `ERROR_${file.filename}.txt`,
+            `Failed to download: ${err.message}`,
+          );
         }
       }
     }
-    zip.generateNodeStream({ type: 'nodebuffer', streamFiles: true }).pipe(res);
+    zip.generateNodeStream({ type: "nodebuffer", streamFiles: true }).pipe(res);
   } catch (error) {
     if (!res.headersSent) res.status(500).json({ message: error.message });
   }
@@ -615,23 +821,33 @@ app.post("/api/faculty/export", async (req, res) => {
     if (!auth) return res.status(401).json({ error: "Not authenticated" });
     const drive = google.drive({ version: "v3", auth });
     const { courseId, files } = req.body;
-    if (!files || files.length === 0) return res.status(404).json({ message: "No files provided" });
+    if (!files || files.length === 0)
+      return res.status(404).json({ message: "No files provided" });
 
-    res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename="Course_${courseId}.zip"`);
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="Course_${courseId}.zip"`,
+    );
     const zip = new JSZip();
     for (const file of files) {
       const zipPath = `${file.folder}/${file.filename}`;
       if (file.fileId) {
         try {
-          const driveRes = await drive.files.get({ fileId: file.fileId, alt: 'media' }, { responseType: 'stream' });
+          const driveRes = await drive.files.get(
+            { fileId: file.fileId, alt: "media" },
+            { responseType: "stream" },
+          );
           zip.file(zipPath, driveRes.data);
         } catch (err) {
-          zip.file(`${file.folder}/ERROR_${file.filename}.txt`, `Download failed: ${err.message}`);
+          zip.file(
+            `${file.folder}/ERROR_${file.filename}.txt`,
+            `Download failed: ${err.message}`,
+          );
         }
       }
     }
-    zip.generateNodeStream({ type: 'nodebuffer', streamFiles: true }).pipe(res);
+    zip.generateNodeStream({ type: "nodebuffer", streamFiles: true }).pipe(res);
   } catch (error) {
     if (!res.headersSent) res.status(500).json({ message: error.message });
   }
@@ -639,29 +855,52 @@ app.post("/api/faculty/export", async (req, res) => {
 
 // Email Notification
 app.post("/api/send-email", async (req, res) => {
-  if (!SENDGRID_API_KEY || !supabaseAdmin) return res.status(500).json({ error: "Config missing" });
-  const { faculty_id, template = "deadline_reminder", subject, message, pending_count, late_count } = req.body;
-  if (!faculty_id) return res.status(400).json({ error: "faculty_id is required" });
+  if (!SENDGRID_API_KEY || !supabaseAdmin)
+    return res.status(500).json({ error: "Config missing" });
+  const {
+    faculty_id,
+    template = "deadline_reminder",
+    subject,
+    message,
+    pending_count,
+    late_count,
+  } = req.body;
+  if (!faculty_id)
+    return res.status(400).json({ error: "faculty_id is required" });
 
   try {
-    const { data: faculty, error: facultyErr } = await supabaseAdmin.from("faculty_fs").select("first_name, last_name, email, email_reminders_enabled").eq("faculty_id", faculty_id).single();
-    if (facultyErr || !faculty || !faculty.email) return res.status(404).json({ error: "Faculty or email not found" });
+    const { data: faculty, error: facultyErr } = await supabaseAdmin
+      .from("faculty_fs")
+      .select("first_name, last_name, email, email_reminders_enabled")
+      .eq("faculty_id", faculty_id)
+      .single();
+    if (facultyErr || !faculty || !faculty.email)
+      return res.status(404).json({ error: "Faculty or email not found" });
 
     // Respect faculty preference
     if (faculty.email_reminders_enabled === false) {
-      console.log(`[Submission Backend] Email skipped for ${faculty_id} (${faculty.email}) - Reminders disabled by user.`);
+      console.log(
+        `[Submission Backend] Email skipped for ${faculty_id} (${faculty.email}) - Reminders disabled by user.`,
+      );
 
       // Log the skip in the notification history
       await supabaseAdmin.from("notifications_fs").insert({
         faculty_id,
-        notification_type: template === "revision_request" ? "REVISION_REQUEST" : "DEADLINE_REMINDER",
+        notification_type:
+          template === "revision_request"
+            ? "REVISION_REQUEST"
+            : "DEADLINE_REMINDER",
         subject: subject || "Submission Reminder",
-        message: `[SKIPPED] ${message || 'Reminder'} not sent due to faculty email preferences.`,
+        message: `[SKIPPED] ${message || "Reminder"} not sent due to faculty email preferences.`,
         email_sent_at: new Date().toISOString(),
-        email_recipient: faculty.email
+        email_recipient: faculty.email,
       });
 
-      return res.json({ success: true, ignored: true, message: "Email skipped due to faculty preference" });
+      return res.json({
+        success: true,
+        ignored: true,
+        message: "Email skipped due to faculty preference",
+      });
     }
 
     const facultyName = `${faculty.first_name} ${faculty.last_name}`.trim();
@@ -673,13 +912,30 @@ app.post("/api/send-email", async (req, res) => {
       lateCount: late_count?.toString(),
       courseDetails: req.body.courseDetails,
       docType: req.body.docType,
-      filenames: req.body.filenames
+      filenames: req.body.filenames,
     });
 
-    await sgMail.send({ to: { email: faculty.email, name: facultyName }, from: { email: SENDGRID_FROM_EMAIL, name: SENDGRID_FROM_NAME }, subject: builtSubject, html });
+    const fromEmail = getConfig("SENDGRID_FROM_EMAIL", "noreply@isams.edu");
+    const fromName = getConfig("SENDGRID_FROM_NAME", "ISAMS System");
+    await sgMail.send({
+      to: { email: faculty.email, name: facultyName },
+      from: { email: fromEmail, name: fromName },
+      subject: builtSubject,
+      html,
+    });
 
-    const notifType = template === "revision_request" ? "REVISION_REQUEST" : "DEADLINE_REMINDER";
-    await supabaseAdmin.from("notifications_fs").insert({ faculty_id, notification_type: notifType, subject: builtSubject, message: message || `Email sent to ${faculty.email}`, email_sent_at: new Date().toISOString(), email_recipient: faculty.email });
+    const notifType =
+      template === "revision_request"
+        ? "REVISION_REQUEST"
+        : "DEADLINE_REMINDER";
+    await supabaseAdmin.from("notifications_fs").insert({
+      faculty_id,
+      notification_type: notifType,
+      subject: builtSubject,
+      message: message || `Email sent to ${faculty.email}`,
+      email_sent_at: new Date().toISOString(),
+      email_recipient: faculty.email,
+    });
 
     res.json({ success: true });
   } catch (err) {
@@ -713,22 +969,25 @@ app.get("/api/status", async (req, res) => {
 
 // Tables to include in the ISAMS backup (in dependency order for restore)
 const BACKUP_TABLES = [
-  { name: 'faculty_fs', pk: 'faculty_id' },
-  { name: 'master_courses_fs', pk: 'id' },
-  { name: 'courses_fs', pk: 'course_id' },
-  { name: 'documenttypes_fs', pk: 'doc_type_id' },
-  { name: 'deadlines_fs', pk: 'deadline_id' },
-  { name: 'semester_history_fs', pk: 'id' },
-  { name: 'submissions_fs', pk: 'submission_id' },
-  { name: 'documentversions_fs', pk: 'version_id' },
-  { name: 'systemsettings_fs', pk: 'setting_key' },
-  { name: 'holidays_fs', pk: 'holiday_id' },
+  { name: "faculty_fs", pk: "faculty_id" },
+  { name: "master_courses_fs", pk: "id" },
+  { name: "courses_fs", pk: "course_id" },
+  { name: "documenttypes_fs", pk: "doc_type_id" },
+  { name: "deadlines_fs", pk: "deadline_id" },
+  { name: "semester_history_fs", pk: "id" },
+  { name: "submissions_fs", pk: "submission_id" },
+  { name: "documentversions_fs", pk: "version_id" },
+  { name: "systemsettings_fs", pk: "setting_key" },
+  { name: "holidays_fs", pk: "holiday_id" },
 ];
 
 // GET /api/backup/export — export all ISAMS tables into a downloadable JSON file
 app.get("/api/backup/export", async (req, res) => {
   try {
-    if (!supabaseAdmin) return res.status(500).json({ error: "Service role client not configured" });
+    if (!supabaseAdmin)
+      return res
+        .status(500)
+        .json({ error: "Service role client not configured" });
 
     const tables = {};
     for (const { name } of BACKUP_TABLES) {
@@ -752,7 +1011,9 @@ app.get("/api/backup/export", async (req, res) => {
     res.setHeader("Content-Type", "application/json");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     res.json(backup);
-    console.log(`[Backup] Export completed — ${Object.keys(tables).length} tables`);
+    console.log(
+      `[Backup] Export completed — ${Object.keys(tables).length} tables`,
+    );
   } catch (err) {
     console.error("[Backup] Export failed:", err.message);
     res.status(500).json({ error: err.message });
@@ -762,11 +1023,21 @@ app.get("/api/backup/export", async (req, res) => {
 // POST /api/backup/restore — accept a backup JSON and restore each table via true SQL upsert
 app.post("/api/backup/restore", async (req, res) => {
   try {
-    if (!supabaseAdmin) return res.status(500).json({ error: "Service role client not configured" });
+    if (!supabaseAdmin)
+      return res
+        .status(500)
+        .json({ error: "Service role client not configured" });
 
     const { backup } = req.body;
-    if (!backup || backup.source !== "ISAMS" || !backup.version || !backup.tables) {
-      return res.status(400).json({ error: "Invalid backup file. Must be an ISAMS-generated backup." });
+    if (
+      !backup ||
+      backup.source !== "ISAMS" ||
+      !backup.version ||
+      !backup.tables
+    ) {
+      return res.status(400).json({
+        error: "Invalid backup file. Must be an ISAMS-generated backup.",
+      });
     }
 
     const results = {};
@@ -781,35 +1052,49 @@ app.post("/api/backup/restore", async (req, res) => {
 
       // documenttypes_fs has a unique constraint on type_name IN ADDITION to the PK,
       // which causes upsert to fail when renaming. Use explicit UPDATE per row instead.
-      if (name === 'documenttypes_fs') {
+      if (name === "documenttypes_fs") {
         let restored = 0;
         const errors = [];
         for (const row of rows) {
           const pkValue = row[pk];
           if (pkValue == null) continue;
           // Build update payload without the PK column
-          const payload = Object.fromEntries(Object.entries(row).filter(([k]) => k !== pk));
+          const payload = Object.fromEntries(
+            Object.entries(row).filter(([k]) => k !== pk),
+          );
           const { error: updateErr } = await supabaseAdmin
             .from(name)
             .update(payload)
             .eq(pk, pkValue);
           if (updateErr) {
-            console.error(`[Restore] ${name} row ${pkValue}: ${updateErr.message}`);
+            console.error(
+              `[Restore] ${name} row ${pkValue}: ${updateErr.message}`,
+            );
             errors.push({ [pk]: pkValue, error: updateErr.message });
           } else {
             restored++;
           }
         }
-        results[name] = { restored, total: rows.length, errors: errors.length > 0 ? errors : undefined };
+        results[name] = {
+          restored,
+          total: rows.length,
+          errors: errors.length > 0 ? errors : undefined,
+        };
         totalRestored += restored;
-        console.log(`[Restore] ${name}: ${restored}/${rows.length} rows updated`);
+        console.log(
+          `[Restore] ${name}: ${restored}/${rows.length} rows updated`,
+        );
         continue;
       }
 
       // All other tables: standard upsert with .select() to force execution
       const { data, error } = await supabaseAdmin
         .from(name)
-        .upsert(rows, { onConflict: pk, ignoreDuplicates: false, defaultToNull: false })
+        .upsert(rows, {
+          onConflict: pk,
+          ignoreDuplicates: false,
+          defaultToNull: false,
+        })
         .select(pk);
 
       if (error) {
@@ -823,7 +1108,9 @@ app.post("/api/backup/restore", async (req, res) => {
       }
     }
 
-    console.log(`[Restore] Completed — ${totalRestored} rows restored across ${BACKUP_TABLES.length} tables`);
+    console.log(
+      `[Restore] Completed — ${totalRestored} rows restored across ${BACKUP_TABLES.length} tables`,
+    );
     res.json({
       success: true,
       exported_at: backup.exported_at,
@@ -837,7 +1124,29 @@ app.post("/api/backup/restore", async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Server Startup
+// ─────────────────────────────────────────────────────────────────────────────
 
-app.listen(port, () => {
-  console.log(`Submission Backend running at http://localhost:${port}`);
-});
+async function startServer() {
+  try {
+    console.log("🚀 Starting Submission Backend Server...");
+
+    // Load system config from Supabase
+    await loadSystemConfig();
+
+    // Initialize services with loaded config
+    initializeOAuthClient();
+    initializeSendGrid();
+
+    // Start listening
+    app.listen(port, () => {
+      console.log(`✅ Submission Backend running at http://localhost:${port}`);
+    });
+  } catch (error) {
+    console.error("❌ [Submission] Failed to start server:", error);
+    process.exit(1);
+  }
+}
+
+// Start the server
+startServer();

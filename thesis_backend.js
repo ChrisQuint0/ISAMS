@@ -5,21 +5,71 @@ import { google } from "googleapis";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import { Readable } from "stream";
+import path from "path";
+import { fileURLToPath } from "url";
 
-// Load environment variables
-dotenv.config({ path: "./.env.local" });
+// Get the directory name of the current module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load environment variables from .env.local (use absolute path)
+const envPath = path.join(__dirname, ".env.local");
+console.log("[thesis_backend.js] Loading .env from:", envPath);
+dotenv.config({ path: envPath });
 
 const app = express();
 const port = 3001; // Separate port to avoid conflict with server.js
 
-// Config
-const GOOGLE_CLIENT_ID = process.env.VITE_GOOGLE_CLIENT_ID;
-const GOOGLE_CLIENT_SECRET = process.env.VITE_GOOGLE_CLIENT_SECRET;
-const REDIRECT_URI = "http://localhost:3000/oauth2callback";
+// System config loaded from Supabase
+let systemConfig = {};
+
+// Config - Only Supabase credentials from env, rest from database
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY;
 const SUPABASE_SERVICE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+/**
+ * Load system configuration from Supabase
+ */
+async function loadSystemConfig() {
+  try {
+    console.log("📡 [Thesis] Loading system config from Supabase...");
+
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+      throw new Error("Supabase credentials not found in environment");
+    }
+
+    const configClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    const { data, error } = await configClient
+      .from("system_config")
+      .select("key, value");
+
+    if (error) throw error;
+
+    systemConfig = data.reduce((acc, item) => {
+      acc[item.key] = item.value;
+      return acc;
+    }, {});
+
+    console.log(
+      `✅ [Thesis] System config loaded: ${Object.keys(systemConfig).length} keys`,
+    );
+  } catch (error) {
+    console.error("❌ [Thesis] Failed to load system config:", error);
+    throw error;
+  }
+}
+
+// Helper to get config value
+function getConfig(key, defaultValue = null) {
+  return systemConfig[key] ?? defaultValue;
+}
+
+const REDIRECT_URI = "http://localhost:3000/oauth2callback";
 
 // Helper to get settings from DB
 async function getThesisSetting(key) {
@@ -65,15 +115,29 @@ const supabaseAdmin =
     ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
     : null;
 
-const oauth2Client = new google.auth.OAuth2(
-  GOOGLE_CLIENT_ID,
-  GOOGLE_CLIENT_SECRET,
-  REDIRECT_URI,
-);
+// OAuth2 Client (initialized after config loads)
+let oauth2Client = null;
+
+function initializeOAuthClient() {
+  const clientId = getConfig("GOOGLE_CLIENT_ID");
+  const clientSecret = getConfig("GOOGLE_CLIENT_SECRET");
+
+  if (clientId && clientSecret) {
+    oauth2Client = new google.auth.OAuth2(clientId, clientSecret, REDIRECT_URI);
+    console.log("✅ [Thesis] OAuth2 client initialized");
+  } else {
+    console.warn("⚠️ [Thesis] Google OAuth credentials not found in config");
+  }
+}
 
 const upload = multer({ storage: multer.memoryStorage() });
 
 async function loadToken() {
+  if (!oauth2Client) {
+    console.warn("⚠️ [Thesis] OAuth2 client not initialized");
+    return null;
+  }
+
   const { data, error } = await supabase
     .from("google_auth_tokens")
     .select("*")
@@ -526,6 +590,29 @@ async function logAuditTrail(
   }
 }
 
-app.listen(port, () => {
-  console.log(`Thesis Backend running at http://localhost:${port}`);
-});
+// ─────────────────────────────────────────────────────────────────────────────
+// Server Startup
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function startServer() {
+  try {
+    console.log("🚀 Starting Thesis Backend Server...");
+
+    // Load system config from Supabase
+    await loadSystemConfig();
+
+    // Initialize OAuth client with loaded config
+    initializeOAuthClient();
+
+    // Start listening
+    app.listen(port, () => {
+      console.log(`✅ Thesis Backend running at http://localhost:${port}`);
+    });
+  } catch (error) {
+    console.error("❌ [Thesis] Failed to start server:", error);
+    process.exit(1);
+  }
+}
+
+// Start the server
+startServer();

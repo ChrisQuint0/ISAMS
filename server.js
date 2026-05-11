@@ -9,6 +9,8 @@ import JSZip from "jszip";
 import { google } from "googleapis";
 import { Readable } from "stream";
 import { createRequire } from "module";
+import path from "path";
+import { fileURLToPath } from "url";
 
 // Load CJS-only packages safely from an ESM context
 const require = createRequire(import.meta.url);
@@ -16,18 +18,67 @@ const natural = require("natural");
 const { PDFParse } = require("pdf-parse");
 const mammoth = require("mammoth");
 
-// Load environment variables from .env.local
-dotenv.config({ path: "./.env.local" });
+// Get the directory name of the current module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load environment variables from .env.local (use absolute path)
+const envPath = path.join(__dirname, ".env.local");
+console.log("[server.js] Loading .env from:", envPath);
+dotenv.config({ path: envPath });
 
 const app = express();
 const port = 3000;
 
-// Config
-const GOOGLE_CLIENT_ID = process.env.VITE_GOOGLE_CLIENT_ID;
-const GOOGLE_CLIENT_SECRET = process.env.VITE_GOOGLE_CLIENT_SECRET;
+// System config loaded from Supabase
+let systemConfig = {};
+
+// Config - Only Supabase credentials from env, rest from database
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+/**
+ * Load system configuration from Supabase
+ * This allows API keys to be stored securely in the database
+ */
+async function loadSystemConfig() {
+  try {
+    console.log("📡 Loading system config from Supabase...");
+
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+      throw new Error("Supabase credentials not found in environment");
+    }
+
+    const configClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    const { data, error } = await configClient
+      .from("system_config")
+      .select("key, value");
+
+    if (error) throw error;
+
+    systemConfig = data.reduce((acc, item) => {
+      acc[item.key] = item.value;
+      return acc;
+    }, {});
+
+    console.log(
+      `✅ System config loaded: ${Object.keys(systemConfig).length} keys`,
+    );
+  } catch (error) {
+    console.error("❌ Failed to load system config:", error);
+    throw error;
+  }
+}
+
+// Helper to get config value
+function getConfig(key, defaultValue = null) {
+  return systemConfig[key] ?? defaultValue;
+}
+
 const REDIRECT_URI = "http://localhost:3000/oauth2callback";
 
 // Middleware
@@ -35,23 +86,35 @@ app.use(cors());
 app.use(express.json());
 
 // Supabase Client
-const supabase = (SUPABASE_URL && SUPABASE_KEY)
-  ? createClient(SUPABASE_URL, SUPABASE_KEY)
-  : null;
+const supabase =
+  SUPABASE_URL && SUPABASE_KEY
+    ? createClient(SUPABASE_URL, SUPABASE_KEY)
+    : null;
 
-const supabaseAdmin = (SUPABASE_URL && SUPABASE_SERVICE_KEY)
-  ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  })
-  : null;
+const supabaseAdmin =
+  SUPABASE_URL && SUPABASE_SERVICE_KEY
+    ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      })
+    : null;
 
 // Multer for file uploads
 const upload = multer({ storage: multer.memoryStorage() });
 
-// OAuth2 Client for GDrive
-const oauth2Client = (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET)
-  ? new google.auth.OAuth2(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, REDIRECT_URI)
-  : null;
+// OAuth2 Client for GDrive (initialized after config loads)
+let oauth2Client = null;
+
+function initializeOAuthClient() {
+  const clientId = getConfig("GOOGLE_CLIENT_ID");
+  const clientSecret = getConfig("GOOGLE_CLIENT_SECRET");
+
+  if (clientId && clientSecret) {
+    oauth2Client = new google.auth.OAuth2(clientId, clientSecret, REDIRECT_URI);
+    console.log("✅ OAuth2 client initialized");
+  } else {
+    console.warn("⚠️ Google OAuth credentials not found in config");
+  }
+}
 
 // ---------- GDrive Helpers ----------
 async function loadToken(userId) {
@@ -65,11 +128,15 @@ async function loadToken(userId) {
       .eq("user_id", userId)
       .maybeSingle();
 
-    if (userData && userData.scope && userData.scope.match(/googleapis\.com\/auth\/drive(\s|$)/)) {
+    if (
+      userData &&
+      userData.scope &&
+      userData.scope.match(/googleapis\.com\/auth\/drive(\s|$)/)
+    ) {
       data = userData;
     }
-  } 
-  
+  }
+
   if (!data) {
     // Fallback logic: Search for a token that has the full 'drive' scope needed for uploads
     const { data: scopedTokens, error: scopeError } = await supabase
@@ -79,7 +146,9 @@ async function loadToken(userId) {
       .order("created_at", { ascending: false });
 
     if (scopedTokens && scopedTokens.length > 0) {
-      const fullDriveToken = scopedTokens.find(t => t.scope && t.scope.match(/googleapis\.com\/auth\/drive(\s|$)/));
+      const fullDriveToken = scopedTokens.find(
+        (t) => t.scope && t.scope.match(/googleapis\.com\/auth\/drive(\s|$)/),
+      );
       data = fullDriveToken || scopedTokens[0];
     } else {
       // Final fallback to id=1
@@ -106,8 +175,13 @@ async function loadToken(userId) {
 }
 
 function sanitizeFolderName(name) {
-  if (!name) return 'Untitled';
-  return name.replace(/[\/\\:*?"<>|]/g, '').replace(/\s+/g, ' ').trim() || 'Untitled';
+  if (!name) return "Untitled";
+  return (
+    name
+      .replace(/[\/\\:*?"<>|]/g, "")
+      .replace(/\s+/g, " ")
+      .trim() || "Untitled"
+  );
 }
 
 async function getSetting(key) {
@@ -125,12 +199,20 @@ const DEFAULT_HTE_PARENT_FOLDER_ID = "1AmN8A4Q-D7eUWH7vIE_C_ybV4DWvm99V";
 async function getOrCreateFolder(drive, folderName, parentId) {
   const safeName = sanitizeFolderName(folderName);
   const query = `name='${safeName.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`;
-  const { data } = await drive.files.list({ q: query, fields: 'files(id, name)', pageSize: 1 });
+  const { data } = await drive.files.list({
+    q: query,
+    fields: "files(id, name)",
+    pageSize: 1,
+  });
   if (data.files && data.files.length > 0) return data.files[0].id;
-  
+
   const createRes = await drive.files.create({
-    resource: { name: safeName, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] },
-    fields: 'id',
+    resource: {
+      name: safeName,
+      mimeType: "application/vnd.google-apps.folder",
+      parents: [parentId],
+    },
+    fields: "id",
   });
   return createRes.data.id;
 }
@@ -142,20 +224,23 @@ app.post("/api/users", async (req, res) => {
   const { module, firstName, lastName, email, password, role } = req.body;
 
   if (!SUPABASE_SERVICE_KEY) {
-    return res.status(500).json({ error: "Server missing SUPABASE_SERVICE_ROLE_KEY" });
+    return res
+      .status(500)
+      .json({ error: "Server missing SUPABASE_SERVICE_ROLE_KEY" });
   }
 
   try {
     // 1. Create user in auth.users
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: {
-        first_name: firstName,
-        last_name: lastName,
-      },
-    });
+    const { data: authData, error: authError } =
+      await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          first_name: firstName,
+          last_name: lastName,
+        },
+      });
 
     if (authError) throw authError;
 
@@ -176,7 +261,7 @@ app.post("/api/users", async (req, res) => {
       superadmin: false,
     };
 
-    // Because there may be a Supabase Database Trigger automatically creating a default row 
+    // Because there may be a Supabase Database Trigger automatically creating a default row
     // in `user_rbac` on `auth.users` insertion, we first try to Update the existing row.
     const { data: updatedRows, error: updateError } = await supabaseAdmin
       .from("user_rbac")
@@ -197,13 +282,15 @@ app.post("/api/users", async (req, res) => {
 
     // If update affected 0 rows (meaning no trigger exists), we perform a regular insert
     if (!updatedRows || updatedRows.length === 0) {
-      const { error: insertError } = await supabaseAdmin.from("user_rbac").insert(rbacData);
+      const { error: insertError } = await supabaseAdmin
+        .from("user_rbac")
+        .insert(rbacData);
       if (insertError) throw insertError;
     } else if (updatedRows.length > 1) {
       // If there are multiple roles (like the bug you experienced), clean up duplicates
       // Keep the first one and delete the rest
       const [firstRow, ...duplicates] = updatedRows;
-      const duplicateIds = duplicates.map(row => row.id);
+      const duplicateIds = duplicates.map((row) => row.id);
       if (duplicateIds.length > 0) {
         await supabaseAdmin.from("user_rbac").delete().in("id", duplicateIds);
       }
@@ -219,7 +306,7 @@ app.post("/api/users", async (req, res) => {
       recordId: userId,
       newValues: { firstName, lastName, email, role, module },
       actorUserId: req.body.actorUserId || null,
-      actorName: req.body.actorName || "Admin"
+      actorName: req.body.actorName || "Admin",
     });
   } catch (error) {
     console.error("Error creating user:", error);
@@ -233,7 +320,9 @@ app.patch("/api/users/:id", async (req, res) => {
   const updates = req.body;
 
   if (!SUPABASE_SERVICE_KEY) {
-    return res.status(500).json({ error: "Server missing SUPABASE_SERVICE_ROLE_KEY" });
+    return res
+      .status(500)
+      .json({ error: "Server missing SUPABASE_SERVICE_ROLE_KEY" });
   }
 
   try {
@@ -241,28 +330,38 @@ app.patch("/api/users/:id", async (req, res) => {
     const authUpdatePayload = {};
     if (updates.first_name || updates.last_name) {
       authUpdatePayload.user_metadata = {};
-      if (updates.first_name) authUpdatePayload.user_metadata.first_name = updates.first_name;
-      if (updates.last_name) authUpdatePayload.user_metadata.last_name = updates.last_name;
+      if (updates.first_name)
+        authUpdatePayload.user_metadata.first_name = updates.first_name;
+      if (updates.last_name)
+        authUpdatePayload.user_metadata.last_name = updates.last_name;
     }
     if (updates.email) {
       authUpdatePayload.email = updates.email;
     }
 
     if (Object.keys(authUpdatePayload).length > 0) {
-      const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
-        userId,
-        authUpdatePayload
-      );
+      const { error: authError } =
+        await supabaseAdmin.auth.admin.updateUserById(
+          userId,
+          authUpdatePayload,
+        );
       if (authError) throw authError;
     }
 
     // 2. Update the user_rbac table if needed
     const rbacUpdatePayload = {};
     const rbacFields = [
-      'status', 'thesis', 'thesis_role', 'facsub', 'facsub_role',
-      'labman', 'labman_role', 'studvio', 'studvio_role'
+      "status",
+      "thesis",
+      "thesis_role",
+      "facsub",
+      "facsub_role",
+      "labman",
+      "labman_role",
+      "studvio",
+      "studvio_role",
     ];
-    rbacFields.forEach(field => {
+    rbacFields.forEach((field) => {
       if (updates[field] !== undefined) {
         rbacUpdatePayload[field] = updates[field];
       }
@@ -287,7 +386,7 @@ app.patch("/api/users/:id", async (req, res) => {
       recordType: "auth.users",
       newValues: updates,
       actorUserId: req.body.actorUserId || null,
-      actorName: req.body.actorName || "Admin"
+      actorName: req.body.actorName || "Admin",
     });
   } catch (error) {
     console.error("Error updating user:", error);
@@ -301,7 +400,9 @@ app.post("/api/users/:id/reset-password", async (req, res) => {
   const { password } = req.body;
 
   if (!SUPABASE_SERVICE_KEY) {
-    return res.status(500).json({ error: "Server missing SUPABASE_SERVICE_ROLE_KEY" });
+    return res
+      .status(500)
+      .json({ error: "Server missing SUPABASE_SERVICE_ROLE_KEY" });
   }
 
   if (!password) {
@@ -311,7 +412,7 @@ app.post("/api/users/:id/reset-password", async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin.auth.admin.updateUserById(
       userId,
-      { password: password }
+      { password: password },
     );
 
     if (error) throw error;
@@ -326,7 +427,7 @@ app.post("/api/users/:id/reset-password", async (req, res) => {
       recordId: userId,
       recordType: "auth.users",
       actorUserId: req.body.actorUserId || null,
-      actorName: req.body.actorName || "Admin"
+      actorName: req.body.actorName || "Admin",
     });
   } catch (error) {
     console.error("Error resetting password:", error);
@@ -334,59 +435,62 @@ app.post("/api/users/:id/reset-password", async (req, res) => {
   }
 });
 
-
-
-
-
 // Removed duplicate deprecated Report endpoints that queried the old digital_repository schema.
 // The new definitions are located further down in the file.
 
 // 11. Create HTE Student (Auth + GDrive + DB)
 app.post("/api/hte/students/create", async (req, res) => {
   const { studentData, password, academicYear, semester } = req.body;
-  const hteParentFolderId = (await getSetting("hte_parent_folder_id")) || DEFAULT_HTE_PARENT_FOLDER_ID;
+  const hteParentFolderId =
+    (await getSetting("hte_parent_folder_id")) || DEFAULT_HTE_PARENT_FOLDER_ID;
 
   let createdAuthUserId = null; // Track if we created a NEW auth user for rollback
 
   try {
     const auth = await loadToken(req.body.userId || null);
-    if (!auth) return res.status(401).json({ error: "Google Drive not authenticated" });
+    if (!auth)
+      return res.status(401).json({ error: "Google Drive not authenticated" });
     const drive = google.drive({ version: "v3", auth });
 
     // 1. Check if student already exists in hte_ojt_students
     const { data: existingStudent, error: findError } = await supabaseAdmin
       .from("hte_ojt_students")
       .select("id, user_id, is_active")
-      .or(`email.eq.${studentData.email},student_no.eq.${studentData.studentId}`)
+      .or(
+        `email.eq.${studentData.email},student_no.eq.${studentData.studentId}`,
+      )
       .maybeSingle();
 
     if (findError) throw findError;
 
     if (existingStudent && existingStudent.is_active) {
-      return res.status(400).json({ error: "Student with this Email or ID already exists and is active." });
+      return res.status(400).json({
+        error: "Student with this Email or ID already exists and is active.",
+      });
     }
 
     let userId = existingStudent?.user_id || null;
 
     // 2. Handle Auth User
     if (!userId) {
-      // Create a NEW auth user. If it fails due to existing email (e.g. from another module), 
+      // Create a NEW auth user. If it fails due to existing email (e.g. from another module),
       // we throw the error as requested (no cross-module reuse).
-      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-        email: studentData.email,
-        password: password || Math.random().toString(36).slice(-10) + "!",
-        email_confirm: true,
-        user_metadata: {
-          first_name: studentData.firstName,
-          last_name: studentData.lastName,
-        },
-      });
+      const { data: authData, error: authError } =
+        await supabaseAdmin.auth.admin.createUser({
+          email: studentData.email,
+          password: password || Math.random().toString(36).slice(-10) + "!",
+          email_confirm: true,
+          user_metadata: {
+            first_name: studentData.firstName,
+            last_name: studentData.lastName,
+          },
+        });
 
       if (authError) {
         // If user exists in another module, it will fail here with a conflict error.
-        throw authError; 
+        throw authError;
       }
-      
+
       userId = authData.user.id;
       createdAuthUserId = userId; // Mark as newly created for potential rollback
     }
@@ -397,12 +501,16 @@ app.post("/api/hte/students/create", async (req, res) => {
         user_id: userId,
         thesis: true,
         thesis_role: "student",
-        status: "active"
+        status: "active",
       });
 
       // 4. Create/Find GDrive Folder
       const folderName = `${studentData.studentId}_${studentData.lastName}_${semester}`;
-      const folderId = await getOrCreateFolder(drive, folderName, hteParentFolderId);
+      const folderId = await getOrCreateFolder(
+        drive,
+        folderName,
+        hteParentFolderId,
+      );
       const folderLink = `https://drive.google.com/drive/folders/${folderId}`;
 
       // 5. Insert or Update Student Record
@@ -423,7 +531,7 @@ app.post("/api/hte/students/create", async (req, res) => {
         gdrive_folder_link: folderLink,
         overall_status: "incomplete",
         is_active: true,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       };
 
       let student;
@@ -451,7 +559,7 @@ app.post("/api/hte/students/create", async (req, res) => {
       // Action log...
       await logAuditTrail(req, {
         action: existingStudent ? "Update/Reactivate" : "Add",
-        description: existingStudent 
+        description: existingStudent
           ? `Reactivated HTE student: ${studentData.firstName} ${studentData.lastName}`
           : `Enrolled new HTE student: ${studentData.firstName} ${studentData.lastName}`,
         moduleAffected: "HTE Archiving",
@@ -459,32 +567,39 @@ app.post("/api/hte/students/create", async (req, res) => {
         recordType: "hte_ojt_students",
         newValues: student,
         actorUserId: req.body.actorUserId || null,
-        actorName: req.body.actorName || "Admin"
+        actorName: req.body.actorName || "Admin",
       });
-
     } catch (innerError) {
       // ROLLBACK: If we created a new Auth user but setup failed, delete them
       if (createdAuthUserId) {
-        console.warn(`[HTE Rollback] Deleting newly created auth user ${createdAuthUserId} due to setup failure: ${innerError.message}`);
+        console.warn(
+          `[HTE Rollback] Deleting newly created auth user ${createdAuthUserId} due to setup failure: ${innerError.message}`,
+        );
         await supabaseAdmin.auth.admin.deleteUser(createdAuthUserId);
       }
       throw innerError;
     }
-
   } catch (error) {
     console.error("Error creating student:", error);
-    res.status(error.status === 422 || error.message.includes("already registered") ? 400 : 500).json({ 
-      error: error.message.includes("already registered") 
-        ? "Email already exists in the system (possibly in another module). Please use a unique email for this student." 
-        : error.message 
-    });
+    res
+      .status(
+        error.status === 422 || error.message.includes("already registered")
+          ? 400
+          : 500,
+      )
+      .json({
+        error: error.message.includes("already registered")
+          ? "Email already exists in the system (possibly in another module). Please use a unique email for this student."
+          : error.message,
+      });
   }
 });
 
 // 11.1. Batch Create HTE Students
 app.post("/api/hte/students/batch-create", async (req, res) => {
   const { students, academicYear, semester } = req.body;
-  const hteParentFolderId = (await getSetting("hte_parent_folder_id")) || DEFAULT_HTE_PARENT_FOLDER_ID;
+  const hteParentFolderId =
+    (await getSetting("hte_parent_folder_id")) || DEFAULT_HTE_PARENT_FOLDER_ID;
 
   if (!Array.isArray(students) || students.length === 0) {
     return res.status(400).json({ error: "Invalid or empty student list" });
@@ -494,12 +609,13 @@ app.post("/api/hte/students/batch-create", async (req, res) => {
     total: students.length,
     success: 0,
     failed: 0,
-    errors: []
+    errors: [],
   };
 
   try {
     const auth = await loadToken(req.body.userId || null);
-    if (!auth) return res.status(401).json({ error: "Google Drive not authenticated" });
+    if (!auth)
+      return res.status(401).json({ error: "Google Drive not authenticated" });
     const drive = google.drive({ version: "v3", auth });
 
     for (const studentData of students) {
@@ -509,7 +625,9 @@ app.post("/api/hte/students/batch-create", async (req, res) => {
         const { data: existingStudent, error: findError } = await supabaseAdmin
           .from("hte_ojt_students")
           .select("id, user_id, is_active")
-          .or(`email.eq.${studentData.email},student_no.eq.${studentData.studentId}`)
+          .or(
+            `email.eq.${studentData.email},student_no.eq.${studentData.studentId}`,
+          )
           .maybeSingle();
 
         if (findError) throw findError;
@@ -522,26 +640,34 @@ app.post("/api/hte/students/batch-create", async (req, res) => {
 
         // 2. Handle Auth User
         if (!userId) {
-          // Create a NEW auth user. If it fails due to existing email (e.g. from another module), 
+          // Create a NEW auth user. If it fails due to existing email (e.g. from another module),
           // we throw the error as requested (no cross-module reuse).
-          const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-            email: studentData.email,
-            password: studentData.password || Math.random().toString(36).slice(-10) + "!",
-            email_confirm: true,
-            user_metadata: {
-              first_name: studentData.firstName,
-              last_name: studentData.lastName,
-            },
-          });
+          const { data: authData, error: authError } =
+            await supabaseAdmin.auth.admin.createUser({
+              email: studentData.email,
+              password:
+                studentData.password ||
+                Math.random().toString(36).slice(-10) + "!",
+              email_confirm: true,
+              user_metadata: {
+                first_name: studentData.firstName,
+                last_name: studentData.lastName,
+              },
+            });
 
           if (authError) {
             // Check for conflict
-            if (authError.message.includes("already registered") || authError.status === 422) {
-              throw new Error("Email already exists in the system (possibly in another module). Please use a unique email.");
+            if (
+              authError.message.includes("already registered") ||
+              authError.status === 422
+            ) {
+              throw new Error(
+                "Email already exists in the system (possibly in another module). Please use a unique email.",
+              );
             }
             throw authError;
           }
-          
+
           userId = authData.user.id;
           createdAuthUserId = userId;
         }
@@ -552,12 +678,16 @@ app.post("/api/hte/students/batch-create", async (req, res) => {
             user_id: userId,
             thesis: true,
             thesis_role: "student",
-            status: "active"
+            status: "active",
           });
 
           // 4. GDrive Folder
           const folderName = `${studentData.studentId}_${studentData.lastName}_${semester}`;
-          const folderId = await getOrCreateFolder(drive, folderName, hteParentFolderId);
+          const folderId = await getOrCreateFolder(
+            drive,
+            folderName,
+            hteParentFolderId,
+          );
           const folderLink = `https://drive.google.com/drive/folders/${folderId}`;
 
           // 5. Insert or Update Student Record
@@ -578,7 +708,7 @@ app.post("/api/hte/students/batch-create", async (req, res) => {
             gdrive_folder_link: folderLink,
             overall_status: "incomplete",
             is_active: true,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
           };
 
           if (existingStudent) {
@@ -598,7 +728,9 @@ app.post("/api/hte/students/batch-create", async (req, res) => {
         } catch (innerErr) {
           // ROLLBACK for this specific student
           if (createdAuthUserId) {
-            console.warn(`[Batch Rollback] Deleting newly created auth user ${createdAuthUserId} for ${studentData.email}`);
+            console.warn(
+              `[Batch Rollback] Deleting newly created auth user ${createdAuthUserId} for ${studentData.email}`,
+            );
             await supabaseAdmin.auth.admin.deleteUser(createdAuthUserId);
           }
           throw innerErr;
@@ -608,7 +740,7 @@ app.post("/api/hte/students/batch-create", async (req, res) => {
         results.errors.push({
           studentId: studentData.studentId || studentData.studentNo,
           name: `${studentData.firstName} ${studentData.lastName}`,
-          error: err.message
+          error: err.message,
         });
       }
     }
@@ -620,7 +752,7 @@ app.post("/api/hte/students/batch-create", async (req, res) => {
       moduleAffected: "HTE Archiving",
       newValues: results,
       actorUserId: req.body.actorUserId || null,
-      actorName: req.body.actorName || "Admin"
+      actorName: req.body.actorName || "Admin",
     });
 
     res.json({ success: true, results });
@@ -641,7 +773,8 @@ app.post("/api/hte/upload", upload.single("file"), async (req, res) => {
   try {
     // Always use system token for HTE uploads (centralized directory)
     const auth = await loadToken(null);
-    if (!auth) return res.status(401).json({ error: "Google Drive not authenticated" });
+    if (!auth)
+      return res.status(401).json({ error: "Google Drive not authenticated" });
     const drive = google.drive({ version: "v3", auth });
 
     // 1. Find existing upload record
@@ -657,7 +790,10 @@ app.post("/api/hte/upload", upload.single("file"), async (req, res) => {
       try {
         await drive.files.delete({ fileId: existingUpload.gdrive_file_id });
       } catch (delErr) {
-        console.warn(`Failed to delete old file (${existingUpload.gdrive_file_id}) from GDrive during overwrite.`, delErr.message);
+        console.warn(
+          `Failed to delete old file (${existingUpload.gdrive_file_id}) from GDrive during overwrite.`,
+          delErr.message,
+        );
       }
     }
 
@@ -678,7 +814,7 @@ app.post("/api/hte/upload", upload.single("file"), async (req, res) => {
     }
 
     // 4. Upload new file to GDrive
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const fileName = `${timestamp}-${file.originalname}`;
 
     const fileMetadata = {
@@ -710,9 +846,10 @@ app.post("/api/hte/upload", upload.single("file"), async (req, res) => {
       gdrive_file_id: gdriveFileId,
       gdrive_view_link: gdriveViewLink,
       file_size_bytes: file.size,
-      uploaded_by_role: uploadedByRole || 'student',
-      uploaded_by_name: actorName || (uploadedByRole === 'student' ? 'Student' : 'Coordinator'),
-      uploaded_at: new Date().toISOString()
+      uploaded_by_role: uploadedByRole || "student",
+      uploaded_by_name:
+        actorName || (uploadedByRole === "student" ? "Student" : "Coordinator"),
+      uploaded_at: new Date().toISOString(),
     };
 
     if (existingUpload) {
@@ -748,9 +885,10 @@ app.post("/api/hte/upload", upload.single("file"), async (req, res) => {
       recordType: "hte_document_uploads",
       newValues: { fieldId, status: "uploaded" },
       actorUserId: req.body.actorUserId || req.body.userId || null,
-      actorName: req.body.actorName || (uploadedByRole === 'student' ? 'Student' : 'Coordinator')
+      actorName:
+        req.body.actorName ||
+        (uploadedByRole === "student" ? "Student" : "Coordinator"),
     });
-
   } catch (error) {
     console.error("Error uploading document:", error);
     res.status(500).json({ error: error.message });
@@ -767,7 +905,8 @@ app.post("/api/hte/delete", async (req, res) => {
   try {
     // Always use system token for HTE deletes (centralized directory)
     const auth = await loadToken(null);
-    if (!auth) return res.status(401).json({ error: "Google Drive not authenticated" });
+    if (!auth)
+      return res.status(401).json({ error: "Google Drive not authenticated" });
     const drive = google.drive({ version: "v3", auth });
 
     // 1. Find existing upload record
@@ -786,7 +925,10 @@ app.post("/api/hte/delete", async (req, res) => {
         try {
           await drive.files.delete({ fileId: existingUpload.gdrive_file_id });
         } catch (delErr) {
-          console.warn(`Failed to delete file (${existingUpload.gdrive_file_id}) from GDrive during removal.`, delErr.message);
+          console.warn(
+            `Failed to delete file (${existingUpload.gdrive_file_id}) from GDrive during removal.`,
+            delErr.message,
+          );
         }
       }
 
@@ -809,7 +951,7 @@ app.post("/api/hte/delete", async (req, res) => {
       recordId: studentId,
       recordType: "hte_ojt_students",
       actorUserId: req.body.actorUserId || null,
-      actorName: req.body.actorName || "Coordinator"
+      actorName: req.body.actorName || "Coordinator",
     });
   } catch (error) {
     console.error("Error deleting document:", error);
@@ -824,7 +966,8 @@ app.get("/api/hte/download/:fileId", async (req, res) => {
   try {
     // Always use system token for downloads to ensure consistent access
     const auth = await loadToken(null);
-    if (!auth) return res.status(401).json({ error: "Google Drive not authenticated" });
+    if (!auth)
+      return res.status(401).json({ error: "Google Drive not authenticated" });
     const drive = google.drive({ version: "v3", auth });
 
     // 1. Get file metadata for the name
@@ -839,7 +982,7 @@ app.get("/api/hte/download/:fileId", async (req, res) => {
     // 2. Get the file content
     const response = await drive.files.get(
       { fileId: fileId, alt: "media" },
-      { responseType: "stream" }
+      { responseType: "stream" },
     );
 
     // 3. Set headers for download
@@ -853,10 +996,11 @@ app.get("/api/hte/download/:fileId", async (req, res) => {
         res.status(500).end();
       })
       .pipe(res);
-
   } catch (error) {
     console.error("Download error:", error);
-    res.status(500).json({ error: error.message || "Failed to download document" });
+    res
+      .status(500)
+      .json({ error: error.message || "Failed to download document" });
   }
 });
 
@@ -889,7 +1033,11 @@ app.post("/api/similarity/threshold", async (req, res) => {
   try {
     const { error } = await client
       .from("thesis_settings")
-      .update({ value: String(value), updated_by: updatedBy || null, updated_at: new Date().toISOString() })
+      .update({
+        value: String(value),
+        updated_by: updatedBy || null,
+        updated_at: new Date().toISOString(),
+      })
       .eq("key", "similarity_threshold");
     if (error) throw error;
     res.json({ success: true, value });
@@ -903,7 +1051,7 @@ app.post("/api/similarity/threshold", async (req, res) => {
       recordType: "thesis_settings",
       newValues: { threshold: value },
       actorUserId: req.body.actorUserId || updatedBy || null,
-      actorName: req.body.actorName || "Admin"
+      actorName: req.body.actorName || "Admin",
     });
   } catch (err) {
     console.error("[Similarity Threshold] Error:", err);
@@ -913,8 +1061,16 @@ app.post("/api/similarity/threshold", async (req, res) => {
 
 // S0c. Mark a scan result as reviewed
 app.post("/api/similarity/review", async (req, res) => {
-  const { scanResultId, reviewStatus, actionTaken, notes, actorUserId, actorName } = req.body;
-  if (!scanResultId) return res.status(400).json({ error: "scanResultId is required" });
+  const {
+    scanResultId,
+    reviewStatus,
+    actionTaken,
+    notes,
+    actorUserId,
+    actorName,
+  } = req.body;
+  if (!scanResultId)
+    return res.status(400).json({ error: "scanResultId is required" });
 
   const client = supabaseAdmin || supabase;
   try {
@@ -945,13 +1101,13 @@ app.post("/api/similarity/review", async (req, res) => {
     // 3. Log the event
     await logAuditTrail(req, {
       action: "Review",
-      description: `Reviewed similarity report for Scan ID: ${scanResultId}. Status: ${reviewStatus}, Action: ${actionTaken || 'None'}`,
+      description: `Reviewed similarity report for Scan ID: ${scanResultId}. Status: ${reviewStatus}, Action: ${actionTaken || "None"}`,
       moduleAffected: "Similarity Check",
       recordId: reviewRow.id,
       recordType: "similarity_flagged_reviews",
       newValues: { reviewStatus, actionTaken, notes },
       actorUserId: actorUserId || null,
-      actorName: actorName || "Coordinator"
+      actorName: actorName || "Coordinator",
     });
   } catch (err) {
     console.error("[Similarity Review] Error:", err);
@@ -961,7 +1117,14 @@ app.post("/api/similarity/review", async (req, res) => {
 
 // S0b. Create a scan job (uses supabaseAdmin to bypass RLS on insert)
 app.post("/api/similarity/job", async (req, res) => {
-  const { userId, proposedTitle, fileName, fileSize, mimeType, scanType = "standard" } = req.body;
+  const {
+    userId,
+    proposedTitle,
+    fileName,
+    fileSize,
+    mimeType,
+    scanType = "standard",
+  } = req.body;
   if (!userId) return res.status(400).json({ error: "userId is required" });
 
   const client = supabaseAdmin || supabase;
@@ -1001,7 +1164,7 @@ app.post("/api/similarity/job", async (req, res) => {
       recordType: "similarity_scan_queue",
       newValues: { fileName, proposedTitle, scanType },
       actorUserId: req.body.actorUserId || userId || null,
-      actorName: req.body.actorName || "User"
+      actorName: req.body.actorName || "User",
     });
   } catch (err) {
     console.error("[Similarity Job] Error:", err);
@@ -1018,10 +1181,12 @@ app.get("/api/similarity/recent/:userId", async (req, res) => {
   try {
     const { data, error } = await client
       .from("similarity_scan_queue")
-      .select(`
+      .select(
+        `
         id, proposed_title, original_filename, status, submitted_at,
         result:similarity_scan_results(overall_score, integrity_status, top_match_title)
-      `)
+      `,
+      )
       .eq("submitted_by", userId)
       .order("submitted_at", { ascending: false })
       .limit(10);
@@ -1050,7 +1215,9 @@ app.get("/api/similarity/result/:scanId", async (req, res) => {
 
     const { data: result, error: rErr } = await client
       .from("similarity_scan_results")
-      .select("*, field_scores:similarity_scan_field_scores(*), top_matches:similarity_scan_matches(*)")
+      .select(
+        "*, field_scores:similarity_scan_field_scores(*), top_matches:similarity_scan_matches(*)",
+      )
       .eq("scan_id", scanId)
       .single();
     if (rErr && rErr.code !== "PGRST116") throw rErr;
@@ -1078,12 +1245,12 @@ function cosineSimilarity(textA, textB) {
   const terms = new Set();
 
   // listTerms(0) gets the TF-IDF vector for strA
-  tfidf.listTerms(0).forEach(item => {
+  tfidf.listTerms(0).forEach((item) => {
     terms.add(item.term);
     vecA[item.term] = item.tfidf;
   });
   // listTerms(1) gets the TF-IDF vector for strB
-  tfidf.listTerms(1).forEach(item => {
+  tfidf.listTerms(1).forEach((item) => {
     terms.add(item.term);
     vecB[item.term] = item.tfidf;
   });
@@ -1109,17 +1276,22 @@ function cosineSimilarity(textA, textB) {
 
 // Helper: simple field extraction from raw text
 function extractFields(rawText) {
-  const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
-  let title = '';
-  let abstract = '';
-  let keywords = '';
+  const lines = rawText
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  let title = "";
+  let abstract = "";
+  let keywords = "";
   let content = rawText;
 
   // Heuristic: first non-empty line is likely the title
   if (lines.length > 0) title = lines[0];
 
   // Look for ABSTRACT section
-  const abstractMatch = rawText.match(/abstract[:\s]*\n([\s\S]{50,1500}?)(?=\n[A-Z\s]{3,}:|keywords?:|introduction|$)/i);
+  const abstractMatch = rawText.match(
+    /abstract[:\s]*\n([\s\S]{50,1500}?)(?=\n[A-Z\s]{3,}:|keywords?:|introduction|$)/i,
+  );
   if (abstractMatch) abstract = abstractMatch[1].trim();
 
   // Look for KEYWORDS section
@@ -1142,7 +1314,8 @@ app.post("/api/similarity/extract", upload.single("file"), async (req, res) => {
       const result = await pdf.getText();
       rawText = result.text;
     } else if (
-      mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      mimetype ===
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
       originalname.endsWith(".docx")
     ) {
       const result = await mammoth.extractRawText({ buffer });
@@ -1153,14 +1326,20 @@ app.post("/api/similarity/extract", upload.single("file"), async (req, res) => {
         const result = await mammoth.extractRawText({ buffer });
         rawText = result.value;
       } catch {
-        return res.status(422).json({ error: "Legacy .doc format not fully supported. Please convert to .docx or .pdf." });
+        return res.status(422).json({
+          error:
+            "Legacy .doc format not fully supported. Please convert to .docx or .pdf.",
+        });
       }
     } else {
       return res.status(422).json({ error: "Unsupported file type" });
     }
 
     if (!rawText || rawText.trim().length < 50) {
-      return res.status(422).json({ error: "Could not extract sufficient text from the file. Please ensure the document contains selectable text (not scanned images)." });
+      return res.status(422).json({
+        error:
+          "Could not extract sufficient text from the file. Please ensure the document contains selectable text (not scanned images).",
+      });
     }
 
     const fields = extractFields(rawText);
@@ -1174,10 +1353,16 @@ app.post("/api/similarity/extract", upload.single("file"), async (req, res) => {
 // S2. Run NLP similarity analysis against the thesis repository
 app.post("/api/similarity/analyze", async (req, res) => {
   const {
-    scanId, userId,
-    title, abstract, keywords, content,
-    fileName, fileSize, mimeType,
-    scanType = "standard"
+    scanId,
+    userId,
+    title,
+    abstract,
+    keywords,
+    content,
+    fileName,
+    fileSize,
+    mimeType,
+    scanType = "standard",
   } = req.body;
 
   if (!scanId || !userId) {
@@ -1193,7 +1378,10 @@ app.post("/api/similarity/analyze", async (req, res) => {
 
   try {
     // 1. Mark job as processing
-    await client.from("similarity_scan_queue").update({ status: "processing" }).eq("id", scanId);
+    await client
+      .from("similarity_scan_queue")
+      .update({ status: "processing" })
+      .eq("id", scanId);
 
     // 2. Fetch active threshold
     const { data: settingRow } = await client
@@ -1206,11 +1394,13 @@ app.post("/api/similarity/analyze", async (req, res) => {
     // 3. Fetch all thesis entries (title, abstract, description as keywords)
     const { data: theses, error: thesisError } = await client
       .from("thesis_entries")
-      .select(`
+      .select(
+        `
         id, title, abstract, description,
         publication_year,
         authors:thesis_authors(first_name, last_name)
-      `)
+      `,
+      )
       .eq("is_deleted", false)
       .eq("status", "archived");
 
@@ -1219,16 +1409,30 @@ app.post("/api/similarity/analyze", async (req, res) => {
     const repositorySize = theses?.length ?? 0;
 
     // 4. Compute per-thesis cosine similarity scores
-    const fullDocText = [title, abstract, keywords, content].filter(Boolean).join(" \n ");
-    const scoredTheses = (theses || []).map(thesis => {
-      const thesisText = [thesis.title, thesis.abstract, thesis.description].filter(Boolean).join(" ");
+    const fullDocText = [title, abstract, keywords, content]
+      .filter(Boolean)
+      .join(" \n ");
+    const scoredTheses = (theses || []).map((thesis) => {
+      const thesisText = [thesis.title, thesis.abstract, thesis.description]
+        .filter(Boolean)
+        .join(" ");
       const titleScore = cosineSimilarity(title || "", thesis.title || "");
-      const abstractScore = cosineSimilarity(abstract || "", thesis.abstract || "");
-      const kwScore = cosineSimilarity(keywords || "", thesis.description || "");
+      const abstractScore = cosineSimilarity(
+        abstract || "",
+        thesis.abstract || "",
+      );
+      const kwScore = cosineSimilarity(
+        keywords || "",
+        thesis.description || "",
+      );
       const contentScore = cosineSimilarity(fullDocText, thesisText);
 
       // Weighted overall: 25% title, 35% abstract, 20% keywords, 20% content
-      const weighted = titleScore * 0.25 + abstractScore * 0.35 + kwScore * 0.20 + contentScore * 0.20;
+      const weighted =
+        titleScore * 0.25 +
+        abstractScore * 0.35 +
+        kwScore * 0.2 +
+        contentScore * 0.2;
 
       const matchedFields = [];
       if (abstractScore > threshold) matchedFields.push("Abstract");
@@ -1242,7 +1446,8 @@ app.post("/api/similarity/analyze", async (req, res) => {
         kwScore,
         contentScore,
         weighted,
-        matchType: matchedFields.length > 0 ? matchedFields.join(" & ") : "Content",
+        matchType:
+          matchedFields.length > 0 ? matchedFields.join(" & ") : "Content",
       };
     });
 
@@ -1252,29 +1457,41 @@ app.post("/api/similarity/analyze", async (req, res) => {
 
     // 5. Compute aggregate field scores (avg across all theses, weighted by top matches)
     const topN = Math.min(10, scoredTheses.length);
-    const avgField = (field) => topN === 0 ? 0 : scoredTheses.slice(0, topN).reduce((s, t) => s + t[field], 0) / topN;
+    const avgField = (field) =>
+      topN === 0
+        ? 0
+        : scoredTheses.slice(0, topN).reduce((s, t) => s + t[field], 0) / topN;
     const overallScore = topN === 0 ? 0 : avgField("weighted");
 
     // Final overall = highest single match influences more
     const topMatchScore = topMatches[0]?.weighted ?? 0;
     // Blend: 60% top match, 40% average of top 10
-    const finalScore = parseFloat(Math.min(99.99, topMatchScore * 0.6 + overallScore * 0.4).toFixed(2));
+    const finalScore = parseFloat(
+      Math.min(99.99, topMatchScore * 0.6 + overallScore * 0.4).toFixed(2),
+    );
     const fieldTitle = parseFloat((topMatches[0]?.titleScore ?? 0).toFixed(2));
-    const fieldAbstract = parseFloat((topMatches[0]?.abstractScore ?? 0).toFixed(2));
+    const fieldAbstract = parseFloat(
+      (topMatches[0]?.abstractScore ?? 0).toFixed(2),
+    );
     const fieldKeywords = parseFloat((topMatches[0]?.kwScore ?? 0).toFixed(2));
-    const fieldContent = parseFloat((topMatches[0]?.contentScore ?? 0).toFixed(2));
+    const fieldContent = parseFloat(
+      (topMatches[0]?.contentScore ?? 0).toFixed(2),
+    );
 
     const durationMs = Date.now() - startTime;
 
     // 6. Update scan queue with metadata
-    await client.from("similarity_scan_queue").update({
-      status: "completed",
-      completed_at: new Date().toISOString(),
-      repository_size_at_scan: repositorySize,
-      analysis_duration_ms: durationMs,
-      engine_version: "ISAMS-NLP v1.0",
-      threshold_at_scan: threshold,
-    }).eq("id", scanId);
+    await client
+      .from("similarity_scan_queue")
+      .update({
+        status: "completed",
+        completed_at: new Date().toISOString(),
+        repository_size_at_scan: repositorySize,
+        analysis_duration_ms: durationMs,
+        engine_version: "ISAMS-NLP v1.0",
+        threshold_at_scan: threshold,
+      })
+      .eq("id", scanId);
 
     // 7. Insert scan result (triggers DB trigger for integrity_status derivation)
     const topMatchEntry = topMatches[0];
@@ -1283,7 +1500,12 @@ app.post("/api/similarity/analyze", async (req, res) => {
       .insert({
         scan_id: scanId,
         overall_score: finalScore,
-        integrity_status: finalScore > 50 ? "high_similarity" : finalScore > threshold ? "flagged" : "safe",
+        integrity_status:
+          finalScore > 50
+            ? "high_similarity"
+            : finalScore > threshold
+              ? "flagged"
+              : "safe",
         analysis_method: "TF-IDF Cosine Similarity",
         top_match_score: parseFloat((topMatchEntry?.weighted ?? 0).toFixed(2)),
         top_match_title: topMatchEntry?.thesis?.title ?? null,
@@ -1295,24 +1517,55 @@ app.post("/api/similarity/analyze", async (req, res) => {
     const resultId = resultRow.id;
 
     // 8. Insert field scores
-    const getSeverity = (score) => score > 50 ? "high" : score > threshold ? "moderate" : "low";
+    const getSeverity = (score) =>
+      score > 50 ? "high" : score > threshold ? "moderate" : "low";
     await client.from("similarity_scan_field_scores").insert([
-      { result_id: resultId, field_name: "title", score: fieldTitle, severity: getSeverity(fieldTitle), display_label: "Title match", display_order: 1 },
-      { result_id: resultId, field_name: "abstract", score: fieldAbstract, severity: getSeverity(fieldAbstract), display_label: "Abstract match", display_order: 2 },
-      { result_id: resultId, field_name: "content", score: fieldContent, severity: getSeverity(fieldContent), display_label: "Content match", display_order: 3 },
-      { result_id: resultId, field_name: "keywords", score: fieldKeywords, severity: getSeverity(fieldKeywords), display_label: "Keywords match", display_order: 4 },
+      {
+        result_id: resultId,
+        field_name: "title",
+        score: fieldTitle,
+        severity: getSeverity(fieldTitle),
+        display_label: "Title match",
+        display_order: 1,
+      },
+      {
+        result_id: resultId,
+        field_name: "abstract",
+        score: fieldAbstract,
+        severity: getSeverity(fieldAbstract),
+        display_label: "Abstract match",
+        display_order: 2,
+      },
+      {
+        result_id: resultId,
+        field_name: "content",
+        score: fieldContent,
+        severity: getSeverity(fieldContent),
+        display_label: "Content match",
+        display_order: 3,
+      },
+      {
+        result_id: resultId,
+        field_name: "keywords",
+        score: fieldKeywords,
+        severity: getSeverity(fieldKeywords),
+        display_label: "Keywords match",
+        display_order: 4,
+      },
     ]);
 
     // 9. Insert top match records
     const matchInserts = topMatches
-      .filter(m => m.weighted > 1)
+      .filter((m) => m.weighted > 1)
       .slice(0, 5)
       .map((m, idx) => ({
         result_id: resultId,
         match_rank: idx + 1,
         matched_thesis_id: m.thesis.id,
         matched_title: m.thesis.title,
-        matched_authors: (m.thesis.authors || []).map(a => `${a.first_name} ${a.last_name}`),
+        matched_authors: (m.thesis.authors || []).map(
+          (a) => `${a.first_name} ${a.last_name}`,
+        ),
         matched_year: m.thesis.publication_year,
         match_score: parseFloat(m.weighted.toFixed(2)),
         match_type: m.matchType,
@@ -1337,10 +1590,34 @@ app.post("/api/similarity/analyze", async (req, res) => {
       engine_version: "ISAMS-NLP v1.0",
       threshold,
       field_scores: [
-        { field_name: "title", score: fieldTitle, display_label: "Title match", severity: getSeverity(fieldTitle), display_order: 1 },
-        { field_name: "abstract", score: fieldAbstract, display_label: "Abstract match", severity: getSeverity(fieldAbstract), display_order: 2 },
-        { field_name: "content", score: fieldContent, display_label: "Content match", severity: getSeverity(fieldContent), display_order: 3 },
-        { field_name: "keywords", score: fieldKeywords, display_label: "Keywords match", severity: getSeverity(fieldKeywords), display_order: 4 },
+        {
+          field_name: "title",
+          score: fieldTitle,
+          display_label: "Title match",
+          severity: getSeverity(fieldTitle),
+          display_order: 1,
+        },
+        {
+          field_name: "abstract",
+          score: fieldAbstract,
+          display_label: "Abstract match",
+          severity: getSeverity(fieldAbstract),
+          display_order: 2,
+        },
+        {
+          field_name: "content",
+          score: fieldContent,
+          display_label: "Content match",
+          severity: getSeverity(fieldContent),
+          display_order: 3,
+        },
+        {
+          field_name: "keywords",
+          score: fieldKeywords,
+          display_label: "Keywords match",
+          severity: getSeverity(fieldKeywords),
+          display_order: 4,
+        },
       ],
       top_matches: matchInserts,
     };
@@ -1354,20 +1631,27 @@ app.post("/api/similarity/analyze", async (req, res) => {
       moduleAffected: "Similarity Check",
       recordId: scanId,
       recordType: "similarity_scan_results",
-      newValues: { overallScore: finalScore, status: resultRow.integrity_status, durationMs },
+      newValues: {
+        overallScore: finalScore,
+        status: resultRow.integrity_status,
+        durationMs,
+      },
       actorUserId: req.body.actorUserId || userId || null,
-      actorName: req.body.actorName || "User"
+      actorName: req.body.actorName || "User",
     });
   } catch (err) {
     console.error("[Similarity Analyze] Error:", err);
     // Mark job as failed
     try {
-      await client.from("similarity_scan_queue").update({
-        status: "failed",
-        status_message: err.message,
-        completed_at: new Date().toISOString(),
-      }).eq("id", scanId);
-    } catch (_) { }
+      await client
+        .from("similarity_scan_queue")
+        .update({
+          status: "failed",
+          status_message: err.message,
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", scanId);
+    } catch (_) {}
 
     res.status(500).json({ error: err.message });
   }
@@ -1386,7 +1670,10 @@ async function getUserFromReq(req, res) {
   }
   const token = authHeader.replace("Bearer ", "");
   const client = supabaseAdmin || supabase;
-  const { data: { user }, error } = await client.auth.getUser(token);
+  const {
+    data: { user },
+    error,
+  } = await client.auth.getUser(token);
   if (error || !user) {
     res.status(401).json({ error: "Invalid auth token" });
     return null;
@@ -1399,38 +1686,55 @@ app.get("/api/reports/thesis", async (req, res) => {
   const user = await getUserFromReq(req, res);
   if (!user) return;
 
-  const { dateFrom, dateTo, year = "All", department = "All", category = "All", page = 1, limit = 10, fullDataset = false } = req.query;
+  const {
+    dateFrom,
+    dateTo,
+    year = "All",
+    department = "All",
+    category = "All",
+    page = 1,
+    limit = 10,
+    fullDataset = false,
+  } = req.query;
   const client = supabaseAdmin || supabase;
 
   try {
     // THESIS SUMMARY
     // We aggregate from the inventory view to ensure thematic category filtering works correctly,
     // as vw_report_thesis_summary only aggregates by research type (e.g. 'Thesis').
-    let summaryQuery = client.from("vw_report_archive_inventory").select("publication_year, category_name");
-    if (category !== "All") summaryQuery = summaryQuery.eq("category_name", category);
-    if (year !== "All") summaryQuery = summaryQuery.eq("publication_year", year);
+    let summaryQuery = client
+      .from("vw_report_archive_inventory")
+      .select("publication_year, category_name");
+    if (category !== "All")
+      summaryQuery = summaryQuery.eq("category_name", category);
+    if (year !== "All")
+      summaryQuery = summaryQuery.eq("publication_year", year);
 
     const { data: rawSummary, error: sumErr } = await summaryQuery;
     if (sumErr) throw sumErr;
 
     // Grouping logic for summary
     const summaryMap = new Map();
-    (rawSummary || []).forEach(row => {
+    (rawSummary || []).forEach((row) => {
       const key = `${row.publication_year}_${row.category_name}`;
       if (!summaryMap.has(key)) {
-        summaryMap.set(key, { 
-          year: row.publication_year, 
-          category: row.category_name, 
-          count: 0 
+        summaryMap.set(key, {
+          year: row.publication_year,
+          category: row.category_name,
+          count: 0,
         });
       }
       summaryMap.get(key).count += 1;
     });
-    const submissionSummary = Array.from(summaryMap.values())
-      .sort((a, b) => b.year - a.year || String(a.category).localeCompare(String(b.category)));
+    const submissionSummary = Array.from(summaryMap.values()).sort(
+      (a, b) =>
+        b.year - a.year || String(a.category).localeCompare(String(b.category)),
+    );
 
     // ARCHIVE INVENTORY
-    let invQuery = client.from("vw_report_archive_inventory").select("*", { count: 'exact' });
+    let invQuery = client
+      .from("vw_report_archive_inventory")
+      .select("*", { count: "exact" });
     if (category !== "All") invQuery = invQuery.eq("category_name", category);
     if (dateFrom) invQuery = invQuery.gte("date_added", dateFrom);
     if (dateTo) invQuery = invQuery.lte("date_added", dateTo);
@@ -1446,17 +1750,21 @@ app.get("/api/reports/thesis", async (req, res) => {
 
     invQuery = invQuery.order("date_added", { ascending: false });
 
-    const { data: archiveInventoryRaw, count: totalCount, error: invErr } = await invQuery;
+    const {
+      data: archiveInventoryRaw,
+      count: totalCount,
+      error: invErr,
+    } = await invQuery;
     if (invErr) throw invErr;
 
     // Format output to match frontend expectation
-    const archiveInventory = (archiveInventoryRaw || []).map(row => ({
+    const archiveInventory = (archiveInventoryRaw || []).map((row) => ({
       id: row.id,
       title: row.title,
       authors: row.authors,
       category: row.category_name, // Return category_name mapped to category for UI
       year: row.publication_year,
-      dateAdded: row.date_added
+      dateAdded: row.date_added,
     }));
 
     res.json({
@@ -1464,7 +1772,8 @@ app.get("/api/reports/thesis", async (req, res) => {
       archiveInventory,
       totalCount: totalCount || 0,
       page: pageNum,
-      totalPages: fullDataset === "true" ? 1 : Math.ceil((totalCount || 0) / perPage)
+      totalPages:
+        fullDataset === "true" ? 1 : Math.ceil((totalCount || 0) / perPage),
     });
   } catch (error) {
     console.error("Thesis report error:", error);
@@ -1477,24 +1786,32 @@ app.get("/api/reports/similarity", async (req, res) => {
   const user = await getUserFromReq(req, res);
   if (!user) return;
 
-  const { dateFrom, dateTo, category = "All", page = 1, limit = 10, fullDataset = false } = req.query;
+  const {
+    dateFrom,
+    dateTo,
+    category = "All",
+    page = 1,
+    limit = 10,
+    fullDataset = false,
+  } = req.query;
   const client = supabaseAdmin || supabase;
 
   try {
     // DISTRIBUTION
-    let distQuery = client.from("vw_report_similarity_distribution").select("*");
+    let distQuery = client
+      .from("vw_report_similarity_distribution")
+      .select("*");
     const { data: rawDist, error: distErr } = await distQuery;
     if (distErr) throw distErr;
 
-    const similarityDistribution = (rawDist || []).map(row => ({
+    const similarityDistribution = (rawDist || []).map((row) => ({
       category: row.category,
-      avgSimilarity: parseFloat(row.avg_similarity) || 0
+      avgSimilarity: parseFloat(row.avg_similarity) || 0,
     }));
 
     // ALL SUBMISSION CHECKS (Fetching from base tables to ensure "all all all" are included)
-    let flagQuery = client
-      .from("similarity_scan_queue")
-      .select(`
+    let flagQuery = client.from("similarity_scan_queue").select(
+      `
         id,
         title:proposed_title,
         status,
@@ -1504,7 +1821,9 @@ app.get("/api/reports/similarity", async (req, res) => {
         thesis:thesis_entries(
           category:thesis_categories(name)
         )
-      `, { count: 'exact' });
+      `,
+      { count: "exact" },
+    );
 
     if (category !== "All") {
       flagQuery = flagQuery.eq("thesis.category.name", category);
@@ -1521,10 +1840,14 @@ app.get("/api/reports/similarity", async (req, res) => {
 
     flagQuery = flagQuery.order("submitted_at", { ascending: false });
 
-    const { data: rawData, count: totalCount, error: flagErr } = await flagQuery;
+    const {
+      data: rawData,
+      count: totalCount,
+      error: flagErr,
+    } = await flagQuery;
     if (flagErr) throw flagErr;
 
-    const flaggedSubmissions = (rawData || []).map(row => {
+    const flaggedSubmissions = (rawData || []).map((row) => {
       // result might be an array or single object depending on select
       const resultData = Array.isArray(row.result) ? row.result[0] : row.result;
       const score = resultData?.overall_score || 0;
@@ -1534,10 +1857,12 @@ app.get("/api/reports/similarity", async (req, res) => {
         id: row.id,
         title: row.title || "Untitled Scan",
         category: categoryName,
-        submissionDate: row.submission_date ? new Date(row.submission_date).toLocaleDateString() : "N/A",
+        submissionDate: row.submission_date
+          ? new Date(row.submission_date).toLocaleDateString()
+          : "N/A",
         similarityScore: parseFloat(score) || 0,
         // Strictly "Flagged" or "Safe".
-        reviewStatus: score > 20 ? "Flagged" : "Safe"
+        reviewStatus: score > 20 ? "Flagged" : "Safe",
       };
     });
 
@@ -1546,7 +1871,8 @@ app.get("/api/reports/similarity", async (req, res) => {
       flaggedSubmissions,
       totalCount: totalCount || 0,
       page: pageNum,
-      totalPages: fullDataset === "true" ? 1 : Math.ceil((totalCount || 0) / perPage)
+      totalPages:
+        fullDataset === "true" ? 1 : Math.ceil((totalCount || 0) / perPage),
     });
   } catch (error) {
     console.error("Similarity report error:", error);
@@ -1565,7 +1891,9 @@ app.get("/api/reports/coordinators", async (req, res) => {
     if (error) throw error;
 
     // Get unique coordinators, filter out null/empty
-    const uniqueCoordinators = [...new Set((data || []).map(r => r.coordinator).filter(Boolean))].sort();
+    const uniqueCoordinators = [
+      ...new Set((data || []).map((r) => r.coordinator).filter(Boolean)),
+    ].sort();
 
     res.json(uniqueCoordinators);
   } catch (error) {
@@ -1578,13 +1906,22 @@ app.get("/api/reports/ojt", async (req, res) => {
   const user = await getUserFromReq(req, res);
   if (!user) return;
 
-  const { academicYear = "All", program = "All", section = "All", coordinator = "All", completionStatus = "All", page = 1, limit = 10, fullDataset = false } = req.query;
+  const {
+    academicYear = "All",
+    program = "All",
+    section = "All",
+    coordinator = "All",
+    completionStatus = "All",
+    page = 1,
+    limit = 10,
+    fullDataset = false,
+  } = req.query;
   const client = supabaseAdmin || supabase;
 
   try {
     // 1. Get filtered students
-    let studentQuery = client.from("hte_ojt_students")
-      .select(`
+    let studentQuery = client.from("hte_ojt_students").select(
+      `
         id, 
         student_no, 
         first_name, 
@@ -1596,17 +1933,23 @@ app.get("/api/reports/ojt", async (req, res) => {
         overall_status, 
         adviser:thesis_advisers(first_name, last_name),
         uploads:hte_document_uploads(status, field_id)
-      `, { count: 'exact' });
+      `,
+      { count: "exact" },
+    );
 
-    if (academicYear !== "All") studentQuery = studentQuery.eq("academic_year", academicYear);
+    if (academicYear !== "All")
+      studentQuery = studentQuery.eq("academic_year", academicYear);
     if (program !== "All") studentQuery = studentQuery.eq("program", program);
     if (section !== "All") studentQuery = studentQuery.eq("section", section);
     if (completionStatus !== "All" && completionStatus !== "total") {
       studentQuery = studentQuery.ilike("overall_status", completionStatus);
     }
-    
+
     if (coordinator !== "All") {
-      studentQuery = studentQuery.or(`first_name.ilike.%${coordinator}%,last_name.ilike.%${coordinator}%`, { foreignTable: 'thesis_advisers' });
+      studentQuery = studentQuery.or(
+        `first_name.ilike.%${coordinator}%,last_name.ilike.%${coordinator}%`,
+        { foreignTable: "thesis_advisers" },
+      );
     }
 
     const pageNum = parseInt(page);
@@ -1616,28 +1959,41 @@ app.get("/api/reports/ojt", async (req, res) => {
       studentQuery = studentQuery.range(start, start + perPage - 1);
     }
 
-    const { data: students, count: totalCount, error: sErr } = await studentQuery;
+    const {
+      data: students,
+      count: totalCount,
+      error: sErr,
+    } = await studentQuery;
     if (sErr) throw sErr;
 
     // 2. Get stats (total/complete/incomplete) for aggregate cards
     let statsQuery = client.from("hte_ojt_students").select("overall_status");
-    if (academicYear !== "All") statsQuery = statsQuery.eq("academic_year", academicYear);
+    if (academicYear !== "All")
+      statsQuery = statsQuery.eq("academic_year", academicYear);
     if (program !== "All") statsQuery = statsQuery.eq("program", program);
     if (section !== "All") statsQuery = statsQuery.eq("section", section);
     if (coordinator !== "All") {
-       statsQuery = statsQuery.or(`first_name.ilike.%${coordinator}%,last_name.ilike.%${coordinator}%`, { foreignTable: 'thesis_advisers' });
+      statsQuery = statsQuery.or(
+        `first_name.ilike.%${coordinator}%,last_name.ilike.%${coordinator}%`,
+        { foreignTable: "thesis_advisers" },
+      );
     }
 
     const { data: allStats, error: countErr } = await statsQuery;
     if (countErr) throw countErr;
 
     const stats_total = allStats.length;
-    const stats_complete = allStats.filter(r => r.overall_status?.toLowerCase() === "complete").length;
+    const stats_complete = allStats.filter(
+      (r) => r.overall_status?.toLowerCase() === "complete",
+    ).length;
     const stats_incomplete = stats_total - stats_complete;
-    const stats_rate = stats_total > 0 ? ((stats_complete / stats_total) * 100).toFixed(1) : "0.0";
+    const stats_rate =
+      stats_total > 0
+        ? ((stats_complete / stats_total) * 100).toFixed(1)
+        : "0.0";
 
     // 3. Format result
-    const traineeStatus = (students || []).map(s => {
+    const traineeStatus = (students || []).map((s) => {
       return {
         id: s.id,
         studentName: `${s.first_name} ${s.last_name}`,
@@ -1646,18 +2002,27 @@ app.get("/api/reports/ojt", async (req, res) => {
         semester: s.semester,
         program: s.program || "N/A",
         section: s.section || "N/A",
-        coordinator: s.adviser ? `${s.adviser.first_name} ${s.adviser.last_name}` : "N/A",
-        overallStatus: (s.overall_status || "incomplete").charAt(0).toUpperCase() + (s.overall_status || "incomplete").slice(1),
-        uploads: s.uploads || []
+        coordinator: s.adviser
+          ? `${s.adviser.first_name} ${s.adviser.last_name}`
+          : "N/A",
+        overallStatus:
+          (s.overall_status || "incomplete").charAt(0).toUpperCase() +
+          (s.overall_status || "incomplete").slice(1),
+        uploads: s.uploads || [],
       };
     });
 
     res.json({
       traineeStatus,
-      stats: { total: stats_total, complete: stats_complete, incomplete: stats_incomplete, rate: stats_rate },
+      stats: {
+        total: stats_total,
+        complete: stats_complete,
+        incomplete: stats_incomplete,
+        rate: stats_rate,
+      },
       totalCount: fullDataset === "true" ? traineeStatus.length : totalCount,
       page: pageNum,
-      totalPages: fullDataset === "true" ? 1 : Math.ceil(totalCount / perPage)
+      totalPages: fullDataset === "true" ? 1 : Math.ceil(totalCount / perPage),
     });
   } catch (error) {
     console.error("OJT report error:", error);
@@ -1670,17 +2035,20 @@ app.get("/api/reports/ojt", async (req, res) => {
 /**
  * Global Audit Log Helper
  */
-async function logAuditTrail(req, {
-  action,
-  description,
-  moduleAffected = "Thesis Archiving",
-  recordId = null,
-  recordType = null,
-  oldValues = null,
-  newValues = null,
-  actorUserId = null,
-  actorName = null
-}) {
+async function logAuditTrail(
+  req,
+  {
+    action,
+    description,
+    moduleAffected = "Thesis Archiving",
+    recordId = null,
+    recordType = null,
+    oldValues = null,
+    newValues = null,
+    actorUserId = null,
+    actorName = null,
+  },
+) {
   if (!supabaseAdmin) return;
 
   // Prioritize info passed in the options, then from req.body (from frontend), then defaults
@@ -1688,12 +2056,12 @@ async function logAuditTrail(req, {
   const finalActorName = actorName || req.body?.actorName || "System";
 
   try {
-    const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-    const userAgent = req.headers['user-agent'];
+    const ipAddress =
+      req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+    const userAgent = req.headers["user-agent"];
 
-    const { error } = await supabaseAdmin
-      .from("ta_audit_logs")
-      .insert([{
+    const { error } = await supabaseAdmin.from("ta_audit_logs").insert([
+      {
         actor_user_id: finalActorId,
         actor_name: finalActorName,
         action,
@@ -1704,15 +2072,15 @@ async function logAuditTrail(req, {
         old_values: oldValues,
         new_values: newValues,
         ip_address: ipAddress || null,
-        user_agent: userAgent
-      }]);
+        user_agent: userAgent,
+      },
+    ]);
 
     if (error) console.error("[AuditLog] Error inserting log:", error);
   } catch (err) {
     console.error("[AuditLog] Unexpected error:", err);
   }
 }
-
 
 // ---------- Google OAuth Flow ----------
 
@@ -1721,20 +2089,40 @@ app.get("/api/auth/google/url", (req, res) => {
   const { userId } = req.query;
   if (!userId) return res.status(400).json({ error: "userId is required" });
 
-  const scopes = [
-    "https://www.googleapis.com/auth/drive",
-    "https://www.googleapis.com/auth/userinfo.email",
-    "https://www.googleapis.com/auth/userinfo.profile",
-  ];
+  // Check if OAuth client is initialized
+  if (!oauth2Client) {
+    console.error(
+      "❌ OAuth2 client not initialized - config may not have loaded",
+    );
+    return res.status(500).json({
+      error: "Google OAuth not configured",
+      details:
+        "OAuth client not initialized. Check server logs for config loading errors.",
+    });
+  }
 
-  const authUrl = oauth2Client.generateAuthUrl({
-    access_type: "offline",
-    scope: scopes,
-    prompt: "consent",
-    state: userId, // Pass userId in state to recover it during callback
-  });
+  try {
+    const scopes = [
+      "https://www.googleapis.com/auth/drive",
+      "https://www.googleapis.com/auth/userinfo.email",
+      "https://www.googleapis.com/auth/userinfo.profile",
+    ];
 
-  res.json({ url: authUrl });
+    const authUrl = oauth2Client.generateAuthUrl({
+      access_type: "offline",
+      scope: scopes,
+      prompt: "consent",
+      state: userId, // Pass userId in state to recover it during callback
+    });
+
+    res.json({ url: authUrl });
+  } catch (error) {
+    console.error("❌ Error generating auth URL:", error);
+    res.status(500).json({
+      error: "Failed to generate auth URL",
+      details: error.message,
+    });
+  }
 });
 
 // OAuth Callback
@@ -1775,13 +2163,18 @@ app.get("/oauth2callback", async (req, res) => {
       tokenData.id = existingToken.id;
     }
 
-    const { error } = await supabaseAdmin.from("google_auth_tokens").upsert(tokenData);
+    const { error } = await supabaseAdmin
+      .from("google_auth_tokens")
+      .upsert(tokenData);
 
     if (error) {
       console.error("Supabase error saving Google tokens:", error);
-      return res.status(500).send(`Error saving tokens to database: ${error.message}. Please ensure the SQL migration script was run.`);
+      return res
+        .status(500)
+        .send(
+          `Error saving tokens to database: ${error.message}. Please ensure the SQL migration script was run.`,
+        );
     }
- 
 
     // Success - redirect back to the app settings
     // Since this is a browser redirect, we send an HTML response that closes or redirects
@@ -1819,7 +2212,7 @@ app.get("/oauth2callback", async (req, res) => {
 // Get Google Auth Status
 app.get("/api/auth/google/status/:userId", async (req, res) => {
   const { userId } = req.params;
-  
+
   if (!userId || userId === "null" || userId === "undefined") {
     return res.json({ authenticated: false });
   }
@@ -1837,7 +2230,10 @@ app.get("/api/auth/google/status/:userId", async (req, res) => {
     }
 
     // Check if token has full Drive scope
-    const hasDriveScope = !!(tokenRow.scope && tokenRow.scope.match(/googleapis\.com\/auth\/drive(\s|$)/));
+    const hasDriveScope = !!(
+      tokenRow.scope &&
+      tokenRow.scope.match(/googleapis\.com\/auth\/drive(\s|$)/)
+    );
 
     // Set credentials for userinfo call
     oauth2Client.setCredentials({
@@ -1851,12 +2247,12 @@ app.get("/api/auth/google/status/:userId", async (req, res) => {
     const oauth2 = google.oauth2({ version: "v2", auth: oauth2Client });
     const { data: userInfo } = await oauth2.userinfo.get();
 
-    res.json({ 
+    res.json({
       authenticated: true,
       hasDriveScope,
       email: userInfo.email,
       name: userInfo.name,
-      picture: userInfo.picture
+      picture: userInfo.picture,
     });
   } catch (error) {
     console.error("Error fetching Google status:", error);
@@ -1864,6 +2260,29 @@ app.get("/api/auth/google/status/:userId", async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
-});
+// ─────────────────────────────────────────────────────────────────────────────
+// Server Startup
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function startServer() {
+  try {
+    console.log("🚀 Starting Main Backend Server...");
+
+    // Load system config from Supabase
+    await loadSystemConfig();
+
+    // Initialize OAuth client with loaded config
+    initializeOAuthClient();
+
+    // Start listening
+    app.listen(port, () => {
+      console.log(`✅ Main Backend running at http://localhost:${port}`);
+    });
+  } catch (error) {
+    console.error("❌ Failed to start server:", error);
+    process.exit(1);
+  }
+}
+
+// Start the server
+startServer();

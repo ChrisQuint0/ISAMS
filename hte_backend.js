@@ -3,23 +3,77 @@ import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import sgMail from "@sendgrid/mail";
+import path from "path";
+import { fileURLToPath } from "url";
+
+// Get the directory name of the current module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load environment variables from .env.local
-dotenv.config({ path: "./.env.local" });
+const envPath = path.join(__dirname, ".env.local");
+console.log("[hte_backend.js] Loading .env from:", envPath);
+dotenv.config({ path: envPath });
 
 const app = express();
 const port = 3003; // Dedicated port for HTE/OJT Notifications
 
-// Config
+// System config loaded from Supabase
+let systemConfig = {};
+
+// Config - Only Supabase credentials from env, rest from database
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
-const SENDGRID_FROM_EMAIL =
-  process.env.SENDGRID_FROM_EMAIL || "noreply@isams.edu.ph";
-const SENDGRID_FROM_NAME = process.env.SENDGRID_FROM_NAME || "ISAMS System";
 
-if (SENDGRID_API_KEY) {
-  sgMail.setApiKey(SENDGRID_API_KEY);
+/**
+ * Load system configuration from Supabase
+ */
+async function loadSystemConfig() {
+  try {
+    console.log("📡 [HTE] Loading system config from Supabase...");
+
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+      throw new Error("Supabase credentials not found in environment");
+    }
+
+    const configClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    const { data, error } = await configClient
+      .from("system_config")
+      .select("key, value");
+
+    if (error) throw error;
+
+    systemConfig = data.reduce((acc, item) => {
+      acc[item.key] = item.value;
+      return acc;
+    }, {});
+
+    console.log(
+      `✅ [HTE] System config loaded: ${Object.keys(systemConfig).length} keys`,
+    );
+  } catch (error) {
+    console.error("❌ [HTE] Failed to load system config:", error);
+    throw error;
+  }
+}
+
+// Helper to get config value
+function getConfig(key, defaultValue = null) {
+  return systemConfig[key] ?? defaultValue;
+}
+
+// Initialize SendGrid after config loads
+function initializeSendGrid() {
+  const apiKey = getConfig("SENDGRID_API_KEY");
+  if (apiKey) {
+    sgMail.setApiKey(apiKey);
+    console.log("✅ [HTE] SendGrid initialized");
+  } else {
+    console.warn("⚠️ [HTE] SendGrid API key not found in config");
+  }
 }
 
 // Middleware
@@ -151,11 +205,17 @@ app.post("/api/hte/notifications/send-batch", async (req, res) => {
           missingDocs: student.missingDocs,
         });
 
+        const fromEmail = getConfig(
+          "SENDGRID_FROM_EMAIL",
+          "noreply@isams.edu.ph",
+        );
+        const fromName = getConfig("SENDGRID_FROM_NAME", "ISAMS System");
+
         await sgMail.send({
           to: student.email,
           from: {
-            email: SENDGRID_FROM_EMAIL,
-            name: SENDGRID_FROM_NAME,
+            email: fromEmail,
+            name: fromName,
           },
           subject: "[ISAMS] HTE/OJT Document Submission Notice",
           html: html,
@@ -211,6 +271,31 @@ app.get("/api/hte/health", (req, res) => {
   res.json({ status: "HTE Notification Backend Running", port: 3003 });
 });
 
-app.listen(port, () => {
-  console.log(`HTE Notification Backend running at http://localhost:${port}`);
-});
+// ─────────────────────────────────────────────────────────────────────────────
+// Server Startup
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function startServer() {
+  try {
+    console.log("🚀 Starting HTE Backend Server...");
+
+    // Load system config from Supabase
+    await loadSystemConfig();
+
+    // Initialize SendGrid with loaded config
+    initializeSendGrid();
+
+    // Start listening
+    app.listen(port, () => {
+      console.log(
+        `✅ HTE Notification Backend running at http://localhost:${port}`,
+      );
+    });
+  } catch (error) {
+    console.error("❌ [HTE] Failed to start server:", error);
+    process.exit(1);
+  }
+}
+
+// Start the server
+startServer();
