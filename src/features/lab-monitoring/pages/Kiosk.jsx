@@ -1,31 +1,31 @@
 import { useEffect, useRef, useState } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
-import { supabase } from "@/lib/supabaseClient" 
+import { supabase } from "@/lib/supabaseClient"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Monitor, ScanBarcode, ShieldAlert, UserCheck, Loader2, AlertTriangle } from "lucide-react"
 
 // ZXing math engine
-import { 
-  MultiFormatReader, 
-  BarcodeFormat, 
-  DecodeHintType, 
-  HTMLCanvasElementLuminanceSource, 
-  BinaryBitmap, 
-  HybridBinarizer 
+import {
+  MultiFormatReader,
+  BarcodeFormat,
+  DecodeHintType,
+  HTMLCanvasElementLuminanceSource,
+  BinaryBitmap,
+  HybridBinarizer
 } from '@zxing/library'
 
 export default function Kiosk() {
   const slots = ["", "", "-", "", "", "", "", ""]
   const inputRef = useRef(null)
-  
+
   const videoRef = useRef(null)
   const streamRef = useRef(null)
   const requestRef = useRef(null)
 
   const navigate = useNavigate()
   const location = useLocation()
-  
+
   const labId = location.state?.labId || sessionStorage.getItem('active_lab_id') || "lab-1"
   const [labName, setLabName] = useState(location.state?.labName || sessionStorage.getItem('active_lab_name') || "Loading...")
   const [currentClass, setCurrentClass] = useState(null)
@@ -34,8 +34,42 @@ export default function Kiosk() {
   const [isFocused, setIsFocused] = useState(false)
   const [cameraStatus, setCameraStatus] = useState("loading")
   const [isProcessing, setIsProcessing] = useState(false)
+  const [errorMessage, setErrorMessage] = useState("")
 
   const sanitizedId = (value) => value.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 7)
+
+  const speakMessage = (messageText) => {
+    const synth = window.speechSynthesis;
+    const speak = () => {
+      synth.cancel();
+      const utterance = new SpeechSynthesisUtterance(messageText);
+      const voices = synth.getVoices();
+      const voicePriority = [
+        (v) => v.name.toLowerCase().includes("female"),
+        (v) => v.name.includes("Google US"),
+        (v) => v.name.includes("Zira"),
+        (v) => v.lang.startsWith("en-")
+      ];
+      let preferredVoice = null;
+      for (const condition of voicePriority) {
+        preferredVoice = voices.find(condition);
+        if (preferredVoice) break;
+      }
+      if (preferredVoice) utterance.voice = preferredVoice;
+      utterance.rate = 0.9;
+      utterance.pitch = 1.1;
+      synth.speak(utterance);
+    };
+
+    if (synth.getVoices().length > 0) {
+      speak();
+    } else {
+      synth.onvoiceschanged = () => {
+        speak();
+        synth.onvoiceschanged = null;
+      };
+    }
+  };
 
   const formatToAMPM = (timeStr) => {
     if (!timeStr) return "";
@@ -64,7 +98,7 @@ export default function Kiosk() {
   useEffect(() => {
     const fetchLabInfo = async () => {
       const { data } = await supabase.from('laboratories_lm').select('db_name').eq('id', labId).maybeSingle();
-      if (data) setLabName(data.db_name); 
+      if (data) setLabName(data.db_name);
       else setLabName(labId === "defense" ? "Defense" : "Lab 1");
     };
     fetchLabInfo();
@@ -81,7 +115,7 @@ export default function Kiosk() {
         .from('lab_schedules_lm')
         .select('*')
         .eq('day', today)
-        .eq('room', labName); 
+        .eq('room', labName);
 
       if (error || !sessions) return;
 
@@ -103,7 +137,7 @@ export default function Kiosk() {
     };
 
     fetchActiveSession();
-    const interval = setInterval(fetchActiveSession, 30000); 
+    const interval = setInterval(fetchActiveSession, 30000);
     return () => clearInterval(interval);
   }, [labName]);
 
@@ -120,31 +154,31 @@ export default function Kiosk() {
         setCameraStatus("loading");
 
         await navigator.mediaDevices.getUserMedia({ video: true });
-        
+
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter(device => device.kind === 'videoinput');
 
         const phoneCam = videoDevices.find(device => {
-            const name = device.label.toLowerCase();
-            return name.includes("camo") || name.includes("iriun") || name.includes("droidcam");
+          const name = device.label.toLowerCase();
+          return name.includes("camo") || name.includes("iriun") || name.includes("droidcam");
         });
 
         const constraints = {
-            video: phoneCam 
-              ? { deviceId: { exact: phoneCam.deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
-              : { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
+          video: phoneCam
+            ? { deviceId: { exact: phoneCam.deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+            : { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
         };
 
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         if (!isMounted) {
-            stream.getTracks().forEach(t => t.stop());
-            return;
+          stream.getTracks().forEach(t => t.stop());
+          return;
         }
 
         streamRef.current = stream;
         if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-            await videoRef.current.play();
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
         }
 
         if (isMounted) setCameraStatus("active");
@@ -152,9 +186,9 @@ export default function Kiosk() {
         const codeReader = new MultiFormatReader();
         const hints = new Map();
         hints.set(DecodeHintType.POSSIBLE_FORMATS, [
-            BarcodeFormat.CODE_128, 
-            BarcodeFormat.CODE_39, 
-            BarcodeFormat.QR_CODE
+          BarcodeFormat.CODE_128,
+          BarcodeFormat.CODE_39,
+          BarcodeFormat.QR_CODE
         ]);
         codeReader.setHints(hints);
 
@@ -162,56 +196,56 @@ export default function Kiosk() {
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
         const scanFrame = () => {
-            if (!isMounted || !videoRef.current || videoRef.current.readyState < 2) {
-                requestRef.current = requestAnimationFrame(scanFrame);
-                return;
-            }
-
-            const video = videoRef.current;
-            
-            if (canvas.width !== video.videoWidth) {
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-            }
-
-            if (canvas.width > 0 && canvas.height > 0) {
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-                try {
-                    const luminanceSource = new HTMLCanvasElementLuminanceSource(canvas);
-                    const binaryBitmap = new BinaryBitmap(new HybridBinarizer(luminanceSource));
-                    const result = codeReader.decode(binaryBitmap);
-
-                    if (result) {
-                        const decodedText = result.getText();
-                        const now = Date.now();
-                        const cleaned = sanitizedId(decodedText);
-
-                        if (!(cleaned === lastScanned && now - lastScannedTime < 2000)) {
-                            lastScanned = cleaned;
-                            lastScannedTime = now;
-
-                            if (cleaned.length === 7) {
-                                // Play a tiny beep sound on success!
-                                try {
-                                  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                                  const oscillator = audioCtx.createOscillator();
-                                  oscillator.type = "sine";
-                                  oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
-                                  oscillator.connect(audioCtx.destination);
-                                  oscillator.start();
-                                  oscillator.stop(audioCtx.currentTime + 0.1);
-                                } catch(e) {}
-
-                                setIdEntry(cleaned);
-                            }
-                        }
-                    }
-                } catch (err) {
-                }
-            }
-
+          if (!isMounted || !videoRef.current || videoRef.current.readyState < 2) {
             requestRef.current = requestAnimationFrame(scanFrame);
+            return;
+          }
+
+          const video = videoRef.current;
+
+          if (canvas.width !== video.videoWidth) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+          }
+
+          if (canvas.width > 0 && canvas.height > 0) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            try {
+              const luminanceSource = new HTMLCanvasElementLuminanceSource(canvas);
+              const binaryBitmap = new BinaryBitmap(new HybridBinarizer(luminanceSource));
+              const result = codeReader.decode(binaryBitmap);
+
+              if (result) {
+                const decodedText = result.getText();
+                const now = Date.now();
+                const cleaned = sanitizedId(decodedText);
+
+                if (!(cleaned === lastScanned && now - lastScannedTime < 2000)) {
+                  lastScanned = cleaned;
+                  lastScannedTime = now;
+
+                  if (cleaned.length === 7) {
+                    // Play a tiny beep sound on success!
+                    try {
+                      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                      const oscillator = audioCtx.createOscillator();
+                      oscillator.type = "sine";
+                      oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+                      oscillator.connect(audioCtx.destination);
+                      oscillator.start();
+                      oscillator.stop(audioCtx.currentTime + 0.1);
+                    } catch (e) { }
+
+                    setIdEntry(cleaned);
+                  }
+                }
+              }
+            } catch (err) {
+            }
+          }
+
+          requestRef.current = requestAnimationFrame(scanFrame);
         };
 
         requestRef.current = requestAnimationFrame(scanFrame);
@@ -248,7 +282,7 @@ export default function Kiosk() {
     if (sanitizedId(idEntry).length === 7 && currentClass && !isProcessing) {
       handleSubmitId(idEntry);
     }
-    
+
   }, [idEntry, currentClass, isProcessing]);
 
   const visibleChars = () => {
@@ -264,11 +298,14 @@ export default function Kiosk() {
 
   const getActiveSlotIndex = () => {
     const len = sanitizedId(idEntry).length
-    if (len >= 7) return -1 
+    if (len >= 7) return -1
     return len < 2 ? len : len + 1;
   }
 
-  const handleInputChange = (e) => setIdEntry(sanitizedId(e.target.value))
+  const handleInputChange = (e) => {
+    setIdEntry(sanitizedId(e.target.value));
+    if (errorMessage) setErrorMessage("");
+  }
   const handleKeyPress = (e) => e.key === "Enter" && sanitizedId(idEntry).length === 7 && handleSubmitId(idEntry)
   const focusInput = () => inputRef.current?.focus()
 
@@ -276,8 +313,9 @@ export default function Kiosk() {
     const cleanId = sanitizedId(idToSubmit);
     if (cleanId.length === 7) {
       setIsProcessing(true);
+      setErrorMessage("");
       const formattedId = cleanId.slice(0, 2) + "-" + cleanId.slice(2);
-      
+
       try {
         const { data: student, error } = await supabase
           .from('students_lists_lm')
@@ -286,34 +324,38 @@ export default function Kiosk() {
           .maybeSingle();
 
         if (error) throw error;
-        
+
         if (!student) {
-          alert("Student ID not found in the system. Please contact the Lab Admin.");
-          setIdEntry(""); 
-          setIsProcessing(false); 
+          const msg = "Student ID not found in the system. Please contact the Lab Admin.";
+          speakMessage(msg);
+          setErrorMessage(msg);
+          setIdEntry("");
+          setIsProcessing(false);
           return;
         }
 
         if (streamRef.current) {
-            streamRef.current.getTracks().forEach(track => track.stop());
+          streamRef.current.getTracks().forEach(track => track.stop());
         }
         if (requestRef.current) {
-            cancelAnimationFrame(requestRef.current);
+          cancelAnimationFrame(requestRef.current);
         }
 
-        navigate("/success", { 
-          state: { 
-            labId, 
-            labName, 
-            studentId: formattedId, 
-            scheduleId: currentClass?.id, 
-            isLaptopUser: student.is_laptop_user 
-          } 
+        navigate("/success", {
+          state: {
+            labId,
+            labName,
+            studentId: formattedId,
+            scheduleId: currentClass?.id,
+            isLaptopUser: student.is_laptop_user
+          }
         });
 
       } catch (err) {
         console.error("Kiosk lookup error:", err);
-        alert("An error occurred during check-in. Please try again.");
+        const msg = "An error occurred during check-in. Please try again.";
+        speakMessage(msg);
+        setErrorMessage(msg);
         setIdEntry("");
         setIsProcessing(false);
       }
@@ -383,12 +425,12 @@ export default function Kiosk() {
                 </div>
               )}
 
-              <video 
-                ref={videoRef} 
-                className={`w-full h-full object-cover transition-opacity duration-500 scale-x-[-1] ${cameraStatus === 'active' ? 'opacity-100' : 'opacity-0'}`} 
-                autoPlay 
-                playsInline 
-                muted 
+              <video
+                ref={videoRef}
+                className={`w-full h-full object-cover transition-opacity duration-500 scale-x-[-1] ${cameraStatus === 'active' ? 'opacity-100' : 'opacity-0'}`}
+                autoPlay
+                playsInline
+                muted
               />
 
               {cameraStatus === 'active' && (
@@ -422,21 +464,27 @@ export default function Kiosk() {
                 {visibleChars().map((char, idx) => (
                   <div
                     key={idx}
-                    className={`relative flex h-12 w-12 items-center justify-center rounded-lg border text-lg font-semibold text-neutral-900 md:h-14 md:w-14 transition-all duration-200 ${
-                      slots[idx] === "-"
+                    className={`relative flex h-12 w-12 items-center justify-center rounded-lg border text-lg font-semibold text-neutral-900 md:h-14 md:w-14 transition-all duration-200 ${slots[idx] === "-"
                         ? "w-10 border-transparent text-neutral-500"
                         : isFocused && idx === getActiveSlotIndex()
-                        ? "border-primary-500 bg-neutral-50 ring-1 ring-primary-500/30 shadow-sm"
-                        : "border-neutral-200 bg-neutral-50 shadow-sm"
-                    }`}
+                          ? "border-primary-500 bg-neutral-50 ring-1 ring-primary-500/30 shadow-sm"
+                          : "border-neutral-200 bg-neutral-50 shadow-sm"
+                      }`}
                   >
                     {char || (slots[idx] === "-" ? "-" : "")}
                   </div>
                 ))}
               </div>
               <p className="text-xs text-neutral-500 uppercase tracking-widest font-mono">Format: XX-XXXXX</p>
-              
-              {sanitizedId(idEntry).length === 7 && (
+
+              {errorMessage && (
+                <div className="flex items-center gap-2 text-destructive-semantic bg-destructive-semantic/10 px-4 py-2 rounded-lg border border-destructive-semantic/20 animate-in fade-in zoom-in duration-300">
+                  <AlertTriangle className="w-4 h-4" />
+                  <p className="text-sm font-medium">{errorMessage}</p>
+                </div>
+              )}
+
+              {sanitizedId(idEntry).length === 7 && !errorMessage && (
                 <Button
                   onClick={() => handleSubmitId(idEntry)}
                   disabled={!currentClass || isProcessing}
