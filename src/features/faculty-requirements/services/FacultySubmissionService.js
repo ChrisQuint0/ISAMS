@@ -164,12 +164,12 @@ export const FacultySubmissionService = {
             // 6. Insert/Update into Submissions table with Versioning via RPC
             const { data, error: insertError } = await supabase
                 .rpc('upsert_submission_with_versioning_fs', {
-                    p_faculty_id: parseInt(faculty.faculty_id, 10), // must be integer — DB has one overload
+                    p_faculty_id: String(faculty.faculty_id),   // faculty_id column is text
                     p_course_id: courseId,
                     p_doc_type_id: docTypeId,
                     p_original_filename: file.name,
                     p_standardized_filename: gdriveFile.name,
-                    p_file_size_bytes: Math.round(file.size),       // must be integer
+                    p_file_size_bytes: file.size,               // bigint — JS number is fine
                     p_mime_type: file.type,
                     p_file_checksum: null,
                     p_gdrive_file_id: gdriveFile.id,
