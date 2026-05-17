@@ -164,18 +164,18 @@ export const FacultySubmissionService = {
             // 6. Insert/Update into Submissions table with Versioning via RPC
             const { data, error: insertError } = await supabase
                 .rpc('upsert_submission_with_versioning_fs', {
-                    p_faculty_id: faculty.faculty_id,
+                    p_faculty_id: parseInt(faculty.faculty_id, 10), // must be integer — DB has one overload
                     p_course_id: courseId,
                     p_doc_type_id: docTypeId,
                     p_original_filename: file.name,
                     p_standardized_filename: gdriveFile.name,
-                    p_file_size_bytes: file.size,
+                    p_file_size_bytes: Math.round(file.size),       // must be integer
                     p_mime_type: file.type,
                     p_file_checksum: null,
                     p_gdrive_file_id: gdriveFile.id,
                     p_gdrive_web_view_link: gdriveFile.webViewLink,
                     p_gdrive_download_link: gdriveFile.webContentLink || gdriveFile.webViewLink,
-                    p_is_staged: false // Required to resolve overloaded function signature
+                    p_is_staged: false
                 });
 
             if (insertError) throw insertError;

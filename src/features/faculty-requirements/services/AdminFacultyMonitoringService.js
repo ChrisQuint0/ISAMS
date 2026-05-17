@@ -288,12 +288,12 @@ export const facultyMonitorService = {
       const { data, error: rpcError } = await supabase.rpc(
         "upsert_submission_with_versioning_fs",
         {
-          p_faculty_id: facultyId,
+          p_faculty_id: parseInt(facultyId, 10),   // must be integer — DB has one overload
           p_course_id: courseId,
           p_doc_type_id: docTypeId,
           p_original_filename: file.name,
           p_standardized_filename: gdriveFile.name,
-          p_file_size_bytes: file.size,
+          p_file_size_bytes: Math.round(file.size), // must be integer
           p_mime_type: file.type,
           p_file_checksum: null,
           p_gdrive_file_id: gdriveFile.id,
