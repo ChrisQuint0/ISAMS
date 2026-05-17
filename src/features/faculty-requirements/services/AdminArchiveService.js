@@ -215,78 +215,85 @@ export const archiveService = {
         0,
       );
 
-      // 3. Request ZIP from Node Backend
-      const fileIds = payloadFiles.map((f) => f.fileId).filter(Boolean);
-      const response = await fetch(getApiUrl("/api/export?operation=faculty"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileIds }),
-        signal: abortSignal,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.message ||
-            "Export failed on server. Ensure the Node backend (port 3002) is running.",
-        );
+      // 3. Batch into groups of 75 to stay safely under Vercel's 60s limit
+      const BATCH_SIZE = 75;
+      const batches = [];
+      for (let i = 0; i < payloadFiles.length; i += BATCH_SIZE) {
+        batches.push(payloadFiles.slice(i, i + BATCH_SIZE));
       }
 
-      // Read ZIP stream
-      const reader = response.body.getReader();
-      const chunks = [];
-      let receivedBytes = 0;
+      const totalBatches = batches.length;
+      let totalReceivedBytes = 0;
 
-      // If the backend magically sends content-length, we use it, otherwise we fall back to our ultra-precise precalculated bytes
-      const headerLength = parseInt(response.headers.get("content-length"), 10);
-      const totalBytes =
-        !isNaN(headerLength) && headerLength > 0
-          ? headerLength
-          : precalculatedTotalBytes;
+      for (let batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
+        const batch = batches[batchIdx];
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-        receivedBytes += value.length;
-        if (onProgress) {
-          onProgress({ receivedBytes, totalBytes });
+        // 4. Send full file info (folder + filename) so the API can build proper ZIP paths
+        const response = await fetch(getApiUrl("/api/export?operation=faculty"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ files: batch }),
+          signal: abortSignal,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(
+            errorData.message || "Export failed on server.",
+          );
         }
+
+        // Stream the response
+        const reader = response.body.getReader();
+        const chunks = [];
+        const headerLength = parseInt(response.headers.get("content-length"), 10);
+        const batchTotal = !isNaN(headerLength) && headerLength > 0
+          ? headerLength
+          : Math.round(precalculatedTotalBytes / totalBatches);
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+          totalReceivedBytes += value.length;
+          if (onProgress) {
+            onProgress({ receivedBytes: totalReceivedBytes, totalBytes: precalculatedTotalBytes });
+          }
+        }
+
+        const content = new Blob(chunks, { type: "application/zip" });
+
+        // Build filename — suffix "Part X of Y" when multi-batch
+        const safeSem = config.semester === "All Semesters" ? "AllSem" : config.semester;
+        const safeAY = config.academic_year === "All Years" ? "AllAY" : config.academic_year;
+        const safeProf = config.faculty === "All Faculty" ? "AllProf" : "SpecProf";
+        const safeCourse = config.course === "All Courses" ? "AllCourse" : config.course;
+        const safeSec = config.section === "All Sections" ? "AllSec" : config.section;
+        const safeDoc = config.doc_type === "All Document Types" ? "AllDocs" : config.doc_type;
+        const partSuffix = totalBatches > 1 ? `_Part${batchIdx + 1}of${totalBatches}` : "";
+
+        const filename =
+          `AdminArchive_${safeAY}_${safeSem}_${safeProf}_${safeCourse}_${safeSec}_${safeDoc}${partSuffix}_${new Date().toISOString().slice(0, 10)}.zip`
+            .replace(/[^a-zA-Z0-9_.-]/g, "_");
+
+        saveAs(content, filename);
       }
 
-      const content = new Blob(chunks, { type: "application/zip" });
-
-      const safeSem =
-        config.semester === "All Semesters" ? "AllSem" : config.semester;
-      const safeAY =
-        config.academic_year === "All Years" ? "AllAY" : config.academic_year;
-      const safeProf =
-        config.faculty === "All Faculty" ? "AllProf" : "SpecProf";
-      const safeCourse =
-        config.course === "All Courses" ? "AllCourse" : config.course;
-      const safeSec =
-        config.section === "All Sections" ? "AllSec" : config.section;
-      const safeDoc =
-        config.doc_type === "All Document Types" ? "AllDocs" : config.doc_type;
-
-      const filename =
-        `AdminArchive_${safeAY}_${safeSem}_${safeProf}_${safeCourse}_${safeSec}_${safeDoc}_${new Date().toISOString().slice(0, 10)}.zip`.replace(
-          /[^a-zA-Z0-9_.-]/g,
-          "_",
-        ); // sanitize just in case
-
-      saveAs(content, filename);
-
-      // Log to database asynchronously (don't block the user return)
+      // Log to database asynchronously (don't block)
       archiveService.logExport(
-        filename,
+        `AdminArchive_${new Date().toISOString().slice(0, 10)}.zip`,
         config.semester,
         config.academic_year,
         "ZIP_ARCHIVE_EXPORT",
         config,
       );
 
-      return { success: true, message: `Successfully exported archive.` };
+      return {
+        success: true,
+        message: totalBatches > 1
+          ? `Archive split into ${totalBatches} ZIP files due to size.`
+          : "Successfully exported archive.",
+      };
     } catch (err) {
       console.error("ZIP Export Failed:", err);
       return {

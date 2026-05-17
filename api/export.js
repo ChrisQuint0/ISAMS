@@ -45,41 +45,42 @@ export default async function handler(req, res) {
 
 async function handleFacultyExport(req, res) {
   const rawBody = await getRawBody(req, { limit: "10mb" });
-  const { fileIds } = JSON.parse(rawBody.toString());
+  const body = JSON.parse(rawBody.toString());
 
-  if (!fileIds || !Array.isArray(fileIds) || fileIds.length === 0) {
-    return res.status(400).json({ error: "fileIds array required" });
+  // Accept new `files` array (with folder/filename) or legacy `fileIds`
+  const files = body.files || (body.fileIds || []).map((id) => ({ fileId: id, folder: "", filename: id }));
+
+  if (!files || files.length === 0) {
+    return res.status(400).json({ error: "files array required" });
   }
 
   const { drive } = await getAuthClient();
   const zip = new JSZip();
+  const CONCURRENCY = 15;
 
-  for (const fileId of fileIds) {
+  const downloadOne = async ({ fileId, folder, filename }) => {
+    if (!fileId) return;
     try {
-      const { data: metadata } = await drive.files.get({
-        fileId,
-        fields: "name, mimeType",
-      });
-
       const { data: fileStream } = await drive.files.get(
         { fileId, alt: "media" },
         { responseType: "stream" },
       );
-
       const chunks = [];
-      for await (const chunk of fileStream) {
-        chunks.push(chunk);
-      }
+      for await (const chunk of fileStream) chunks.push(chunk);
       const buffer = Buffer.concat(chunks);
-
-      zip.file(metadata.name, buffer);
-    } catch (error) {
-      console.error(`Failed to download file ${fileId}:`, error);
+      const zipPath = folder ? `${folder}/${filename}` : filename;
+      zip.file(zipPath, buffer);
+    } catch (err) {
+      console.error(`Failed to download file ${fileId}:`, err.message);
     }
+  };
+
+  // Download in parallel batches of CONCURRENCY
+  for (let i = 0; i < files.length; i += CONCURRENCY) {
+    await Promise.all(files.slice(i, i + CONCURRENCY).map(downloadOne));
   }
 
   const zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
-
   res.setHeader("Content-Type", "application/zip");
   res.setHeader("Content-Disposition", "attachment; filename=export.zip");
   res.send(zipBuffer);
