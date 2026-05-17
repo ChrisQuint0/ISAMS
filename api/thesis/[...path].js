@@ -12,23 +12,43 @@ export const config = {
 };
 
 export default async function handler(req, res) {
-  // In Vercel, [...path].js provides segments as req.query.path array
-  const pathSegments = req.query.path || [];
-  const operation = pathSegments[0];
-  
-  // Route to appropriate handler
-  if (operation === 'download') {
-    return handleDownload(req, res, pathSegments[1]); // fileId is second segment
-  } else if (operation === 'upload') {
-    return handleUpload(req, res);
-  } else if (operation === 'create') {
-    return handleCreate(req, res);
-  } else if (operation === 'update') {
-    return handleUpdate(req, res);
-  } else if (operation === 'delete') {
-    return handleDelete(req, res);
-  } else if (operation === 'advisers' || operation === 'categories' || operation === 'data') {
-    return handleData(req, res, operation);
+  try {
+    // In Vercel, [...path].js provides segments as req.query.path array
+    // Fallback to parsing URL if path query param doesn't exist
+    let pathSegments = req.query.path || [];
+    
+    if (!Array.isArray(pathSegments)) {
+      pathSegments = [pathSegments];
+    }
+    
+    // Fallback: parse from URL if pathSegments is empty
+    if (pathSegments.length === 0) {
+      const urlPath = req.url.split('?')[0];
+      const match = urlPath.match(/\/api\/thesis\/(.+)/);
+      if (match) {
+        pathSegments = match[1].split('/');
+      }
+    }
+    
+    const operation = pathSegments[0];
+    
+    // Route to appropriate handler
+    if (operation === 'download') {
+      return handleDownload(req, res, pathSegments[1]); // fileId is second segment
+    } else if (operation === 'upload') {
+      return handleUpload(req, res);
+    } else if (operation === 'create') {
+      return handleCreate(req, res);
+    } else if (operation === 'update') {
+      return handleUpdate(req, res);
+    } else if (operation === 'delete') {
+      return handleDelete(req, res);
+    } else if (operation === 'advisers' || operation === 'categories' || operation === 'data') {
+      return handleData(req, res, operation);
+    }
+  } catch (error) {
+    console.error('Thesis handler error:', error);
+    return res.status(500).json({ error: error.message });
   }
   
   return res.status(404).json({ error: "Endpoint not found" });

@@ -10,17 +10,22 @@
  * - In desktop app: Use Vercel domain
  */
 export function getApiBaseUrl() {
+  // Check if we're running in Tauri desktop app
+  const isTauri = window.__TAURI__ !== undefined;
+  
   // Check if we're in development mode
   const isDevelopment =
-    import.meta.env.DEV || window.location.hostname === "localhost";
+    import.meta.env.DEV || 
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1" ||
+    window.location.protocol === "tauri:";
 
-  if (isDevelopment) {
-    // Local development - use local backend servers
+  if (isDevelopment || isTauri) {
+    // Local development or desktop app - use local backend servers
     return "http://localhost:3000";
   }
 
-  // Production or desktop app - use current domain or Vercel
-  // This works because Vercel handles /api routing automatically
+  // Production on Vercel - use current domain's /api endpoints
   return window.location.origin;
 }
 
