@@ -15,8 +15,10 @@ export default async function handler(req, res) {
     }
 
     // submission_backend.js routes are defined as /api/* (without /submission)
-    // so we need to strip /submission from the path
-    req.url = req.url.replace(/^\/api\/submission/, "/api") || "/api";
+    // Vercel strips /api/submission, so we prepend /api
+    const originalUrl = req.url;
+    req.url = `/api${req.url}`;
+    console.log(`[Vercel Submission Handler] ${originalUrl} -> ${req.url}`);
 
     return cachedApp(req, res);
   } catch (error) {

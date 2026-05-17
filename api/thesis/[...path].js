@@ -14,8 +14,9 @@ export default async function handler(req, res) {
       cachedApp = await initializeThesisApp();
     }
 
-    // Express routes in thesis_backend.js already include /api/thesis prefix
-    // No path modification needed
+    // Prepend /api/thesis to the path since Vercel strips it
+    req.url = `/api/thesis${req.url}`;
+    console.log(`[Vercel Thesis Handler] Forwarding request to: ${req.url}`);
 
     return cachedApp(req, res);
   } catch (error) {

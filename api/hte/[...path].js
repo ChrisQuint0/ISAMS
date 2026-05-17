@@ -14,8 +14,9 @@ export default async function handler(req, res) {
       cachedApp = await initializeHteApp();
     }
 
-    // Express routes in hte_backend.js already include /api/hte prefix
-    // No path modification needed
+    // Prepend /api/hte to the path since Vercel strips it
+    req.url = `/api/hte${req.url}`;
+    console.log(`[Vercel HTE Handler] Forwarding request to: ${req.url}`);
 
     return cachedApp(req, res);
   } catch (error) {

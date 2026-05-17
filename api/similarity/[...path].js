@@ -13,6 +13,12 @@ export default async function handler(req, res) {
       cachedApp = await initializeApp();
     }
 
+    // Prepend /api/similarity to the path since Vercel strips it
+    req.url = `/api/similarity${req.url}`;
+    console.log(
+      `[Vercel Similarity Handler] Forwarding request to: ${req.url}`,
+    );
+
     // Forward request to Express app
     return cachedApp(req, res);
   } catch (error) {

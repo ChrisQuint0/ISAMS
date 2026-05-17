@@ -13,6 +13,10 @@ export default async function handler(req, res) {
       cachedApp = await initializeApp();
     }
 
+    // Prepend /api/users to the path since Vercel strips it
+    req.url = `/api/users${req.url}`;
+    console.log(`[Vercel Users Handler] Forwarding request to: ${req.url}`);
+
     // Forward request to Express app
     return cachedApp(req, res);
   } catch (error) {
