@@ -16,41 +16,45 @@ export default async function handler(req, res) {
     // In Vercel, [...path].js provides segments as req.query.path array
     // Fallback to parsing URL if path query param doesn't exist
     let pathSegments = req.query.path || [];
-    
+
     if (!Array.isArray(pathSegments)) {
       pathSegments = [pathSegments];
     }
-    
+
     // Fallback: parse from URL if pathSegments is empty
     if (pathSegments.length === 0) {
-      const urlPath = req.url.split('?')[0];
+      const urlPath = req.url.split("?")[0];
       const match = urlPath.match(/\/api\/thesis\/(.+)/);
       if (match) {
-        pathSegments = match[1].split('/');
+        pathSegments = match[1].split("/");
       }
     }
-    
+
     const operation = pathSegments[0];
-    
+
     // Route to appropriate handler
-    if (operation === 'download') {
+    if (operation === "download") {
       return handleDownload(req, res, pathSegments[1]); // fileId is second segment
-    } else if (operation === 'upload') {
+    } else if (operation === "upload") {
       return handleUpload(req, res);
-    } else if (operation === 'create') {
+    } else if (operation === "create") {
       return handleCreate(req, res);
-    } else if (operation === 'update') {
+    } else if (operation === "update") {
       return handleUpdate(req, res);
-    } else if (operation === 'delete') {
+    } else if (operation === "delete") {
       return handleDelete(req, res);
-    } else if (operation === 'advisers' || operation === 'categories' || operation === 'data') {
+    } else if (
+      operation === "advisers" ||
+      operation === "categories" ||
+      operation === "data"
+    ) {
       return handleData(req, res, operation);
     }
   } catch (error) {
-    console.error('Thesis handler error:', error);
+    console.error("Thesis handler error:", error);
     return res.status(500).json({ error: error.message });
   }
-  
+
   return res.status(404).json({ error: "Endpoint not found" });
 }
 
@@ -67,17 +71,22 @@ async function handleDownload(req, res, fileId) {
     });
 
     res.setHeader("Content-Type", fileMetadata.mimeType || "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="${fileMetadata.name}"`);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${fileMetadata.name}"`,
+    );
 
     const response = await drive.files.get(
       { fileId: fileId, alt: "media" },
-      { responseType: "stream" }
+      { responseType: "stream" },
     );
 
-    response.data.on("error", (err) => {
-      console.error("Stream error:", err);
-      if (!res.headersSent) res.status(500).json({ error: "Stream failed" });
-    }).pipe(res);
+    response.data
+      .on("error", (err) => {
+        console.error("Stream error:", err);
+        if (!res.headersSent) res.status(500).json({ error: "Stream failed" });
+      })
+      .pipe(res);
   } catch (error) {
     console.error("Download error:", error);
     if (!res.headersSent) res.status(500).json({ error: error.message });
@@ -85,13 +94,17 @@ async function handleDownload(req, res, fileId) {
 }
 
 async function handleUpload(req, res) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== "POST")
+    return res.status(405).json({ error: "Method not allowed" });
 
   try {
     const { oauth2Client } = await getAuthClient();
     const drive = google.drive({ version: "v3", auth: oauth2Client });
 
-    const rawBody = await getRawBody(req, { length: req.headers["content-length"], limit: "50mb" });
+    const rawBody = await getRawBody(req, {
+      length: req.headers["content-length"],
+      limit: "50mb",
+    });
     const contentType = req.headers["content-type"] || "";
     const boundary = contentType.split("boundary=")[1];
 
@@ -103,10 +116,13 @@ async function handleUpload(req, res) {
       const fileNameMatch = part.match(/filename="([^"]+)"/);
       if (fileNameMatch) {
         fileName = fileNameMatch[1];
-        const contentStart = part.indexOf('\r\n\r\n') + 4;
-        const contentEnd = part.lastIndexOf('\r\n');
+        const contentStart = part.indexOf("\r\n\r\n") + 4;
+        const contentEnd = part.lastIndexOf("\r\n");
         if (contentStart > 3 && contentEnd > contentStart) {
-          fileBuffer = Buffer.from(part.substring(contentStart, contentEnd), 'binary');
+          fileBuffer = Buffer.from(
+            part.substring(contentStart, contentEnd),
+            "binary",
+          );
         }
       }
     }
@@ -131,7 +147,8 @@ async function handleUpload(req, res) {
 }
 
 async function handleCreate(req, res) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== "POST")
+    return res.status(405).json({ error: "Method not allowed" });
 
   const rawBody = await getRawBody(req, { limit: "10mb" });
   const { entry, authors, gdriveFile } = JSON.parse(rawBody.toString());
@@ -144,7 +161,10 @@ async function handleCreate(req, res) {
     const { supabaseAdmin } = await getSupabaseClients();
 
     const { data: thesis, error: thesisError } = await supabaseAdmin
-      .from("thesis_entries").insert([entry]).select().single();
+      .from("thesis_entries")
+      .insert([entry])
+      .select()
+      .single();
     if (thesisError) throw thesisError;
 
     const authorsToInsert = authors.map((author, index) => ({
@@ -156,13 +176,15 @@ async function handleCreate(req, res) {
 
     await supabaseAdmin.from("thesis_authors").insert(authorsToInsert);
 
-    await supabaseAdmin.from("thesis_files").insert([{
-      thesis_id: thesis.id,
-      original_filename: entry.title + ".pdf",
-      storage_path: gdriveFile.id,
-      storage_bucket: "google-drive",
-      mime_type: "application/pdf",
-    }]);
+    await supabaseAdmin.from("thesis_files").insert([
+      {
+        thesis_id: thesis.id,
+        original_filename: entry.title + ".pdf",
+        storage_path: gdriveFile.id,
+        storage_bucket: "google-drive",
+        mime_type: "application/pdf",
+      },
+    ]);
 
     res.json({ success: true, thesis });
   } catch (error) {
@@ -172,7 +194,8 @@ async function handleCreate(req, res) {
 }
 
 async function handleUpdate(req, res) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== "POST")
+    return res.status(405).json({ error: "Method not allowed" });
 
   const rawBody = await getRawBody(req, { limit: "10mb" });
   const { id, entry, authors, gdriveFile } = JSON.parse(rawBody.toString());
@@ -185,7 +208,10 @@ async function handleUpdate(req, res) {
     const { supabaseAdmin } = await getSupabaseClients();
 
     const { data: oldEntry } = await supabaseAdmin
-      .from("thesis_entries").select("*, files:thesis_files(*)").eq("id", id).single();
+      .from("thesis_entries")
+      .select("*, files:thesis_files(*)")
+      .eq("id", id)
+      .single();
 
     await supabaseAdmin.from("thesis_entries").update(entry).eq("id", id);
     await supabaseAdmin.from("thesis_authors").delete().eq("thesis_id", id);
@@ -207,10 +233,13 @@ async function handleUpdate(req, res) {
         console.error("Error deleting old file:", e);
       }
 
-      await supabaseAdmin.from("thesis_files").update({
-        original_filename: entry.title + ".pdf",
-        storage_path: gdriveFile.id,
-      }).eq("thesis_id", id);
+      await supabaseAdmin
+        .from("thesis_files")
+        .update({
+          original_filename: entry.title + ".pdf",
+          storage_path: gdriveFile.id,
+        })
+        .eq("thesis_id", id);
     }
 
     res.json({ success: true });
@@ -221,7 +250,8 @@ async function handleUpdate(req, res) {
 }
 
 async function handleDelete(req, res) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== "POST")
+    return res.status(405).json({ error: "Method not allowed" });
 
   const rawBody = await getRawBody(req, { limit: "1mb" });
   const { id } = JSON.parse(rawBody.toString());
@@ -232,7 +262,10 @@ async function handleDelete(req, res) {
     const { supabaseAdmin } = await getSupabaseClients();
 
     const { data: thesis } = await supabaseAdmin
-      .from("thesis_entries").select("files:thesis_files(storage_path)").eq("id", id).single();
+      .from("thesis_entries")
+      .select("files:thesis_files(storage_path)")
+      .eq("id", id)
+      .single();
 
     if (thesis?.files) {
       try {
@@ -248,10 +281,13 @@ async function handleDelete(req, res) {
       }
     }
 
-    await supabaseAdmin.from("thesis_entries").update({
-      is_deleted: true,
-      deleted_at: new Date().toISOString(),
-    }).eq("id", id);
+    await supabaseAdmin
+      .from("thesis_entries")
+      .update({
+        is_deleted: true,
+        deleted_at: new Date().toISOString(),
+      })
+      .eq("id", id);
 
     res.json({ success: true });
   } catch (error) {
@@ -264,19 +300,31 @@ async function handleData(req, res, operation) {
   try {
     const { supabase } = await getSupabaseClients();
 
-    if (operation === 'advisers') {
-      const { data } = await supabase.from("vw_adviser_display").select("*").order("display_name", { ascending: true });
+    if (operation === "advisers") {
+      const { data } = await supabase
+        .from("vw_adviser_display")
+        .select("*")
+        .order("display_name", { ascending: true });
       return res.json(data || []);
     }
 
-    if (operation === 'categories') {
-      const { data } = await supabase.from("thesis_categories").select("*").order("name", { ascending: true });
+    if (operation === "categories") {
+      const { data } = await supabase
+        .from("thesis_categories")
+        .select("*")
+        .order("name", { ascending: true });
       return res.json(data || []);
     }
 
     const [advisersResult, categoriesResult] = await Promise.all([
-      supabase.from("vw_adviser_display").select("*").order("display_name", { ascending: true }),
-      supabase.from("thesis_categories").select("*").order("name", { ascending: true }),
+      supabase
+        .from("vw_adviser_display")
+        .select("*")
+        .order("display_name", { ascending: true }),
+      supabase
+        .from("thesis_categories")
+        .select("*")
+        .order("name", { ascending: true }),
     ]);
 
     res.json({
@@ -295,14 +343,17 @@ async function getAuthClient() {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   const { data: tokenRow } = await supabase
-    .from("google_auth_tokens").select("*")
-    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    .from("google_auth_tokens")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   if (!tokenRow) throw new Error("Not authenticated");
 
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET
+    process.env.GOOGLE_CLIENT_SECRET,
   );
 
   oauth2Client.setCredentials({
@@ -318,7 +369,13 @@ async function getAuthClient() {
 
 async function getSupabaseClients() {
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
-  const supabase = createClient(supabaseUrl, process.env.VITE_SUPABASE_ANON_KEY);
-  const supabaseAdmin = createClient(supabaseUrl, process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const supabase = createClient(
+    supabaseUrl,
+    process.env.VITE_SUPABASE_ANON_KEY,
+  );
+  const supabaseAdmin = createClient(
+    supabaseUrl,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+  );
   return { supabase, supabaseAdmin };
 }

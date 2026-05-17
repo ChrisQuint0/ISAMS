@@ -27,23 +27,24 @@ const BACKUP_TABLES = [
 export default async function handler(req, res) {
   // In Vercel, [...path].js provides segments as req.query.path array
   const pathSegments = req.query.path || [];
-  const operation = pathSegments.join('/');
-  
-  if (operation === 'archive') {
+  const operation = pathSegments.join("/");
+
+  if (operation === "archive") {
     return handleArchiveExport(req, res);
-  } else if (operation === 'backup/export') {
+  } else if (operation === "backup/export") {
     return handleBackupExport(req, res);
-  } else if (operation === 'backup/restore') {
+  } else if (operation === "backup/restore") {
     return handleBackupRestore(req, res);
-  } else if (operation === 'faculty/export') {
+  } else if (operation === "faculty/export") {
     return handleFacultyExport(req, res);
   }
-  
+
   return res.status(404).json({ error: "Operation not found" });
 }
 
 async function handleArchiveExport(req, res) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== "POST")
+    return res.status(405).json({ error: "Method not allowed" });
 
   try {
     const rawBody = await getRawBody(req, { limit: "10mb" });
@@ -67,7 +68,7 @@ async function handleArchiveExport(req, res) {
 
         const response = await drive.files.get(
           { fileId: fileId, alt: "media" },
-          { responseType: "arraybuffer" }
+          { responseType: "arraybuffer" },
         );
 
         zip.file(metadata.name, response.data);
@@ -79,7 +80,10 @@ async function handleArchiveExport(req, res) {
     const zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
 
     res.setHeader("Content-Type", "application/zip");
-    res.setHeader("Content-Disposition", `attachment; filename="archive-${Date.now()}.zip"`);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="archive-${Date.now()}.zip"`,
+    );
     res.send(zipBuffer);
   } catch (error) {
     console.error("Archive export error:", error);
@@ -88,7 +92,8 @@ async function handleArchiveExport(req, res) {
 }
 
 async function handleFacultyExport(req, res) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== "POST")
+    return res.status(405).json({ error: "Method not allowed" });
 
   try {
     const rawBody = await getRawBody(req, { limit: "10mb" });
@@ -112,7 +117,7 @@ async function handleFacultyExport(req, res) {
 
         const response = await drive.files.get(
           { fileId: fileId, alt: "media" },
-          { responseType: "arraybuffer" }
+          { responseType: "arraybuffer" },
         );
 
         zip.file(metadata.name, response.data);
@@ -124,7 +129,10 @@ async function handleFacultyExport(req, res) {
     const zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
 
     res.setHeader("Content-Type", "application/zip");
-    res.setHeader("Content-Disposition", `attachment; filename="faculty-export-${Date.now()}.zip"`);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="faculty-export-${Date.now()}.zip"`,
+    );
     res.send(zipBuffer);
   } catch (error) {
     console.error("Faculty export error:", error);
@@ -135,7 +143,10 @@ async function handleFacultyExport(req, res) {
 async function handleBackupExport(req, res) {
   try {
     const supabaseUrl = process.env.VITE_SUPABASE_URL;
-    const supabaseAdmin = createClient(supabaseUrl, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    const supabaseAdmin = createClient(
+      supabaseUrl,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+    );
 
     const backup = {
       timestamp: new Date().toISOString(),
@@ -153,7 +164,10 @@ async function handleBackupExport(req, res) {
     }
 
     res.setHeader("Content-Type", "application/json");
-    res.setHeader("Content-Disposition", `attachment; filename="isams-backup-${Date.now()}.json"`);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="isams-backup-${Date.now()}.json"`,
+    );
     res.json(backup);
   } catch (error) {
     console.error("Backup export error:", error);
@@ -162,7 +176,8 @@ async function handleBackupExport(req, res) {
 }
 
 async function handleBackupRestore(req, res) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== "POST")
+    return res.status(405).json({ error: "Method not allowed" });
 
   try {
     const rawBody = await getRawBody(req, { limit: "50mb" });
@@ -173,7 +188,10 @@ async function handleBackupRestore(req, res) {
     }
 
     const supabaseUrl = process.env.VITE_SUPABASE_URL;
-    const supabaseAdmin = createClient(supabaseUrl, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    const supabaseAdmin = createClient(
+      supabaseUrl,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+    );
 
     const results = {};
 
@@ -185,11 +203,16 @@ async function handleBackupRestore(req, res) {
       }
 
       try {
-        const { error } = await supabaseAdmin.from(table.name).upsert(tableData.rows);
+        const { error } = await supabaseAdmin
+          .from(table.name)
+          .upsert(tableData.rows);
         if (error) {
           results[table.name] = { error: error.message };
         } else {
-          results[table.name] = { success: true, rowCount: tableData.rows.length };
+          results[table.name] = {
+            success: true,
+            rowCount: tableData.rows.length,
+          };
         }
       } catch (err) {
         results[table.name] = { error: err.message };
@@ -209,7 +232,8 @@ async function getAuthClient() {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   const { data: scopedTokens } = await supabase
-    .from("google_auth_tokens").select("*")
+    .from("google_auth_tokens")
+    .select("*")
     .ilike("scope", "%googleapis.com/auth/drive%")
     .order("created_at", { ascending: false });
 
@@ -218,7 +242,7 @@ async function getAuthClient() {
 
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET
+    process.env.GOOGLE_CLIENT_SECRET,
   );
 
   oauth2Client.setCredentials({

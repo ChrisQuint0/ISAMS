@@ -30,15 +30,18 @@ export default async function handler(req, res) {
       .ilike("scope", "%googleapis.com/auth/drive%")
       .order("created_at", { ascending: false });
 
-    const tokenRow = scopedTokens && scopedTokens.length > 0 ? scopedTokens[0] : null;
+    const tokenRow =
+      scopedTokens && scopedTokens.length > 0 ? scopedTokens[0] : null;
 
     if (!tokenRow) {
-      return res.status(401).json({ error: "Not authenticated with Google Drive" });
+      return res
+        .status(401)
+        .json({ error: "Not authenticated with Google Drive" });
     }
 
     const oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET
+      process.env.GOOGLE_CLIENT_SECRET,
     );
 
     oauth2Client.setCredentials({
@@ -53,9 +56,11 @@ export default async function handler(req, res) {
 
     // Parse multipart data
     const contentType = req.headers["content-type"] || "";
-    
+
     if (!contentType.includes("multipart/form-data")) {
-      return res.status(400).json({ error: "Content-Type must be multipart/form-data" });
+      return res
+        .status(400)
+        .json({ error: "Content-Type must be multipart/form-data" });
     }
 
     const rawBody = await getRawBody(req, {
@@ -76,28 +81,28 @@ export default async function handler(req, res) {
     let folderId = process.env.VITE_GOOGLE_DRIVE_FOLDER_ID || "root";
 
     for (const part of parts) {
-      if (part.includes('Content-Disposition')) {
+      if (part.includes("Content-Disposition")) {
         // Check if this is the folderId field
         if (part.includes('name="folderId"')) {
           const folderMatch = part.match(/\r\n\r\n([^\r\n]+)/);
           if (folderMatch) folderId = folderMatch[1].trim();
         }
-        
+
         // Check if this is a file
         const fileNameMatch = part.match(/filename="([^"]+)"/);
         if (fileNameMatch) {
           fileName = fileNameMatch[1];
-          
+
           // Extract mime type
           const mimeMatch = part.match(/Content-Type:\s*([^\r\n]+)/i);
           if (mimeMatch) mimeType = mimeMatch[1].trim();
-          
+
           // Extract file content
-          const contentStart = part.indexOf('\r\n\r\n') + 4;
-          const contentEnd = part.lastIndexOf('\r\n');
+          const contentStart = part.indexOf("\r\n\r\n") + 4;
+          const contentEnd = part.lastIndexOf("\r\n");
           if (contentStart > 3 && contentEnd > contentStart) {
             const binaryContent = part.substring(contentStart, contentEnd);
-            fileBuffer = Buffer.from(binaryContent, 'binary');
+            fileBuffer = Buffer.from(binaryContent, "binary");
           }
         }
       }
@@ -136,7 +141,8 @@ export default async function handler(req, res) {
     const file = await drive.files.create({
       resource: fileMetadata,
       media: media,
-      fields: "id, name, webViewLink, iconLink, createdTime, size, webContentLink",
+      fields:
+        "id, name, webViewLink, iconLink, createdTime, size, webContentLink",
     });
 
     console.log(`✅ Uploaded file: ${fileName} to folder ${folderId}`);

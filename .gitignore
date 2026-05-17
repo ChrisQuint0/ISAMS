@@ -38,3 +38,4 @@ eng.traineddata
 
 #DB
 schema.sql
+supabase/migrations/populate_system_config.sql

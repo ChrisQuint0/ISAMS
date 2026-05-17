@@ -76,7 +76,10 @@ export default async function handler(req, res) {
   }
 }
 
-function buildEmailHtml(template, { facultyName, subject, message, pendingCount, lateCount }) {
+function buildEmailHtml(
+  template,
+  { facultyName, subject, message, pendingCount, lateCount },
+) {
   const primaryColor = "#009845";
   const baseStyle = `font-family: sans-serif; background: #f8fafc; padding: 32px 16px; margin: 0;`;
   const cardStyle = `background: #ffffff; border-radius: 12px; padding: 32px; max-width: 560px; margin: 0 auto; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.06);`;
@@ -90,17 +93,22 @@ function buildEmailHtml(template, { facultyName, subject, message, pendingCount,
       <p style="margin: 0; font-size: 11px; color: #94a3b8;">This is an automated message from ISAMS.</p>
     </div>`;
 
-  const wrap = (body) => `<div style="${baseStyle}"><div style="${cardStyle}">${headerStr}${body}${footerStr}</div></div>`;
+  const wrap = (body) =>
+    `<div style="${baseStyle}"><div style="${cardStyle}">${headerStr}${body}${footerStr}</div></div>`;
 
   return {
     subject: subject || "[ISAMS] Notification",
     html: wrap(`
       <p style="font-size: 15px; color: #1e293b; margin: 0 0 12px;">Dear <strong>${facultyName}</strong>,</p>
       <p style="font-size: 14px; color: #475569; line-height: 1.7;">${message || "You have pending requirements."}</p>
-      ${pendingCount ? `<div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 16px; margin: 20px 0;">
+      ${
+        pendingCount
+          ? `<div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 16px; margin: 20px 0;">
         <p style="margin: 0; font-size: 13px; font-weight: 700; color: #c2410c;">⚠ You have ${pendingCount} pending submission${parseInt(pendingCount) !== 1 ? "s" : ""}.</p>
         ${lateCount && parseInt(lateCount) > 0 ? `<p style="margin: 6px 0 0; font-size: 12px; color: #dc2626;">🔴 ${lateCount} item${parseInt(lateCount) !== 1 ? "s" : ""} marked as Late</p>` : ""}
-      </div>` : ""}
+      </div>`
+          : ""
+      }
       <p style="font-size: 14px; color: #475569;">Please log in to ISAMS to complete your submissions.</p>
     `),
   };

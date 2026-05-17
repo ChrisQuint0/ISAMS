@@ -14,19 +14,19 @@ export default async function handler(req, res) {
   // In Vercel, [...path].js provides segments as req.query.path array
   const pathSegments = req.query.path || [];
   const operation = pathSegments[0];
-  
-  if (req.method === "GET" && operation !== 'metadata') {
+
+  if (req.method === "GET" && operation !== "metadata") {
     return handleList(req, res);
-  } else if (operation === 'metadata') {
+  } else if (operation === "metadata") {
     return handleMetadata(req, res);
-  } else if (operation === 'delete') {
+  } else if (operation === "delete") {
     return handleDelete(req, res);
-  } else if (operation === 'clone') {
+  } else if (operation === "clone") {
     return handleClone(req, res);
-  } else if (operation === 'move') {
+  } else if (operation === "move") {
     return handleMove(req, res);
   }
-  
+
   return res.status(404).json({ error: "Operation not found" });
 }
 
@@ -35,12 +35,14 @@ async function handleList(req, res) {
     const { oauth2Client } = await getAuthClient();
     const drive = google.drive({ version: "v3", auth: oauth2Client });
 
-    const folderId = req.query.folderId || process.env.VITE_GOOGLE_DRIVE_FOLDER_ID || "root";
+    const folderId =
+      req.query.folderId || process.env.VITE_GOOGLE_DRIVE_FOLDER_ID || "root";
     const query = `'${folderId}' in parents and trashed=false`;
 
     const response = await drive.files.list({
       pageSize: 100,
-      fields: "files(id, name, webViewLink, iconLink, createdTime, size, webContentLink, mimeType)",
+      fields:
+        "files(id, name, webViewLink, iconLink, createdTime, size, webContentLink, mimeType)",
       q: query,
       orderBy: "createdTime desc",
     });
@@ -62,7 +64,8 @@ async function handleMetadata(req, res) {
 
     const { data } = await drive.files.get({
       fileId: fileId,
-      fields: "id, name, mimeType, size, createdTime, modifiedTime, webViewLink",
+      fields:
+        "id, name, mimeType, size, createdTime, modifiedTime, webViewLink",
     });
 
     res.json(data);
@@ -73,7 +76,8 @@ async function handleMetadata(req, res) {
 }
 
 async function handleDelete(req, res) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== "POST")
+    return res.status(405).json({ error: "Method not allowed" });
 
   try {
     const rawBody = await getRawBody(req, { limit: "1mb" });
@@ -94,7 +98,8 @@ async function handleDelete(req, res) {
 }
 
 async function handleClone(req, res) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== "POST")
+    return res.status(405).json({ error: "Method not allowed" });
 
   try {
     const rawBody = await getRawBody(req, { limit: "1mb" });
@@ -121,7 +126,8 @@ async function handleClone(req, res) {
 }
 
 async function handleMove(req, res) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== "POST")
+    return res.status(405).json({ error: "Method not allowed" });
 
   try {
     const rawBody = await getRawBody(req, { limit: "1mb" });
@@ -140,7 +146,7 @@ async function handleMove(req, res) {
       fields: "parents",
     });
 
-    const previousParents = file.parents ? file.parents.join(',') : '';
+    const previousParents = file.parents ? file.parents.join(",") : "";
 
     const { data } = await drive.files.update({
       fileId: fileId,
@@ -162,7 +168,8 @@ async function getAuthClient() {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   const { data: scopedTokens } = await supabase
-    .from("google_auth_tokens").select("*")
+    .from("google_auth_tokens")
+    .select("*")
     .ilike("scope", "%googleapis.com/auth/drive%")
     .order("created_at", { ascending: false });
 
@@ -171,7 +178,7 @@ async function getAuthClient() {
 
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET
+    process.env.GOOGLE_CLIENT_SECRET,
   );
 
   oauth2Client.setCredentials({

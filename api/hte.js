@@ -26,23 +26,32 @@ export default async function handler(req, res) {
     const rawBody = await getRawBody(req, { limit: "10mb" });
     const { batchData, actorInfo } = JSON.parse(rawBody.toString());
 
-    if (!batchData || !Array.isArray(batchData.students) || batchData.students.length === 0) {
+    if (
+      !batchData ||
+      !Array.isArray(batchData.students) ||
+      batchData.students.length === 0
+    ) {
       return res.status(400).json({ error: "Invalid batch data" });
     }
 
     const supabaseUrl = process.env.VITE_SUPABASE_URL;
-    const supabaseAdmin = createClient(supabaseUrl, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    const supabaseAdmin = createClient(
+      supabaseUrl,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+    );
 
     // Create batch record
     const { data: batch, error: batchError } = await supabaseAdmin
       .from("hte_notification_batches")
-      .insert([{
-        initiated_by_user_id: actorInfo?.actorUserId || null,
-        initiated_by_name: actorInfo?.actorName || "System",
-        student_count: batchData.students.length,
-        academic_year: batchData.academicYear || null,
-        semester: batchData.semester || null,
-      }])
+      .insert([
+        {
+          initiated_by_user_id: actorInfo?.actorUserId || null,
+          initiated_by_name: actorInfo?.actorName || "System",
+          student_count: batchData.students.length,
+          academic_year: batchData.academicYear || null,
+          semester: batchData.semester || null,
+        },
+      ])
       .select()
       .single();
 
@@ -105,7 +114,9 @@ export default async function handler(req, res) {
 
     // Insert recipients
     if (recipientsToInsert.length > 0) {
-      await supabaseAdmin.from("hte_notification_recipients").insert(recipientsToInsert);
+      await supabaseAdmin
+        .from("hte_notification_recipients")
+        .insert(recipientsToInsert);
     }
 
     res.json({ success: true, batchId: batch.id, results });
@@ -131,14 +142,15 @@ function buildHTEEmailHtml({ studentName, missingDocs }) {
       <p style="margin: 0; font-size: 12px; color: #8a9991;">This is an automated notification from ISAMS.</p>
     </div>`;
 
-  const docsList = missingDocs && missingDocs.length > 0
-    ? `<div style="background: #fff5f5; border: 1px solid #feb2b2; border-radius: 8px; padding: 20px; margin: 24px 0;">
+  const docsList =
+    missingDocs && missingDocs.length > 0
+      ? `<div style="background: #fff5f5; border: 1px solid #feb2b2; border-radius: 8px; padding: 20px; margin: 24px 0;">
         <p style="margin: 0 0 12px; font-size: 14px; font-weight: 700; color: #c53030;">Missing Requirements:</p>
         <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #742a2a;">
           ${missingDocs.map((doc) => `<li>${doc}</li>`).join("")}
         </ul>
       </div>`
-    : "";
+      : "";
 
   return `
     <div style="${baseStyle}">

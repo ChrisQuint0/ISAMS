@@ -18,24 +18,31 @@ export default async function handler(req, res) {
   // In Vercel, [...path].js provides segments as req.query.path array
   const pathSegments = req.query.path || [];
   const operation = pathSegments[0];
-  
-  if (operation === 'ensure') {
+
+  if (operation === "ensure") {
     return handleEnsure(req, res);
-  } else if (operation === 'init-isams') {
+  } else if (operation === "init-isams") {
     return handleInitIsams(req, res);
-  } else if (operation === 'rename') {
+  } else if (operation === "rename") {
     return handleRename(req, res);
-  } else if (operation === 'create') {
+  } else if (operation === "create") {
     return handleCreate(req, res);
   }
-  
+
   return res.status(404).json({ error: "Operation not found" });
 }
 
 async function handleEnsure(req, res) {
   try {
     const rawBody = await getRawBody(req, { limit: "1mb" });
-    const { rootFolderId, syFolder, ayFolder, semesterFolder, courseCode, section } = JSON.parse(rawBody.toString());
+    const {
+      rootFolderId,
+      syFolder,
+      ayFolder,
+      semesterFolder,
+      courseCode,
+      section,
+    } = JSON.parse(rawBody.toString());
 
     const { oauth2Client } = await getAuthClient();
     const drive = google.drive({ version: "v3", auth: oauth2Client });
@@ -54,13 +61,23 @@ async function handleEnsure(req, res) {
 
     // Create Semester folder
     if (semesterFolder) {
-      currentParent = await getOrCreateFolder(drive, semesterFolder, currentParent);
+      currentParent = await getOrCreateFolder(
+        drive,
+        semesterFolder,
+        currentParent,
+      );
     }
 
     // Create Course folder
     if (courseCode) {
-      const courseFolderName = section ? `${courseCode} - ${section}` : courseCode;
-      currentParent = await getOrCreateFolder(drive, courseFolderName, currentParent);
+      const courseFolderName = section
+        ? `${courseCode} - ${section}`
+        : courseCode;
+      currentParent = await getOrCreateFolder(
+        drive,
+        courseFolderName,
+        currentParent,
+      );
     }
 
     res.json({ success: true, folderId: currentParent });
@@ -78,7 +95,11 @@ async function handleInitIsams(req, res) {
     const { oauth2Client } = await getAuthClient();
     const drive = google.drive({ version: "v3", auth: oauth2Client });
 
-    const isamsFolder = await getOrCreateFolder(drive, "ISAMS", rootFolderId || "root");
+    const isamsFolder = await getOrCreateFolder(
+      drive,
+      "ISAMS",
+      rootFolderId || "root",
+    );
 
     res.json({ success: true, isamsFolderId: isamsFolder });
   } catch (error) {
@@ -90,10 +111,14 @@ async function handleInitIsams(req, res) {
 async function handleRename(req, res) {
   try {
     const rawBody = await getRawBody(req, { limit: "1mb" });
-    const { rootFolderId, oldFolderName, newFolderName } = JSON.parse(rawBody.toString());
+    const { rootFolderId, oldFolderName, newFolderName } = JSON.parse(
+      rawBody.toString(),
+    );
 
     if (!oldFolderName || !newFolderName) {
-      return res.status(400).json({ error: "oldFolderName and newFolderName required" });
+      return res
+        .status(400)
+        .json({ error: "oldFolderName and newFolderName required" });
     }
 
     const { oauth2Client } = await getAuthClient();
@@ -116,7 +141,11 @@ async function handleRename(req, res) {
       renamed.push(folder.id);
     }
 
-    res.json({ success: true, renamedCount: renamed.length, folderIds: renamed });
+    res.json({
+      success: true,
+      renamedCount: renamed.length,
+      folderIds: renamed,
+    });
   } catch (error) {
     console.error("Rename error:", error);
     res.status(500).json({ error: error.message });
@@ -147,7 +176,7 @@ async function handleCreate(req, res) {
 async function getOrCreateFolder(drive, folderName, parentId) {
   const safeName = sanitizeFolderName(folderName);
   const query = `name='${safeName.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`;
-  
+
   const { data } = await drive.files.list({
     q: query,
     fields: "files(id, name)",
@@ -172,7 +201,12 @@ async function getOrCreateFolder(drive, folderName, parentId) {
 
 function sanitizeFolderName(name) {
   if (!name) return "Untitled";
-  return name.replace(/[\/\\:*?"<>|]/g, "").replace(/\s+/g, " ").trim() || "Untitled";
+  return (
+    name
+      .replace(/[\/\\:*?"<>|]/g, "")
+      .replace(/\s+/g, " ")
+      .trim() || "Untitled"
+  );
 }
 
 async function getAuthClient() {
@@ -181,7 +215,8 @@ async function getAuthClient() {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   const { data: scopedTokens } = await supabase
-    .from("google_auth_tokens").select("*")
+    .from("google_auth_tokens")
+    .select("*")
     .ilike("scope", "%googleapis.com/auth/drive%")
     .order("created_at", { ascending: false });
 
@@ -190,7 +225,7 @@ async function getAuthClient() {
 
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET
+    process.env.GOOGLE_CLIENT_SECRET,
   );
 
   oauth2Client.setCredentials({
