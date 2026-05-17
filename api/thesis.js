@@ -1,10 +1,10 @@
 /**
  * Consolidated Thesis Operations Handler
- * Handles all thesis operations: create, update, delete, upload, download, data
+ * Route: /api/thesis?operation=xxx
+ * Operations: download, upload, create, update, delete, advisers, categories, data
  */
 import { createClient } from "@supabase/supabase-js";
 import { google } from "googleapis";
-import { Readable } from "stream";
 import getRawBody from "raw-body";
 
 export const config = {
@@ -12,73 +12,42 @@ export const config = {
 };
 
 export default async function handler(req, res) {
+  const operation = req.query.operation || req.query.op;
+
+  if (!operation) {
+    return res.status(400).json({ error: "Operation parameter required" });
+  }
+
   try {
-    // Debug logging
-    console.log("=== Thesis Handler Debug ===");
-    console.log("URL:", req.url);
-    console.log("req.query.path:", req.query.path);
-    console.log("============================");
-
-    // In Vercel, [...path].js provides segments as req.query.path array
-    // Fallback to parsing URL if path query param doesn't exist
-    let pathSegments = req.query.path || [];
-
-    if (!Array.isArray(pathSegments)) {
-      pathSegments = [pathSegments];
+    switch (operation) {
+      case "download":
+        return handleDownload(req, res);
+      case "upload":
+        return handleUpload(req, res);
+      case "create":
+        return handleCreate(req, res);
+      case "update":
+        return handleUpdate(req, res);
+      case "delete":
+        return handleDelete(req, res);
+      case "advisers":
+        return handleAdvisers(req, res);
+      case "categories":
+        return handleCategories(req, res);
+      case "data":
+        return handleData(req, res);
+      default:
+        return res.status(404).json({ error: "Unknown operation" });
     }
-
-    // Fallback: parse from URL if pathSegments is empty
-    if (pathSegments.length === 0) {
-      const urlPath = req.url.split("?")[0];
-      const match = urlPath.match(/\/api\/thesis\/(.+)/);
-      if (match) {
-        pathSegments = match[1].split("/");
-      }
-    }
-
-    console.log("Parsed pathSegments:", pathSegments);
-
-    const operation = pathSegments[0];
-    console.log("Operation:", operation);
-
-    // Route to appropriate handler
-    if (operation === "download") {
-      return handleDownload(req, res, pathSegments[1]); // fileId is second segment
-    } else if (operation === "upload") {
-      return handleUpload(req, res);
-    } else if (operation === "create") {
-      return handleCreate(req, res);
-    } else if (operation === "update") {
-      return handleUpdate(req, res);
-    } else if (operation === "delete") {
-      return handleDelete(req, res);
-    } else if (
-      operation === "advisers" ||
-      operation === "categories" ||
-      operation === "data"
-    ) {
-      return handleData(req, res, operation);
-    }
-
-    // If we reach here, operation didn't match
-    console.error("No matching operation found");
-    return res.status(404).json({
-      error: "Endpoint not found",
-      debug: {
-        operation,
-        pathSegments,
-        url: req.url,
-        queryPath: req.query.path,
-      },
-    });
   } catch (error) {
     console.error("Thesis handler error:", error);
     return res.status(500).json({ error: error.message });
   }
 }
 
-async function handleDownload(req, res, fileId) {
+async function handleDownload(req, res) {
   try {
+    const fileId = req.query.fileId;
     if (!fileId) return res.status(400).json({ error: "File ID required" });
 
     const { oauth2Client } = await getAuthClient();
@@ -103,62 +72,64 @@ async function handleDownload(req, res, fileId) {
     response.data
       .on("error", (err) => {
         console.error("Stream error:", err);
-        if (!res.headersSent) res.status(500).json({ error: "Stream failed" });
+        if (!res.headersSent) {
+          res.status(500).json({ error: "Failed to stream file" });
+        }
       })
       .pipe(res);
   } catch (error) {
     console.error("Download error:", error);
-    if (!res.headersSent) res.status(500).json({ error: error.message });
+    if (!res.headersSent) {
+      res.status(500).json({ error: error.message });
+    }
   }
 }
 
 async function handleUpload(req, res) {
-  if (req.method !== "POST")
+  if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
+  }
 
   try {
     const { oauth2Client } = await getAuthClient();
     const drive = google.drive({ version: "v3", auth: oauth2Client });
 
-    const rawBody = await getRawBody(req, {
-      length: req.headers["content-length"],
-      limit: "50mb",
-    });
-    const contentType = req.headers["content-type"] || "";
-    const boundary = contentType.split("boundary=")[1];
+    const rawBody = await getRawBody(req, { limit: "50mb" });
+    const boundary = req.headers["content-type"]?.split("boundary=")[1];
 
-    const parts = rawBody.toString("binary").split(`--${boundary}`);
-    let fileBuffer = null;
-    let fileName = "upload.pdf";
-
-    for (const part of parts) {
-      const fileNameMatch = part.match(/filename="([^"]+)"/);
-      if (fileNameMatch) {
-        fileName = fileNameMatch[1];
-        const contentStart = part.indexOf("\r\n\r\n") + 4;
-        const contentEnd = part.lastIndexOf("\r\n");
-        if (contentStart > 3 && contentEnd > contentStart) {
-          fileBuffer = Buffer.from(
-            part.substring(contentStart, contentEnd),
-            "binary",
-          );
-        }
-      }
+    if (!boundary) {
+      return res.status(400).json({ error: "Missing multipart boundary" });
     }
 
-    if (!fileBuffer) return res.status(400).json({ error: "No file found" });
+    const parts = parseMultipart(rawBody, boundary);
+    const filePart = parts.find((p) => p.name === "file");
 
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const finalFileName = `${timestamp}-${fileName}`;
-    const folderId = "1oTrBXMT3KxBORnVBtaGJ0JlSeiJ1GgmD";
+    if (!filePart) {
+      return res.status(400).json({ error: "No file in request" });
+    }
 
-    const file = await drive.files.create({
-      resource: { name: finalFileName, parents: [folderId] },
-      media: { mimeType: "application/pdf", body: Readable.from(fileBuffer) },
-      fields: "id, name, webViewLink, webContentLink",
+    const metadata = {
+      name: filePart.filename,
+      parents: [process.env.VITE_GOOGLE_DRIVE_FOLDER_ID],
+    };
+
+    const media = {
+      mimeType: filePart.contentType,
+      body: require("stream").Readable.from(filePart.data),
+    };
+
+    const { data: file } = await drive.files.create({
+      requestBody: metadata,
+      media: media,
+      fields: "id, name, webViewLink",
     });
 
-    res.json(file.data);
+    await drive.permissions.create({
+      fileId: file.id,
+      requestBody: { role: "reader", type: "anyone" },
+    });
+
+    res.json(file);
   } catch (error) {
     console.error("Upload error:", error);
     res.status(500).json({ error: error.message });
@@ -166,28 +137,30 @@ async function handleUpload(req, res) {
 }
 
 async function handleCreate(req, res) {
-  if (req.method !== "POST")
+  if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
-
-  const rawBody = await getRawBody(req, { limit: "10mb" });
-  const { entry, authors, gdriveFile } = JSON.parse(rawBody.toString());
-
-  if (!entry || !authors || !gdriveFile) {
-    return res.status(400).json({ error: "Missing required fields" });
   }
 
   try {
+    const rawBody = await getRawBody(req, { limit: "10mb" });
+    const { entry, authors, gdriveFile } = JSON.parse(rawBody.toString());
+
+    if (!entry || !authors || !gdriveFile) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
     const { supabaseAdmin } = await getSupabaseClients();
 
-    const { data: thesis, error: thesisError } = await supabaseAdmin
+    const { data: newEntry, error: entryError } = await supabaseAdmin
       .from("thesis_entries")
-      .insert([entry])
+      .insert(entry)
       .select()
       .single();
-    if (thesisError) throw thesisError;
+
+    if (entryError) throw entryError;
 
     const authorsToInsert = authors.map((author, index) => ({
-      thesis_id: thesis.id,
+      thesis_id: newEntry.id,
       first_name: author.firstName,
       last_name: author.lastName,
       display_order: index + 1,
@@ -195,17 +168,13 @@ async function handleCreate(req, res) {
 
     await supabaseAdmin.from("thesis_authors").insert(authorsToInsert);
 
-    await supabaseAdmin.from("thesis_files").insert([
-      {
-        thesis_id: thesis.id,
-        original_filename: entry.title + ".pdf",
-        storage_path: gdriveFile.id,
-        storage_bucket: "google-drive",
-        mime_type: "application/pdf",
-      },
-    ]);
+    await supabaseAdmin.from("thesis_files").insert({
+      thesis_id: newEntry.id,
+      original_filename: entry.title + ".pdf",
+      storage_path: gdriveFile.id,
+    });
 
-    res.json({ success: true, thesis });
+    res.json({ success: true, thesis: newEntry });
   } catch (error) {
     console.error("Create error:", error);
     res.status(500).json({ error: error.message });
@@ -213,17 +182,18 @@ async function handleCreate(req, res) {
 }
 
 async function handleUpdate(req, res) {
-  if (req.method !== "POST")
+  if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
-
-  const rawBody = await getRawBody(req, { limit: "10mb" });
-  const { id, entry, authors, gdriveFile } = JSON.parse(rawBody.toString());
-
-  if (!id || !entry || !authors) {
-    return res.status(400).json({ error: "Missing required fields" });
   }
 
   try {
+    const rawBody = await getRawBody(req, { limit: "10mb" });
+    const { id, entry, authors, gdriveFile } = JSON.parse(rawBody.toString());
+
+    if (!id || !entry || !authors) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
     const { supabaseAdmin } = await getSupabaseClients();
 
     const { data: oldEntry } = await supabaseAdmin
@@ -269,15 +239,18 @@ async function handleUpdate(req, res) {
 }
 
 async function handleDelete(req, res) {
-  if (req.method !== "POST")
+  if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
-
-  const rawBody = await getRawBody(req, { limit: "1mb" });
-  const { id } = JSON.parse(rawBody.toString());
-
-  if (!id) return res.status(400).json({ error: "ID required" });
+  }
 
   try {
+    const rawBody = await getRawBody(req, { limit: "1mb" });
+    const { id } = JSON.parse(rawBody.toString());
+
+    if (!id) {
+      return res.status(400).json({ error: "ID required" });
+    }
+
     const { supabaseAdmin } = await getSupabaseClients();
 
     const { data: thesis } = await supabaseAdmin
@@ -315,25 +288,37 @@ async function handleDelete(req, res) {
   }
 }
 
-async function handleData(req, res, operation) {
+async function handleAdvisers(req, res) {
   try {
     const { supabase } = await getSupabaseClients();
+    const { data } = await supabase
+      .from("vw_adviser_display")
+      .select("*")
+      .order("display_name", { ascending: true });
+    res.json(data || []);
+  } catch (error) {
+    console.error("Advisers error:", error);
+    res.status(500).json({ error: error.message });
+  }
+}
 
-    if (operation === "advisers") {
-      const { data } = await supabase
-        .from("vw_adviser_display")
-        .select("*")
-        .order("display_name", { ascending: true });
-      return res.json(data || []);
-    }
+async function handleCategories(req, res) {
+  try {
+    const { supabase } = await getSupabaseClients();
+    const { data } = await supabase
+      .from("thesis_categories")
+      .select("*")
+      .order("name", { ascending: true });
+    res.json(data || []);
+  } catch (error) {
+    console.error("Categories error:", error);
+    res.status(500).json({ error: error.message });
+  }
+}
 
-    if (operation === "categories") {
-      const { data } = await supabase
-        .from("thesis_categories")
-        .select("*")
-        .order("name", { ascending: true });
-      return res.json(data || []);
-    }
+async function handleData(req, res) {
+  try {
+    const { supabase } = await getSupabaseClients();
 
     const [advisersResult, categoriesResult] = await Promise.all([
       supabase
@@ -356,6 +341,53 @@ async function handleData(req, res, operation) {
   }
 }
 
+function parseMultipart(buffer, boundary) {
+  const parts = [];
+  const boundaryBuffer = Buffer.from(`--${boundary}`);
+  let start = 0;
+
+  while (start < buffer.length) {
+    const boundaryIndex = buffer.indexOf(boundaryBuffer, start);
+    if (boundaryIndex === -1) break;
+
+    const nextBoundary = buffer.indexOf(
+      boundaryBuffer,
+      boundaryIndex + boundaryBuffer.length,
+    );
+    if (nextBoundary === -1) break;
+
+    const partData = buffer.slice(
+      boundaryIndex + boundaryBuffer.length,
+      nextBoundary,
+    );
+    const headerEnd = partData.indexOf(Buffer.from("\r\n\r\n"));
+
+    if (headerEnd !== -1) {
+      const headers = partData.slice(0, headerEnd).toString();
+      const data = partData.slice(headerEnd + 4, partData.length - 2);
+
+      const nameMatch = headers.match(/name="([^"]+)"/);
+      const filenameMatch = headers.match(/filename="([^"]+)"/);
+      const contentTypeMatch = headers.match(/Content-Type: (.+)/i);
+
+      if (nameMatch) {
+        parts.push({
+          name: nameMatch[1],
+          filename: filenameMatch ? filenameMatch[1] : null,
+          contentType: contentTypeMatch
+            ? contentTypeMatch[1].trim()
+            : "application/octet-stream",
+          data: data,
+        });
+      }
+    }
+
+    start = nextBoundary;
+  }
+
+  return parts;
+}
+
 async function getAuthClient() {
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
@@ -368,7 +400,9 @@ async function getAuthClient() {
     .limit(1)
     .maybeSingle();
 
-  if (!tokenRow) throw new Error("Not authenticated");
+  if (!tokenRow) {
+    throw new Error("Not authenticated with Google Drive");
+  }
 
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,

@@ -165,7 +165,7 @@ export const thesisService = {
     if (actorInfo.actorUserId)
       formData.append("actorUserId", actorInfo.actorUserId);
 
-    const response = await fetch(getApiUrl("/api/thesis/upload"), {
+    const response = await fetch(getApiUrl("/api/thesis?operation=upload"), {
       method: "POST",
       body: formData,
     });
@@ -191,7 +191,7 @@ export const thesisService = {
    * Complete multi-step thesis entry creation via backend to bypass RLS
    */
   async saveThesisEntry({ entry, authors, gdriveFile, actorInfo = {} }) {
-    const response = await fetch(getApiUrl("/api/thesis/create"), {
+    const response = await fetch(getApiUrl("/api/thesis?operation=create"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -226,7 +226,7 @@ export const thesisService = {
    * Update an existing thesis entry via backend
    */
   async updateThesisEntry({ id, entry, authors, gdriveFile, actorInfo = {} }) {
-    const response = await fetch(getApiUrl("/api/thesis/update"), {
+    const response = await fetch(getApiUrl("/api/thesis?operation=update"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -262,7 +262,7 @@ export const thesisService = {
    * Delete a thesis entry and its associated files
    */
   async deleteThesisEntry(id, actorInfo = {}) {
-    const response = await fetch(getApiUrl("/api/thesis/delete"), {
+    const response = await fetch(getApiUrl("/api/thesis?operation=delete"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -631,7 +631,7 @@ export const thesisService = {
    * Get backend download URL for a thesis file
    */
   getDownloadUrl(fileId) {
-    return getApiUrl(`/api/thesis/download?fileId=${fileId}`);
+    return getApiUrl(`/api/thesis?operation=download&fileId=${fileId}`);
   },
 
   /**

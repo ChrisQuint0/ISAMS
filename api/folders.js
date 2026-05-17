@@ -1,6 +1,7 @@
 /**
  * Consolidated Folder Operations Handler
- * Handles: create, rename, ensure structure, init-isams
+ * Route: /api/folders?operation=xxx
+ * Operations: ensure, init-isams, rename, create
  */
 import { google } from "googleapis";
 import { createClient } from "@supabase/supabase-js";
@@ -15,21 +16,29 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // In Vercel, [...path].js provides segments as req.query.path array
-  const pathSegments = req.query.path || [];
-  const operation = pathSegments[0];
+  const operation = req.query.operation || req.query.op;
 
-  if (operation === "ensure") {
-    return handleEnsure(req, res);
-  } else if (operation === "init-isams") {
-    return handleInitIsams(req, res);
-  } else if (operation === "rename") {
-    return handleRename(req, res);
-  } else if (operation === "create") {
-    return handleCreate(req, res);
+  if (!operation) {
+    return res.status(400).json({ error: "Operation parameter required" });
   }
 
-  return res.status(404).json({ error: "Operation not found" });
+  try {
+    switch (operation) {
+      case "ensure":
+        return handleEnsure(req, res);
+      case "init-isams":
+        return handleInitIsams(req, res);
+      case "rename":
+        return handleRename(req, res);
+      case "create":
+        return handleCreate(req, res);
+      default:
+        return res.status(404).json({ error: "Unknown operation" });
+    }
+  } catch (error) {
+    console.error("Folders handler error:", error);
+    return res.status(500).json({ error: error.message });
+  }
 }
 
 async function handleEnsure(req, res) {
@@ -49,17 +58,14 @@ async function handleEnsure(req, res) {
 
     let currentParent = rootFolderId || process.env.VITE_GOOGLE_DRIVE_FOLDER_ID;
 
-    // Create School Year folder
     if (syFolder) {
       currentParent = await getOrCreateFolder(drive, syFolder, currentParent);
     }
 
-    // Create AY folder
     if (ayFolder) {
       currentParent = await getOrCreateFolder(drive, ayFolder, currentParent);
     }
 
-    // Create Semester folder
     if (semesterFolder) {
       currentParent = await getOrCreateFolder(
         drive,
@@ -68,7 +74,6 @@ async function handleEnsure(req, res) {
       );
     }
 
-    // Create Course folder
     if (courseCode) {
       const courseFolderName = section
         ? `${courseCode} - ${section}`
@@ -101,7 +106,7 @@ async function handleInitIsams(req, res) {
       rootFolderId || "root",
     );
 
-    res.json({ success: true, isamsFolderId: isamsFolder });
+    res.json({ success: true, folderId: isamsFolder });
   } catch (error) {
     console.error("Init ISAMS error:", error);
     res.status(500).json({ error: error.message });
@@ -111,41 +116,32 @@ async function handleInitIsams(req, res) {
 async function handleRename(req, res) {
   try {
     const rawBody = await getRawBody(req, { limit: "1mb" });
-    const { rootFolderId, oldFolderName, newFolderName } = JSON.parse(
+    const { rootFolderId, oldName, newName, parentFolderId } = JSON.parse(
       rawBody.toString(),
     );
-
-    if (!oldFolderName || !newFolderName) {
-      return res
-        .status(400)
-        .json({ error: "oldFolderName and newFolderName required" });
-    }
 
     const { oauth2Client } = await getAuthClient();
     const drive = google.drive({ version: "v3", auth: oauth2Client });
 
-    // Search for folders with old name
-    const query = `name='${oldFolderName.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+    const searchParent = parentFolderId || rootFolderId || "root";
+    const query = `name='${oldName}' and '${searchParent}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+
     const { data } = await drive.files.list({
       q: query,
       fields: "files(id, name)",
-      pageSize: 100,
+      pageSize: 1,
     });
 
-    const renamed = [];
-    for (const folder of data.files || []) {
-      await drive.files.update({
-        fileId: folder.id,
-        requestBody: { name: newFolderName },
-      });
-      renamed.push(folder.id);
+    if (!data.files || data.files.length === 0) {
+      return res.status(404).json({ error: "Folder not found" });
     }
 
-    res.json({
-      success: true,
-      renamedCount: renamed.length,
-      folderIds: renamed,
+    await drive.files.update({
+      fileId: data.files[0].id,
+      requestBody: { name: newName },
     });
+
+    res.json({ success: true, folderId: data.files[0].id });
   } catch (error) {
     console.error("Rename error:", error);
     res.status(500).json({ error: error.message });
@@ -155,16 +151,20 @@ async function handleRename(req, res) {
 async function handleCreate(req, res) {
   try {
     const rawBody = await getRawBody(req, { limit: "1mb" });
-    const { name, parentId } = JSON.parse(rawBody.toString());
+    const { folderName, parentFolderId } = JSON.parse(rawBody.toString());
 
-    if (!name || !parentId) {
-      return res.status(400).json({ error: "name and parentId required" });
+    if (!folderName) {
+      return res.status(400).json({ error: "Folder name required" });
     }
 
     const { oauth2Client } = await getAuthClient();
     const drive = google.drive({ version: "v3", auth: oauth2Client });
 
-    const folderId = await getOrCreateFolder(drive, name, parentId);
+    const folderId = await getOrCreateFolder(
+      drive,
+      folderName,
+      parentFolderId || "root",
+    );
 
     res.json({ success: true, folderId });
   } catch (error) {
@@ -174,8 +174,7 @@ async function handleCreate(req, res) {
 }
 
 async function getOrCreateFolder(drive, folderName, parentId) {
-  const safeName = sanitizeFolderName(folderName);
-  const query = `name='${safeName.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`;
+  const query = `name='${folderName}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
 
   const { data } = await drive.files.list({
     q: query,
@@ -187,26 +186,18 @@ async function getOrCreateFolder(drive, folderName, parentId) {
     return data.files[0].id;
   }
 
-  const createRes = await drive.files.create({
-    resource: {
-      name: safeName,
-      mimeType: "application/vnd.google-apps.folder",
-      parents: [parentId],
-    },
+  const fileMetadata = {
+    name: folderName,
+    mimeType: "application/vnd.google-apps.folder",
+    parents: [parentId],
+  };
+
+  const { data: folder } = await drive.files.create({
+    requestBody: fileMetadata,
     fields: "id",
   });
 
-  return createRes.data.id;
-}
-
-function sanitizeFolderName(name) {
-  if (!name) return "Untitled";
-  return (
-    name
-      .replace(/[\/\\:*?"<>|]/g, "")
-      .replace(/\s+/g, " ")
-      .trim() || "Untitled"
-  );
+  return folder.id;
 }
 
 async function getAuthClient() {
@@ -214,14 +205,16 @@ async function getAuthClient() {
   const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
   const supabase = createClient(supabaseUrl, supabaseKey);
 
-  const { data: scopedTokens } = await supabase
+  const { data: tokenRow } = await supabase
     .from("google_auth_tokens")
     .select("*")
-    .ilike("scope", "%googleapis.com/auth/drive%")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  const tokenRow = scopedTokens?.[0];
-  if (!tokenRow) throw new Error("Not authenticated");
+  if (!tokenRow) {
+    throw new Error("Not authenticated with Google Drive");
+  }
 
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,

@@ -96,7 +96,7 @@ export const ensureFolderStructure = async (rootFolderId, meta = {}) => {
     meta = { facultyName, termName };
   }
 
-  const res = await fetch(getApiUrl("/api/submission/folders/ensure"), {
+  const res = await fetch(getApiUrl("/api/folders?operation=ensure"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

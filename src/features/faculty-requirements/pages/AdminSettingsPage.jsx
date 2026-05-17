@@ -1698,7 +1698,7 @@ export default function AdminSettingsPage() {
                             try {
                               setProcessing(true);
                               const response = await fetch(
-                                getApiUrl("/api/folders/init-isams"),
+                                getApiUrl("/api/folders?operation=init-isams"),
                                 {
                                   method: "POST",
                                   headers: {
