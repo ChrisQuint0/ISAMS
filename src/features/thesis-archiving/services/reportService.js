@@ -1,12 +1,13 @@
 import { supabase } from "@/lib/supabaseClient";
-
-const API_BASE_URL = "http://localhost:3000/api/reports";
+import { getApiUrl } from "@/lib/apiConfig";
 
 /**
  * Get user's auth token from Supabase session
  */
 async function getAuthToken() {
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   return session?.access_token;
 }
 
@@ -49,7 +50,7 @@ export async function fetchThesisReport({
       ...(category && category !== "All" && { category }),
     });
 
-    const response = await fetch(`${API_BASE_URL}/thesis?${params}`, {
+    const response = await fetch(getApiUrl(`/api/reports/thesis?${params}`), {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -103,13 +104,16 @@ export async function fetchSimilarityReport({
       ...(category && category !== "All" && { category }),
     });
 
-    const response = await fetch(`${API_BASE_URL}/similarity?${params}`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
+    const response = await fetch(
+      getApiUrl(`/api/reports/similarity?${params}`),
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
       },
-    });
+    );
 
     if (!response.ok) {
       const error = await response.json();
@@ -159,10 +163,11 @@ export async function fetchOJTReport({
       ...(program && program !== "All" && { program }),
       ...(section && section !== "All" && { section }),
       ...(coordinator && coordinator !== "All" && { coordinator }),
-      ...(completionStatus && completionStatus !== "All" && { completionStatus }),
+      ...(completionStatus &&
+        completionStatus !== "All" && { completionStatus }),
     });
 
-    const response = await fetch(`${API_BASE_URL}/ojt?${params}`, {
+    const response = await fetch(getApiUrl(`/api/reports/ojt?${params}`), {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -193,7 +198,7 @@ export async function fetchCoordinators() {
       throw new Error("Not authenticated");
     }
 
-    const response = await fetch(`${API_BASE_URL}/coordinators`, {
+    const response = await fetch(getApiUrl("/api/reports/coordinators"), {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,

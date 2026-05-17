@@ -511,7 +511,7 @@ export default function AdminSettingsPage() {
   const [dangerModalInput, setDangerModalInput] = useState("");
 
   // ── Backup & Restore State ──────────────────────────────────────────────
-  const BACKEND_URL = "http://localhost:3002";
+  import { getApiUrl } from "@/lib/apiConfig";
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [lastBackupTime, setLastBackupTime] = useState(
     () => localStorage.getItem("isams_last_backup") || null,
@@ -1698,7 +1698,7 @@ export default function AdminSettingsPage() {
                             try {
                               setProcessing(true);
                               const response = await fetch(
-                                "http://localhost:3000/api/folders/init-isams",
+                                getApiUrl("/api/folders/init-isams"),
                                 {
                                   method: "POST",
                                   headers: {

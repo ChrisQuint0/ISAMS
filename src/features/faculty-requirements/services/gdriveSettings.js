@@ -1,4 +1,5 @@
-import { supabase } from '@/lib/supabaseClient';
+import { supabase } from "@/lib/supabaseClient";
+import { getApiUrl } from "@/lib/apiConfig";
 
 /**
  * Google Drive Settings Utility for Faculty Submissions
@@ -7,33 +8,34 @@ import { supabase } from '@/lib/supabaseClient';
  * helper functions for folder ID extraction and auth status checks.
  */
 
-const STORAGE_KEY = 'fsFolderLink';
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3002';
+const STORAGE_KEY = "fsFolderLink";
 
 /**
  * Get the saved Google Drive folder link from localStorage
  */
 export const getFolderLink = async () => {
-    try {
-        const { data, error } = await supabase
-            .from('systemsettings_fs')
-            .select('setting_value')
-            .eq('setting_key', 'gdrive_root_folder_id')
-            .single();
+  try {
+    const { data, error } = await supabase
+      .from("systemsettings_fs")
+      .select("setting_value")
+      .eq("setting_key", "gdrive_root_folder_id")
+      .single();
 
-        if (error || !data) return '';
-        return data.setting_value;
-    } catch (e) {
-        console.error("Failed to fetch GDrive folder link from DB:", e);
-        return '';
-    }
+    if (error || !data) return "";
+    return data.setting_value;
+  } catch (e) {
+    console.error("Failed to fetch GDrive folder link from DB:", e);
+    return "";
+  }
 };
 
 /**
  * Save the Google Drive folder link to localStorage
  */
 export const setFolderLink = (link) => {
-    console.warn("setFolderLink is deprecated. Use the Admin Settings UI to update the database directly.");
+  console.warn(
+    "setFolderLink is deprecated. Use the Admin Settings UI to update the database directly.",
+  );
 };
 
 /**
@@ -43,16 +45,16 @@ export const setFolderLink = (link) => {
  *   - https://drive.google.com/drive/u/0/folders/1A2B3C...
  */
 export const getFolderId = (link) => {
-    if (!link) return null;
-    try {
-        // If it's already just an ID (no slashes), return it directly
-        if (!link.includes('/')) return link;
+  if (!link) return null;
+  try {
+    // If it's already just an ID (no slashes), return it directly
+    if (!link.includes("/")) return link;
 
-        const match = link.match(/folders\/([a-zA-Z0-9_-]+)/);
-        return match ? match[1] : null;
-    } catch (e) {
-        return null;
-    }
+    const match = link.match(/folders\/([a-zA-Z0-9_-]+)/);
+    return match ? match[1] : null;
+  } catch (e) {
+    return null;
+  }
 };
 
 /**
@@ -60,15 +62,15 @@ export const getFolderId = (link) => {
  * Returns true if a valid OAuth token exists in Supabase.
  */
 export const checkGDriveAuth = async () => {
-    try {
-        const res = await fetch(`${API_BASE}/api/status`);
-        if (!res.ok) return false;
-        const data = await res.json();
-        return data.authenticated === true;
-    } catch (e) {
-        // server.js is not running
-        return false;
-    }
+  try {
+    const res = await fetch(getApiUrl("/api/submission/status"));
+    if (!res.ok) return false;
+    const data = await res.json();
+    return data.authenticated === true;
+  } catch (e) {
+    // server.js is not running
+    return false;
+  }
 };
 
 /**
@@ -87,38 +89,42 @@ export const checkGDriveAuth = async () => {
  * @returns {Promise<string>} The resolved deepest target folder ID
  */
 export const ensureFolderStructure = async (rootFolderId, meta = {}) => {
-    // Support legacy 2-arg (rootFolderId, facultyName, termName) calls
-    if (typeof meta === 'string') {
-        const facultyName = meta;
-        const termName = arguments[2];
-        meta = { facultyName, termName };
-    }
+  // Support legacy 2-arg (rootFolderId, facultyName, termName) calls
+  if (typeof meta === "string") {
+    const facultyName = meta;
+    const termName = arguments[2];
+    meta = { facultyName, termName };
+  }
 
-    const res = await fetch(`${API_BASE}/api/folders/ensure`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            rootFolderId,
-            academicYear: meta.academicYear,
-            semester: meta.semester,
-            facultyName: meta.facultyName,
-            courseCode: meta.courseCode,
-            section: meta.section,
-            docTypeName: meta.docTypeName,
-            // Legacy field
-            termName: meta.termName,
-        }),
-    });
+  const res = await fetch(getApiUrl("/api/submission/folders/ensure"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      rootFolderId,
+      academicYear: meta.academicYear,
+      semester: meta.semester,
+      facultyName: meta.facultyName,
+      courseCode: meta.courseCode,
+      section: meta.section,
+      docTypeName: meta.docTypeName,
+      // Legacy field
+      termName: meta.termName,
+    }),
+  });
 
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Failed to ensure folder structure' }));
-        throw new Error(err.error || 'Failed to ensure Google Drive folder structure');
-    }
+  if (!res.ok) {
+    const err = await res
+      .json()
+      .catch(() => ({ error: "Failed to ensure folder structure" }));
+    throw new Error(
+      err.error || "Failed to ensure Google Drive folder structure",
+    );
+  }
 
-    const data = await res.json();
-    return data.folderId;
+  const data = await res.json();
+  return data.folderId;
 };
 
 /**
@@ -131,19 +137,25 @@ export const ensureFolderStructure = async (rootFolderId, meta = {}) => {
  * @param {string} newFolderName - The new name to apply
  * @returns {Promise<{ renamed: number, total: number, message: string }>}
  */
-export const renameGDriveFolders = async (rootFolderId, oldFolderName, newFolderName) => {
-    const res = await fetch(`${API_BASE}/api/folders/rename`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rootFolderId, oldFolderName, newFolderName }),
-    });
+export const renameGDriveFolders = async (
+  rootFolderId,
+  oldFolderName,
+  newFolderName,
+) => {
+  const res = await fetch(getApiUrl("/api/submission/folders/rename"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ rootFolderId, oldFolderName, newFolderName }),
+  });
 
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Failed to rename GDrive folders' }));
-        throw new Error(err.error || 'Failed to rename Google Drive folders');
-    }
+  if (!res.ok) {
+    const err = await res
+      .json()
+      .catch(() => ({ error: "Failed to rename GDrive folders" }));
+    throw new Error(err.error || "Failed to rename Google Drive folders");
+  }
 
-    return res.json(); // { renamed, total, message }
+  return res.json(); // { renamed, total, message }
 };
 
 /**
@@ -153,24 +165,23 @@ export const renameGDriveFolders = async (rootFolderId, oldFolderName, newFolder
  * @returns {Promise<{ id: string, name: string, webViewLink: string, webContentLink: string }>}
  */
 export const uploadToGDrive = async (file, folderId) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (folderId) {
+    formData.append("folderId", folderId);
+  }
 
-    const formData = new FormData();
-    formData.append('file', file);
-    if (folderId) {
-        formData.append('folderId', folderId);
-    }
+  const res = await fetch(getApiUrl("/api/submission/upload"), {
+    method: "POST",
+    body: formData,
+  });
 
-    const res = await fetch(`${API_BASE}/api/upload`, {
-        method: 'POST',
-        body: formData,
-    });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Upload failed" }));
+    throw new Error(err.error || "Google Drive upload failed");
+  }
 
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Upload failed' }));
-        throw new Error(err.error || 'Google Drive upload failed');
-    }
-
-    return res.json(); // { id, name, webViewLink, webContentLink }
+  return res.json(); // { id, name, webViewLink, webContentLink }
 };
 
 /**
@@ -179,12 +190,16 @@ export const uploadToGDrive = async (file, folderId) => {
  * @returns {Promise<Array<{ id: string, name: string, webViewLink: string, iconLink: string }>>}
  */
 export const listGDriveFiles = async (folderId) => {
-    const res = await fetch(`${API_BASE}/api/files?folderId=${folderId}`);
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Failed to list files' }));
-        throw new Error(err.error || 'Failed to list Google Drive files');
-    }
-    return res.json();
+  const res = await fetch(
+    getApiUrl(`/api/submission/files?folderId=${folderId}`),
+  );
+  if (!res.ok) {
+    const err = await res
+      .json()
+      .catch(() => ({ error: "Failed to list files" }));
+    throw new Error(err.error || "Failed to list Google Drive files");
+  }
+  return res.json();
 };
 
 /**
@@ -193,12 +208,16 @@ export const listGDriveFiles = async (folderId) => {
  * @returns {Promise<Object>}
  */
 export const getGDriveFileMetadata = async (fileId) => {
-    const res = await fetch(`${API_BASE}/api/files/metadata?fileId=${fileId}`);
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Failed to get file metadata' }));
-        throw new Error(err.error || 'Failed to fetch Google Drive file metadata');
-    }
-    return res.json();
+  const res = await fetch(
+    getApiUrl(`/api/submission/files/metadata?fileId=${fileId}`),
+  );
+  if (!res.ok) {
+    const err = await res
+      .json()
+      .catch(() => ({ error: "Failed to get file metadata" }));
+    throw new Error(err.error || "Failed to fetch Google Drive file metadata");
+  }
+  return res.json();
 };
 
 /**
@@ -208,16 +227,18 @@ export const getGDriveFileMetadata = async (fileId) => {
  * @returns {Promise<Array>}
  */
 export const searchGDriveFiles = async (parentId, query) => {
-    const url = new URL(`${API_BASE}/api/files/search`);
-    if (parentId) url.searchParams.append('parentId', parentId);
-    if (query) url.searchParams.append('query', query);
+  const url = new URL(getApiUrl("/api/submission/files/search"));
+  if (parentId) url.searchParams.append("parentId", parentId);
+  if (query) url.searchParams.append("query", query);
 
-    const res = await fetch(url.toString());
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Failed to search files' }));
-        throw new Error(err.error || 'Failed to search Google Drive files');
-    }
-    return res.json();
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    const err = await res
+      .json()
+      .catch(() => ({ error: "Failed to search files" }));
+    throw new Error(err.error || "Failed to search Google Drive files");
+  }
+  return res.json();
 };
 
 /**
@@ -228,20 +249,20 @@ export const searchGDriveFiles = async (parentId, query) => {
  * @returns {Promise<{ id: string, name: string, webViewLink: string, webContentLink: string }>}
  */
 export const cloneGDriveFile = async (fileId, targetFolderId, newFileName) => {
-    const res = await fetch(`${API_BASE}/api/files/clone`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ fileId, targetFolderId, newFileName }),
-    });
+  const res = await fetch(getApiUrl("/api/submission/files/clone"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ fileId, targetFolderId, newFileName }),
+  });
 
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Clone failed' }));
-        throw new Error(err.error || 'Google Drive clone failed');
-    }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Clone failed" }));
+    throw new Error(err.error || "Google Drive clone failed");
+  }
 
-    return res.json();
+  return res.json();
 };
 /**
  * Delete a file from Google Drive via the server.js backend.
@@ -249,18 +270,18 @@ export const cloneGDriveFile = async (fileId, targetFolderId, newFileName) => {
  * @returns {Promise<{ message: string }>}
  */
 export const deleteGDriveFile = async (fileId) => {
-    const res = await fetch(`${API_BASE}/api/files/delete`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ fileId }),
-    });
+  const res = await fetch(getApiUrl("/api/submission/files/delete"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ fileId }),
+  });
 
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Delete failed' }));
-        throw new Error(err.error || 'Google Drive delete failed');
-    }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Delete failed" }));
+    throw new Error(err.error || "Google Drive delete failed");
+  }
 
-    return res.json();
+  return res.json();
 };

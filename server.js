@@ -2116,7 +2116,7 @@ app.get("/api/auth/google/url", (req, res) => {
     const host = req.headers.host || "localhost:3000";
     const protocol = host.includes("localhost") ? "http" : "https";
     const dynamicRedirectUri = `${protocol}://${host}/api/oauth2callback`;
-    
+
     // Update OAuth client with dynamic redirect
     oauth2Client.redirectUri = dynamicRedirectUri;
 

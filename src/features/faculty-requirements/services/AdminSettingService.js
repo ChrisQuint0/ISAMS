@@ -1,12 +1,13 @@
 import { supabase } from "@/lib/supabaseClient";
-import Tesseract from 'tesseract.js';
-import { saveAs } from 'file-saver';
+import { getApiUrl } from "@/lib/apiConfig";
+import Tesseract from "tesseract.js";
+import { saveAs } from "file-saver";
 
 export const settingsService = {
   getAllSettings: async () => {
     const { data, error } = await supabase
-      .from('systemsettings_fs')
-      .select('setting_key, setting_value');
+      .from("systemsettings_fs")
+      .select("setting_key, setting_value");
 
     if (error) throw error;
 
@@ -19,36 +20,41 @@ export const settingsService = {
     // Return with defaults for missing keys
     return {
       // OCR Defaults
-      ocr_enabled: settingsMap.ocr_enabled === 'true',
-      ocr_language: settingsMap.ocr_language || 'eng',
-      ocr_confidence_threshold: parseInt(settingsMap.ocr_confidence_threshold || '80'),
+      ocr_enabled: settingsMap.ocr_enabled === "true",
+      ocr_language: settingsMap.ocr_language || "eng",
+      ocr_confidence_threshold: parseInt(
+        settingsMap.ocr_confidence_threshold || "80",
+      ),
 
       // General Defaults
-      general_default_deadline: parseInt(settingsMap.general_default_deadline || '14'),
-      general_grace_period: parseInt(settingsMap.general_grace_period || '3'),
-      general_auto_reminders: settingsMap.general_auto_reminders || '3days',
+      general_default_deadline: parseInt(
+        settingsMap.general_default_deadline || "14",
+      ),
+      general_grace_period: parseInt(settingsMap.general_grace_period || "3"),
+      general_auto_reminders: settingsMap.general_auto_reminders || "3days",
 
       // Validation Defaults
-      val_vision_mission: settingsMap.val_vision_mission === 'true',
-      val_grading_system: settingsMap.val_grading_system === 'true',
-      val_consultation_hours: settingsMap.val_consultation_hours === 'true',
-      val_course_outcomes: settingsMap.val_course_outcomes === 'true',
-      val_max_file_size: parseInt(settingsMap.val_max_file_size || '10'),
-      val_allowed_extensions: settingsMap.val_allowed_extensions || '.pdf, .docx, .xlsx',
+      val_vision_mission: settingsMap.val_vision_mission === "true",
+      val_grading_system: settingsMap.val_grading_system === "true",
+      val_consultation_hours: settingsMap.val_consultation_hours === "true",
+      val_course_outcomes: settingsMap.val_course_outcomes === "true",
+      val_max_file_size: parseInt(settingsMap.val_max_file_size || "10"),
+      val_allowed_extensions:
+        settingsMap.val_allowed_extensions || ".pdf, .docx, .xlsx",
 
       // Crucial System Keys
-      gdrive_root_folder_id: settingsMap.gdrive_root_folder_id || '',
-      current_semester: settingsMap.current_semester || '',
-      current_academic_year: settingsMap.current_academic_year || ''
+      gdrive_root_folder_id: settingsMap.gdrive_root_folder_id || "",
+      current_semester: settingsMap.current_semester || "",
+      current_academic_year: settingsMap.current_academic_year || "",
     };
   },
 
   // Get Document Types (Requirements)
   getDocTypes: async () => {
     const { data, error } = await supabase
-      .from('documenttypes_fs')
-      .select('*')
-      .order('type_name');
+      .from("documenttypes_fs")
+      .select("*")
+      .order("type_name");
     if (error) throw error;
     return data;
   },
@@ -60,22 +66,21 @@ export const settingsService = {
       gdrive_folder_name: docType.folder || docType.gdrive_folder_name,
       description: docType.description,
       is_active: docType.is_active,
-      required_by_default: true
+      required_by_default: true,
     };
 
     if (docType.id) {
       const { data, error } = await supabase
-        .from('documenttypes_fs')
+        .from("documenttypes_fs")
         .update(payload)
-        .eq('doc_type_id', docType.id)
+        .eq("doc_type_id", docType.id)
         .select();
 
       if (error) throw error;
       return data;
-
     } else {
       const { data, error } = await supabase
-        .from('documenttypes_fs')
+        .from("documenttypes_fs")
         .insert(payload)
         .select();
 
@@ -86,16 +91,21 @@ export const settingsService = {
 
   // Delete Document Type
   deleteDocType: async (id) => {
-    const { error } = await supabase.from('documenttypes_fs').delete().eq('doc_type_id', id);
+    const { error } = await supabase
+      .from("documenttypes_fs")
+      .delete()
+      .eq("doc_type_id", id);
     if (error) throw error;
   },
 
   // Get Validation Rules for a specific Document Type
   getDocTypeValidation: async (docTypeId) => {
     const { data: docType, error: docError } = await supabase
-      .from('documenttypes_fs')
-      .select('required_keywords, forbidden_keywords, allowed_extensions, max_file_size_mb')
-      .eq('doc_type_id', docTypeId)
+      .from("documenttypes_fs")
+      .select(
+        "required_keywords, forbidden_keywords, allowed_extensions, max_file_size_mb",
+      )
+      .eq("doc_type_id", docTypeId)
       .single();
 
     if (docError) throw docError;
@@ -103,7 +113,7 @@ export const settingsService = {
     return {
       required_keywords: docType.required_keywords || [],
       forbidden_keywords: docType.forbidden_keywords || [],
-      allowed_extensions: docType.allowed_extensions || ['.pdf'],
+      allowed_extensions: docType.allowed_extensions || [".pdf"],
       max_file_size_mb: docType.max_file_size_mb || 10,
     };
   },
@@ -111,14 +121,14 @@ export const settingsService = {
   // Update Validation Rules for a specific Document Type
   updateDocTypeRules: async (docTypeId, rules) => {
     const { error: docError } = await supabase
-      .from('documenttypes_fs')
+      .from("documenttypes_fs")
       .update({
         required_keywords: rules.required_keywords,
         forbidden_keywords: rules.forbidden_keywords,
         allowed_extensions: rules.allowed_extensions,
         max_file_size_mb: rules.max_file_size_mb,
       })
-      .eq('doc_type_id', docTypeId);
+      .eq("doc_type_id", docTypeId);
 
     if (docError) throw docError;
   },
@@ -126,57 +136,68 @@ export const settingsService = {
   // Get Templates
   getTemplates: async () => {
     const { data, error } = await supabase
-      .from('templates_fs')
-      .select('*')
-      .order('academic_year', { ascending: false })
-      .order('semester', { ascending: false })
-      .order('created_at', { ascending: false });
+      .from("templates_fs")
+      .select("*")
+      .order("academic_year", { ascending: false })
+      .order("semester", { ascending: false })
+      .order("created_at", { ascending: false });
     if (error) throw error;
     return data;
   },
 
   // Add Template
-  addTemplate: async (file, title, description, systemCategory, academicYear, semester, courseCode = null, courseName = null) => {
+  addTemplate: async (
+    file,
+    title,
+    description,
+    systemCategory,
+    academicYear,
+    semester,
+    courseCode = null,
+    courseName = null,
+  ) => {
     if (systemCategory) {
       const query = supabase
-        .from('templates_fs')
+        .from("templates_fs")
         .update({ is_active_default: false })
-        .eq('system_category', systemCategory)
-        .eq('is_active_default', true);
+        .eq("system_category", systemCategory)
+        .eq("is_active_default", true);
 
       if (courseCode) {
-        query.eq('course_code', courseCode);
+        query.eq("course_code", courseCode);
       } else {
-        query.is('course_code', null);
+        query.is("course_code", null);
       }
 
       await query;
     }
 
     // Upload to storage
-    const safeYear = academicYear ? academicYear.replace(/\s+/g, '') : 'General';
-    const safeSem = semester ? semester.replace(/\s+/g, '') : 'General';
-    const safeCat = systemCategory ? systemCategory : 'General';
-    const safeCourse = courseCode ? courseCode.replace(/\s+/g, '') : 'General';
+    const safeYear = academicYear
+      ? academicYear.replace(/\s+/g, "")
+      : "General";
+    const safeSem = semester ? semester.replace(/\s+/g, "") : "General";
+    const safeCat = systemCategory ? systemCategory : "General";
+    const safeCourse = courseCode ? courseCode.replace(/\s+/g, "") : "General";
     const fileName = `templates/${safeYear}/${safeSem}/${safeCat}/${safeCourse}/${Date.now()}_${file.name}`;
 
     const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('faculty_documents')
+      .from("faculty_documents")
       .upload(fileName, file);
 
     if (uploadError) throw uploadError;
 
     // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('faculty_documents')
-      .getPublicUrl(fileName);
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("faculty_documents").getPublicUrl(fileName);
 
     // Insert the new active template record
     const { data, error } = await supabase
-      .from('templates_fs')
+      .from("templates_fs")
       .insert({
         title: title || file.name,
-        description: description || '',
+        description: description || "",
         system_category: systemCategory,
         academic_year: academicYear || null,
         semester: semester || null,
@@ -185,9 +206,9 @@ export const settingsService = {
         file_url: publicUrl,
         file_size_bytes: file.size,
         is_active_default: true,
-        font_color: '#006B35' // Default to institutional green for new templates
+        font_color: "#006B35", // Default to institutional green for new templates
       })
-      .select('*')
+      .select("*")
       .single();
 
     if (error) throw error;
@@ -195,7 +216,10 @@ export const settingsService = {
   },
 
   deleteTemplate: async (templateId) => {
-    const { error } = await supabase.from('templates_fs').delete().eq('template_id', templateId);
+    const { error } = await supabase
+      .from("templates_fs")
+      .delete()
+      .eq("template_id", templateId);
     if (error) throw error;
   },
 
@@ -204,24 +228,27 @@ export const settingsService = {
     // for the same system category and course code to prevent duplicates.
     if (isActive) {
       const { data: targetTemplate, error: fetchError } = await supabase
-        .from('templates_fs')
-        .select('system_category, course_code')
-        .eq('template_id', templateId)
+        .from("templates_fs")
+        .select("system_category, course_code")
+        .eq("template_id", templateId)
         .single();
-        
+
       if (fetchError) throw fetchError;
 
       if (targetTemplate?.system_category) {
         let deactivateQuery = supabase
-          .from('templates_fs')
+          .from("templates_fs")
           .update({ is_active_default: false })
-          .eq('system_category', targetTemplate.system_category)
-          .eq('is_active_default', true);
+          .eq("system_category", targetTemplate.system_category)
+          .eq("is_active_default", true);
 
         if (targetTemplate.course_code) {
-          deactivateQuery = deactivateQuery.eq('course_code', targetTemplate.course_code);
+          deactivateQuery = deactivateQuery.eq(
+            "course_code",
+            targetTemplate.course_code,
+          );
         } else {
-          deactivateQuery = deactivateQuery.is('course_code', null);
+          deactivateQuery = deactivateQuery.is("course_code", null);
         }
 
         const { error: deactivateError } = await deactivateQuery;
@@ -230,29 +257,35 @@ export const settingsService = {
     }
 
     const { error } = await supabase
-      .from('templates_fs')
+      .from("templates_fs")
       .update({ is_active_default: isActive })
-      .eq('template_id', templateId);
+      .eq("template_id", templateId);
     if (error) throw error;
   },
 
-  updateTemplateCoordinates: async (templateId, x, y, fontColor = null, fontSize = null) => {
+  updateTemplateCoordinates: async (
+    templateId,
+    x,
+    y,
+    fontColor = null,
+    fontSize = null,
+  ) => {
     const payload = { x_coord: x, y_coord: y };
     if (fontColor) payload.font_color = fontColor;
     if (fontSize) payload.font_size = fontSize;
 
     const { error } = await supabase
-      .from('templates_fs')
+      .from("templates_fs")
       .update(payload)
-      .eq('template_id', templateId);
+      .eq("template_id", templateId);
     if (error) throw error;
   },
 
   // Save a single setting (Generic)
   saveSetting: async (key, value) => {
-    const { error } = await supabase.rpc('upsert_setting_fs', {
+    const { error } = await supabase.rpc("upsert_setting_fs", {
       p_key: key,
-      p_value: String(value)
+      p_value: String(value),
     });
     if (error) throw error;
   },
@@ -261,7 +294,11 @@ export const settingsService = {
   runOCR: async (fileUrlOrBlob, docTypeId) => {
     try {
       if (!docTypeId) {
-        return { success: false, error: "Please select a Document Type from the left panel to test its validation rules against this file." };
+        return {
+          success: false,
+          error:
+            "Please select a Document Type from the left panel to test its validation rules against this file.",
+        };
       }
 
       if (!Array.isArray(fileUrlOrBlob)) {
@@ -269,42 +306,58 @@ export const settingsService = {
       }
 
       if (fileUrlOrBlob.length === 0 || !(fileUrlOrBlob[0] instanceof File)) {
-        return { success: false, error: "Test Playground only supports uploading local files for testing." };
+        return {
+          success: false,
+          error:
+            "Test Playground only supports uploading local files for testing.",
+        };
       }
 
       const formData = new FormData();
-      fileUrlOrBlob.forEach(f => formData.append('files', f));
-      formData.append('doc_type_id', docTypeId);
+      fileUrlOrBlob.forEach((f) => formData.append("files", f));
+      formData.append("doc_type_id", docTypeId);
 
       const startTime = performance.now();
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-      let { data, error } = await supabase.functions.invoke('document-parser', {
+      let { data, error } = await supabase.functions.invoke("document-parser", {
         body: formData,
         headers: {
-          Authorization: session ? `Bearer ${session.access_token}` : undefined
-        }
+          Authorization: session ? `Bearer ${session.access_token}` : undefined,
+        },
       });
 
       const endTimeEdge = performance.now();
 
       if (error) {
         console.error("Edge Function Invocation Error:", error);
-        return { success: false, error: error.message || "Failed to invoke the parser." };
+        return {
+          success: false,
+          error: error.message || "Failed to invoke the parser.",
+        };
       }
 
       // Split-Load Architecture Fallback
       if (data && data.needsServerOcr) {
-        console.log("[OCR] Image detected. Falling back to local Express server...");
+        console.log(
+          "[OCR] Image detected. Falling back to local Express server...",
+        );
         try {
-          const fallbackRes = await fetch("http://localhost:3002/api/validate-image", {
-            method: "POST",
-            body: formData,
-          });
+          const fallbackRes = await fetch(
+            getApiUrl("/api/submission/validate-image"),
+            {
+              method: "POST",
+              body: formData,
+            },
+          );
 
           if (!fallbackRes.ok) {
             const errorBody = await fallbackRes.text();
-            throw new Error(`Server returned ${fallbackRes.status}: ${errorBody}`);
+            throw new Error(
+              `Server returned ${fallbackRes.status}: ${errorBody}`,
+            );
           }
 
           const fallbackData = await fallbackRes.json();
@@ -313,7 +366,10 @@ export const settingsService = {
         } catch (fallbackError) {
           console.error("Local Fallback Error Detail:", fallbackError);
           const detail = fallbackError.message || JSON.stringify(fallbackError);
-          return { success: false, error: `Local OCR validation failed: ${detail}. Please ensure your Express server is running on port 3002.` };
+          return {
+            success: false,
+            error: `Local OCR validation failed: ${detail}. Please ensure your Express server is running on port 3002.`,
+          };
         }
       }
 
@@ -325,14 +381,14 @@ export const settingsService = {
 
       let resultText = `--- Edge Function Analysis ---\nFile Runtime: ${Math.round(endTime - startTime)}ms\nExtracted Length: ${data.extractedLength} chars\nWord Count: ${data.wordCount}\nAnalyzed Extension: ${data.analyzedExtension}\n\n`;
 
-      resultText += `--- Validation Verdict: ${data.pass ? '✅ PASS' : '❌ FAIL'} ---\n`;
+      resultText += `--- Validation Verdict: ${data.pass ? "✅ PASS" : "❌ FAIL"} ---\n`;
 
       if (data.missingKeywords && data.missingKeywords.length > 0) {
-        resultText += `\nMissing Required Keywords:\n- ${data.missingKeywords.join('\n- ')}`;
+        resultText += `\nMissing Required Keywords:\n- ${data.missingKeywords.join("\n- ")}`;
       }
 
       if (data.foundForbidden && data.foundForbidden.length > 0) {
-        resultText += `\n\nFound Forbidden Keywords:\n- ${data.foundForbidden.join('\n- ')}`;
+        resultText += `\n\nFound Forbidden Keywords:\n- ${data.foundForbidden.join("\n- ")}`;
       }
 
       if (data.pass) {
@@ -346,32 +402,35 @@ export const settingsService = {
         success: data.pass,
         extractedText: data.extractedText,
         wordCount: data.wordCount,
-        extractedLength: data.extractedLength
+        extractedLength: data.extractedLength,
       };
     } catch (err) {
       console.error("OCR Failed:", err);
-      return { success: false, error: err.message || "Unknown extraction error." };
+      return {
+        success: false,
+        error: err.message || "Unknown extraction error.",
+      };
     }
   },
 
   getUnassignedSystemFaculty: async () => {
-    const { data, error } = await supabase.rpc('get_unassigned_system_faculty');
+    const { data, error } = await supabase.rpc("get_unassigned_system_faculty");
     if (error) throw error;
     return data || [];
   },
 
   // Faculty Management
   getFaculty: async () => {
-    const { data, error } = await supabase.rpc('get_faculty_management_fs');
+    const { data, error } = await supabase.rpc("get_faculty_management_fs");
     if (error) throw error;
     return data || [];
   },
 
   getFacultyById: async (facultyId) => {
     const { data, error } = await supabase
-      .from('faculty_fs')
-      .select('*')
-      .eq('faculty_id', facultyId)
+      .from("faculty_fs")
+      .select("*")
+      .eq("faculty_id", facultyId)
       .maybeSingle();
     if (error) throw error;
     return data;
@@ -380,28 +439,37 @@ export const settingsService = {
   // Update faculty editable fields via upsert RPC (identifies by user_id UUID)
   updateFacultyManagement: async (userId, field, value) => {
     const payload = { p_user_id: userId };
-    if (field === 'emp_id') payload.p_emp_id = value;
-    if (field === 'employment_type') payload.p_employment_type = value;
-    if (field === 'is_active') payload.p_is_active = value;
-    if (field === 'gdrive_folder_id') payload.p_gdrive_folder_id = value;
-    const { error } = await supabase.rpc('upsert_faculty_management_fs', payload);
+    if (field === "emp_id") payload.p_emp_id = value;
+    if (field === "employment_type") payload.p_employment_type = value;
+    if (field === "is_active") payload.p_is_active = value;
+    if (field === "gdrive_folder_id") payload.p_gdrive_folder_id = value;
+    const { error } = await supabase.rpc(
+      "upsert_faculty_management_fs",
+      payload,
+    );
     if (error) throw error;
   },
 
   // Course Catalog (master)
   getMasterCourses: async () => {
-    const { data, error } = await supabase.rpc('get_master_courses_fs');
+    const { data, error } = await supabase.rpc("get_master_courses_fs");
     if (error) throw error;
     return data || [];
   },
 
-  upsertMasterCourse: async (courseCode, courseName, semester, id = null, isActive = null) => {
-    const { data, error } = await supabase.rpc('upsert_master_course_fs', {
+  upsertMasterCourse: async (
+    courseCode,
+    courseName,
+    semester,
+    id = null,
+    isActive = null,
+  ) => {
+    const { data, error } = await supabase.rpc("upsert_master_course_fs", {
       p_course_code: courseCode,
       p_course_name: courseName,
       p_semester: semester,
       p_id: id || null,
-      p_is_active: isActive
+      p_is_active: isActive,
     });
     if (error) throw error;
     if (data?.error) throw new Error(data.error);
@@ -409,69 +477,75 @@ export const settingsService = {
   },
 
   deleteMasterCourse: async (id) => {
-    const { data, error } = await supabase.rpc('delete_master_course_fs', { p_id: id });
+    const { data, error } = await supabase.rpc("delete_master_course_fs", {
+      p_id: id,
+    });
     if (error) throw error;
     return data;
   },
 
   // Course Assignments (sections)
   getCourses: async () => {
-    const { data, error } = await supabase.rpc('get_admin_courses_fs');
+    const { data, error } = await supabase.rpc("get_admin_courses_fs");
     if (error) throw error;
     return data;
   },
 
   // Add an assignment
   upsertCourse: async (course) => {
-    const { data, error } = await supabase.rpc('upsert_course_fs', {
+    const { data, error } = await supabase.rpc("upsert_course_fs", {
       p_master_course_id: course.master_course_id,
       p_faculty_id: course.faculty_id || null,
       p_section: course.section || null,
       p_id: course.id || null,
     });
     if (error) throw error;
-    if (data && data.success === false) throw new Error(data.message || "Failed to save course assignment.");
+    if (data && data.success === false)
+      throw new Error(data.message || "Failed to save course assignment.");
     return data;
   },
 
   deleteCourse: async (courseId) => {
-    const { data, error } = await supabase.rpc('delete_course_fs', { p_course_id: courseId });
+    const { data, error } = await supabase.rpc("delete_course_fs", {
+      p_course_id: courseId,
+    });
     if (error) throw error;
-    if (data && data.success === false) throw new Error(data.message || "Failed to delete course assignment.");
+    if (data && data.success === false)
+      throw new Error(data.message || "Failed to delete course assignment.");
     return data;
   },
 
   // Run System Backup
   getSystemHealth: async () => {
-    const { data, error } = await supabase.rpc('get_system_health_fs');
+    const { data, error } = await supabase.rpc("get_system_health_fs");
     if (error) throw error;
     return data;
   },
 
   // Holiday Management
   getHolidays: async () => {
-    const { data, error } = await supabase.rpc('get_holidays_fs');
+    const { data, error } = await supabase.rpc("get_holidays_fs");
     if (error) throw error;
     return data;
   },
 
   upsertHoliday: async (holiday) => {
-    const { data, error } = await supabase.rpc('upsert_holiday_fs', {
+    const { data, error } = await supabase.rpc("upsert_holiday_fs", {
       p_date: holiday.date,
       p_description: holiday.description,
-      p_id: holiday.id || null
+      p_id: holiday.id || null,
     });
     if (error) throw error;
-    if (data && data.success === false) throw new Error(data.message || "Failed to upsert holiday.");
+    if (data && data.success === false)
+      throw new Error(data.message || "Failed to upsert holiday.");
   },
   // DANGER ZONE: Reset Semester
   resetSemester: async (semester, year) => {
-    const { data, error } = await supabase.rpc('reset_semester_fs', {
+    const { data, error } = await supabase.rpc("reset_semester_fs", {
       p_target_semester: semester,
-      p_target_year: year
+      p_target_year: year,
     });
     if (error) throw error;
     return data;
   },
-
-};
+};

@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3002';
+import { getApiUrl } from "@/lib/apiConfig";
 
 /**
  * Upload a file to Google Drive via the server.js backend.
@@ -7,23 +7,23 @@ const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3002';
  * @returns {Promise<{ id: string, name: string, webViewLink: string, webContentLink: string }>}
  */
 export const uploadEvidenceToGDrive = async (file, folderId) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    if (folderId) {
-        formData.append('folderId', folderId);
-    }
+  const formData = new FormData();
+  formData.append("file", file);
+  if (folderId) {
+    formData.append("folderId", folderId);
+  }
 
-    const res = await fetch(`${API_BASE}/api/upload`, {
-        method: 'POST',
-        body: formData,
-    });
+  const res = await fetch(getApiUrl("/api/submission/upload"), {
+    method: "POST",
+    body: formData,
+  });
 
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Upload failed' }));
-        throw new Error(err.error || 'Google Drive upload failed');
-    }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Upload failed" }));
+    throw new Error(err.error || "Google Drive upload failed");
+  }
 
-    return res.json(); // { id, name, webViewLink, webContentLink }
+  return res.json(); // { id, name, webViewLink, webContentLink }
 };
 
 /**
@@ -32,18 +32,18 @@ export const uploadEvidenceToGDrive = async (file, folderId) => {
  * @returns {Promise<{ message: string }>}
  */
 export const deleteEvidenceFromGDrive = async (fileId) => {
-    const res = await fetch(`${API_BASE}/api/files/delete`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ fileId }),
-    });
+  const res = await fetch(getApiUrl("/api/submission/files/delete"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ fileId }),
+  });
 
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Delete failed' }));
-        throw new Error(err.error || 'Google Drive delete failed');
-    }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Delete failed" }));
+    throw new Error(err.error || "Google Drive delete failed");
+  }
 
-    return res.json();
+  return res.json();
 };

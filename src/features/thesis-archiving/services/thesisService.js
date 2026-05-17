@@ -1,6 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
-
-const BACKEND_URL = "http://localhost:3001/api/thesis";
+import { getApiUrl } from "@/lib/apiConfig";
 
 const DEFAULT_HTE_DOCUMENT_CATEGORIES = [
   { value: "ojt", label: "OJT Trainee" },
@@ -166,7 +165,7 @@ export const thesisService = {
     if (actorInfo.actorUserId)
       formData.append("actorUserId", actorInfo.actorUserId);
 
-    const response = await fetch(`${BACKEND_URL}/upload`, {
+    const response = await fetch(getApiUrl("/api/thesis/upload"), {
       method: "POST",
       body: formData,
     });
@@ -192,7 +191,7 @@ export const thesisService = {
    * Complete multi-step thesis entry creation via backend to bypass RLS
    */
   async saveThesisEntry({ entry, authors, gdriveFile, actorInfo = {} }) {
-    const response = await fetch(`${BACKEND_URL}/create`, {
+    const response = await fetch(getApiUrl("/api/thesis/create"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -227,7 +226,7 @@ export const thesisService = {
    * Update an existing thesis entry via backend
    */
   async updateThesisEntry({ id, entry, authors, gdriveFile, actorInfo = {} }) {
-    const response = await fetch(`${BACKEND_URL}/update`, {
+    const response = await fetch(getApiUrl("/api/thesis/update"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -263,7 +262,7 @@ export const thesisService = {
    * Delete a thesis entry and its associated files
    */
   async deleteThesisEntry(id, actorInfo = {}) {
-    const response = await fetch(`${BACKEND_URL}/delete`, {
+    const response = await fetch(getApiUrl("/api/thesis/delete"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -551,23 +550,20 @@ export const thesisService = {
     semester,
     actorInfo = {},
   }) {
-    const response = await fetch(
-      "http://localhost:3000/api/hte/students/create",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          studentData,
-          password,
-          academicYear,
-          semester,
-          actorName: actorInfo.actorName,
-          actorUserId: actorInfo.actorUserId,
-        }),
+    const response = await fetch(getApiUrl("/api/hte/students/create"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify({
+        studentData,
+        password,
+        academicYear,
+        semester,
+        actorName: actorInfo.actorName,
+        actorUserId: actorInfo.actorUserId,
+      }),
+    });
 
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Failed to create student");
@@ -580,22 +576,19 @@ export const thesisService = {
     semester,
     actorInfo = {},
   }) {
-    const response = await fetch(
-      "http://localhost:3000/api/hte/students/batch-create",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          students,
-          academicYear,
-          semester,
-          actorName: actorInfo.actorName,
-          actorUserId: actorInfo.actorUserId,
-        }),
+    const response = await fetch(getApiUrl("/api/hte/students/batch-create"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify({
+        students,
+        academicYear,
+        semester,
+        actorName: actorInfo.actorName,
+        actorUserId: actorInfo.actorUserId,
+      }),
+    });
 
     const data = await response.json();
     if (!response.ok)
@@ -638,7 +631,7 @@ export const thesisService = {
    * Get backend download URL for a thesis file
    */
   getDownloadUrl(fileId) {
-    return `${BACKEND_URL}/download/${fileId}`;
+    return getApiUrl(`/api/thesis/download/${fileId}`);
   },
 
   /**
@@ -668,7 +661,7 @@ export const thesisService = {
     // Let's just use the same approach as create.
 
     try {
-      const response = await fetch(`http://localhost:3000/api/hte/upload`, {
+      const response = await fetch(getApiUrl("/api/hte/upload"), {
         method: "POST",
         body: formData,
       });
@@ -690,7 +683,7 @@ export const thesisService = {
    */
   async deleteHTEDocument(studentId, fieldId, actorInfo = {}) {
     try {
-      const response = await fetch(`http://localhost:3000/api/hte/delete`, {
+      const response = await fetch(getApiUrl("/api/hte/delete"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -721,7 +714,7 @@ export const thesisService = {
   async downloadHTEDocument(fileId, fileName) {
     try {
       // We use the direct backend URL for downloading
-      const url = `http://localhost:3000/api/hte/download/${fileId}`;
+      const url = getApiUrl(`/api/hte/download/${fileId}`);
 
       const response = await fetch(url);
       if (!response.ok) throw new Error("Failed to download file");
@@ -1181,7 +1174,7 @@ export const thesisService = {
    */
   async sendBatchNotifications(batchData, actorInfo = {}) {
     const response = await fetch(
-      "http://localhost:3003/api/hte/notifications/send-batch",
+      getApiUrl("/api/hte/notifications/send-batch"),
       {
         method: "POST",
         headers: {

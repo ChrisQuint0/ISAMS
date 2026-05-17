@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
+import { getApiUrl } from "@/lib/apiConfig";
 
 const TABLE_NAME = "system_settings";
 
@@ -28,7 +29,7 @@ export const settingsService = {
   getGoogleAuthUrl: async (userId) => {
     try {
       const response = await fetch(
-        `http://localhost:3000/api/auth/google/url?userId=${userId}`,
+        getApiUrl(`/api/auth/google/url?userId=${userId}`),
       );
       const data = await response.json();
       return data.url;
@@ -44,7 +45,7 @@ export const settingsService = {
   getGoogleAuthStatus: async (userId) => {
     try {
       const response = await fetch(
-        `http://localhost:3000/api/auth/google/status/${userId}`,
+        getApiUrl(`/api/auth/google/status/${userId}`),
       );
       return await response.json();
     } catch (error) {

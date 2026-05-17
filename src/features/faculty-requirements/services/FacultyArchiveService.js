@@ -1,5 +1,6 @@
-import { supabase } from '@/lib/supabaseClient';
-import { saveAs } from 'file-saver';
+import { supabase } from "@/lib/supabaseClient";
+import { getApiUrl } from "@/lib/apiConfig";
+import { saveAs } from "file-saver";
 
 export const FacultyArchiveService = {
   /**
@@ -9,67 +10,89 @@ export const FacultyArchiveService = {
     try {
       const [semesterPeriods, systemSettings] = await Promise.all([
         // All historical + active semesters from semester management
-        supabase.from('semester_history_fs').select('academic_year, semester, status').order('created_at', { ascending: false }),
+        supabase
+          .from("semester_history_fs")
+          .select("academic_year, semester, status")
+          .order("created_at", { ascending: false }),
         // Current active semester from system settings
-        supabase.from('systemsettings_fs').select('setting_key, setting_value').in('setting_key', ['current_semester', 'current_academic_year'])
+        supabase
+          .from("systemsettings_fs")
+          .select("setting_key, setting_value")
+          .in("setting_key", ["current_semester", "current_academic_year"]),
       ]);
 
       // Build current active semester from system settings
       const settingsMap = {};
-      (systemSettings.data || []).forEach(s => { settingsMap[s.setting_key] = s.setting_value; });
-      const currentSemester = settingsMap['current_semester'];
-      const currentAcademicYear = settingsMap['current_academic_year'];
+      (systemSettings.data || []).forEach((s) => {
+        settingsMap[s.setting_key] = s.setting_value;
+      });
+      const currentSemester = settingsMap["current_semester"];
+      const currentAcademicYear = settingsMap["current_academic_year"];
 
       // Build semester periods array with status labels
-      const historicalPeriods = (semesterPeriods.data || []).map(p => ({
+      const historicalPeriods = (semesterPeriods.data || []).map((p) => ({
         academic_year: p.academic_year,
         semester: p.semester,
-        status: p.status === 'COMPLETED' ? 'Completed' : 'Active'
+        status: p.status === "COMPLETED" ? "Completed" : "Active",
       }));
 
       // If current active semester isn't already in history, add it at the top
       const isCurrentInHistory = historicalPeriods.some(
-        p => p.academic_year === currentAcademicYear && p.semester === currentSemester
+        (p) =>
+          p.academic_year === currentAcademicYear &&
+          p.semester === currentSemester,
       );
       if (currentSemester && currentAcademicYear && !isCurrentInHistory) {
         historicalPeriods.unshift({
           academic_year: currentAcademicYear,
           semester: currentSemester,
-          status: 'Active'
+          status: "Active",
         });
       }
 
-      const uniqueSemesters = [...new Set(historicalPeriods.map(p => p.semester))].filter(Boolean);
-      const uniqueYears = [...new Set(historicalPeriods.map(p => p.academic_year))].filter(Boolean);
+      const uniqueSemesters = [
+        ...new Set(historicalPeriods.map((p) => p.semester)),
+      ].filter(Boolean);
+      const uniqueYears = [
+        ...new Set(historicalPeriods.map((p) => p.academic_year)),
+      ].filter(Boolean);
 
       return {
         semesters: uniqueSemesters,
         academic_years: uniqueYears,
         semesterPeriods: historicalPeriods,
         currentSemester,
-        currentAcademicYear
+        currentAcademicYear,
       };
     } catch (error) {
-      console.error('Error fetching options:', error);
-      return { semesters: [], academic_years: [], semesterPeriods: [], currentSemester: null, currentAcademicYear: null };
+      console.error("Error fetching options:", error);
+      return {
+        semesters: [],
+        academic_years: [],
+        semesterPeriods: [],
+        currentSemester: null,
+        currentAcademicYear: null,
+      };
     }
   },
-
 
   /**
    * Fetch courses for the faculty based on semester/year filters
    */
   getArchivedCourses: async (semester, academicYear) => {
     try {
-      const { data, error } = await supabase.rpc('get_faculty_archived_courses_fs', {
-        p_semester: semester || 'ALL',
-        p_academic_year: academicYear || 'ALL'
-      });
+      const { data, error } = await supabase.rpc(
+        "get_faculty_archived_courses_fs",
+        {
+          p_semester: semester || "ALL",
+          p_academic_year: academicYear || "ALL",
+        },
+      );
 
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('Error fetching archived courses:', error);
+      console.error("Error fetching archived courses:", error);
       throw error;
     }
   },
@@ -81,37 +104,40 @@ export const FacultyArchiveService = {
     try {
       // We need the faculty_id to call this properly as required by the RPC
       const { data: facultyRecord, error: fError } = await supabase
-        .from('faculty_fs')
-        .select('faculty_id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .from("faculty_fs")
+        .select("faculty_id")
+        .eq("user_id", (await supabase.auth.getUser()).data.user?.id)
         .single();
-        
+
       if (fError) throw fError;
 
-      const { data, error } = await supabase.rpc('get_course_submissions_archive_fs', {
-        p_faculty_id: facultyRecord.faculty_id,
-        p_course_id: courseId
-      });
+      const { data, error } = await supabase.rpc(
+        "get_course_submissions_archive_fs",
+        {
+          p_faculty_id: facultyRecord.faculty_id,
+          p_course_id: courseId,
+        },
+      );
 
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('Error fetching course history:', error);
+      console.error("Error fetching course history:", error);
       throw error;
     }
   },
 
   getSubmissionVersions: async (submissionId, filename = null) => {
     try {
-      const { data, error } = await supabase.rpc('get_document_versions_fs', {
+      const { data, error } = await supabase.rpc("get_document_versions_fs", {
         p_submission_id: parseInt(submissionId),
-        p_filename: filename
+        p_filename: filename,
       });
 
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('Error fetching submission versions:', error);
+      console.error("Error fetching submission versions:", error);
       throw error;
     }
   },
@@ -119,79 +145,105 @@ export const FacultyArchiveService = {
   /**
    * Bulk Download as ZIP for a specific course routed through Node backend
    */
-  downloadArchiveZip: async (course, semester, academicYear, onProgress, abortSignal) => {
+  downloadArchiveZip: async (
+    course,
+    semester,
+    academicYear,
+    onProgress,
+    abortSignal,
+  ) => {
     try {
-      const history = await FacultyArchiveService.getCourseHistory(course.course_id);
-      
+      const history = await FacultyArchiveService.getCourseHistory(
+        course.course_id,
+      );
+
       if (!history || history.length === 0) {
-        return { success: false, message: 'No submissions found to export.' };
+        return { success: false, message: "No submissions found to export." };
       }
 
-      const filesToDownload = history.filter(h => h.gdrive_download_link || h.gdrive_web_view_link);
+      const filesToDownload = history.filter(
+        (h) => h.gdrive_download_link || h.gdrive_web_view_link,
+      );
 
       if (filesToDownload.length === 0) {
-        return { success: false, message: 'No downloadable files found.' };
+        return { success: false, message: "No downloadable files found." };
       }
 
       // Compute Total Bytes
-      const precalculatedTotalBytes = filesToDownload.reduce((acc, f) => acc + (parseInt(f.file_size_bytes) || 0), 0);
+      const precalculatedTotalBytes = filesToDownload.reduce(
+        (acc, f) => acc + (parseInt(f.file_size_bytes) || 0),
+        0,
+      );
 
       // Map the files into a clear payload payload for the backend
-      const payloadFiles = filesToDownload.map(file => {
-          const docType = file.type_name || 'Uncategorized';
-          let filename = file.original_filename || `document_${file.submission_id}`;
+      const payloadFiles = filesToDownload.map((file) => {
+        const docType = file.type_name || "Uncategorized";
+        let filename =
+          file.original_filename || `document_${file.submission_id}`;
 
-          // Extract just the ID from the Drive link
-          const fileIdMatch = file.gdrive_download_link?.match(/id=([^&]+)/) || file.gdrive_web_view_link?.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        // Extract just the ID from the Drive link
+        const fileIdMatch =
+          file.gdrive_download_link?.match(/id=([^&]+)/) ||
+          file.gdrive_web_view_link?.match(/\/d\/([a-zA-Z0-9-_]+)/);
 
-          return {
-              folder: docType,
-              filename: filename,
-              fileId: fileIdMatch ? fileIdMatch[1] : null,
-              fallbackLink: file.gdrive_web_view_link
-          };
+        return {
+          folder: docType,
+          filename: filename,
+          fileId: fileIdMatch ? fileIdMatch[1] : null,
+          fallbackLink: file.gdrive_web_view_link,
+        };
       });
 
       // POST the payload to the Express Node server to bypass CORS
-      const response = await fetch('http://localhost:3002/api/faculty/export', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ courseId: course.course_id, files: payloadFiles }),
-          signal: abortSignal
-      });
+      const response = await fetch(
+        getApiUrl("/api/submission/faculty/export"),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            courseId: course.course_id,
+            files: payloadFiles,
+          }),
+          signal: abortSignal,
+        },
+      );
 
       if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || 'Export failed on server');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Export failed on server");
       }
 
       // Read ZIP stream
       const reader = response.body.getReader();
       const chunks = [];
       let receivedBytes = 0;
-      
-      const headerLength = parseInt(response.headers.get('content-length'), 10);
-      const totalBytes = !isNaN(headerLength) && headerLength > 0 ? headerLength : precalculatedTotalBytes;
+
+      const headerLength = parseInt(response.headers.get("content-length"), 10);
+      const totalBytes =
+        !isNaN(headerLength) && headerLength > 0
+          ? headerLength
+          : precalculatedTotalBytes;
 
       while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          chunks.push(value);
-          receivedBytes += value.length;
-          if (onProgress) {
-              onProgress({ receivedBytes, totalBytes });
-          }
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        receivedBytes += value.length;
+        if (onProgress) {
+          onProgress({ receivedBytes, totalBytes });
+        }
       }
 
-      const blob = new Blob(chunks, { type: 'application/zip' });
-      
-      const sanitize = (str) => (str || 'Unknown').replace(/[\/\\:*?"<>|]/g, '').replace(/\s+/g, '_');
+      const blob = new Blob(chunks, { type: "application/zip" });
+
+      const sanitize = (str) =>
+        (str || "Unknown").replace(/[\/\\:*?"<>|]/g, "").replace(/\s+/g, "_");
       const ayStr = sanitize(academicYear);
       const semStr = sanitize(semester);
       const codeStr = sanitize(course.course_code);
       const secStr = sanitize(course.section);
       const dateStr = new Date().toISOString().slice(0, 10);
-      
+
       const folderName = `${ayStr}_${semStr}_${codeStr}_${secStr}_${dateStr}.zip`;
       saveAs(blob, folderName);
 
@@ -205,83 +257,111 @@ export const FacultyArchiveService = {
   /**
    * Bulk Download as ZIP for multiple courses
    */
-  downloadBulkArchiveZip: async (courseList, semester, academicYear, onProgress, abortSignal) => {
+  downloadBulkArchiveZip: async (
+    courseList,
+    semester,
+    academicYear,
+    onProgress,
+    abortSignal,
+  ) => {
     try {
       if (!courseList || courseList.length === 0) {
-        return { success: false, message: 'No courses available to export.' };
+        return { success: false, message: "No courses available to export." };
       }
 
       let allPayloadFiles = [];
 
       for (const course of courseList) {
-        const history = await FacultyArchiveService.getCourseHistory(course.course_id);
-        const filesToDownload = history?.filter(h => h.gdrive_download_link || h.gdrive_web_view_link) || [];
-        
-        const sanitizeCode = (str) => (str || 'Unknown').replace(/[\/\\:*?"<>|]/g, '').trim();
+        const history = await FacultyArchiveService.getCourseHistory(
+          course.course_id,
+        );
+        const filesToDownload =
+          history?.filter(
+            (h) => h.gdrive_download_link || h.gdrive_web_view_link,
+          ) || [];
+
+        const sanitizeCode = (str) =>
+          (str || "Unknown").replace(/[\/\\:*?"<>|]/g, "").trim();
         const courseFolder = `${sanitizeCode(course.course_code)} - ${sanitizeCode(course.section)}`;
 
-        const coursePayloadFiles = filesToDownload.map(file => {
-            const docType = file.type_name || 'Uncategorized';
-            let filename = file.original_filename || `document_${file.submission_id}`;
-            const fileIdMatch = file.gdrive_download_link?.match(/id=([^&]+)/) || file.gdrive_web_view_link?.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        const coursePayloadFiles = filesToDownload.map((file) => {
+          const docType = file.type_name || "Uncategorized";
+          let filename =
+            file.original_filename || `document_${file.submission_id}`;
+          const fileIdMatch =
+            file.gdrive_download_link?.match(/id=([^&]+)/) ||
+            file.gdrive_web_view_link?.match(/\/d\/([a-zA-Z0-9-_]+)/);
 
-            return {
-                folder: `${courseFolder}/${docType}`,
-                filename: filename,
-                fileId: fileIdMatch ? fileIdMatch[1] : null,
-                fallbackLink: file.gdrive_web_view_link,
-                original_size: file.file_size_bytes
-            };
+          return {
+            folder: `${courseFolder}/${docType}`,
+            filename: filename,
+            fileId: fileIdMatch ? fileIdMatch[1] : null,
+            fallbackLink: file.gdrive_web_view_link,
+            original_size: file.file_size_bytes,
+          };
         });
 
         allPayloadFiles = [...allPayloadFiles, ...coursePayloadFiles];
       }
 
       if (allPayloadFiles.length === 0) {
-        return { success: false, message: 'No downloadable files found across all courses.' };
+        return {
+          success: false,
+          message: "No downloadable files found across all courses.",
+        };
       }
 
       // Compute Total Bytes
-      const precalculatedTotalBytes = allPayloadFiles.reduce((acc, f) => acc + (parseInt(f.original_size) || 0), 0);
+      const precalculatedTotalBytes = allPayloadFiles.reduce(
+        (acc, f) => acc + (parseInt(f.original_size) || 0),
+        0,
+      );
 
       // POST the payload to the Express Node server to bypass CORS
-      const response = await fetch('http://localhost:3002/api/faculty/export', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ courseId: 'Bulk', files: allPayloadFiles }),
-          signal: abortSignal
-      });
+      const response = await fetch(
+        getApiUrl("/api/submission/faculty/export"),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ courseId: "Bulk", files: allPayloadFiles }),
+          signal: abortSignal,
+        },
+      );
 
       if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || 'Export failed on server');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Export failed on server");
       }
 
       // Read ZIP stream
       const reader = response.body.getReader();
       const chunks = [];
       let receivedBytes = 0;
-      
-      const headerLength = parseInt(response.headers.get('content-length'), 10);
-      const totalBytes = !isNaN(headerLength) && headerLength > 0 ? headerLength : precalculatedTotalBytes;
+
+      const headerLength = parseInt(response.headers.get("content-length"), 10);
+      const totalBytes =
+        !isNaN(headerLength) && headerLength > 0
+          ? headerLength
+          : precalculatedTotalBytes;
 
       while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          chunks.push(value);
-          receivedBytes += value.length;
-          if (onProgress) {
-              onProgress({ receivedBytes, totalBytes });
-          }
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        receivedBytes += value.length;
+        if (onProgress) {
+          onProgress({ receivedBytes, totalBytes });
+        }
       }
 
       // Format filename: AY_SEM_DATE.zip
-      const sanitizeFile = (str) => (str || 'Unknown').replace(/[\/\\:*?"<>|]/g, '').replace(/\s+/g, '_');
+      const sanitizeFile = (str) =>
+        (str || "Unknown").replace(/[\/\\:*?"<>|]/g, "").replace(/\s+/g, "_");
       const ayStr = sanitizeFile(academicYear);
       const semStr = sanitizeFile(semester);
       const dateStr = new Date().toISOString().slice(0, 10);
-      
-      const blob = new Blob(chunks, { type: 'application/zip' });
+
+      const blob = new Blob(chunks, { type: "application/zip" });
       const folderName = `${ayStr}_${semStr}_${dateStr}.zip`;
       saveAs(blob, folderName);
 
@@ -290,5 +370,5 @@ export const FacultyArchiveService = {
       console.error("Bulk ZIP Export Failed:", err);
       return { success: false, message: err.message || "Bulk export failed." };
     }
-  }
+  },
 };

@@ -189,9 +189,9 @@ export default function UsersPage() {
 
   const actorInfo = {
     actorUserId: user?.id,
-    actorName: user?.user_metadata?.first_name 
+    actorName: user?.user_metadata?.first_name
       ? `${user.user_metadata.first_name} ${user.user_metadata.last_name || ""}`.trim()
-      : user?.email || "System User"
+      : user?.email || "System User",
   };
   const [moduleFilter, setModuleFilter] = useState("all");
   const [addUserOpen, setAddUserOpen] = useState(false);
@@ -227,7 +227,11 @@ export default function UsersPage() {
       }
 
       try {
-        const { data, error } = await updateUser(updatedRow.id, updatedRow, actorInfo);
+        const { data, error } = await updateUser(
+          updatedRow.id,
+          updatedRow,
+          actorInfo,
+        );
 
         if (error) {
           throw error;
@@ -285,13 +289,13 @@ export default function UsersPage() {
 
   const handleAddUser = async (formData) => {
     try {
-      const res = await fetch("http://localhost:3000/api/users", {
+      const res = await fetch(getApiUrl("/api/users"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
           actorName: actorInfo.actorName,
-          actorUserId: actorInfo.actorUserId
+          actorUserId: actorInfo.actorUserId,
         }),
       });
       const result = await res.json();
@@ -312,14 +316,14 @@ export default function UsersPage() {
   const handleResetPassword = async (payload) => {
     try {
       const res = await fetch(
-        `http://localhost:3000/api/users/${payload.id}/reset-password`,
+        getApiUrl(`/api/users/${payload.id}/reset-password`),
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             password: payload.password,
             actorName: actorInfo.actorName,
-            actorUserId: actorInfo.actorUserId
+            actorUserId: actorInfo.actorUserId,
           }),
         },
       );

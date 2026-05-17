@@ -12,7 +12,7 @@ export default defineConfig({
     tailwindcss(),
     // 2. Add them to the plugins array
     wasm(),
-    topLevelAwait()
+    topLevelAwait(),
   ],
   resolve: {
     alias: {
