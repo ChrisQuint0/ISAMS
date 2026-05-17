@@ -25,13 +25,13 @@ export default async function handler(req, res) {
   try {
     switch (operation) {
       case "ensure":
-        return handleEnsure(req, res);
+        return await handleEnsure(req, res);
       case "init-isams":
-        return handleInitIsams(req, res);
+        return await handleInitIsams(req, res);
       case "rename":
-        return handleRename(req, res);
+        return await handleRename(req, res);
       case "create":
-        return handleCreate(req, res);
+        return await handleCreate(req, res);
       default:
         return res.status(404).json({ error: "Unknown operation" });
     }
@@ -46,43 +46,41 @@ async function handleEnsure(req, res) {
     const rawBody = await getRawBody(req, { limit: "1mb" });
     const {
       rootFolderId,
-      syFolder,
-      ayFolder,
-      semesterFolder,
+      // Field names sent by gdriveSettings.ensureFolderStructure
+      academicYear,
+      semester,
+      facultyName,
       courseCode,
       section,
+      docTypeName,
     } = JSON.parse(rawBody.toString());
 
     const { oauth2Client } = await getAuthClient();
     const drive = google.drive({ version: "v3", auth: oauth2Client });
 
+    // Build the full hierarchy: Root > AY > Semester > Faculty > Course-Section > DocType
+    // This must match the structure in submission_backend.js
     let currentParent = rootFolderId || process.env.VITE_GOOGLE_DRIVE_FOLDER_ID;
 
-    if (syFolder) {
-      currentParent = await getOrCreateFolder(drive, syFolder, currentParent);
+    if (academicYear) {
+      currentParent = await getOrCreateFolder(drive, academicYear, currentParent);
     }
 
-    if (ayFolder) {
-      currentParent = await getOrCreateFolder(drive, ayFolder, currentParent);
+    if (semester) {
+      currentParent = await getOrCreateFolder(drive, semester, currentParent);
     }
 
-    if (semesterFolder) {
-      currentParent = await getOrCreateFolder(
-        drive,
-        semesterFolder,
-        currentParent,
-      );
+    if (facultyName) {
+      currentParent = await getOrCreateFolder(drive, facultyName, currentParent);
     }
 
     if (courseCode) {
-      const courseFolderName = section
-        ? `${courseCode} - ${section}`
-        : courseCode;
-      currentParent = await getOrCreateFolder(
-        drive,
-        courseFolderName,
-        currentParent,
-      );
+      const courseFolderName = section ? `${courseCode} - ${section}` : courseCode;
+      currentParent = await getOrCreateFolder(drive, courseFolderName, currentParent);
+    }
+
+    if (docTypeName) {
+      currentParent = await getOrCreateFolder(drive, docTypeName, currentParent);
     }
 
     res.json({ success: true, folderId: currentParent });
