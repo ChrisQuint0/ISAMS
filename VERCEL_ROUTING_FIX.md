@@ -5,6 +5,7 @@
 When deploying to Vercel, API endpoints were returning **404 errors** despite the handlers existing. The root cause was **Vercel's serverless function routing limitations with catch-all routes**.
 
 ### Symptoms
+
 - ✅ `/api/thesis/advisers` worked (simple route)
 - ❌ `/api/thesis/download/FILE_ID` failed with 404 (path parameter)
 - ❌ `/api/thesis/upload` failed (POST to catch-all)
@@ -13,6 +14,7 @@ When deploying to Vercel, API endpoints were returning **404 errors** despite th
 ### Root Cause
 
 Vercel's file-based routing system doesn't reliably handle:
+
 1. **Path parameters in nested catch-all routes** (e.g., `api/thesis/[...path].js` handling `/api/thesis/download/:fileId`)
 2. **Dynamic route segment parsing** from `req.query.path` arrays
 3. **Nested operation routing** within catch-all handlers
@@ -26,6 +28,7 @@ Instead of using catch-all routes with path-based operations, create **dedicated
 ### Implementation
 
 #### Before (❌ Failed on Vercel)
+
 ```
 api/
   thesis/
@@ -35,6 +38,7 @@ api/
 Called as: `/api/thesis/download/FILE_ID`
 
 #### After (✅ Works on Vercel)
+
 ```
 api/
   thesis/
@@ -56,18 +60,20 @@ Called as: `/api/thesis/download?fileId=FILE_ID` (query params)
 #### 1. Download Route - Query Parameters Instead of Path Parameters
 
 **Before:**
+
 ```javascript
 // Frontend
-getApiUrl(`/api/thesis/download/${fileId}`)
+getApiUrl(`/api/thesis/download/${fileId}`);
 
 // Handler (trying to parse from [...path].js)
 const fileId = pathSegments[1]; // Unreliable on Vercel
 ```
 
 **After:**
+
 ```javascript
 // Frontend (src/features/thesis-archiving/services/thesisService.js)
-getApiUrl(`/api/thesis/download?fileId=${fileId}`)
+getApiUrl(`/api/thesis/download?fileId=${fileId}`);
 
 // Handler (api/thesis/download.js)
 const fileId = req.query.fileId; // Direct query param access
@@ -78,6 +84,7 @@ const fileId = req.query.fileId; // Direct query param access
 Created individual handler files:
 
 **api/thesis/download.js:**
+
 ```javascript
 export default async function handler(req, res) {
   const fileId = req.query.fileId;
@@ -86,6 +93,7 @@ export default async function handler(req, res) {
 ```
 
 **api/thesis/upload.js:**
+
 ```javascript
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({...});
@@ -94,6 +102,7 @@ export default async function handler(req, res) {
 ```
 
 **api/thesis/create.js:**
+
 ```javascript
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({...});
@@ -103,6 +112,7 @@ export default async function handler(req, res) {
 ```
 
 **api/thesis/update.js:**
+
 ```javascript
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({...});
@@ -112,6 +122,7 @@ export default async function handler(req, res) {
 ```
 
 **api/thesis/delete.js:**
+
 ```javascript
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({...});
@@ -121,6 +132,7 @@ export default async function handler(req, res) {
 ```
 
 **api/thesis/advisers.js, categories.js, data.js:**
+
 ```javascript
 export default async function handler(req, res) {
   const supabase = createClient(process.env.VITE_SUPABASE_URL, ...);
@@ -132,6 +144,7 @@ export default async function handler(req, res) {
 #### 3. Folder Operations
 
 **api/folders/init-isams.js:**
+
 ```javascript
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({...});
@@ -160,21 +173,25 @@ export default async function handler(req, res) {
 ## Benefits
 
 ### ✅ Reliability
+
 - Vercel's native routing handles all endpoints
 - No path parsing ambiguity
 - Predictable behavior
 
 ### ✅ Performance
+
 - Each function can be optimized separately
 - Better cold start times
 - Independent scaling
 
 ### ✅ Maintainability
+
 - Clear file structure matches API routes
 - Easy to find and update specific endpoints
 - Isolated testing
 
 ### ✅ Debugging
+
 - Vercel logs show exact function called
 - No routing logic to debug
 - Clear error traces
@@ -218,10 +235,10 @@ Only the download URL format changed:
 
 ```javascript
 // Before
-getApiUrl(`/api/thesis/download/${fileId}`)
+getApiUrl(`/api/thesis/download/${fileId}`);
 
 // After
-getApiUrl(`/api/thesis/download?fileId=${fileId}`)
+getApiUrl(`/api/thesis/download?fileId=${fileId}`);
 ```
 
 All other endpoints remain unchanged since they use POST with JSON bodies.
@@ -238,6 +255,7 @@ app.get("/api/thesis/download/:fileId?", async (req, res) => {
 ```
 
 This ensures:
+
 - ✅ Localhost development works
 - ✅ Vercel production works
 - ✅ No environment-specific code needed
