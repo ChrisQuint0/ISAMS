@@ -630,5 +630,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   startServer();
 }
 
-export { app, loadSystemConfig, initializeOAuthClient }server
-startServer();
+export { app, loadSystemConfig, initializeOAuthClient };

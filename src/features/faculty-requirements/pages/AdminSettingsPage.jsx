@@ -96,6 +96,7 @@ import { useAdminSemesterManagement } from "../hooks/AdminSemesterManagementHook
 import { settingsService } from "../services/AdminSettingService";
 import { renameGDriveFolders, getFolderLink } from "../services/gdriveSettings";
 import NameCalibratorModal from "../components/NameCalibratorModal";
+import { getApiUrl } from "@/lib/apiConfig";
 
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
@@ -511,7 +512,6 @@ export default function AdminSettingsPage() {
   const [dangerModalInput, setDangerModalInput] = useState("");
 
   // ── Backup & Restore State ──────────────────────────────────────────────
-  import { getApiUrl } from "@/lib/apiConfig";
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [lastBackupTime, setLastBackupTime] = useState(
     () => localStorage.getItem("isams_last_backup") || null,
