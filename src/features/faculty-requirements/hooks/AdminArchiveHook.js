@@ -87,9 +87,18 @@ export function useAdminArchive() {
       const result = await archiveService.downloadFile(doc);
       if (result.success) {
         setSuccess(result.message);
-        // Log individual file downloads to history
-        await archiveService.logExport(doc.original_filename, doc.semester || 'All', doc.academic_year || 'All', 'SINGLE_FILE_DOWNLOAD');
-        // Refresh to update the recent downloads list
+        // Log with the file's Drive ID so history re-downloads work
+        await archiveService.logExport(
+          doc.original_filename,
+          doc.semester || 'All',
+          doc.academic_year || 'All',
+          'SINGLE_FILE_DOWNLOAD',
+          {
+            gdrive_file_id: doc.gdrive_file_id || null,
+            gdrive_download_link: doc.gdrive_download_link || doc.gdrive_web_view_link || null,
+            filename: doc.original_filename,
+          }
+        );
         fetchData();
       } else {
         setError(result.message);
@@ -109,7 +118,24 @@ export function useAdminArchive() {
     setLoading(true);
     setError(null);
     try {
-      // Use the full saved config if available (new exports), otherwise fall back to semester/year only (legacy)
+      // Single file re-download: just open the Google Drive link
+      if (exportRecord.report_type === 'SINGLE_FILE_DOWNLOAD') {
+        const cfg = exportRecord.export_config;
+        if (cfg?.gdrive_file_id) {
+          const url = `https://drive.google.com/uc?export=download&id=${cfg.gdrive_file_id}`;
+          window.open(url, '_blank');
+          setSuccess('Opening file download...');
+        } else if (cfg?.gdrive_download_link) {
+          window.open(cfg.gdrive_download_link, '_blank');
+          setSuccess('Opening file download...');
+        } else {
+          setError('Cannot re-download: file link was not saved for this history entry.');
+        }
+        setTimeout(() => { setSuccess(null); setError(null); }, 3000);
+        return;
+      }
+
+      // ZIP archive re-export: use the full saved config
       const config = exportRecord.export_config
         ? exportRecord.export_config
         : {
