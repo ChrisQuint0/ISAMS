@@ -7,8 +7,8 @@ import { google } from "googleapis";
 
 export default async function handler(req, res) {
   // Extract userId from path: /api/auth/google/status/[userId]
-  const pathParts = req.url.split('/');
-  const userId = pathParts[pathParts.length - 1]?.split('?')[0];
+  const pathParts = req.url.split("/");
+  const userId = pathParts[pathParts.length - 1]?.split("?")[0];
 
   if (!userId || userId === "null" || userId === "undefined") {
     return res.json({ authenticated: false });
@@ -21,7 +21,7 @@ export default async function handler(req, res) {
   if (!supabaseUrl || !supabaseKey) {
     return res.status(500).json({
       error: "Supabase not configured",
-      details: "Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY"
+      details: "Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY",
     });
   }
 
@@ -55,7 +55,7 @@ export default async function handler(req, res) {
         hasDriveScope,
         email: null,
         name: null,
-        picture: null
+        picture: null,
       });
     }
 

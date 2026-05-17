@@ -6,7 +6,7 @@ import { google } from "googleapis";
 
 export default function handler(req, res) {
   const { userId } = req.query;
-  
+
   if (!userId) {
     return res.status(400).json({ error: "userId is required" });
   }
@@ -19,7 +19,7 @@ export default function handler(req, res) {
     console.error("❌ Missing Google OAuth credentials in environment");
     return res.status(500).json({
       error: "Google OAuth not configured",
-      details: "Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET"
+      details: "Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET",
     });
   }
 
@@ -32,7 +32,7 @@ export default function handler(req, res) {
     const oauth2Client = new google.auth.OAuth2(
       clientId,
       clientSecret,
-      redirectUri
+      redirectUri,
     );
 
     const scopes = [

@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   // Get OAuth credentials
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  
+
   if (!clientId || !clientSecret) {
     return res.status(500).send("Google OAuth not configured");
   }
@@ -37,7 +37,7 @@ export default async function handler(req, res) {
     const oauth2Client = new google.auth.OAuth2(
       clientId,
       clientSecret,
-      redirectUri
+      redirectUri,
     );
 
     // Exchange code for tokens
@@ -79,9 +79,9 @@ export default async function handler(req, res) {
 
     if (error) {
       console.error("Supabase error saving Google tokens:", error);
-      return res.status(500).send(
-        `Error saving tokens to database: ${error.message}`
-      );
+      return res
+        .status(500)
+        .send(`Error saving tokens to database: ${error.message}`);
     }
 
     console.log(`✅ OAuth tokens saved for user ${userId} (${userInfo.email})`);
