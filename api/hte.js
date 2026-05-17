@@ -223,6 +223,7 @@ async function handleUpload(req, res) {
         }
 
         // Upload to Google Drive
+        const { Readable } = await import("stream");
         const { data: file } = await drive.files.create({
           requestBody: {
             name: fileName,
@@ -230,7 +231,7 @@ async function handleUpload(req, res) {
           },
           media: {
             mimeType,
-            body: require("stream").Readable.from(fileBuffer),
+            body: Readable.from(fileBuffer),
           },
           fields: "id, name, webViewLink",
         });
