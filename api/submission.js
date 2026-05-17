@@ -3,11 +3,13 @@
  * Route: /api/submission?operation=xxx
  * Operations: upload, validate, send-email, status, folder-rename
  */
+
 import { google } from "googleapis";
 import { createClient } from "@supabase/supabase-js";
 import sgMail from "@sendgrid/mail";
 import getRawBody from "raw-body";
 import Busboy from "busboy";
+import { Readable } from "stream";
 
 export const config = {
   api: { bodyParser: false },
@@ -86,7 +88,7 @@ async function handleUpload(req, res) {
           },
           media: {
             mimeType,
-            body: require("stream").Readable.from(fileBuffer),
+            body: Readable.from(fileBuffer),
           },
           fields: "id, name, mimeType, webViewLink",
         });

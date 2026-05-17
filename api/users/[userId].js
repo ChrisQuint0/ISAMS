@@ -1,7 +1,6 @@
 // /api/users/[userId].js
 import { createClient } from "@supabase/supabase-js";
 
-
 export default async function handler(req, res) {
   const {
     VITE_SUPABASE_URL: supabaseUrl,
@@ -39,10 +38,11 @@ export default async function handler(req, res) {
         authUpdatePayload.email = updates.email;
       }
       if (Object.keys(authUpdatePayload).length > 0) {
-        const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
-          userId,
-          authUpdatePayload,
-        );
+        const { error: authError } =
+          await supabaseAdmin.auth.admin.updateUserById(
+            userId,
+            authUpdatePayload,
+          );
         if (authError) throw authError;
       }
 

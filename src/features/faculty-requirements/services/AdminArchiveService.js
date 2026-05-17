@@ -216,10 +216,11 @@ export const archiveService = {
       );
 
       // 3. Request ZIP from Node Backend
+      const fileIds = payloadFiles.map(f => f.fileId).filter(Boolean);
       const response = await fetch(getApiUrl("/api/export?operation=faculty"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ courseId: "Admin_Bulk", files: payloadFiles }),
+        body: JSON.stringify({ fileIds }),
         signal: abortSignal,
       });
 
