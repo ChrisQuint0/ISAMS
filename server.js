@@ -2249,6 +2249,57 @@ app.get("/api/auth/google/status/:userId", async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Thesis Operations
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Download thesis file from Google Drive
+ */
+app.get("/api/thesis/download/:fileId", async (req, res) => {
+  try {
+    const { fileId } = req.params;
+    const auth = await loadToken();
+    if (!auth)
+      return res.status(401).json({ error: "Not authenticated with GDrive" });
+
+    const drive = google.drive({ version: "v3", auth });
+
+    // Get file metadata
+    const { data: fileMetadata } = await drive.files.get({
+      fileId: fileId,
+      fields: "name, mimeType",
+    });
+
+    // Set response headers
+    res.setHeader("Content-Type", fileMetadata.mimeType || "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${fileMetadata.name}"`,
+    );
+
+    // Stream from Google Drive
+    const response = await drive.files.get(
+      { fileId: fileId, alt: "media" },
+      { responseType: "stream" },
+    );
+
+    response.data
+      .on("error", (err) => {
+        console.error("Stream error:", err);
+        if (!res.headersSent) {
+          res.status(500).json({ error: "Failed to stream file" });
+        }
+      })
+      .pipe(res);
+  } catch (error) {
+    console.error("Error downloading thesis file:", error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Server Startup / Module Export
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -2276,7 +2327,7 @@ export async function initializeApp() {
 }
 
 // Only start server if running directly (not imported)
-if (import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}`) {
+if (import.meta.url === `file:///${process.argv[1].replace(/\\/g, "/")}`) {
   startServer();
 }
 
