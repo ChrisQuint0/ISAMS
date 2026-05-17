@@ -13,6 +13,12 @@ export const config = {
 
 export default async function handler(req, res) {
   try {
+    // Debug logging
+    console.log("=== Thesis Handler Debug ===");
+    console.log("URL:", req.url);
+    console.log("req.query.path:", req.query.path);
+    console.log("============================");
+
     // In Vercel, [...path].js provides segments as req.query.path array
     // Fallback to parsing URL if path query param doesn't exist
     let pathSegments = req.query.path || [];
@@ -30,7 +36,10 @@ export default async function handler(req, res) {
       }
     }
 
+    console.log("Parsed pathSegments:", pathSegments);
+    
     const operation = pathSegments[0];
+    console.log("Operation:", operation);
 
     // Route to appropriate handler
     if (operation === "download") {
