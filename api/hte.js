@@ -236,7 +236,6 @@ async function handleUpload(req, res) {
           fields: "id, name, webViewLink",
         });
 
-
         // Upsert into hte_document_uploads (correct pattern)
         const supabaseUrl = process.env.VITE_SUPABASE_URL;
         const supabaseAdmin = createClient(
@@ -246,17 +245,20 @@ async function handleUpload(req, res) {
 
         const { error: upsertError } = await supabaseAdmin
           .from("hte_document_uploads")
-          .upsert({
-            student_id: studentId,
-            field_id: fieldId,
-            gdrive_file_id: file.id,
-            gdrive_view_link: file.webViewLink,
-            original_filename: fileName,
-            status: "uploaded",
-            uploaded_at: new Date().toISOString(),
-            uploaded_by_role: "student", // or "coordinator" if applicable
-            uploaded_by_name: actorName,
-          }, { onConflict: ["student_id", "field_id"] });
+          .upsert(
+            {
+              student_id: studentId,
+              field_id: fieldId,
+              gdrive_file_id: file.id,
+              gdrive_view_link: file.webViewLink,
+              original_filename: fileName,
+              status: "uploaded",
+              uploaded_at: new Date().toISOString(),
+              uploaded_by_role: "student", // or "coordinator" if applicable
+              uploaded_by_name: actorName,
+            },
+            { onConflict: ["student_id", "field_id"] },
+          );
 
         if (upsertError) {
           throw new Error(upsertError.message);
