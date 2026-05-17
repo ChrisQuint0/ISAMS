@@ -212,14 +212,20 @@ async function handleFolderRename(req, res) {
   }
 
   const rawBody = await getRawBody(req, { limit: "1mb" });
-  const { oldName, newName } = JSON.parse(rawBody.toString());
+  const body = JSON.parse(rawBody.toString());
+
+  // Support both field name formats:
+  //   - { oldFolderName, newFolderName } sent by gdriveSettings.renameGDriveFolders
+  //   - { oldName, newName } (legacy)
+  const oldName = body.oldFolderName || body.oldName;
+  const newName = body.newFolderName || body.newName;
 
   if (!oldName || !newName) {
-    return res.status(400).json({ error: "oldName and newName required" });
+    return res.status(400).json({ error: "oldName/oldFolderName and newName/newFolderName are required" });
   }
 
   const { drive } = await getAuthClient();
-  const query = `name='${oldName.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  const query = `name='${oldName.replace(/'/g, "\\'")}'  and mimeType='application/vnd.google-apps.folder' and trashed=false`;
 
   const { data } = await drive.files.list({
     q: query,
@@ -238,8 +244,10 @@ async function handleFolderRename(req, res) {
 
   res.json({
     success: true,
-    renamedCount: renamed.length,
+    renamed: renamed.length,   // frontend reads result.renamed
+    renamedCount: renamed.length, // keep legacy field for safety
     folderIds: renamed,
+    message: `Renamed ${renamed.length} folder(s) from "${oldName}" to "${newName}".`,
   });
 }
 

@@ -140,13 +140,80 @@ async function handleBackupExport(req, res) {
   );
 
   const tables = [
-    "users",
-    "thesis_archive",
-    "thesis_authors",
-    "thesis_advisers",
+    // ── Faculty Submission (FS) ──────────────────────────────────────────
+    "faculty_fs",
+    "systemsettings_fs",
+    "documenttypes_fs",
+    "courses_fs",
+    "master_courses_fs",
+    "templates_fs",
+    "faq_fs",
+    "deadlines_fs",
+    "submissions_fs",
+    "documentversions_fs",
+    "notifications_fs",
+    "holidays_fs",
+    "reporthistory_fs",
+    "semester_history_fs",
+    "google_auth_tokens",
+
+    // ── Access Control ───────────────────────────────────────────────────
+    "user_rbac",
+
+    // ── Student Violations (SV) ──────────────────────────────────────────
+    "students_sv",
+    "offense_types_sv",
+    "sanctions_sv",
+    "violations_sv",
+    "violation_evidence_sv",
+    "student_sanctions_sv",
+    "compliance_evidence_sv",
+    "activity_log_sv",
+
+    // ── Lab Management (LM) ──────────────────────────────────────────────
+    "laboratories_lm",
+    "pc_stations_lm",
+    "students_lists_lm",
+    "lab_schedules_lm",
+    "student_enrollments_lm",
+    "attendance_logs_lm",
+    "pc_maintenance_history_lm",
+    "audit_logs_lm",
+    "lab_settings_lm",
+
+    // ── Thesis Archive (TA) ───────────────────────────────────────────────
     "thesis_categories",
-    "hte_trainees",
+    "thesis_advisers",
+    "thesis_academic_years",
+    "thesis_entries",
+    "thesis_authors",
+    "thesis_files",
+    "thesis_settings",
+    "thesis_similarity_results",
+    "similarity_matches",
+    "similarity_scan_queue",
+    "similarity_scan_results",
+    "similarity_scan_field_scores",
+    "similarity_scan_matches",
+    "similarity_flagged_reviews",
+    "similarity_settings_history",
+    "ta_audit_logs",
+
+    // ── HTE / OJT ────────────────────────────────────────────────────────
+    "hte_document_categories",
+    "hte_document_fields",
+    "hte_sections",
+    "hte_ojt_students",
+    "hte_document_uploads",
     "hte_notification_batches",
+    "hte_notification_recipients",
+    "hte_notification_cooldowns",
+
+    // ── Global / Shared ──────────────────────────────────────────────────
+    "system_settings",
+    "system_config",
+    "report_export_logs",
+    "student_otp_codes",
   ];
 
   const backup = {};
@@ -163,14 +230,26 @@ async function handleBackupExport(req, res) {
   res.setHeader("Content-Type", "application/json");
   res.setHeader(
     "Content-Disposition",
-    `attachment; filename=backup-${Date.now()}.json`,
+    `attachment; filename=isams-backup-${Date.now()}.json`,
   );
-  res.json(backup);
+  // Wrap in the ISAMS envelope so the client-side validator passes
+  res.json({
+    source: "ISAMS",
+    version: "1.0",
+    exported_at: new Date().toISOString(),
+    tables: backup,
+  });
 }
 
 async function handleBackupRestore(req, res) {
   const rawBody = await getRawBody(req, { limit: "50mb" });
-  const backup = JSON.parse(rawBody.toString());
+  const body = JSON.parse(rawBody.toString());
+
+  // Frontend sends: { backup: parsedBackupFile }
+  // parsedBackupFile is either the new envelope { source, version, tables: {...} }
+  // or a legacy flat { tableName: [...] } object
+  const backupFile = body.backup || body;
+  const tables = backupFile.tables || backupFile; // unwrap envelope or use flat
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const supabaseAdmin = createClient(
@@ -179,11 +258,11 @@ async function handleBackupRestore(req, res) {
   );
 
   const results = {};
+  let totalUpserted = 0;
 
-  for (const [table, data] of Object.entries(backup)) {
-    if (!Array.isArray(data) || data.length === 0) {
-      continue;
-    }
+  for (const [table, data] of Object.entries(tables)) {
+    // Skip envelope metadata fields that aren't table names
+    if (!Array.isArray(data) || data.length === 0) continue;
 
     const { error } = await supabaseAdmin.from(table).upsert(data);
 
@@ -192,10 +271,11 @@ async function handleBackupRestore(req, res) {
       results[table] = { success: false, error: error.message };
     } else {
       results[table] = { success: true, count: data.length };
+      totalUpserted += data.length;
     }
   }
 
-  res.json({ success: true, results });
+  res.json({ success: true, totalUpserted, results });
 }
 
 async function getAuthClient() {
