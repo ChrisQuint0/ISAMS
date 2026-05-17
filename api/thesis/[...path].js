@@ -14,8 +14,8 @@ export default async function handler(req, res) {
       cachedApp = await initializeThesisApp();
     }
 
-    // Remove /api/thesis prefix from path for Express routing
-    req.url = req.url.replace(/^\/api\/thesis/, "") || "/";
+    // Express routes in thesis_backend.js already include /api/thesis prefix
+    // No path modification needed
 
     return cachedApp(req, res);
   } catch (error) {

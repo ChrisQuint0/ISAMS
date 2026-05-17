@@ -14,8 +14,9 @@ export default async function handler(req, res) {
       cachedApp = await initializeSubmissionApp();
     }
 
-    // Remove /api/submission prefix from path for Express routing
-    req.url = req.url.replace(/^\/api\/submission/, "") || "/";
+    // submission_backend.js routes are defined as /api/* (without /submission)
+    // so we need to strip /submission from the path
+    req.url = req.url.replace(/^\/api\/submission/, "/api") || "/api";
 
     return cachedApp(req, res);
   } catch (error) {

@@ -14,8 +14,8 @@ export default async function handler(req, res) {
       cachedApp = await initializeHteApp();
     }
 
-    // Remove /api/hte prefix from path for Express routing
-    req.url = req.url.replace(/^\/api\/hte/, "") || "/";
+    // Express routes in hte_backend.js already include /api/hte prefix
+    // No path modification needed
 
     return cachedApp(req, res);
   } catch (error) {
