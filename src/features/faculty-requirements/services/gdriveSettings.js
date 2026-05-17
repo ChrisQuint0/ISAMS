@@ -278,7 +278,9 @@ export const listGDriveFiles = async (folderId) => {
       .catch(() => ({ error: "Failed to list files" }));
     throw new Error(err.error || "Failed to list Google Drive files");
   }
-  return res.json();
+  // API returns { files: [...] } — unwrap so callers get a plain array
+  const body = await res.json();
+  return Array.isArray(body) ? body : (body.files || []);
 };
 
 /**

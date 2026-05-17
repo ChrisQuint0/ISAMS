@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 import Tesseract from 'tesseract.js';
-import { getFolderLink, getFolderId, uploadToGDrive, listGDriveFiles } from './gdriveSettings';
+import { getFolderLink, getFolderId, uploadToGDrive, listGDriveFiles, deleteGDriveFile } from './gdriveSettings';
 
 export const FacultySubmissionService = {
     /**
