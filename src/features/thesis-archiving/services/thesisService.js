@@ -661,7 +661,7 @@ export const thesisService = {
     // Let's just use the same approach as create.
 
     try {
-      const response = await fetch(getApiUrl("/api/hte/upload"), {
+      const response = await fetch(getApiUrl("/api/hte?operation=upload"), {
         method: "POST",
         body: formData,
       });
@@ -683,7 +683,7 @@ export const thesisService = {
    */
   async deleteHTEDocument(studentId, fieldId, actorInfo = {}) {
     try {
-      const response = await fetch(getApiUrl("/api/hte/delete"), {
+      const response = await fetch(getApiUrl("/api/hte?operation=delete"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -714,7 +714,7 @@ export const thesisService = {
   async downloadHTEDocument(fileId, fileName) {
     try {
       // We use the direct backend URL for downloading
-      const url = getApiUrl(`/api/hte/download/${fileId}`);
+      const url = getApiUrl(`/api/hte?operation=download&fileId=${fileId}`);
 
       const response = await fetch(url);
       if (!response.ok) throw new Error("Failed to download file");
@@ -1173,22 +1173,19 @@ export const thesisService = {
    * Send batch notifications to students with missing documents
    */
   async sendBatchNotifications(batchData, actorInfo = {}) {
-    const response = await fetch(
-      getApiUrl("/api/hte"),
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          batchData,
-          actorInfo: {
-            actorName: actorInfo.actorName,
-            actorUserId: actorInfo.actorUserId,
-          },
-        }),
+    const response = await fetch(getApiUrl("/api/hte"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify({
+        batchData,
+        actorInfo: {
+          actorName: actorInfo.actorName,
+          actorUserId: actorInfo.actorUserId,
+        },
+      }),
+    });
 
     const data = await response.json();
     if (!response.ok)

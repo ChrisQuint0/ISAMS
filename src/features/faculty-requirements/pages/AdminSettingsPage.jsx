@@ -581,11 +581,14 @@ export default function AdminSettingsPage() {
     if (!restoreFile) return;
     setIsRestoring(true);
     try {
-      const res = await fetch(getApiUrl("/api/export?operation=backup-restore"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ backup: restoreFile }),
-      });
+      const res = await fetch(
+        getApiUrl("/api/export?operation=backup-restore"),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ backup: restoreFile }),
+        },
+      );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Restore failed");
       setSuccess(

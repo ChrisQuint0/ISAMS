@@ -1,11 +1,13 @@
 /**
- * HTE Notifications Handler  
- * Route: /api/hte
- * Sends batch email notifications to HTE/OJT students
+ * HTE Operations Handler
+ * Route: /api/hte?operation=xxx
+ * Operations: notify, upload, delete, download
  */
+import { google } from "googleapis";
 import { createClient } from "@supabase/supabase-js";
 import sgMail from "@sendgrid/mail";
 import getRawBody from "raw-body";
+import Busboy from "busboy";
 
 export const config = {
   api: { bodyParser: false },
@@ -13,6 +15,37 @@ export const config = {
 };
 
 export default async function handler(req, res) {
+  const operation = req.query.operation || req.query.op;
+
+  // If no operation specified and it's a POST, assume it's the batch notification (legacy support)
+  if (!operation && req.method === "POST") {
+    return handleNotify(req, res);
+  }
+
+  if (!operation) {
+    return res.status(400).json({ error: "Operation parameter required" });
+  }
+
+  try {
+    switch (operation) {
+      case "notify":
+        return handleNotify(req, res);
+      case "upload":
+        return handleUpload(req, res);
+      case "delete":
+        return handleDelete(req, res);
+      case "download":
+        return handleDownload(req, res);
+      default:
+        return res.status(404).json({ error: "Unknown operation" });
+    }
+  } catch (error) {
+    console.error("HTE handler error:", error);
+    return res.status(500).json({ error: error.message });
+  }
+}
+
+async function handleNotify(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -58,7 +91,9 @@ export default async function handler(req, res) {
 
     if (batchError) {
       console.error("Failed to create batch:", batchError);
-      return res.status(500).json({ error: "Failed to create notification batch" });
+      return res
+        .status(500)
+        .json({ error: "Failed to create notification batch" });
     }
 
     const batchId = batch.id;
@@ -75,7 +110,9 @@ export default async function handler(req, res) {
           },
           subject: batchData.emailSubject || "HTE/OJT Notification",
           text: batchData.emailBody || "",
-          html: batchData.emailBody ? `<p>${batchData.emailBody.replace(/\n/g, "<br>")}</p>` : "",
+          html: batchData.emailBody
+            ? `<p>${batchData.emailBody.replace(/\n/g, "<br>")}</p>`
+            : "",
         };
 
         await sgMail.send(msg);
@@ -135,4 +172,233 @@ export default async function handler(req, res) {
     console.error("Batch notification error:", error);
     res.status(500).json({ error: error.message });
   }
+}
+
+async function handleUpload(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  const { drive } = await getAuthClient();
+
+  return new Promise((resolve) => {
+    const busboy = Busboy({ headers: req.headers });
+    let fileBuffer;
+    let fileName;
+    let mimeType;
+    let studentId;
+    let fieldId;
+    let actorName;
+    let actorUserId;
+
+    busboy.on("file", (fieldname, file, info) => {
+      if (fieldname === "file") {
+        fileName = info.filename;
+        mimeType = info.mimeType;
+        const chunks = [];
+        file.on("data", (data) => chunks.push(data));
+        file.on("end", () => {
+          fileBuffer = Buffer.concat(chunks);
+        });
+      }
+    });
+
+    busboy.on("field", (fieldname, val) => {
+      if (fieldname === "studentId") studentId = val;
+      if (fieldname === "fieldId") fieldId = val;
+      if (fieldname === "actorName") actorName = val;
+      if (fieldname === "actorUserId") actorUserId = val;
+    });
+
+    busboy.on("finish", async () => {
+      try {
+        if (!fileBuffer || !fileName) {
+          res.status(400).json({ error: "No file provided" });
+          return resolve();
+        }
+
+        if (!studentId || !fieldId) {
+          res.status(400).json({ error: "studentId and fieldId required" });
+          return resolve();
+        }
+
+        // Upload to Google Drive
+        const { data: file } = await drive.files.create({
+          requestBody: {
+            name: fileName,
+            parents: [process.env.VITE_GOOGLE_DRIVE_FOLDER_ID],
+          },
+          media: {
+            mimeType,
+            body: require("stream").Readable.from(fileBuffer),
+          },
+          fields: "id, name, webViewLink",
+        });
+
+        // Update Supabase
+        const supabaseUrl = process.env.VITE_SUPABASE_URL;
+        const supabaseAdmin = createClient(
+          supabaseUrl,
+          process.env.SUPABASE_SERVICE_ROLE_KEY,
+        );
+
+        const updateData = {};
+        updateData[fieldId] = file.id;
+
+        const { error: updateError } = await supabaseAdmin
+          .from("hte_trainees")
+          .update(updateData)
+          .eq("id", studentId);
+
+        if (updateError) {
+          throw new Error(updateError.message);
+        }
+
+        res.json({
+          success: true,
+          fileId: file.id,
+          fileName: file.name,
+          webViewLink: file.webViewLink,
+        });
+        resolve();
+      } catch (error) {
+        console.error("HTE upload error:", error);
+        res.status(500).json({ error: error.message });
+        resolve();
+      }
+    });
+
+    req.pipe(busboy);
+  });
+}
+
+async function handleDelete(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  try {
+    const rawBody = await getRawBody(req, { limit: "1mb" });
+    const { studentId, fieldId, actorName, actorUserId } = JSON.parse(
+      rawBody.toString(),
+    );
+
+    if (!studentId || !fieldId) {
+      return res.status(400).json({ error: "studentId and fieldId required" });
+    }
+
+    const supabaseUrl = process.env.VITE_SUPABASE_URL;
+    const supabaseAdmin = createClient(
+      supabaseUrl,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+    );
+
+    // Get current file ID
+    const { data: student } = await supabaseAdmin
+      .from("hte_trainees")
+      .select(fieldId)
+      .eq("id", studentId)
+      .single();
+
+    if (!student || !student[fieldId]) {
+      return res.status(404).json({ error: "File not found" });
+    }
+
+    const fileId = student[fieldId];
+
+    // Delete from Google Drive
+    const { drive } = await getAuthClient();
+    await drive.files.delete({ fileId });
+
+    // Clear from Supabase
+    const updateData = {};
+    updateData[fieldId] = null;
+
+    const { error: updateError } = await supabaseAdmin
+      .from("hte_trainees")
+      .update(updateData)
+      .eq("id", studentId);
+
+    if (updateError) {
+      throw new Error(updateError.message);
+    }
+
+    res.json({ success: true, message: "File deleted successfully" });
+  } catch (error) {
+    console.error("HTE delete error:", error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+async function handleDownload(req, res) {
+  if (req.method !== "GET") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  const fileId = req.query.fileId;
+
+  if (!fileId) {
+    return res.status(400).json({ error: "fileId required" });
+  }
+
+  try {
+    const { drive } = await getAuthClient();
+
+    // Get file metadata
+    const { data: metadata } = await drive.files.get({
+      fileId,
+      fields: "name, mimeType",
+    });
+
+    // Stream file content
+    const { data: stream } = await drive.files.get(
+      { fileId, alt: "media" },
+      { responseType: "stream" },
+    );
+
+    res.setHeader("Content-Type", metadata.mimeType);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${encodeURIComponent(metadata.name)}"`,
+    );
+
+    stream.pipe(res);
+  } catch (error) {
+    console.error("HTE download error:", error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+async function getAuthClient() {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL;
+  const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
+  const { data: tokenRow } = await supabase
+    .from("google_auth_tokens")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!tokenRow) {
+    throw new Error("Not authenticated with Google Drive");
+  }
+
+  const oauth2Client = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+  );
+
+  oauth2Client.setCredentials({
+    access_token: tokenRow.access_token,
+    refresh_token: tokenRow.refresh_token,
+    scope: tokenRow.scope,
+    token_type: tokenRow.token_type,
+    expiry_date: tokenRow.expiry_date,
+  });
+
+  const drive = google.drive({ version: "v3", auth: oauth2Client });
+
+  return { drive, oauth2Client };
 }

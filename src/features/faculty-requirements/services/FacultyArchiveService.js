@@ -195,18 +195,15 @@ export const FacultyArchiveService = {
       });
 
       // POST the payload to the Express Node server to bypass CORS
-      const response = await fetch(
-        getApiUrl("/api/export?operation=faculty"),
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            courseId: course.course_id,
-            files: payloadFiles,
-          }),
-          signal: abortSignal,
-        },
-      );
+      const response = await fetch(getApiUrl("/api/export?operation=faculty"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          courseId: course.course_id,
+          files: payloadFiles,
+        }),
+        signal: abortSignal,
+      });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -318,15 +315,12 @@ export const FacultyArchiveService = {
       );
 
       // POST the payload to the Express Node server to bypass CORS
-      const response = await fetch(
-        getApiUrl("/api/export?operation=faculty"),
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ courseId: "Bulk", files: allPayloadFiles }),
-          signal: abortSignal,
-        },
-      );
+      const response = await fetch(getApiUrl("/api/export?operation=faculty"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ courseId: "Bulk", files: allPayloadFiles }),
+        signal: abortSignal,
+      });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));

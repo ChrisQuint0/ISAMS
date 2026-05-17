@@ -216,15 +216,12 @@ export const archiveService = {
       );
 
       // 3. Request ZIP from Node Backend
-      const response = await fetch(
-        getApiUrl("/api/export?operation=faculty"),
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ courseId: "Admin_Bulk", files: payloadFiles }),
-          signal: abortSignal,
-        },
-      );
+      const response = await fetch(getApiUrl("/api/export?operation=faculty"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ courseId: "Admin_Bulk", files: payloadFiles }),
+        signal: abortSignal,
+      });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));

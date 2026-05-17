@@ -125,7 +125,8 @@ async function handleValidate(req, res) {
       file.on("end", () => {
         const buffer = Buffer.concat(chunks);
         const isValid =
-          info.mimeType.startsWith("image/") && buffer.length < 10 * 1024 * 1024;
+          info.mimeType.startsWith("image/") &&
+          buffer.length < 10 * 1024 * 1024;
         files.push({
           filename: info.filename,
           mimeType: info.mimeType,

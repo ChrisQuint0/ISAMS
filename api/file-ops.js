@@ -156,7 +156,9 @@ async function handleMove(req, res) {
   const { fileId, targetFolderId } = JSON.parse(rawBody.toString());
 
   if (!fileId || !targetFolderId) {
-    return res.status(400).json({ error: "fileId and targetFolderId required" });
+    return res
+      .status(400)
+      .json({ error: "fileId and targetFolderId required" });
   }
 
   const { drive } = await getAuthClient();

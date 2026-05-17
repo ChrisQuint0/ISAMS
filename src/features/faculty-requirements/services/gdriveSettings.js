@@ -142,11 +142,14 @@ export const renameGDriveFolders = async (
   oldFolderName,
   newFolderName,
 ) => {
-  const res = await fetch(getApiUrl("/api/submission?operation=folder-rename"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ rootFolderId, oldFolderName, newFolderName }),
-  });
+  const res = await fetch(
+    getApiUrl("/api/submission?operation=folder-rename"),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rootFolderId, oldFolderName, newFolderName }),
+    },
+  );
 
   if (!res.ok) {
     const err = await res
