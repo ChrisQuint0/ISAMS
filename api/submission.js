@@ -26,15 +26,15 @@ export default async function handler(req, res) {
   try {
     switch (operation) {
       case "upload":
-        return handleUpload(req, res);
+        return await handleUpload(req, res);
       case "validate":
-        return handleValidate(req, res);
+        return await handleValidate(req, res);
       case "send-email":
-        return handleSendEmail(req, res);
+        return await handleSendEmail(req, res);
       case "status":
-        return handleStatus(req, res);
+        return await handleStatus(req, res);
       case "folder-rename":
-        return handleFolderRename(req, res);
+        return await handleFolderRename(req, res);
       default:
         return res.status(404).json({ error: "Unknown operation" });
     }
@@ -50,9 +50,6 @@ async function handleUpload(req, res) {
   }
 
   const { drive } = await getAuthClient();
-
-  // Vercel serverless: req is NOT a raw stream — buffer first, then feed to Busboy
-  const rawBody = await getRawBody(req, { limit: "50mb" });
 
   return new Promise((resolve) => {
     const busboy = Busboy({ headers: req.headers });
@@ -93,11 +90,10 @@ async function handleUpload(req, res) {
             mimeType,
             body: Readable.from(fileBuffer),
           },
-          // webContentLink gives a direct download URL (needed by the service)
           fields: "id, name, mimeType, webViewLink, webContentLink",
         });
 
-        // Use id/name/webViewLink/webContentLink — must match what gdriveSettings.uploadToGDrive callers expect
+        // id/name/webViewLink/webContentLink must match what gdriveSettings.uploadToGDrive callers expect
         res.json({
           success: true,
           id: data.id,
@@ -114,8 +110,8 @@ async function handleUpload(req, res) {
       }
     });
 
-    // Feed the buffered body as a readable stream — works on both Vercel and local Node
-    Readable.from(rawBody).pipe(busboy);
+    // Vercel plain Node.js functions expose req as a raw IncomingMessage stream — piping works directly
+    req.pipe(busboy);
   });
 }
 

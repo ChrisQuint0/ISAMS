@@ -180,8 +180,16 @@ export const uploadToGDrive = async (file, folderId) => {
   });
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: "Upload failed" }));
-    throw new Error(err.error || "Google Drive upload failed");
+    const text = await res.text().catch(() => "");
+    let message = `Upload failed (HTTP ${res.status})`;
+    try {
+      const json = JSON.parse(text);
+      if (json.error) message = json.error;
+    } catch (_) {
+      // non-JSON body (e.g. Vercel 413/504 HTML error page)
+      if (text) console.error("[uploadToGDrive] Server response:", text.slice(0, 300));
+    }
+    throw new Error(message);
   }
 
   return res.json(); // { id, name, webViewLink, webContentLink }
