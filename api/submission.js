@@ -51,7 +51,10 @@ async function handleUpload(req, res) {
 
   const { drive } = await getAuthClient();
 
-  return new Promise((resolve, reject) => {
+  // Vercel serverless: req is NOT a raw stream — buffer first, then feed to Busboy
+  const rawBody = await getRawBody(req, { limit: "50mb" });
+
+  return new Promise((resolve) => {
     const busboy = Busboy({ headers: req.headers });
     let fileBuffer;
     let fileName;
@@ -90,15 +93,18 @@ async function handleUpload(req, res) {
             mimeType,
             body: Readable.from(fileBuffer),
           },
-          fields: "id, name, mimeType, webViewLink",
+          // webContentLink gives a direct download URL (needed by the service)
+          fields: "id, name, mimeType, webViewLink, webContentLink",
         });
 
+        // Use id/name/webViewLink/webContentLink — must match what gdriveSettings.uploadToGDrive callers expect
         res.json({
           success: true,
-          fileId: data.id,
-          fileName: data.name,
+          id: data.id,
+          name: data.name,
           mimeType: data.mimeType,
           webViewLink: data.webViewLink,
+          webContentLink: data.webContentLink,
         });
         resolve();
       } catch (error) {
@@ -108,9 +114,11 @@ async function handleUpload(req, res) {
       }
     });
 
-    req.pipe(busboy);
+    // Feed the buffered body as a readable stream — works on both Vercel and local Node
+    Readable.from(rawBody).pipe(busboy);
   });
 }
+
 
 async function handleValidate(req, res) {
   if (req.method !== "POST") {

@@ -1482,7 +1482,12 @@ export default function AdminFacultyDetailPage() {
                                         <div className="h-12 bg-white border-b border-neutral-200 flex items-center px-5 justify-between shrink-0 shadow-sm z-10">
                                             <span className="text-sm font-bold text-neutral-800 truncate pr-4">{selectedViewerFile.original_filename}</span>
                                             <a
-                                                href={selectedViewerFile.gdrive_web_view_link}
+                                                href={
+                                                    selectedViewerFile.gdrive_web_view_link ||
+                                                    (selectedViewerFile.gdrive_file_id
+                                                        ? `https://drive.google.com/file/d/${selectedViewerFile.gdrive_file_id}/view`
+                                                        : selectedViewerFile.gdrive_link || '#')
+                                                }
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="text-[10px] font-bold uppercase tracking-wider text-primary-600 hover:bg-primary-50 border border-transparent hover:border-primary-100 px-3 py-1.5 flex items-center gap-1.5 rounded-md transition-all shrink-0"
