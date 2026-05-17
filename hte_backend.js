@@ -18,63 +18,27 @@ dotenv.config({ path: envPath });
 const app = express();
 const port = 3003; // Dedicated port for HTE/OJT Notifications
 
-// System config loaded from Supabase
-let systemConfig = {};
-let configLoaded = false;
-
-// Config - Only Supabase credentials from env, rest from database
+// Config - All from Vercel environment variables
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-/**
- * Load system configuration from Supabase
- */
-async function loadSystemConfig() {
-  try {
-    console.log("📡 [HTE] Loading system config from Supabase...");
+// SendGrid from environment
+const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
+const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL;
+const SENDGRID_FROM_NAME = process.env.SENDGRID_FROM_NAME;
 
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-      throw new Error("Supabase credentials not found in environment");
-    }
-
-    const configClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
-
-    const { data, error } = await configClient
-      .from("system_config")
-      .select("key, value");
-
-    if (error) throw error;
-
-    systemConfig = data.reduce((acc, item) => {
-      acc[item.key] = item.value;
-      return acc;
-    }, {});
-
-    configLoaded = true;
-    console.log(
-      `✅ [HTE] System config loaded: ${Object.keys(systemConfig).length} keys`,
-    );
-  } catch (error) {
-    console.error("❌ [HTE] Failed to load system config:", error);
-    throw error;
-  }
-}
-
-// Helper to get config value
+// Helper to get config value from environment
 function getConfig(key, defaultValue = null) {
-  return systemConfig[key] ?? defaultValue;
+  return process.env[key] ?? defaultValue;
 }
 
-// Initialize SendGrid after config loads
+// Initialize SendGrid with environment variables
 function initializeSendGrid() {
-  const apiKey = getConfig("SENDGRID_API_KEY");
-  if (apiKey) {
-    sgMail.setApiKey(apiKey);
-    console.log("✅ [HTE] SendGrid initialized");
+  if (SENDGRID_API_KEY) {
+    sgMail.setApiKey(SENDGRID_API_KEY);
+    console.log("✅ [HTE] SendGrid initialized from environment");
   } else {
-    console.warn("⚠️ [HTE] SendGrid API key not found in config");
+    console.warn("⚠️ [HTE] SendGrid API key not found in environment");
   }
 }
 
@@ -281,10 +245,7 @@ async function startServer() {
   try {
     console.log("🚀 Starting HTE Backend Server...");
 
-    // Load system config from Supabase
-    await loadSystemConfig();
-
-    // Initialize SendGrid with loaded config
+    // Initialize SendGrid with environment variables
     initializeSendGrid();
 
     // Start listening
@@ -301,11 +262,7 @@ async function startServer() {
 
 // Export for Vercel serverless
 export async function initializeHteApp() {
-  if (!configLoaded) {
-    await loadSystemConfig();
-    initializeSendGrid();
-    configLoaded = true;
-  }
+  initializeSendGrid();
   return app;
 }
 
@@ -314,4 +271,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   startServer();
 }
 
-export { app, loadSystemConfig, initializeSendGrid };
+export { app, initializeSendGrid };

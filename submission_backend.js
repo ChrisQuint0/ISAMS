@@ -24,67 +24,35 @@ dotenv.config({ path: envPath });
 const app = express();
 const port = 3002; // Dedicated port for Faculty Submissions
 
-// System config loaded from Supabase
-let systemConfig = {};
-let configLoaded = false;
-
-// Config - Only Supabase credentials from env, rest from database
+// Config - All from Vercel environment variables
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-/**
- * Load system configuration from Supabase
- */
-async function loadSystemConfig() {
-  try {
-    console.log("📡 [Submission] Loading system config from Supabase...");
+// Google OAuth from environment
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-      throw new Error("Supabase credentials not found in environment");
-    }
+// SendGrid from environment
+const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
+const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL;
+const SENDGRID_FROM_NAME = process.env.SENDGRID_FROM_NAME;
 
-    const configClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
-
-    const { data, error } = await configClient
-      .from("system_config")
-      .select("key, value");
-
-    if (error) throw error;
-
-    systemConfig = data.reduce((acc, item) => {
-      acc[item.key] = item.value;
-      return acc;
-    }, {});
-
-    configLoaded = true;
-    console.log(
-      `✅ [Submission] System config loaded: ${Object.keys(systemConfig).length} keys`,
-    );
-  } catch (error) {
-    console.error("❌ [Submission] Failed to load system config:", error);
-    throw error;
-  }
-}
-
-// Helper to get config value
+// Helper to get config value from environment
 function getConfig(key, defaultValue = null) {
-  return systemConfig[key] ?? defaultValue;
+  return process.env[key] ?? defaultValue;
 }
 
 const REDIRECT_URI = "http://localhost:3002/oauth2callback";
 const GOOGLE_DRIVE_FOLDER_ID = process.env.VITE_GOOGLE_DRIVE_FOLDER_ID;
 
-// Initialize SendGrid after config loads
+// Initialize SendGrid with environment variables
 function initializeSendGrid() {
-  const apiKey = getConfig("SENDGRID_API_KEY");
-  if (apiKey) {
-    sgMail.setApiKey(apiKey);
-    console.log("✅ [Submission] SendGrid initialized");
+  if (SENDGRID_API_KEY) {
+    sgMail.setApiKey(SENDGRID_API_KEY);
+    console.log("✅ [Submission] SendGrid initialized from environment");
   } else {
-    console.warn("⚠️ [Submission] SendGrid API key not found in config");
+    console.warn("⚠️ [Submission] SendGrid API key not found in environment");
   }
 }
 
@@ -114,19 +82,21 @@ const supabaseAdmin =
       })
     : null;
 
-// OAuth2 Client (initialized after config loads)
+// OAuth2 Client (initialized with environment variables)
 let oauth2Client = null;
 
+// Initialize OAuth client with environment variables
 function initializeOAuthClient() {
-  const clientId = getConfig("GOOGLE_CLIENT_ID");
-  const clientSecret = getConfig("GOOGLE_CLIENT_SECRET");
-
-  if (clientId && clientSecret) {
-    oauth2Client = new google.auth.OAuth2(clientId, clientSecret, REDIRECT_URI);
-    console.log("✅ [Submission] OAuth2 client initialized");
+  if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
+    oauth2Client = new google.auth.OAuth2(
+      GOOGLE_CLIENT_ID,
+      GOOGLE_CLIENT_SECRET,
+      REDIRECT_URI,
+    );
+    console.log("✅ [Submission] OAuth2 client initialized from environment");
   } else {
     console.warn(
-      "⚠️ [Submission] Google OAuth credentials not found in config",
+      "⚠️ [Submission] Google OAuth credentials not found in environment",
     );
   }
 }
@@ -1133,10 +1103,7 @@ async function startServer() {
   try {
     console.log("🚀 Starting Submission Backend Server...");
 
-    // Load system config from Supabase
-    await loadSystemConfig();
-
-    // Initialize services with loaded config
+    // Initialize services with environment variables
     initializeOAuthClient();
     initializeSendGrid();
 
@@ -1152,12 +1119,8 @@ async function startServer() {
 
 // Export for Vercel serverless
 export async function initializeSubmissionApp() {
-  if (!configLoaded) {
-    await loadSystemConfig();
-    initializeOAuthClient();
-    initializeSendGrid();
-    configLoaded = true;
-  }
+  initializeOAuthClient();
+  initializeSendGrid();
   return app;
 }
 
@@ -1166,4 +1129,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   startServer();
 }
 
-export { app, loadSystemConfig, initializeOAuthClient, initializeSendGrid };
+export { app, initializeOAuthClient, initializeSendGrid };
