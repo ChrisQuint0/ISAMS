@@ -236,23 +236,30 @@ async function handleUpload(req, res) {
           fields: "id, name, webViewLink",
         });
 
-        // Update Supabase
+
+        // Upsert into hte_document_uploads (correct pattern)
         const supabaseUrl = process.env.VITE_SUPABASE_URL;
         const supabaseAdmin = createClient(
           supabaseUrl,
           process.env.SUPABASE_SERVICE_ROLE_KEY,
         );
 
-        const updateData = {};
-        updateData[fieldId] = file.id;
+        const { error: upsertError } = await supabaseAdmin
+          .from("hte_document_uploads")
+          .upsert({
+            student_id: studentId,
+            field_id: fieldId,
+            gdrive_file_id: file.id,
+            gdrive_view_link: file.webViewLink,
+            original_filename: fileName,
+            status: "uploaded",
+            uploaded_at: new Date().toISOString(),
+            uploaded_by_role: "student", // or "coordinator" if applicable
+            uploaded_by_name: actorName,
+          }, { onConflict: ["student_id", "field_id"] });
 
-        const { error: updateError } = await supabaseAdmin
-          .from("hte_ojt_students")
-          .update(updateData)
-          .eq("id", studentId);
-
-        if (updateError) {
-          throw new Error(updateError.message);
+        if (upsertError) {
+          throw new Error(upsertError.message);
         }
 
         res.json({
@@ -294,31 +301,37 @@ async function handleDelete(req, res) {
       process.env.SUPABASE_SERVICE_ROLE_KEY,
     );
 
-    // Get current file ID
-    const { data: student } = await supabaseAdmin
-      .from("hte_ojt_students")
-      .select(fieldId)
-      .eq("id", studentId)
-      .single();
+    // Get current file ID from hte_document_uploads
+    const { data: upload } = await supabaseAdmin
+      .from("hte_document_uploads")
+      .select("gdrive_file_id")
+      .eq("student_id", studentId)
+      .eq("field_id", fieldId)
+      .maybeSingle();
 
-    if (!student || !student[fieldId]) {
+    if (!upload || !upload.gdrive_file_id) {
       return res.status(404).json({ error: "File not found" });
     }
-
-    const fileId = student[fieldId];
+    const fileId = upload.gdrive_file_id;
 
     // Delete from Google Drive
     const { drive } = await getAuthClient();
     await drive.files.delete({ fileId });
 
-    // Clear from Supabase
-    const updateData = {};
-    updateData[fieldId] = null;
-
+    // Clear file info from hte_document_uploads
     const { error: updateError } = await supabaseAdmin
-      .from("hte_ojt_students")
-      .update(updateData)
-      .eq("id", studentId);
+      .from("hte_document_uploads")
+      .update({
+        gdrive_file_id: null,
+        gdrive_view_link: null,
+        status: "pending",
+        uploaded_at: null,
+        original_filename: null,
+        uploaded_by_role: null,
+        uploaded_by_name: null,
+      })
+      .eq("student_id", studentId)
+      .eq("field_id", fieldId);
 
     if (updateError) {
       throw new Error(updateError.message);
