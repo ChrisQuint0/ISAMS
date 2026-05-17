@@ -12,29 +12,30 @@ export const config = {
 };
 
 export default async function handler(req, res) {
-  const path = req.url.split('?')[0];
+  // In Vercel, [...path].js provides segments as req.query.path array
+  const pathSegments = req.query.path || [];
+  const operation = pathSegments[0];
   
   // Route to appropriate handler
-  if (path.includes('/download/')) {
-    return handleDownload(req, res);
-  } else if (path.includes('/upload')) {
+  if (operation === 'download') {
+    return handleDownload(req, res, pathSegments[1]); // fileId is second segment
+  } else if (operation === 'upload') {
     return handleUpload(req, res);
-  } else if (path.includes('/create')) {
+  } else if (operation === 'create') {
     return handleCreate(req, res);
-  } else if (path.includes('/update')) {
+  } else if (operation === 'update') {
     return handleUpdate(req, res);
-  } else if (path.includes('/delete')) {
+  } else if (operation === 'delete') {
     return handleDelete(req, res);
-  } else if (path.includes('/advisers') || path.includes('/categories') || path.includes('/data')) {
-    return handleData(req, res);
+  } else if (operation === 'advisers' || operation === 'categories' || operation === 'data') {
+    return handleData(req, res, operation);
   }
   
   return res.status(404).json({ error: "Endpoint not found" });
 }
 
-async function handleDownload(req, res) {
+async function handleDownload(req, res, fileId) {
   try {
-    const fileId = req.url.split('/download/')[1]?.split('?')[0];
     if (!fileId) return res.status(400).json({ error: "File ID required" });
 
     const { oauth2Client } = await getAuthClient();
@@ -239,16 +240,16 @@ async function handleDelete(req, res) {
   }
 }
 
-async function handleData(req, res) {
+async function handleData(req, res, operation) {
   try {
     const { supabase } = await getSupabaseClients();
 
-    if (req.url.includes('/advisers')) {
+    if (operation === 'advisers') {
       const { data } = await supabase.from("vw_adviser_display").select("*").order("display_name", { ascending: true });
       return res.json(data || []);
     }
 
-    if (req.url.includes('/categories')) {
+    if (operation === 'categories') {
       const { data } = await supabase.from("thesis_categories").select("*").order("name", { ascending: true });
       return res.json(data || []);
     }

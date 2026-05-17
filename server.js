@@ -88,7 +88,7 @@ function initializeOAuthClient() {
     oauth2Client = new google.auth.OAuth2(
       GOOGLE_CLIENT_ID,
       GOOGLE_CLIENT_SECRET,
-      getRedirectUri(null),
+      REDIRECT_URI,
     );
     console.log("✅ OAuth2 client initialized from environment");
   } else {
@@ -2276,7 +2276,7 @@ export async function initializeApp() {
 }
 
 // Only start server if running directly (not imported)
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}`) {
   startServer();
 }
 

@@ -25,15 +25,17 @@ const BACKUP_TABLES = [
 ];
 
 export default async function handler(req, res) {
-  const path = req.url.split('?')[0];
+  // In Vercel, [...path].js provides segments as req.query.path array
+  const pathSegments = req.query.path || [];
+  const operation = pathSegments.join('/');
   
-  if (path.includes('/archive')) {
+  if (operation === 'archive') {
     return handleArchiveExport(req, res);
-  } else if (path.includes('/backup/export')) {
+  } else if (operation === 'backup/export') {
     return handleBackupExport(req, res);
-  } else if (path.includes('/backup/restore')) {
+  } else if (operation === 'backup/restore') {
     return handleBackupRestore(req, res);
-  } else if (path.includes('/faculty/export')) {
+  } else if (operation === 'faculty/export') {
     return handleFacultyExport(req, res);
   }
   

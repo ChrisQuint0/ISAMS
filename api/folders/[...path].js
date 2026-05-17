@@ -15,15 +15,17 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const path = req.url.split('?')[0];
+  // In Vercel, [...path].js provides segments as req.query.path array
+  const pathSegments = req.query.path || [];
+  const operation = pathSegments[0];
   
-  if (path.includes('/ensure')) {
+  if (operation === 'ensure') {
     return handleEnsure(req, res);
-  } else if (path.includes('/init-isams')) {
+  } else if (operation === 'init-isams') {
     return handleInitIsams(req, res);
-  } else if (path.includes('/rename')) {
+  } else if (operation === 'rename') {
     return handleRename(req, res);
-  } else if (path.includes('/create')) {
+  } else if (operation === 'create') {
     return handleCreate(req, res);
   }
   

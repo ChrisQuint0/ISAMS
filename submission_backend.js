@@ -1125,7 +1125,7 @@ export async function initializeSubmissionApp() {
 }
 
 // Only start server if running directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}`) {
   startServer();
 }
 

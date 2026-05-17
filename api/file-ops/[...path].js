@@ -11,17 +11,19 @@ export const config = {
 };
 
 export default async function handler(req, res) {
-  const path = req.url.split('?')[0];
+  // In Vercel, [...path].js provides segments as req.query.path array
+  const pathSegments = req.query.path || [];
+  const operation = pathSegments[0];
   
-  if (req.method === "GET" && !path.includes('/metadata')) {
+  if (req.method === "GET" && operation !== 'metadata') {
     return handleList(req, res);
-  } else if (path.includes('/metadata')) {
+  } else if (operation === 'metadata') {
     return handleMetadata(req, res);
-  } else if (path.includes('/delete')) {
+  } else if (operation === 'delete') {
     return handleDelete(req, res);
-  } else if (path.includes('/clone')) {
+  } else if (operation === 'clone') {
     return handleClone(req, res);
-  } else if (path.includes('/move')) {
+  } else if (operation === 'move') {
     return handleMove(req, res);
   }
   
