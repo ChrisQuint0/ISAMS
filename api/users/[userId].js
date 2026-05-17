@@ -1,6 +1,7 @@
 // /api/users/[userId].js
 import { createClient } from "@supabase/supabase-js";
 
+
 export default async function handler(req, res) {
   const {
     VITE_SUPABASE_URL: supabaseUrl,
@@ -23,27 +24,64 @@ export default async function handler(req, res) {
   }
 
   if (method === "PATCH" || method === "PUT" || method === "POST") {
-    // Update user info in users table (not auth)
     try {
       const updates = typeof body === "string" ? JSON.parse(body) : body;
-      // Remove protected fields if present
-      delete updates.id;
-      delete updates.created_at;
-      // Update users table
-      const { error } = await supabaseAdmin
-        .from("users")
-        .update(updates)
-        .eq("id", userId);
-      if (error) throw error;
+      // 1. Update auth.users metadata if needed
+      const authUpdatePayload = {};
+      if (updates.first_name || updates.last_name) {
+        authUpdatePayload.user_metadata = {};
+        if (updates.first_name)
+          authUpdatePayload.user_metadata.first_name = updates.first_name;
+        if (updates.last_name)
+          authUpdatePayload.user_metadata.last_name = updates.last_name;
+      }
+      if (updates.email) {
+        authUpdatePayload.email = updates.email;
+      }
+      if (Object.keys(authUpdatePayload).length > 0) {
+        const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+          userId,
+          authUpdatePayload,
+        );
+        if (authError) throw authError;
+      }
+
+      // 2. Update the user_rbac table if needed
+      const rbacUpdatePayload = {};
+      const rbacFields = [
+        "status",
+        "thesis",
+        "thesis_role",
+        "facsub",
+        "facsub_role",
+        "labman",
+        "labman_role",
+        "studvio",
+        "studvio_role",
+        "superadmin",
+      ];
+      rbacFields.forEach((field) => {
+        if (updates[field] !== undefined) {
+          rbacUpdatePayload[field] = updates[field];
+        }
+      });
+      if (Object.keys(rbacUpdatePayload).length > 0) {
+        const { error: rbacError } = await supabaseAdmin
+          .from("user_rbac")
+          .update(rbacUpdatePayload)
+          .eq("user_id", userId);
+        if (rbacError) throw rbacError;
+      }
+
       return res.json({ success: true });
     } catch (error) {
       return res.status(500).json({ error: error.message });
     }
   } else if (method === "GET") {
-    // Fetch user info
+    // Fetch user info from users_with_roles view
     try {
       const { data, error } = await supabaseAdmin
-        .from("users")
+        .from("users_with_roles")
         .select("*")
         .eq("id", userId)
         .single();
