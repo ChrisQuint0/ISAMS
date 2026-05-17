@@ -15,22 +15,6 @@
   },
   "rewrites": [
     {
-      "source": "/api/thesis/:path*",
-      "destination": "/api/thesis/[...path]"
-    },
-    {
-      "source": "/api/export/:path*",
-      "destination": "/api/export/[...path]"
-    },
-    {
-      "source": "/api/file-ops/:path*",
-      "destination": "/api/file-ops/[...path]"
-    },
-    {
-      "source": "/api/folders/:path*",
-      "destination": "/api/folders/[...path]"
-    },
-    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
