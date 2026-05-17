@@ -167,32 +167,74 @@ export const renameGDriveFolders = async (
  * @param {string} folderId - The Google Drive folder ID to upload into
  * @returns {Promise<{ id: string, name: string, webViewLink: string, webContentLink: string }>}
  */
+/**
+ * Upload a file to Google Drive using a two-step resumable upload:
+ *   Step 1 — ask our Vercel function for a Drive resumable session URL (tiny JSON, no file data)
+ *   Step 2 — PUT the file DIRECTLY to Google Drive using that URL (bypasses Vercel size limits)
+ *
+ * This supports files of any size regardless of Vercel's 4.5 MB function payload limit.
+ *
+ * @param {File} file - The file to upload
+ * @param {string} folderId - The Google Drive folder ID to upload into
+ * @returns {Promise<{ id: string, name: string, webViewLink: string, webContentLink: string }>}
+ */
 export const uploadToGDrive = async (file, folderId) => {
-  const formData = new FormData();
-  formData.append("file", file);
-  if (folderId) {
-    formData.append("folderId", folderId);
-  }
+  // ── Step 1: Get a resumable upload session URL from our backend ─────────
+  // This is a small JSON request — well within Vercel's limits.
+  const initRes = await fetch(
+    getApiUrl("/api/submission?operation=initiate-upload"),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        folderId,
+        fileName: file.name,
+        mimeType: file.type || "application/octet-stream",
+        fileSize: file.size,
+      }),
+    },
+  );
 
-  const res = await fetch(getApiUrl("/api/submission?operation=upload"), {
-    method: "POST",
-    body: formData,
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    let message = `Upload failed (HTTP ${res.status})`;
+  if (!initRes.ok) {
+    const text = await initRes.text().catch(() => "");
+    let message = `Failed to initiate upload (HTTP ${initRes.status})`;
     try {
       const json = JSON.parse(text);
       if (json.error) message = json.error;
     } catch (_) {
-      // non-JSON body (e.g. Vercel 413/504 HTML error page)
-      if (text) console.error("[uploadToGDrive] Server response:", text.slice(0, 300));
+      if (text) console.error("[uploadToGDrive] Initiate error:", text.slice(0, 300));
     }
     throw new Error(message);
   }
 
-  return res.json(); // { id, name, webViewLink, webContentLink }
+  const { uploadUrl } = await initRes.json();
+
+  // ── Step 2: Upload the file directly to Google Drive ────────────────────
+  // This request goes straight from the browser → Google Drive.
+  // Vercel is NOT in the data path, so there is no 4.5 MB limit.
+  const uploadRes = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      "Content-Type": file.type || "application/octet-stream",
+    },
+    body: file,
+  });
+
+  if (!uploadRes.ok) {
+    const errText = await uploadRes.text().catch(() => "");
+    console.error("[uploadToGDrive] Direct Drive upload failed:", uploadRes.status, errText.slice(0, 300));
+    throw new Error(`Upload to Google Drive failed (HTTP ${uploadRes.status})`);
+  }
+
+  // The completed resumable upload response IS the file metadata
+  const driveFile = await uploadRes.json();
+
+  return {
+    id: driveFile.id,
+    name: driveFile.name,
+    webViewLink: driveFile.webViewLink,
+    webContentLink: driveFile.webContentLink,
+  };
 };
 
 /**

@@ -27,6 +27,8 @@ export default async function handler(req, res) {
     switch (operation) {
       case "upload":
         return await handleUpload(req, res);
+      case "initiate-upload":
+        return await handleInitiateUpload(req, res);
       case "validate":
         return await handleValidate(req, res);
       case "send-email":
@@ -249,6 +251,76 @@ async function handleFolderRename(req, res) {
     folderIds: renamed,
     message: `Renamed ${renamed.length} folder(s) from "${oldName}" to "${newName}".`,
   });
+}
+
+/**
+ * handleInitiateUpload
+ * Creates a Google Drive resumable upload session and returns the session URL.
+ * The client then uploads the file DIRECTLY to Google Drive using that URL,
+ * completely bypassing Vercel's 4.5MB function payload limit.
+ *
+ * Body: { folderId, fileName, mimeType, fileSize }
+ * Response: { uploadUrl }
+ */
+async function handleInitiateUpload(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  const rawBody = await getRawBody(req, { limit: "1mb" });
+  const { folderId, fileName, mimeType, fileSize } = JSON.parse(
+    rawBody.toString(),
+  );
+
+  if (!fileName || !mimeType) {
+    return res
+      .status(400)
+      .json({ error: "fileName and mimeType are required" });
+  }
+
+  const { oauth2Client } = await getAuthClient();
+
+  // Refresh the token so we always have a valid access_token
+  const { token: accessToken } = await oauth2Client.getAccessToken();
+
+  // Metadata for the Drive file
+  const fileMetadata = {
+    name: fileName,
+    ...(folderId ? { parents: [folderId] } : {}),
+  };
+
+  // Ask Google Drive to open a resumable upload session
+  const initRes = await fetch(
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id%2Cname%2CwebViewLink%2CwebContentLink",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json; charset=UTF-8",
+        "X-Upload-Content-Type": mimeType,
+        ...(fileSize ? { "X-Upload-Content-Length": String(fileSize) } : {}),
+      },
+      body: JSON.stringify(fileMetadata),
+    },
+  );
+
+  if (!initRes.ok) {
+    const errText = await initRes.text().catch(() => "");
+    console.error("[InitiateUpload] Drive API error:", initRes.status, errText);
+    return res
+      .status(500)
+      .json({ error: `Drive session initiation failed (HTTP ${initRes.status})` });
+  }
+
+  // Google returns the resumable session URL in the Location header
+  const uploadUrl = initRes.headers.get("location");
+  if (!uploadUrl) {
+    return res
+      .status(500)
+      .json({ error: "Google Drive did not return an upload session URL" });
+  }
+
+  res.json({ success: true, uploadUrl });
 }
 
 async function getAuthClient() {
