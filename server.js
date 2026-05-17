@@ -32,6 +32,7 @@ const port = 3000;
 
 // System config loaded from Supabase
 let systemConfig = {};
+let configLoaded = false;
 
 // Config - Only Supabase credentials from env, rest from database
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
@@ -65,6 +66,7 @@ async function loadSystemConfig() {
       return acc;
     }, {});
 
+    configLoaded = true;
     console.log(
       `✅ System config loaded: ${Object.keys(systemConfig).length} keys`,
     );
@@ -79,7 +81,15 @@ function getConfig(key, defaultValue = null) {
   return systemConfig[key] ?? defaultValue;
 }
 
-const REDIRECT_URI = "http://localhost:3000/oauth2callback";
+// Dynamic redirect URI (will be set based on environment)
+let REDIRECT_URI = "http://localhost:3000/api/oauth2callback";
+
+function setRedirectUri(uri) {
+  REDIRECT_URI = uri;
+  if (oauth2Client) {
+    oauth2Client.redirectUri = uri;
+  }
+}
 
 // Middleware
 app.use(cors());
@@ -2102,6 +2112,14 @@ app.get("/api/auth/google/url", (req, res) => {
   }
 
   try {
+    // Set dynamic redirect URI based on request host
+    const host = req.headers.host || "localhost:3000";
+    const protocol = host.includes("localhost") ? "http" : "https";
+    const dynamicRedirectUri = `${protocol}://${host}/api/oauth2callback`;
+    
+    // Update OAuth client with dynamic redirect
+    oauth2Client.redirectUri = dynamicRedirectUri;
+
     const scopes = [
       "https://www.googleapis.com/auth/drive",
       "https://www.googleapis.com/auth/userinfo.email",
@@ -2126,7 +2144,7 @@ app.get("/api/auth/google/url", (req, res) => {
 });
 
 // OAuth Callback
-app.get("/oauth2callback", async (req, res) => {
+app.get("/api/oauth2callback", async (req, res) => {
   const { code, state: userId } = req.query;
 
   if (!code || !userId) {
@@ -2261,7 +2279,7 @@ app.get("/api/auth/google/status/:userId", async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Server Startup
+// Server Startup / Module Export
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function startServer() {
@@ -2284,5 +2302,19 @@ async function startServer() {
   }
 }
 
-// Start the server
-startServer();
+// Export for Vercel serverless (must initialize config first)
+export async function initializeApp() {
+  if (!configLoaded) {
+    await loadSystemConfig();
+    initializeOAuthClient();
+    configLoaded = true;
+  }
+  return app;
+}
+
+// Only start server if running directly (not imported)
+if (import.meta.url === `file://${process.argv[1]}`) {
+  startServer();
+}
+
+export { app, loadSystemConfig, initializeOAuthClient };

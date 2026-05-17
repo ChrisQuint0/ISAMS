@@ -23,12 +23,8 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: false,
-    proxy: {
-      "/api": {
-        target: "http://localhost:3000",
-        changeOrigin: true,
-      },
-    },
+    // Proxy removed - Vercel handles API routing in production
+    // For local development, run backends separately
   },
   envPrefix: ["VITE_", "TAURI_"],
   build: {

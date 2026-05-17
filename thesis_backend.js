@@ -22,6 +22,7 @@ const port = 3001; // Separate port to avoid conflict with server.js
 
 // System config loaded from Supabase
 let systemConfig = {};
+let configLoaded = false;
 
 // Config - Only Supabase credentials from env, rest from database
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
@@ -55,6 +56,7 @@ async function loadSystemConfig() {
       return acc;
     }, {});
 
+    configLoaded = true;
     console.log(
       `✅ [Thesis] System config loaded: ${Object.keys(systemConfig).length} keys`,
     );
@@ -590,8 +592,7 @@ async function logAuditTrail(
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Server Startup
+// ────────────── / Module Export
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function startServer() {
@@ -614,5 +615,20 @@ async function startServer() {
   }
 }
 
-// Start the server
+// Export for Vercel serverless
+export async function initializeThesisApp() {
+  if (!configLoaded) {
+    await loadSystemConfig();
+    initializeOAuthClient();
+    configLoaded = true;
+  }
+  return app;
+}
+
+// Only start server if running directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  startServer();
+}
+
+export { app, loadSystemConfig, initializeOAuthClient }server
 startServer();

@@ -26,6 +26,7 @@ const port = 3002; // Dedicated port for Faculty Submissions
 
 // System config loaded from Supabase
 let systemConfig = {};
+let configLoaded = false;
 
 // Config - Only Supabase credentials from env, rest from database
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
@@ -58,6 +59,7 @@ async function loadSystemConfig() {
       return acc;
     }, {});
 
+    configLoaded = true;
     console.log(
       `✅ [Submission] System config loaded: ${Object.keys(systemConfig).length} keys`,
     );
@@ -1124,7 +1126,7 @@ app.post("/api/backup/restore", async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Server Startup
+// Server Startup / Module Export
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function startServer() {
@@ -1148,5 +1150,20 @@ async function startServer() {
   }
 }
 
-// Start the server
-startServer();
+// Export for Vercel serverless
+export async function initializeSubmissionApp() {
+  if (!configLoaded) {
+    await loadSystemConfig();
+    initializeOAuthClient();
+    initializeSendGrid();
+    configLoaded = true;
+  }
+  return app;
+}
+
+// Only start server if running directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  startServer();
+}
+
+export { app, loadSystemConfig, initializeOAuthClient, initializeSendGrid };
