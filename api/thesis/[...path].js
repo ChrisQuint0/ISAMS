@@ -59,12 +59,22 @@ export default async function handler(req, res) {
     ) {
       return handleData(req, res, operation);
     }
+    
+    // If we reach here, operation didn't match
+    console.error("No matching operation found");
+    return res.status(404).json({ 
+      error: "Endpoint not found",
+      debug: {
+        operation,
+        pathSegments,
+        url: req.url,
+        queryPath: req.query.path
+      }
+    });
   } catch (error) {
     console.error("Thesis handler error:", error);
     return res.status(500).json({ error: error.message });
   }
-
-  return res.status(404).json({ error: "Endpoint not found" });
 }
 
 async function handleDownload(req, res, fileId) {

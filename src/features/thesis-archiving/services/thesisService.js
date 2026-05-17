@@ -631,7 +631,7 @@ export const thesisService = {
    * Get backend download URL for a thesis file
    */
   getDownloadUrl(fileId) {
-    return getApiUrl(`/api/thesis/download/${fileId}`);
+    return getApiUrl(`/api/thesis/download?fileId=${fileId}`);
   },
 
   /**
