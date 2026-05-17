@@ -346,7 +346,7 @@ export const settingsService = {
         );
         try {
           const fallbackRes = await fetch(
-            getApiUrl("/api/submission/validate-image"),
+            getApiUrl("/api/submission?operation=validate"),
             {
               method: "POST",
               body: formData,

@@ -478,7 +478,7 @@ export const facultyMonitorService = {
     docType,
     filenames,
   }) => {
-    const res = await fetch(getApiUrl("/api/submission/send-email"), {
+    const res = await fetch(getApiUrl("/api/submission?operation=send-email"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

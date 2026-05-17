@@ -13,7 +13,7 @@ export const uploadEvidenceToGDrive = async (file, folderId) => {
     formData.append("folderId", folderId);
   }
 
-  const res = await fetch(getApiUrl("/api/submission/upload"), {
+  const res = await fetch(getApiUrl("/api/submission?operation=upload"), {
     method: "POST",
     body: formData,
   });
@@ -32,7 +32,7 @@ export const uploadEvidenceToGDrive = async (file, folderId) => {
  * @returns {Promise<{ message: string }>}
  */
 export const deleteEvidenceFromGDrive = async (fileId) => {
-  const res = await fetch(getApiUrl("/api/submission/files/delete"), {
+  const res = await fetch(getApiUrl("/api/file-ops?operation=delete"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

@@ -217,7 +217,7 @@ export const archiveService = {
 
       // 3. Request ZIP from Node Backend
       const response = await fetch(
-        getApiUrl("/api/submission/faculty/export"),
+        getApiUrl("/api/export?operation=faculty"),
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

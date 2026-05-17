@@ -1,5 +1,6 @@
 /**
- * HTE Batch Notifications Handler
+ * HTE Notifications Handler  
+ * Route: /api/hte
  * Sends batch email notifications to HTE/OJT students
  */
 import { createClient } from "@supabase/supabase-js";
@@ -8,6 +9,7 @@ import getRawBody from "raw-body";
 
 export const config = {
   api: { bodyParser: false },
+  maxDuration: 60,
 };
 
 export default async function handler(req, res) {
@@ -48,124 +50,89 @@ export default async function handler(req, res) {
           initiated_by_user_id: actorInfo?.actorUserId || null,
           initiated_by_name: actorInfo?.actorName || "System",
           student_count: batchData.students.length,
-          academic_year: batchData.academicYear || null,
-          semester: batchData.semester || null,
+          status: "processing",
         },
       ])
       .select()
       .single();
 
-    if (batchError) throw batchError;
+    if (batchError) {
+      console.error("Failed to create batch:", batchError);
+      return res.status(500).json({ error: "Failed to create notification batch" });
+    }
 
-    const results = {
-      total: batchData.students.length,
-      success: 0,
-      failed: 0,
-      errors: [],
-    };
+    const batchId = batch.id;
+    const results = { sent: 0, failed: 0, errors: [] };
 
-    const recipientsToInsert = [];
-    const fromEmail = process.env.SENDGRID_FROM_EMAIL || "noreply@isams.edu.ph";
-    const fromName = process.env.SENDGRID_FROM_NAME || "ISAMS System";
-
+    // Send emails to students
     for (const student of batchData.students) {
       try {
-        const html = buildHTEEmailHtml({
-          studentName: student.name,
-          missingDocs: student.missingDocs,
-        });
-
-        await sgMail.send({
+        const msg = {
           to: student.email,
-          from: { email: fromEmail, name: fromName },
-          subject: "[ISAMS] HTE/OJT Document Submission Notice",
-          html: html,
-        });
+          from: {
+            email: process.env.SENDGRID_FROM_EMAIL,
+            name: process.env.SENDGRID_FROM_NAME || "ISAMS",
+          },
+          subject: batchData.emailSubject || "HTE/OJT Notification",
+          text: batchData.emailBody || "",
+          html: batchData.emailBody ? `<p>${batchData.emailBody.replace(/\n/g, "<br>")}</p>` : "",
+        };
 
-        recipientsToInsert.push({
-          batch_id: batch.id,
-          student_id: student.id,
-          student_name: student.name,
-          student_email: student.email,
-          missing_docs: student.missingDocs,
-        });
+        await sgMail.send(msg);
 
-        // Update cooldown
-        const expiresAt = new Date();
-        expiresAt.setHours(expiresAt.getHours() + 24);
+        // Record successful send
+        await supabaseAdmin.from("hte_notification_logs").insert([
+          {
+            batch_id: batchId,
+            student_name: student.fullName || student.name,
+            student_email: student.email,
+            status: "sent",
+            sent_at: new Date().toISOString(),
+          },
+        ]);
 
-        await supabaseAdmin.from("hte_notification_cooldowns").upsert({
-          student_id: student.id,
-          last_notified_at: new Date().toISOString(),
-          cooldown_expires_at: expiresAt.toISOString(),
-        });
+        results.sent++;
+      } catch (error) {
+        console.error(`Failed to send email to ${student.email}:`, error);
 
-        results.success++;
-      } catch (err) {
-        console.error(`Failed to notify ${student.name}:`, err);
+        // Record failed send
+        await supabaseAdmin.from("hte_notification_logs").insert([
+          {
+            batch_id: batchId,
+            student_name: student.fullName || student.name,
+            student_email: student.email,
+            status: "failed",
+            error_message: error.message,
+            sent_at: new Date().toISOString(),
+          },
+        ]);
+
         results.failed++;
         results.errors.push({
-          studentId: student.id,
-          name: student.name,
-          error: err.message,
+          email: student.email,
+          error: error.message,
         });
       }
     }
 
-    // Insert recipients
-    if (recipientsToInsert.length > 0) {
-      await supabaseAdmin
-        .from("hte_notification_recipients")
-        .insert(recipientsToInsert);
-    }
+    // Update batch status
+    await supabaseAdmin
+      .from("hte_notification_batches")
+      .update({
+        status: results.failed === 0 ? "completed" : "partial",
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", batchId);
 
-    res.json({ success: true, batchId: batch.id, results });
+    res.json({
+      success: true,
+      batchId,
+      sent: results.sent,
+      failed: results.failed,
+      errors: results.errors,
+    });
   } catch (error) {
-    console.error("HTE batch error:", error);
+    console.error("Batch notification error:", error);
     res.status(500).json({ error: error.message });
   }
-}
-
-function buildHTEEmailHtml({ studentName, missingDocs }) {
-  const primaryColor = "#006B35";
-  const baseStyle = `font-family: sans-serif; background: #f4f7f6; padding: 40px 20px; margin: 0;`;
-  const cardStyle = `background: #ffffff; border-radius: 16px; padding: 40px; max-width: 600px; margin: 0 auto; border: 1px solid #e1e8e5; box-shadow: 0 4px 6px rgba(0,0,0,0.05);`;
-
-  const headerStr = `
-    <div style="border-bottom: 3px solid ${primaryColor}; padding-bottom: 24px; margin-bottom: 30px; text-align: center;">
-      <h1 style="margin: 0; font-size: 28px; font-weight: 800; color: ${primaryColor};">ISAMS</h1>
-      <p style="margin: 6px 0 0; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: #667c71;">Integrated Smart Academic Management System</p>
-    </div>`;
-
-  const footerStr = `
-    <div style="margin-top: 40px; padding-top: 24px; border-top: 1px solid #edf2f0; text-align: center;">
-      <p style="margin: 0; font-size: 12px; color: #8a9991;">This is an automated notification from ISAMS.</p>
-    </div>`;
-
-  const docsList =
-    missingDocs && missingDocs.length > 0
-      ? `<div style="background: #fff5f5; border: 1px solid #feb2b2; border-radius: 8px; padding: 20px; margin: 24px 0;">
-        <p style="margin: 0 0 12px; font-size: 14px; font-weight: 700; color: #c53030;">Missing Requirements:</p>
-        <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #742a2a;">
-          ${missingDocs.map((doc) => `<li>${doc}</li>`).join("")}
-        </ul>
-      </div>`
-      : "";
-
-  return `
-    <div style="${baseStyle}">
-      <div style="${cardStyle}">
-        ${headerStr}
-        <p style="font-size: 16px; color: #2d3748; margin: 0 0 16px;">Dear <strong>${studentName}</strong>,</p>
-        <p style="font-size: 15px; color: #4a5568; line-height: 1.7;">
-          Our records show that you have pending requirements for your HTE/OJT documentation. 
-          Please settle the following:
-        </p>
-        ${docsList}
-        <p style="font-size: 14px; color: #718096;">
-          Please upload your missing documents through the ISAMS Desktop App.
-        </p>
-        ${footerStr}
-      </div>
-    </div>`;
 }

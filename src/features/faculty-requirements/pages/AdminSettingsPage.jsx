@@ -525,7 +525,7 @@ export default function AdminSettingsPage() {
   const handleDownloadBackup = async () => {
     setIsBackingUp(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/backup/export`);
+      const res = await fetch(getApiUrl("/api/export?operation=backup-export"));
       if (!res.ok) throw new Error(await res.text());
       const blob = await res.blob();
       const today = new Date().toISOString().slice(0, 10);
@@ -581,7 +581,7 @@ export default function AdminSettingsPage() {
     if (!restoreFile) return;
     setIsRestoring(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/backup/restore`, {
+      const res = await fetch(getApiUrl("/api/export?operation=backup-restore"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ backup: restoreFile }),

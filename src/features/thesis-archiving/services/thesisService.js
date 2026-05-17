@@ -1174,7 +1174,7 @@ export const thesisService = {
    */
   async sendBatchNotifications(batchData, actorInfo = {}) {
     const response = await fetch(
-      getApiUrl("/api/hte/notifications/send-batch"),
+      getApiUrl("/api/hte"),
       {
         method: "POST",
         headers: {

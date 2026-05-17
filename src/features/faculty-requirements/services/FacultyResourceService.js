@@ -225,7 +225,7 @@ export const FacultyResourceService = {
 
       // 3. POST the payload to your Node server
       const response = await fetch(
-        getApiUrl("/api/submission/faculty/export"),
+        getApiUrl("/api/export?operation=faculty"),
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

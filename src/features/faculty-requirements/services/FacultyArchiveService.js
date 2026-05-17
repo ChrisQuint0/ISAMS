@@ -196,7 +196,7 @@ export const FacultyArchiveService = {
 
       // POST the payload to the Express Node server to bypass CORS
       const response = await fetch(
-        getApiUrl("/api/submission/faculty/export"),
+        getApiUrl("/api/export?operation=faculty"),
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -319,7 +319,7 @@ export const FacultyArchiveService = {
 
       // POST the payload to the Express Node server to bypass CORS
       const response = await fetch(
-        getApiUrl("/api/submission/faculty/export"),
+        getApiUrl("/api/export?operation=faculty"),
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

@@ -63,7 +63,7 @@ export const getFolderId = (link) => {
  */
 export const checkGDriveAuth = async () => {
   try {
-    const res = await fetch(getApiUrl("/api/submission/status"));
+    const res = await fetch(getApiUrl("/api/submission?operation=status"));
     if (!res.ok) return false;
     const data = await res.json();
     return data.authenticated === true;
@@ -142,7 +142,7 @@ export const renameGDriveFolders = async (
   oldFolderName,
   newFolderName,
 ) => {
-  const res = await fetch(getApiUrl("/api/submission/folders/rename"), {
+  const res = await fetch(getApiUrl("/api/submission?operation=folder-rename"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ rootFolderId, oldFolderName, newFolderName }),
@@ -171,7 +171,7 @@ export const uploadToGDrive = async (file, folderId) => {
     formData.append("folderId", folderId);
   }
 
-  const res = await fetch(getApiUrl("/api/submission/upload"), {
+  const res = await fetch(getApiUrl("/api/submission?operation=upload"), {
     method: "POST",
     body: formData,
   });
@@ -191,7 +191,7 @@ export const uploadToGDrive = async (file, folderId) => {
  */
 export const listGDriveFiles = async (folderId) => {
   const res = await fetch(
-    getApiUrl(`/api/submission/files?folderId=${folderId}`),
+    getApiUrl(`/api/file-ops?operation=list&folderId=${folderId}`),
   );
   if (!res.ok) {
     const err = await res
@@ -209,7 +209,7 @@ export const listGDriveFiles = async (folderId) => {
  */
 export const getGDriveFileMetadata = async (fileId) => {
   const res = await fetch(
-    getApiUrl(`/api/submission/files/metadata?fileId=${fileId}`),
+    getApiUrl(`/api/file-ops?operation=metadata&fileId=${fileId}`),
   );
   if (!res.ok) {
     const err = await res
@@ -227,7 +227,7 @@ export const getGDriveFileMetadata = async (fileId) => {
  * @returns {Promise<Array>}
  */
 export const searchGDriveFiles = async (parentId, query) => {
-  const url = new URL(getApiUrl("/api/submission/files/search"));
+  const url = new URL(getApiUrl("/api/file-ops?operation=search"));
   if (parentId) url.searchParams.append("parentId", parentId);
   if (query) url.searchParams.append("query", query);
 
@@ -249,7 +249,7 @@ export const searchGDriveFiles = async (parentId, query) => {
  * @returns {Promise<{ id: string, name: string, webViewLink: string, webContentLink: string }>}
  */
 export const cloneGDriveFile = async (fileId, targetFolderId, newFileName) => {
-  const res = await fetch(getApiUrl("/api/submission/files/clone"), {
+  const res = await fetch(getApiUrl("/api/file-ops?operation=clone"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -270,7 +270,7 @@ export const cloneGDriveFile = async (fileId, targetFolderId, newFileName) => {
  * @returns {Promise<{ message: string }>}
  */
 export const deleteGDriveFile = async (fileId) => {
-  const res = await fetch(getApiUrl("/api/submission/files/delete"), {
+  const res = await fetch(getApiUrl("/api/file-ops?operation=delete"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
