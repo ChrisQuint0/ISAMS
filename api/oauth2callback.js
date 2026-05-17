@@ -32,7 +32,9 @@ export default async function handler(req, res) {
     // Create OAuth client with dynamic redirect URI
     const host = req.headers.host || "localhost:3000";
     const protocol = host.includes("localhost") ? "http" : "https";
-    const redirectUri = `${protocol}://${host}/api/oauth2callback`;
+    // Force port 3000 for localhost (backend API server, not frontend port 5173)
+    const finalHost = host.includes("localhost") ? "localhost:3000" : host;
+    const redirectUri = `${protocol}://${finalHost}/api/oauth2callback`;
 
     const oauth2Client = new google.auth.OAuth2(
       clientId,
