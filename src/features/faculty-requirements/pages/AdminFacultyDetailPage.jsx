@@ -683,15 +683,26 @@ export default function AdminFacultyDetailPage() {
 
     const handleSelectViewerFile = (fileObj) => {
         setSelectedViewerFile(fileObj);
-        let finalUrl = fileObj.gdrive_web_view_link || fileObj.gdrive_link;
-        if (finalUrl && finalUrl.includes('drive.google.com/file/d/')) {
-            finalUrl = finalUrl.replace('/view', '/preview');
-            if (!finalUrl.includes('/preview')) {
-                finalUrl += '/preview';
+
+        let previewUrl = null;
+
+        // 1. Prefer building from gdrive_file_id — most reliable
+        if (fileObj.gdrive_file_id) {
+            previewUrl = `https://drive.google.com/file/d/${fileObj.gdrive_file_id}/preview`;
+        } else {
+            // 2. Fall back: extract file ID from any stored Google Drive URL
+            const rawUrl = fileObj.gdrive_web_view_link || fileObj.gdrive_link || '';
+            const match = rawUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+            if (match) {
+                previewUrl = `https://drive.google.com/file/d/${match[1]}/preview`;
+            } else {
+                // 3. Last resort: use the raw URL as-is
+                previewUrl = rawUrl || null;
             }
         }
-        setPdfViewerUrl(finalUrl);
-        setPdfViewerTitle(fileObj.original_filename || "Document");
+
+        setPdfViewerUrl(previewUrl);
+        setPdfViewerTitle(fileObj.original_filename || 'Document');
     };
 
     const handleRequestRevision = (doc, courseCode) => {
