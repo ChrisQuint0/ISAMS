@@ -247,7 +247,7 @@ async function handleUpload(req, res) {
         updateData[fieldId] = file.id;
 
         const { error: updateError } = await supabaseAdmin
-          .from("hte_trainees")
+          .from("hte_ojt_students")
           .update(updateData)
           .eq("id", studentId);
 
@@ -296,7 +296,7 @@ async function handleDelete(req, res) {
 
     // Get current file ID
     const { data: student } = await supabaseAdmin
-      .from("hte_trainees")
+      .from("hte_ojt_students")
       .select(fieldId)
       .eq("id", studentId)
       .single();
@@ -316,7 +316,7 @@ async function handleDelete(req, res) {
     updateData[fieldId] = null;
 
     const { error: updateError } = await supabaseAdmin
-      .from("hte_trainees")
+      .from("hte_ojt_students")
       .update(updateData)
       .eq("id", studentId);
 
