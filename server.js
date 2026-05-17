@@ -2259,11 +2259,11 @@ app.get("/api/auth/google/status/:userId", async (req, res) => {
 app.get("/api/thesis/download/:fileId?", async (req, res) => {
   try {
     const fileId = req.params.fileId || req.query.fileId;
-    
+
     if (!fileId) {
       return res.status(400).json({ error: "File ID required" });
     }
-    
+
     const auth = await loadToken();
     if (!auth)
       return res.status(401).json({ error: "Not authenticated with GDrive" });

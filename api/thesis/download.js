@@ -10,9 +10,9 @@ export default async function handler(req, res) {
     console.log("Download handler invoked");
     console.log("Query params:", req.query);
     console.log("URL:", req.url);
-    
+
     const fileId = req.query.fileId;
-    
+
     if (!fileId) {
       return res.status(400).json({ error: "File ID required" });
     }
