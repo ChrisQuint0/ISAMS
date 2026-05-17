@@ -238,14 +238,20 @@ export default function Success() {
   }, [loading, countdown, navigate, labId, labName]);
 
   useEffect(() => {
-    if ((attendanceType === "In" || attendanceType === "Out") && studentData?.full_name) {
+    if ((attendanceType === "In" || attendanceType === "Out" || attendanceType === "Restricted") && studentData?.full_name) {
       const synth = window.speechSynthesis;
 
       const speakGreeting = () => {
         synth.cancel(); // Stop any pending speech
-        const message = attendanceType === "In"
-          ? `Check in successful. Welcome to ${labName}, ${studentData.full_name}.`
-          : `Check out successful. Goodbye, ${studentData.full_name}.`;
+        
+        let message = "";
+        if (attendanceType === "In") {
+          message = `Check in successful. Welcome to ${labName}, ${studentData.full_name}.`;
+        } else if (attendanceType === "Out") {
+          message = `Check out successful. Goodbye, ${studentData.full_name}.`;
+        } else if (attendanceType === "Restricted") {
+          message = `Sorry ${studentData.full_name}, ${restrictionMessage}`;
+        }
 
         const utterance = new SpeechSynthesisUtterance(message);
 
@@ -292,7 +298,7 @@ export default function Success() {
         window.speechSynthesis.cancel();
       };
     }
-  }, [attendanceType, studentData, labName]);
+  }, [attendanceType, studentData, labName, restrictionMessage]);
 
   if (loading) return (
     <div className="min-h-screen bg-neutral-100 flex flex-col items-center justify-center space-y-4">
