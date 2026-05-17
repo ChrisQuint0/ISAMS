@@ -168,19 +168,26 @@ export const renameGDriveFolders = async (
  * @returns {Promise<{ id: string, name: string, webViewLink: string, webContentLink: string }>}
  */
 /**
- * Upload a file to Google Drive using a two-step resumable upload:
- *   Step 1 — ask our Vercel function for a Drive resumable session URL (tiny JSON, no file data)
- *   Step 2 — PUT the file DIRECTLY to Google Drive using that URL (bypasses Vercel size limits)
+ * Upload a file to Google Drive using chunked resumable upload.
  *
- * This supports files of any size regardless of Vercel's 4.5 MB function payload limit.
+ * Flow:
+ *   1. POST /api/submission?operation=initiate-upload  → get sessionUri (tiny JSON, no file data)
+ *   2. For each 3 MB chunk:
+ *        POST /api/submission?operation=upload-chunk
+ *        Body: raw binary  |  Headers: X-Session-Uri, X-Chunk-Start, X-Total-Size
+ *   3. Final chunk response includes Drive file metadata
  *
- * @param {File} file - The file to upload
- * @param {string} folderId - The Google Drive folder ID to upload into
- * @returns {Promise<{ id: string, name: string, webViewLink: string, webContentLink: string }>}
+ * Each chunk is ≤3 MB, safely under Vercel's 4.5 MB payload limit.
+ * Supports files of any size.
+ *
+ * @param {File} file      - The File object to upload
+ * @param {string} folderId - Google Drive folder ID to upload into
+ * @returns {Promise<{ id, name, webViewLink, webContentLink }>}
  */
 export const uploadToGDrive = async (file, folderId) => {
-  // ── Step 1: Get a resumable upload session URL from our backend ─────────
-  // This is a small JSON request — well within Vercel's limits.
+  const CHUNK_SIZE = 3 * 1024 * 1024; // 3 MB — safely under Vercel's 4.5 MB limit
+
+  // ── Step 1: Open a resumable upload session ────────────────────────────
   const initRes = await fetch(
     getApiUrl("/api/submission?operation=initiate-upload"),
     {
@@ -207,34 +214,53 @@ export const uploadToGDrive = async (file, folderId) => {
     throw new Error(message);
   }
 
-  const { uploadUrl } = await initRes.json();
+  const { sessionUri } = await initRes.json();
 
-  // ── Step 2: Upload the file directly to Google Drive ────────────────────
-  // This request goes straight from the browser → Google Drive.
-  // Vercel is NOT in the data path, so there is no 4.5 MB limit.
-  const uploadRes = await fetch(uploadUrl, {
-    method: "PUT",
-    headers: {
-      "Content-Type": file.type || "application/octet-stream",
-    },
-    body: file,
-  });
+  // ── Step 2: Upload in 3 MB chunks through our Vercel function ──────────
+  // Vercel proxies each chunk to Google Drive using Content-Range headers.
+  // The file never touches Vercel as a whole — only one chunk at a time.
+  let uploadedBytes = 0;
 
-  if (!uploadRes.ok) {
-    const errText = await uploadRes.text().catch(() => "");
-    console.error("[uploadToGDrive] Direct Drive upload failed:", uploadRes.status, errText.slice(0, 300));
-    throw new Error(`Upload to Google Drive failed (HTTP ${uploadRes.status})`);
+  while (uploadedBytes < file.size) {
+    const chunkBlob = file.slice(uploadedBytes, uploadedBytes + CHUNK_SIZE);
+    const chunkBuffer = await chunkBlob.arrayBuffer();
+
+    const chunkRes = await fetch(
+      getApiUrl("/api/submission?operation=upload-chunk"),
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "X-Session-Uri": sessionUri,
+          "X-Chunk-Start": String(uploadedBytes),
+          "X-Total-Size": String(file.size),
+        },
+        body: chunkBuffer,
+      },
+    );
+
+    if (!chunkRes.ok) {
+      const err = await chunkRes.json().catch(() => ({ error: "Chunk upload failed" }));
+      throw new Error(err.error || `Chunk upload failed (HTTP ${chunkRes.status})`);
+    }
+
+    const result = await chunkRes.json();
+
+    if (result.complete) {
+      // Final chunk — Drive returned file metadata
+      return {
+        id: result.file.id,
+        name: result.file.name,
+        webViewLink: result.file.webViewLink,
+        webContentLink: result.file.webContentLink,
+      };
+    }
+
+    // More chunks needed — advance the pointer to where Drive confirms it received up to
+    uploadedBytes = result.uploaded;
   }
 
-  // The completed resumable upload response IS the file metadata
-  const driveFile = await uploadRes.json();
-
-  return {
-    id: driveFile.id,
-    name: driveFile.name,
-    webViewLink: driveFile.webViewLink,
-    webContentLink: driveFile.webContentLink,
-  };
+  throw new Error("Upload loop ended without receiving file metadata from Drive");
 };
 
 /**

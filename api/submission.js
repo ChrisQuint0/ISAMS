@@ -29,6 +29,8 @@ export default async function handler(req, res) {
         return await handleUpload(req, res);
       case "initiate-upload":
         return await handleInitiateUpload(req, res);
+      case "upload-chunk":
+        return await handleUploadChunk(req, res);
       case "validate":
         return await handleValidate(req, res);
       case "send-email":
@@ -255,12 +257,11 @@ async function handleFolderRename(req, res) {
 
 /**
  * handleInitiateUpload
- * Creates a Google Drive resumable upload session and returns the session URL.
- * The client then uploads the file DIRECTLY to Google Drive using that URL,
- * completely bypassing Vercel's 4.5MB function payload limit.
+ * Creates a Google Drive resumable upload session.
+ * Returns the session URI which the client passes back with each chunk.
  *
  * Body: { folderId, fileName, mimeType, fileSize }
- * Response: { uploadUrl }
+ * Response: { sessionUri }
  */
 async function handleInitiateUpload(req, res) {
   if (req.method !== "POST") {
@@ -280,16 +281,15 @@ async function handleInitiateUpload(req, res) {
 
   const { oauth2Client } = await getAuthClient();
 
-  // Refresh the token so we always have a valid access_token
+  // Ensure we have a fresh access token
   const { token: accessToken } = await oauth2Client.getAccessToken();
 
-  // Metadata for the Drive file
   const fileMetadata = {
     name: fileName,
     ...(folderId ? { parents: [folderId] } : {}),
   };
 
-  // Ask Google Drive to open a resumable upload session
+  // Open a resumable upload session with Google Drive
   const initRes = await fetch(
     "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id%2Cname%2CwebViewLink%2CwebContentLink",
     {
@@ -312,15 +312,97 @@ async function handleInitiateUpload(req, res) {
       .json({ error: `Drive session initiation failed (HTTP ${initRes.status})` });
   }
 
-  // Google returns the resumable session URL in the Location header
-  const uploadUrl = initRes.headers.get("location");
-  if (!uploadUrl) {
+  // Google Drive returns the session URI in the Location response header
+  const sessionUri = initRes.headers.get("location");
+  if (!sessionUri) {
     return res
       .status(500)
-      .json({ error: "Google Drive did not return an upload session URL" });
+      .json({ error: "Google Drive did not return a session URI" });
   }
 
-  res.json({ success: true, uploadUrl });
+  res.json({ success: true, sessionUri });
+}
+
+/**
+ * handleUploadChunk
+ * Receives a raw binary chunk from the client and forwards it to the
+ * Google Drive resumable upload session using the Content-Range protocol.
+ *
+ * Each chunk must be ≤3 MB so it stays under Vercel's 4.5 MB payload limit.
+ *
+ * Headers required:
+ *   X-Session-Uri  — the Drive resumable session URI from handleInitiateUpload
+ *   X-Chunk-Start  — byte offset of this chunk (0-based)
+ *   X-Total-Size   — total file size in bytes
+ *
+ * Body: raw binary (application/octet-stream)
+ *
+ * Response:
+ *   { complete: false, uploaded: N }  — chunk accepted, N bytes received so far
+ *   { complete: true,  file: {...} }   — final chunk, Drive file metadata returned
+ */
+async function handleUploadChunk(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  const sessionUri = req.headers["x-session-uri"];
+  const chunkStart = parseInt(req.headers["x-chunk-start"], 10);
+  const totalSize = parseInt(req.headers["x-total-size"], 10);
+
+  if (!sessionUri || isNaN(chunkStart) || isNaN(totalSize)) {
+    return res.status(400).json({
+      error: "Missing required headers: x-session-uri, x-chunk-start, x-total-size",
+    });
+  }
+
+  // Read the raw chunk bytes (≤3 MB each → safely under Vercel's 4.5 MB limit)
+  const chunkBuffer = await getRawBody(req, { limit: "4mb" });
+  const chunkEnd = chunkStart + chunkBuffer.length - 1;
+
+  console.log(
+    `[UploadChunk] bytes ${chunkStart}-${chunkEnd}/${totalSize} (${chunkBuffer.length} bytes)`,
+  );
+
+  // Forward the chunk to Google Drive with the Content-Range header
+  const driveRes = await fetch(sessionUri, {
+    method: "PUT",
+    headers: {
+      "Content-Length": String(chunkBuffer.length),
+      "Content-Range": `bytes ${chunkStart}-${chunkEnd}/${totalSize}`,
+    },
+    body: chunkBuffer,
+  });
+
+  // 308 Resume Incomplete = chunk accepted, more chunks needed
+  if (driveRes.status === 308) {
+    const rangeHeader = driveRes.headers.get("range");
+    const uploaded = rangeHeader
+      ? parseInt(rangeHeader.split("-")[1], 10) + 1
+      : chunkEnd + 1;
+    return res.json({ complete: false, uploaded });
+  }
+
+  // 200 or 201 = upload complete, Drive returns file metadata
+  if (driveRes.ok) {
+    const file = await driveRes.json();
+    return res.json({
+      complete: true,
+      file: {
+        id: file.id,
+        name: file.name,
+        webViewLink: file.webViewLink,
+        webContentLink: file.webContentLink,
+      },
+    });
+  }
+
+  // Anything else is an error
+  const errText = await driveRes.text().catch(() => "");
+  console.error("[UploadChunk] Drive error:", driveRes.status, errText);
+  return res
+    .status(500)
+    .json({ error: `Drive chunk upload failed (HTTP ${driveRes.status})` });
 }
 
 async function getAuthClient() {
