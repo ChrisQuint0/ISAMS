@@ -676,7 +676,7 @@ export default function FacultyDashboardPage() {
                     )}
                   </>
                 );
-              })()
+              })()}
 
             </div>
           </div>
