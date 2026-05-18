@@ -22,6 +22,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useToast } from "@/components/ui/toast/toaster";
 import { updateUser } from "@/features/users/services/usersService";
 import { useAuth } from "@/features/auth/hooks/useAuth";
+import { getApiUrl } from "@/lib/apiConfig";
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
