@@ -278,14 +278,7 @@ export default function FacultyDashboardPage() {
                   )}
                 </div>
               </DialogHeader>
-              {/* ...existing code for DialogContent... */}
-            </DialogContent>
-          </Dialog>
-        </div>
-      </ToastProvider>
-    </>
-  );
-          <div className="flex-1 flex overflow-hidden">
+              <div className="flex-1 flex overflow-hidden">
             {/* Left Side: File List */}
             <div className="w-1/3 min-w-[300px] border-r border-neutral-200 bg-neutral-50 flex flex-col">
               <div className="p-3 border-b border-neutral-200 bg-neutral-100/50 flex justify-between items-center">
@@ -403,10 +396,13 @@ export default function FacultyDashboardPage() {
                     </div>
                   )}
                 </>
-              )
-
-            </DialogContent>
+              )}
+            </div>
+          </div>
+        </DialogContent>
       </Dialog>
-    </ToastProvider>
+    </div>
+  </ToastProvider>
+</>
   );
 }
