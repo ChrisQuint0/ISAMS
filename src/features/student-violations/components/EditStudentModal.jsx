@@ -125,13 +125,15 @@ export function EditStudentModal({ isOpen, onClose, onSuccess, studentData }) {
 
     return (
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-            <DialogContent className="sm:max-w-[550px] bg-white border-neutral-200 text-neutral-900 shadow-lg rounded-xl">
-                <DialogHeader>
+            <DialogContent className="sm:max-w-[550px] max-h-[90vh] flex flex-col bg-white border-neutral-200 text-neutral-900 shadow-lg rounded-xl p-0 overflow-hidden">
+                <DialogHeader className="p-6 pb-4 shrink-0 border-b border-neutral-100 pr-12">
                     <DialogTitle className="text-xl font-bold text-neutral-900 tracking-tight">Edit Student Record</DialogTitle>
                     <DialogDescription className="text-neutral-500 font-medium">
                         Update the information for student ID <strong className="text-neutral-900">{studentData?.id}</strong>.
                     </DialogDescription>
                 </DialogHeader>
+
+                <div className="flex-1 overflow-y-auto p-6 pt-2 scrollbar-hide">
 
                 {errorMsg && (
                     <div ref={errorRef} className="bg-red-50 border border-red-200 text-destructive-semantic p-3 rounded-md flex items-start gap-3 mt-4 text-sm font-medium animate-in fade-in slide-in-from-top-2 duration-300">
@@ -215,7 +217,7 @@ export function EditStudentModal({ isOpen, onClose, onSuccess, studentData }) {
                         </Button>
                     </div>
                 </form>
-
+                </div>
             </DialogContent>
         </Dialog>
     );

@@ -10,6 +10,16 @@ import { Card } from "@/components/ui/card";
 import { supabase } from "@/lib/supabaseClient";
 
 import { AddSanctionModal } from "../../components/AddSanctionModal";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -40,6 +50,8 @@ const ManageSanctions = () => {
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedSanction, setSelectedSanction] = useState(null);
+    const [deleteModal, setDeleteModal] = useState({ isOpen: false, data: null });
+    const [errorModal, setErrorModal] = useState({ isOpen: false, message: "" });
 
     const fetchSanctions = async () => {
         setIsLoading(true);
@@ -68,22 +80,32 @@ const ManageSanctions = () => {
         setIsModalOpen(true);
     };
 
-    const handleDelete = async (data) => {
-        if (window.confirm(`Are you sure you want to delete this sanction matrix entry?`)) {
-            try {
-                const { error } = await supabase
-                    .from('sanctions_sv')
-                    .delete()
-                    .eq('matrix_id', data.matrix_id);
+    const confirmDelete = (data) => {
+        setDeleteModal({ isOpen: true, data });
+    };
 
-                if (error) {
-                    throw error;
+    const handleDelete = async () => {
+        if (!deleteModal.data) return;
+        try {
+            const { error } = await supabase
+                .from('sanctions_sv')
+                .delete()
+                .eq('matrix_id', deleteModal.data.matrix_id);
+
+            if (error) {
+                if (error.code === '23503') {
+                    setErrorModal({ isOpen: true, message: 'Cannot delete this sanction because it is referenced elsewhere.' });
                 } else {
-                    await fetchSanctions();
+                    throw error;
                 }
-            } catch (err) {
-                console.error("Error deleting sanction:", err);
+            } else {
+                await fetchSanctions();
             }
+        } catch (err) {
+            console.error("Error deleting sanction:", err);
+            setErrorModal({ isOpen: true, message: 'An unexpected error occurred while deleting the sanction.' });
+        } finally {
+            setDeleteModal({ isOpen: false, data: null });
         }
     };
 
@@ -132,7 +154,11 @@ const ManageSanctions = () => {
             flex: 2,
             filter: true,
             tooltipField: "sanction_description",
-            cellStyle: { color: 'var(--neutral-500)' }
+            cellStyle: { color: 'var(--neutral-500)' },
+            cellRenderer: (params) => {
+                const val = params.value?.trim();
+                return val ? val : <span className="text-neutral-400 italic">No description provided</span>;
+            }
         },
         {
             headerName: "Actions",
@@ -155,7 +181,7 @@ const ManageSanctions = () => {
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 text-neutral-400 hover:text-destructive-semantic hover:bg-red-50 transition-colors"
-                        onClick={() => handleDelete(params.data)}
+                        onClick={() => confirmDelete(params.data)}
                         title="Delete"
                     >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -260,6 +286,35 @@ const ManageSanctions = () => {
                 onSuccess={fetchSanctions}
                 editingSanction={selectedSanction}
             />
+
+            <AlertDialog open={deleteModal.isOpen} onOpenChange={(isOpen) => setDeleteModal(prev => ({ ...prev, isOpen }))}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will permanently delete the sanction <span className="font-semibold text-neutral-900">{deleteModal.data?.sanction_name}</span>. This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDelete} className="bg-destructive-semantic hover:bg-destructive-semantic/90 text-white">Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={errorModal.isOpen} onOpenChange={(isOpen) => setErrorModal(prev => ({ ...prev, isOpen }))}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-destructive-semantic">Cannot Delete</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {errorModal.message}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogAction onClick={() => setErrorModal({ isOpen: false, message: "" })}>Acknowledge</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 };

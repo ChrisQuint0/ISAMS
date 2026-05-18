@@ -10,6 +10,16 @@ import { Card } from "@/components/ui/card";
 import { supabase } from "@/lib/supabaseClient";
 
 import { AddOffenseModal } from "../../components/AddOffenseModal";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -40,6 +50,8 @@ const ManageOffenses = () => {
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedOffense, setSelectedOffense] = useState(null);
+    const [deleteModal, setDeleteModal] = useState({ isOpen: false, data: null });
+    const [errorModal, setErrorModal] = useState({ isOpen: false, message: "" });
 
     const fetchOffenses = async () => {
         setIsLoading(true);
@@ -67,26 +79,32 @@ const ManageOffenses = () => {
         setIsModalOpen(true);
     };
 
-    const handleDelete = async (data) => {
-        if (window.confirm(`Are you sure you want to delete ${data.name}?`)) {
-            try {
-                const { error } = await supabase
-                    .from('offense_types_sv')
-                    .delete()
-                    .eq('offense_type_id', data.offense_type_id);
+    const confirmDelete = (data) => {
+        setDeleteModal({ isOpen: true, data });
+    };
 
-                if (error) {
-                    if (error.code === '23503') {
-                        alert('Cannot delete this offense because it is referenced in existing violations.');
-                    } else {
-                        throw error;
-                    }
+    const handleDelete = async () => {
+        if (!deleteModal.data) return;
+        try {
+            const { error } = await supabase
+                .from('offense_types_sv')
+                .delete()
+                .eq('offense_type_id', deleteModal.data.offense_type_id);
+
+            if (error) {
+                if (error.code === '23503') {
+                    setErrorModal({ isOpen: true, message: 'Cannot delete this offense because it is referenced in existing violations.' });
                 } else {
-                    await fetchOffenses();
+                    throw error;
                 }
-            } catch (err) {
-                console.error("Error deleting offense:", err);
+            } else {
+                await fetchOffenses();
             }
+        } catch (err) {
+            console.error("Error deleting offense:", err);
+            setErrorModal({ isOpen: true, message: 'An unexpected error occurred while deleting the offense.' });
+        } finally {
+            setDeleteModal({ isOpen: false, data: null });
         }
     };
 
@@ -123,7 +141,11 @@ const ManageOffenses = () => {
             flex: 2,
             filter: true,
             tooltipField: "description",
-            cellStyle: { color: 'var(--neutral-500)' }
+            cellStyle: { color: 'var(--neutral-500)' },
+            cellRenderer: (params) => {
+                const val = params.value?.trim();
+                return val ? val : <span className="text-neutral-400 italic">No description provided</span>;
+            }
         },
         {
             headerName: "Actions",
@@ -146,7 +168,7 @@ const ManageOffenses = () => {
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 text-neutral-400 hover:text-destructive-semantic hover:bg-red-50 transition-colors"
-                        onClick={() => handleDelete(params.data)}
+                        onClick={() => confirmDelete(params.data)}
                         title="Delete"
                     >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -251,6 +273,35 @@ const ManageOffenses = () => {
                 onSuccess={fetchOffenses}
                 editingOffense={selectedOffense}
             />
+
+            <AlertDialog open={deleteModal.isOpen} onOpenChange={(isOpen) => setDeleteModal(prev => ({ ...prev, isOpen }))}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will permanently delete the offense <span className="font-semibold text-neutral-900">{deleteModal.data?.name}</span>. This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDelete} className="bg-destructive-semantic hover:bg-destructive-semantic/90 text-white">Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={errorModal.isOpen} onOpenChange={(isOpen) => setErrorModal(prev => ({ ...prev, isOpen }))}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-destructive-semantic">Cannot Delete</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {errorModal.message}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogAction onClick={() => setErrorModal({ isOpen: false, message: "" })}>Acknowledge</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 };

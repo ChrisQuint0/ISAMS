@@ -3,14 +3,13 @@ import { AgGridReact } from "ag-grid-react";
 import { ModuleRegistry, AllCommunityModule, themeQuartz } from "ag-grid-community";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import ExcelJS from "exceljs";
-import { saveAs } from "file-saver";
+
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 import {
   FileText, Download, Calendar, ShieldAlert, Scale, Users,
-  Loader2, Filter, FileSpreadsheet, SlidersHorizontal
+  Loader2, Filter, SlidersHorizontal
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -577,146 +576,6 @@ const GenerateReport = () => {
     }
   };
 
-  const exportToExcel = async () => {
-    setIsExporting(true);
-    try {
-      const title = getReportTitle();
-      const wb = new ExcelJS.Workbook();
-      wb.creator = "ISAMS";
-      wb.created = new Date();
-
-      const ws = wb.addWorksheet(title);
-
-      // Load logos (dynamic fallback to local asset if null)
-      const [plpBase64, ccsBase64] = await Promise.all([
-        imageUrlToBase64(plpLogo),
-        imageUrlToBase64(logoUrl || ccsLogo)
-      ]);
-
-      // Add Headers manually to manage space for the formal header
-      const headers = columnDefs.map(c => c.headerName);
-      const fields = columnDefs.map(c => c.field);
-      const startDataRow = 8;
-
-      // School Name
-      ws.mergeCells(1, 1, 1, headers.length);
-      const schoolCell = ws.getCell(1, 1);
-      schoolCell.value = "Pamantasan ng Lungsod ng Pasig";
-      schoolCell.font = { bold: true, size: 16 };
-      schoolCell.alignment = { horizontal: "center", vertical: "middle" };
-
-      // College name
-      ws.mergeCells(2, 1, 2, headers.length);
-      const collegeCell = ws.getCell(2, 1);
-      collegeCell.value = settings.college_name || "College of Computer Studies";
-      collegeCell.font = { size: 12 };
-      collegeCell.alignment = { horizontal: "center", vertical: "middle" };
-
-      // System name
-      ws.mergeCells(3, 1, 3, headers.length);
-      const systemCell = ws.getCell(3, 1);
-      systemCell.value = "Student Violation Management System";
-      systemCell.font = { size: 10, italic: true, color: { argb: "FF666666" } };
-      systemCell.alignment = { horizontal: "center", vertical: "middle" };
-
-      // Report Title
-      ws.mergeCells(5, 1, 5, headers.length);
-      const titleCell = ws.getCell(5, 1);
-      titleCell.value = title.toUpperCase();
-      titleCell.font = { bold: true, size: 14 };
-      titleCell.alignment = { horizontal: "center", vertical: "middle" };
-
-      // Generation Info
-      ws.mergeCells(6, 1, 6, headers.length);
-      const genCell = ws.getCell(6, 1);
-      genCell.value = `Date Generated: ${new Date().toLocaleString()}`;
-      genCell.font = { size: 9, color: { argb: "FF666666" } };
-      genCell.alignment = { horizontal: "center", vertical: "middle" };
-
-      // Add Logos to Excel if available
-      if (plpBase64) {
-        const plpImage = wb.addImage({
-          base64: plpBase64.split(",")[1],
-          extension: "png",
-        });
-        ws.addImage(plpImage, {
-          tl: { col: 0, row: 0 },
-          ext: { width: 80, height: 80 },
-          editAs: "oneCell"
-        });
-      }
-
-      if (ccsBase64) {
-        const ccsImage = wb.addImage({
-          base64: ccsBase64.split(",")[1],
-          extension: "png",
-        });
-        ws.addImage(ccsImage, {
-          tl: { col: headers.length - 1, row: 0 },
-          ext: { width: 80, height: 80 },
-          editAs: "oneCell"
-        });
-      }
-
-      // Render Table Headers
-      const headerRow = ws.getRow(startDataRow);
-      headerRow.values = headers;
-      headerRow.eachCell(cell => {
-        cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
-        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF16A34A" } };
-        cell.alignment = { vertical: "middle", horizontal: "center" };
-        cell.border = {
-          bottom: { style: "thin", color: { argb: "FF000000" } },
-        };
-      });
-
-      // Data rows
-      previewData.forEach((row, idx) => {
-        ws.addRow(fields.map(f => row[f] ?? ""));
-      });
-
-      // Auto-width columns
-      ws.columns.forEach((col, i) => {
-        let maxLen = headers[i]?.length || 10;
-        previewData.forEach(row => {
-          const val = String(row[fields[i]] ?? "");
-          if (val.length > maxLen) maxLen = val.length;
-        });
-        col.width = Math.min(maxLen + 4, 50);
-      });
-
-      const defaultFilename = `${selectedType}_report_${new Date().toISOString().slice(0, 10)}.xlsx`;
-      const buffer = await wb.xlsx.writeBuffer();
-
-      if (window.__TAURI_INTERNALS__) {
-        try {
-          const { save } = await import("@tauri-apps/plugin-dialog");
-          const { invoke } = await import("@tauri-apps/api/core");
-
-          const filePath = await save({
-            defaultPath: defaultFilename,
-            filters: [{ name: "Excel Spreadsheet", extensions: ["xlsx"] }]
-          });
-
-          if (filePath) {
-            const uint8Array = new Uint8Array(buffer);
-            await invoke("save_file_binary", { path: filePath, content: Array.from(uint8Array) });
-          }
-        } catch (err) {
-          console.error("Failed to save Excel in Tauri context:", err);
-        }
-      } else {
-        const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-        saveAs(blob, defaultFilename);
-      }
-    } catch (err) {
-      console.error("Excel export error:", err);
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-
   return (
     <div className="space-y-8 flex flex-col h-full animate-in fade-in duration-500 text-left bg-neutral-50 px-2">
       {/* PAGE HEADER */}
@@ -819,13 +678,7 @@ const GenerateReport = () => {
               >
                 <FileText className="mr-2 h-4 w-4" /> PDF
               </Button>
-              <Button
-                onClick={exportToExcel}
-                disabled={previewData.length === 0 || isExporting}
-                className="flex-1 bg-success/90 hover:bg-success text-white font-bold text-sm h-10 rounded-lg shadow-sm transition-all active:scale-95 disabled:opacity-50"
-              >
-                <FileSpreadsheet className="mr-2 h-4 w-4" /> Excel
-              </Button>
+
             </div>
           </div>
         </section>

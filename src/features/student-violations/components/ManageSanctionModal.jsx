@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/lib/supabaseClient";
-import { CheckCircle2, AlertCircle, Loader2, UploadCloud, X, FileText, ExternalLink, Trash2 } from "lucide-react";
+import { CheckCircle2, AlertCircle, Loader2, UploadCloud, X, FileText, ExternalLink, Trash2, Calendar, User, Gavel, ClipboardList, Clock, History } from "lucide-react";
 import { uploadEvidenceToGDrive, deleteEvidenceFromGDrive } from "../services/gdriveEvidenceUpload";
 import { sendViolationNotification } from "../services/emailNotificationService";
 
@@ -337,33 +337,62 @@ export function ManageSanctionModal({ isOpen, onClose, onSuccess, sanctionData }
                 <div className="flex-1 overflow-y-auto px-6 py-4 pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-3 grid grid-cols-2 gap-3 text-xs shadow-sm mb-4">
                         <div>
-                            <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5">Student</p>
+                            <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5 flex items-center gap-1">
+                                <User className="w-3.5 h-3.5 text-neutral-400" /> Student
+                            </p>
                             <p className="text-neutral-900 font-bold">{sanctionData.student_name}</p>
                         </div>
                         <div>
-                            <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5">Action</p>
+                            <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5 flex items-center gap-1">
+                                <Gavel className="w-3.5 h-3.5 text-neutral-400" /> Action
+                            </p>
                             <p className="text-neutral-900 font-bold">{sanctionData.sanction_name}</p>
                         </div>
                         <div className="col-span-2">
-                            <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5">Conditions</p>
+                            <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5 flex items-center gap-1">
+                                <ClipboardList className="w-3.5 h-3.5 text-neutral-400" /> Conditions
+                            </p>
                             <p className="text-neutral-600 italic font-medium">{sanctionData.original_data?.description || 'None'}</p>
                         </div>
                     </div>
 
                     <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-3 grid grid-cols-2 gap-3 text-xs shadow-sm mb-4">
                         <div>
-                            <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5">Sanction Assigned</p>
+                            <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5 flex items-center gap-1">
+                                <Clock className="w-3.5 h-3.5 text-neutral-400" /> Sanction Assigned
+                            </p>
                             <p className="text-neutral-900 font-bold">
                                 {formatLongDateTime(sanctionData.original_data?.created_at)}
                             </p>
                             <p className="text-neutral-500 font-medium">by {assignedByName}</p>
                         </div>
                         <div>
-                            <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5">Last Modified</p>
+                            <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5 flex items-center gap-1">
+                                <History className="w-3.5 h-3.5 text-neutral-400" /> Last Modified
+                            </p>
                             <p className="text-neutral-900 font-bold">
                                 {formatLongDateTime(sanctionData.original_data?.updated_at)}
                             </p>
                             <p className="text-neutral-500 font-medium">by {updatedByName}</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-3 grid grid-cols-2 gap-3 text-xs shadow-sm mb-4">
+                        <div>
+                            <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5 flex items-center gap-1">
+                                <Calendar className="w-3.5 h-3.5 text-neutral-400" /> Start Date
+                            </p>
+                            <p className="text-neutral-900 font-bold">
+                                {formatLongDate(sanctionData.original_data?.start_date)}
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5 flex items-center gap-1">
+                                <Calendar className="w-3.5 h-3.5 text-neutral-400" /> Deadline Date
+                            </p>
+                            <p className="text-neutral-900 font-bold">
+                                {formatLongDate(sanctionData.original_data?.deadline_date)}
+                            </p>
                         </div>
                     </div>
 
