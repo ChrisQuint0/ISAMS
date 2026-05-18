@@ -98,6 +98,23 @@ export default function FacultyDashboardPage() {
     isViewerLoading, viewerCourseContext, viewerDocContext, fetchDocumentFiles
   } = useFacultyDashboard();
   const { addToast: toast } = useToast();
+
+  // Move preview logic here for use in JSX
+  let fileId = null;
+  let previewUrl = null;
+  let openNativeUrl = null;
+  if (selectedViewerFile) {
+    fileId = selectedViewerFile.gdrive_file_id
+      || (() => {
+        const m = (selectedViewerFile.gdrive_web_view_link || '').match(/\/d\/([a-zA-Z0-9_-]+)/);
+        return m ? m[1] : null;
+      })();
+    previewUrl = fileId
+      ? `https://drive.google.com/file/d/${fileId}/preview`
+      : null;
+    openNativeUrl = selectedViewerFile.gdrive_web_view_link
+      || (fileId ? `https://drive.google.com/file/d/${fileId}/view` : '#');
+  }
   const [isGenerating, setIsGenerating] = useState(false);
   const activeCoursesCount = useMemo(() => courses.filter(c => c.master_is_active !== false).length, [courses]);
   const inactiveCoursesCount = useMemo(() => courses.filter(c => c.master_is_active === false).length, [courses]);
@@ -630,54 +647,35 @@ export default function FacultyDashboardPage() {
                   <p className="font-bold text-sm">Select a file to preview</p>
                 </div>
               ) : (
-                (() => {
-                  // Build preview & open-native URLs the same way as AdminFacultyDetailPage
-                  // Prefer gdrive_file_id → construct clean /preview URL; fallback to regex on webViewLink
-                  const fileId = selectedViewerFile.gdrive_file_id
-                    || (() => {
-                      const m = (selectedViewerFile.gdrive_web_view_link || '').match(/\/d\/([a-zA-Z0-9_-]+)/);
-                      return m ? m[1] : null;
-                    })();
-
-                  const previewUrl = fileId
-                    ? `https://drive.google.com/file/d/${fileId}/preview`
-                    : null;
-
-                  const openNativeUrl = selectedViewerFile.gdrive_web_view_link
-                    || (fileId ? `https://drive.google.com/file/d/${fileId}/view` : '#');
-
-                  return (
-                    <>
-                      <div className="h-12 bg-white border-b border-neutral-200 flex items-center px-5 justify-between shrink-0 shadow-sm z-10">
-                        <span className="text-sm font-bold text-neutral-800 truncate pr-4">
-                          {selectedViewerFile.original_filename || selectedViewerFile.standardized_filename}
-                        </span>
-                        <a
-                          href={openNativeUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[10px] font-bold uppercase tracking-wider text-primary-600 hover:bg-primary-50 border border-transparent hover:border-primary-100 px-3 py-1.5 flex items-center gap-1.5 rounded-md transition-all shrink-0"
-                        >
-                          Open Native <ExternalLink className="h-3 w-3" />
-                        </a>
-                      </div>
-                      {previewUrl ? (
-                        <iframe
-                          src={previewUrl}
-                          className="w-full flex-1 border-0 bg-white"
-                          title="Document Preview"
-                          allow="autoplay"
-                        />
-                      ) : (
-                        <div className="flex-1 flex flex-col items-center justify-center text-neutral-400 gap-2">
-                          <Eye className="h-10 w-10 opacity-20" />
-                          <p className="text-sm font-bold">Preview not available</p>
-                          <p className="text-xs text-neutral-400">Use Open Native to view this file</p>
-                        </div>
-                      )}
-                    </>
-                  );
-                })()
+                <>
+                  <div className="h-12 bg-white border-b border-neutral-200 flex items-center px-5 justify-between shrink-0 shadow-sm z-10">
+                    <span className="text-sm font-bold text-neutral-800 truncate pr-4">
+                      {selectedViewerFile.original_filename || selectedViewerFile.standardized_filename}
+                    </span>
+                    <a
+                      href={openNativeUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] font-bold uppercase tracking-wider text-primary-600 hover:bg-primary-50 border border-transparent hover:border-primary-100 px-3 py-1.5 flex items-center gap-1.5 rounded-md transition-all shrink-0"
+                    >
+                      Open Native <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                  {previewUrl ? (
+                    <iframe
+                      src={previewUrl}
+                      className="w-full flex-1 border-0 bg-white"
+                      title="Document Preview"
+                      allow="autoplay"
+                    />
+                  ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center text-neutral-400 gap-2">
+                      <Eye className="h-10 w-10 opacity-20" />
+                      <p className="text-sm font-bold">Preview not available</p>
+                      <p className="text-xs text-neutral-400">Use Open Native to view this file</p>
+                    </div>
+                  )}
+                </>
               )
 
             </div>
