@@ -223,341 +223,68 @@ export default function FacultyDashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-96">
-        <RefreshCw className="h-10 w-10 animate-spin text-primary-600 mb-4" />
-        <p className="text-neutral-500 font-medium">Loading dashboard...</p>
-      </div>
+      <>
+        <div className="flex flex-col items-center justify-center h-96">
+          <RefreshCw className="h-10 w-10 animate-spin text-primary-600 mb-4" />
+          <p className="text-neutral-500 font-medium">Loading dashboard...</p>
+        </div>
+      </>
     );
   }
 
   return (
-    <ToastProvider>
-      <div className="space-y-6 flex flex-col h-full bg-neutral-50/30">
+    <>
+      <ToastProvider>
+        <div className="space-y-6 flex flex-col h-full bg-neutral-50/30">
+          {/* ...existing code... */}
 
-        {/* ── Header ── */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 shrink-0">
+          {/* Recent Activity Section */}
           <div>
-            <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">
-              Welcome back, {facultyProfile?.first_name || 'Faculty'}
-            </h1>
-            <p className="text-neutral-500 font-medium text-sm mt-0.5">
-              {settings?.semester || '—'}, AY {settings?.academic_year || '—'}
-              {stats.next_deadline && (
-                <> · Next deadline: <span className="font-bold text-neutral-700">{new Date(stats.next_deadline).toLocaleDateString()}</span>
-                  {stats.days_remaining > 0 && <span className="text-warning font-bold"> ({stats.days_remaining}d left)</span>}
-                </>
-              )}
-            </p>
-          </div>
-          {/* Compact Quick Actions */}
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              size="sm"
-              onClick={() => navigate("/faculty-requirements/submission")}
-              className="h-9 px-4 bg-primary-600 hover:bg-primary-700 text-white font-bold shadow-sm active:scale-95 transition-all text-xs"
-            >
-              <Upload className="h-3.5 w-3.5 mr-1.5" />
-              Upload Requirement
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => navigate("/faculty-requirements/hub")}
-              className="h-9 px-4 bg-gold-600 text-black hover:text-black hover:bg-[#E5A800] font-bold shadow-sm active:scale-95 transition-all text-xs"
-            >
-              <Download className="h-3.5 w-3.5 mr-1.5" />
-              Download Templates
-            </Button>
-            <Button
-              size="icon"
-              variant="outline"
-              onClick={refreshDashboard}
-              disabled={loading}
-              className="h-9 w-9 text-primary-600 hover:text-primary-700 hover:bg-primary-50 border-neutral-200 shadow-sm"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            </Button>
-          </div>
-        </div>
-
-        {/* ── Stats Row ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 shrink-0">
-          {/* Overall Progress */}
-          <div className="bg-white border border-neutral-200 rounded-xl shadow-sm p-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded bg-neutral-50 border border-neutral-200">
-                  <Activity className="h-4 w-4 text-primary-600" />
-                </div>
-                <h3 className="font-bold text-neutral-900 text-sm">Overall Progress</h3>
-              </div>
-              <span className={`text-2xl font-black ${stats.overall_progress >= 100 ? 'text-success' : 'text-primary-600'}`}>
-                {stats.overall_progress}%
-              </span>
+            <div className="flex items-center gap-2 mb-2">
+              <Activity className="h-4 w-4 text-primary-600" />
+              <h3 className="font-bold text-sm text-neutral-900">Recent Activity</h3>
             </div>
-            <div className="relative w-full h-2 bg-neutral-100 border border-neutral-200 rounded-full overflow-hidden shadow-inner">
-              <div
-                className={`absolute top-0 left-0 h-full transition-all duration-1000 ${stats.overall_progress >= 100 ? 'bg-success' : 'bg-primary-500'}`}
-                style={{ width: `${Math.min(stats.overall_progress, 100)}%` }}
+            <div className="flex-1">
+              <DataTable
+                rowData={recentActivity}
+                columnDefs={recentActivityColDefs}
+                className="h-full border-0 shadow-none"
+                overlayNoRowsTemplate='<div class="text-neutral-500 text-sm py-8 font-medium text-center"><p>No recent activity. Your submissions will appear here.</p></div>'
               />
             </div>
-            <div className="mt-3 flex justify-between text-[10px] font-bold text-neutral-500 uppercase tracking-wider">
-              <span className="text-success">{stats.submitted_count} submitted</span>
-              <span className="text-warning">{stats.pending_count} pending</span>
-            </div>
           </div>
 
-          {/* Course Counters */}
-          <div className="bg-white border border-neutral-200 rounded-xl shadow-sm p-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded bg-neutral-50 border border-neutral-200">
-                  <BookOpen className="h-4 w-4 text-warning" />
+          {/* Advanced Document Viewer Dialog for Faculty */}
+          <Dialog open={isDocViewerOpen} onOpenChange={setIsDocViewerOpen}>
+            <DialogContent className="max-w-[90vw] lg:max-w-7xl xl:max-w-[1400px] w-full h-[88vh] bg-white border-neutral-200 p-0 overflow-hidden flex flex-col shadow-2xl">
+              <DialogHeader className="px-5 py-4 border-b border-neutral-200 bg-neutral-50/50 shrink-0 flex flex-row items-center justify-between">
+                <div>
+                  <DialogTitle className="text-base font-bold text-neutral-900 flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-primary-600" />
+                    {viewerCourseContext?.course_code} - {viewerDocContext?.doc_type}
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-neutral-500 font-medium mt-1">
+                    Viewing files you submitted for this requirement in {viewerCourseContext?.section}.
+                  </DialogDescription>
                 </div>
-                <h3 className="font-bold text-neutral-900 text-sm">Course Statistics</h3>
-              </div>
-              <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full border shadow-sm bg-warning/10 text-warning border-warning/20">
-                {courses.length} Total
-              </span>
-            </div>
-            <div className="flex items-center justify-between mt-1">
-              <div className="flex flex-col">
-                <span className="text-3xl font-black text-warning leading-none">{activeCoursesCount}</span>
-                <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mt-1">Active Courses</span>
-              </div>
-              <div className="h-8 w-px bg-neutral-100 mx-4" />
-              <div className="flex flex-col items-end text-right">
-                <span className="text-3xl font-black text-neutral-400 leading-none">{inactiveCoursesCount}</span>
-                <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mt-1">Inactive</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Clearance Status */}
-          <div className="bg-white border border-neutral-200 rounded-xl shadow-sm p-5 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded bg-neutral-50 border border-neutral-200">
-                    <ShieldCheck className="h-4 w-4 text-success" />
-                  </div>
-                  <h3 className="font-bold text-neutral-900 text-sm">Clearance Status</h3>
+                  <Badge className={`uppercase tracking-wider font-bold text-[10px] px-2 py-0.5 shadow-none border mt-5 ${viewerDocContext?.is_submitted_late ? 'bg-warning/10 text-warning border-warning/20' : 'bg-success/10 text-success border-success/20'}`}>
+                    {viewerDocContext?.is_submitted_late ? 'LATE' : 'SUBMITTED'}
+                  </Badge>
+                  {(viewerDocContext?.status === 'REVISION_REQUESTED' || viewerDocContext?.status === 'RESUBMITTED') && (
+                    <Badge className={`uppercase tracking-wider font-bold text-[10px] px-2 py-0.5 shadow-none border mt-5 ${viewerDocContext?.status === 'REVISION_REQUESTED' ? 'bg-warning/10 text-warning border-warning/20' : 'bg-success/10 text-success border-success/20'}`}>
+                      {viewerDocContext?.status === 'REVISION_REQUESTED' ? 'REQUEST REVISION' : 'SUBMITTED'}
+                    </Badge>
+                  )}
                 </div>
-                {stats.pending_count === 0
-                  ? <span className="px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold bg-success/10 text-success border border-success/20 rounded-full shadow-sm">Ready</span>
-                  : <span className="px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold bg-neutral-100 text-neutral-500 border border-neutral-200 rounded-full shadow-sm">Not Ready</span>}
-              </div>
-              <p className="text-xs text-neutral-500 font-medium mb-3">
-                {stats.pending_count === 0
-                  ? "All requirements completed. Download your certificate."
-                  : `${stats.pending_count} requirement${stats.pending_count > 1 ? 's' : ''} still pending.`}
-              </p>
-            </div>
-            <Button
-              disabled={stats.pending_count > 0 || isGenerating}
-              onClick={handleDownloadCertificate}
-              className={`w-full font-bold shadow-sm transition-all text-sm ${stats.pending_count === 0 ? 'bg-success hover:bg-success/90 text-white active:scale-95' : 'bg-neutral-100 text-neutral-400 border border-neutral-200 cursor-not-allowed'}`}
-            >
-              {isGenerating ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
-              {isGenerating ? 'Generating...' : 'Download Certificate'}
-            </Button>
-          </div>
+              </DialogHeader>
+              {/* ...existing code for DialogContent... */}
+            </DialogContent>
+          </Dialog>
         </div>
-
-        {/* ── Active Deadlines Card ── */}
-        {deadlines.length > 0 && (
-          <div className="bg-white border border-neutral-200 rounded-xl shadow-sm overflow-hidden shrink-0">
-            <div className="px-5 py-3.5 border-b border-neutral-100 bg-neutral-50/50 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-primary-600" />
-                <h3 className="font-bold text-neutral-900 text-sm">Active Deadlines</h3>
-              </div>
-              <Badge variant="outline" className="text-[10px] font-bold text-success border-success/20 bg-success/5">
-                {deadlines.length} {deadlines.length === 1 ? 'ACTIVE' : 'ACTIVE'}
-              </Badge>
-            </div>
-            <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-              {deadlines.map((d, i) => {
-                const { label, urgent, grace } = getDaysLeft(d.deadline_date, d.grace_period_days);
-                const isGrace = d.status === 'Grace Period';
-                return (
-                  <div key={i} className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${isGrace ? 'bg-warning/5 border-warning/20' : urgent ? 'bg-destructive/5 border-destructive/20' : 'bg-success/5 border-success/20'}`}>
-                    <div className={`p-1.5 rounded border bg-white ${isGrace ? 'border-warning/30' : urgent ? 'border-destructive/30' : 'border-success/30'}`}>
-                      <Clock className={`h-4 w-4 ${isGrace ? 'text-warning' : urgent ? 'text-destructive' : 'text-success'}`} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-neutral-900 truncate">{d.type_name}</p>
-                      <p className={`text-[10px] font-extrabold uppercase tracking-wider ${isGrace ? 'text-warning' : urgent ? 'text-destructive' : 'text-success'}`}>
-                        {label}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ── Your Courses Section ── */}
-        <div>
-          <h2 className="text-base font-bold mb-3 text-neutral-900">Your Courses</h2>
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-            {courses.map((course) => {
-              const pct = Math.round((course.submitted_count / course.total_required) * 100) || 0;
-              return (
-                <div key={course.course_id} className="bg-white border border-neutral-200 rounded-xl shadow-sm flex flex-col overflow-hidden">
-                  {/* Course Header */}
-                  <div className="flex justify-between items-start p-4 bg-neutral-50/50 border-b border-neutral-100">
-                    <div>
-                      <h3 className="font-bold text-base text-neutral-900">
-                        {course.course_code}
-                        {course.section && <span className="text-neutral-400 font-medium ml-1">· {course.section}</span>}
-                        {course.master_is_active === false && (
-                          <Badge variant="outline" className="ml-2 bg-neutral-100 text-neutral-500 border-neutral-200 text-[10px] uppercase">Inactive</Badge>
-                        )}
-                      </h3>
-                      <p className="text-xs text-neutral-500 font-medium mt-0.5">{course.course_name}</p>
-                    </div>
-                    <div className={`px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider rounded-full border shadow-sm ${pct === 100 ? 'bg-success/10 text-success border-success/20' :
-                      pct >= 50 ? 'bg-primary-50 text-primary-700 border-primary-200' :
-                        'bg-warning/10 text-warning border-warning/20'
-                      }`}>
-                      {pct}% Complete
-                    </div>
-                  </div>
-
-                  {/* Documents List */}
-                  <div className="p-4 flex-1 space-y-2">
-                    {course.documents?.map((doc, idx) => {
-                      const isApproved = doc.status === 'APPROVED' || doc.status === 'VALIDATED';
-                      // Custom Status Display Logic
-                      const isDone = ['SUBMITTED', 'RESUBMITTED', 'APPROVED', 'VALIDATED', 'ARCHIVED'].includes(doc.status);
-                      const isLate = doc.is_submitted_late && isDone;
-                      
-                      const displayStatus = doc.status === 'REVISION_REQUESTED' ? 'ONGOING' :
-                        isLate ? 'LATE' :
-                          (doc.status === 'APPROVED' || doc.status === 'VALIDATED' || doc.status === 'ARCHIVED') ? 'SUBMITTED' :
-                            (doc.status || 'PENDING');
-
-                      const isPending = !doc.status || doc.status === 'DRAFT';
-                      const isRejected = doc.status === 'REJECTED';
-                      const isRevision = doc.status === 'REVISION_REQUESTED';
-
-                      return (
-                        <div key={idx} className="flex flex-col p-2.5 rounded-lg border border-neutral-100 bg-neutral-50/50 hover:bg-white hover:border-neutral-200 transition-all group/item">
-                          <div className="flex items-center justify-between mb-1.5">
-                            <div className="flex items-center gap-2">
-                              {isDone ? (
-                                <CheckSquare className="h-3.5 w-3.5 text-success" />
-                              ) : (
-                                <Square className="h-3.5 w-3.5 text-neutral-300" />
-                              )}
-                              <span className={`text-xs font-bold truncate ${isDone ? 'text-neutral-900' : 'text-neutral-500'}`}>
-                                {doc.doc_type}
-                                {doc.description && <span className="ml-1.5 font-normal text-[10px] text-neutral-400 truncate hidden sm:inline-block">- {doc.description}</span>}
-                              </span>
-                            </div>
-                            <Badge className={`text-[8px] font-extrabold tracking-widest px-1.5 py-0 shadow-none border uppercase ${isLate ? 'bg-warning/10 border-warning/20 text-warning' :
-                              isDone ? 'bg-success/10 border-success/20 text-success' :
-                                doc.status === 'REVISION_REQUESTED' ? 'bg-warning/10 border-warning/20 text-warning' :
-                                  'bg-neutral-100 border-neutral-200 text-neutral-500'
-                              }`}>
-                              {doc.status === 'RESUBMITTED' && !isLate ? 'SUBMITTED' : displayStatus}
-                            </Badge>
-                          </div>
-
-                          <div className="flex items-center justify-between">
-                            <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest">
-                              {doc.submitted_at ? new Date(doc.submitted_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'NOT SUBMITTED'}
-                            </span>
-
-                            {/* Controls */}
-                            <div className="flex gap-2 opacity-0 group-hover/item:opacity-100 transition-opacity">
-                              {/* View Files Modal Trigger */}
-                              {(isDone || isRevision) && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => fetchDocumentFiles(doc, course)}
-                                  className="h-6 w-6 rounded-md text-neutral-400 hover:text-primary-600 hover:bg-primary-50"
-                                  title="View Files"
-                                >
-                                  <Eye className="h-3.5 w-3.5" />
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-
-                    {(!course.documents || course.documents.length === 0) && (
-                      <div className="p-5 text-center text-neutral-500 text-xs font-medium border border-dashed border-neutral-200 rounded-lg bg-neutral-50">
-                        No document requirements configured for this course.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-
-            {courses.length === 0 && (
-              <div className="col-span-1 xl:col-span-2 text-center py-16 bg-neutral-50 rounded-xl border border-neutral-200 border-dashed">
-                <div className="w-14 h-14 bg-white border border-neutral-200 shadow-sm rounded-full flex items-center justify-center mx-auto mb-3">
-                  <FileText className="h-7 w-7 text-neutral-400" />
-                </div>
-                <h3 className="text-base font-bold text-neutral-900 mb-1">No Courses Assigned</h3>
-                <p className="text-sm text-neutral-500 font-medium max-w-sm mx-auto">
-                  You don't have any courses assigned for this semester. Contact the administrator.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ── Recent Activity Table ── */}
-        <div className="bg-white border border-neutral-200 rounded-xl shadow-sm flex flex-col flex-1 min-h-[350px] overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-neutral-100 bg-neutral-50/50 shrink-0 flex items-center gap-2">
-            <Activity className="h-4 w-4 text-primary-600" />
-            <h3 className="font-bold text-sm text-neutral-900">Recent Activity</h3>
-          </div>
-          <div className="flex-1">
-            <DataTable
-              rowData={recentActivity}
-              columnDefs={recentActivityColDefs}
-              className="h-full border-0 shadow-none"
-              overlayNoRowsTemplate='<div class="text-neutral-500 text-sm py-8 font-medium text-center"><p>No recent activity. Your submissions will appear here.</p></div>'
-            />
-          </div>
-        </div>
-
-      </div>
-
-      {/* Advanced Document Viewer Dialog for Faculty */}
-      <Dialog open={isDocViewerOpen} onOpenChange={setIsDocViewerOpen}>
-        <DialogContent className="max-w-[90vw] lg:max-w-7xl xl:max-w-[1400px] w-full h-[88vh] bg-white border-neutral-200 p-0 overflow-hidden flex flex-col shadow-2xl">
-          <DialogHeader className="px-5 py-4 border-b border-neutral-200 bg-neutral-50/50 shrink-0 flex flex-row items-center justify-between">
-            <div>
-              <DialogTitle className="text-base font-bold text-neutral-900 flex items-center gap-2">
-                <FileText className="h-4 w-4 text-primary-600" />
-                {viewerCourseContext?.course_code} - {viewerDocContext?.doc_type}
-              </DialogTitle>
-              <DialogDescription className="text-xs text-neutral-500 font-medium mt-1">
-                Viewing files you submitted for this requirement in {viewerCourseContext?.section}.
-              </DialogDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge className={`uppercase tracking-wider font-bold text-[10px] px-2 py-0.5 shadow-none border mt-5 ${viewerDocContext?.is_submitted_late ? 'bg-warning/10 text-warning border-warning/20' : 'bg-success/10 text-success border-success/20'}`}>
-                {viewerDocContext?.is_submitted_late ? 'LATE' : 'SUBMITTED'}
-              </Badge>
-              {(viewerDocContext?.status === 'REVISION_REQUESTED' || viewerDocContext?.status === 'RESUBMITTED') && (
-                <Badge className={`uppercase tracking-wider font-bold text-[10px] px-2 py-0.5 shadow-none border mt-5 ${viewerDocContext?.status === 'REVISION_REQUESTED' ? 'bg-warning/10 text-warning border-warning/20' : 'bg-success/10 text-success border-success/20'}`}>
-                  {viewerDocContext?.status === 'REVISION_REQUESTED' ? 'REQUEST REVISION' : 'SUBMITTED'}
-                </Badge>
-              )}
-            </div>
-          </DialogHeader>
-
+      </ToastProvider>
+    </>
+  );
           <div className="flex-1 flex overflow-hidden">
             {/* Left Side: File List */}
             <div className="w-1/3 min-w-[300px] border-r border-neutral-200 bg-neutral-50 flex flex-col">
@@ -678,9 +405,7 @@ export default function FacultyDashboardPage() {
                 </>
               )
 
-            </div>
-          </div>
-        </DialogContent>
+            </DialogContent>
       </Dialog>
     </ToastProvider>
   );
